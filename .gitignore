@@ -1,0 +1,16 @@
+# MCP config contains sensitive tokens
+.cursor/mcp.json
+
+# OS files
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# IDE
+.idea/
+*.swp
