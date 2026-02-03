@@ -52,10 +52,10 @@ class Settings(BaseSettings):
     )
 
     # LLM Configuration (Research Decision #6)
-    # Supports: openai, openrouter, google, or any OpenAI-compatible API
-    llm_provider: Literal["openai", "openrouter", "google"] = Field(
+    # Supports: openai, openrouter, google, ollama, together, groq, or custom
+    llm_provider: Literal["openai", "openrouter", "google", "ollama", "together", "groq", "custom"] = Field(
         default="openrouter",
-        description="LLM provider (openai, openrouter, google)",
+        description="LLM provider (openai, openrouter, google, ollama, together, groq, custom)",
     )
     llm_model: str = Field(
         default="anthropic/claude-sonnet-4",
