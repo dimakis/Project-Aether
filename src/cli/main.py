@@ -103,9 +103,12 @@ def discover(
 async def _run_discovery(domain: str | None, force: bool) -> None:
     """Execute the discovery workflow."""
     from rich.progress import Progress, SpinnerColumn, TextColumn
+    from rich.table import Table
 
-    # TODO: Implement actual discovery with Librarian agent
-    # For now, show placeholder progress
+    from src.dal.sync import run_discovery
+    from src.mcp import get_mcp_client
+    from src.storage import get_session
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -113,16 +116,142 @@ async def _run_discovery(domain: str | None, force: bool) -> None:
     ) as progress:
         task = progress.add_task("Connecting to Home Assistant...", total=None)
 
-        # Placeholder - will be replaced with actual discovery
-        await asyncio.sleep(0.5)
-        progress.update(task, description="Fetching system overview...")
-        await asyncio.sleep(0.5)
-        progress.update(task, description="Discovery complete!")
+        try:
+            # Get MCP client and verify connection
+            mcp = get_mcp_client()
+            progress.update(task, description="Fetching entities from Home Assistant...")
 
-    console.print(
-        "[yellow]⚠️ Discovery not yet implemented. "
-        "Will be available after Librarian agent is complete.[/yellow]"
+            async with get_session() as session:
+                discovery = await run_discovery(
+                    session=session,
+                    mcp_client=mcp,
+                    triggered_by="cli",
+                )
+
+            progress.update(task, description="Discovery complete!")
+
+        except Exception as e:
+            progress.stop()
+            console.print(f"[red]❌ Discovery failed: {e}[/red]")
+            return
+
+    # Show results
+    table = Table(title="Discovery Results", show_header=True)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Count", justify="right")
+
+    table.add_row("Entities Found", str(discovery.entities_found))
+    table.add_row("Entities Added", str(discovery.entities_added))
+    table.add_row("Entities Updated", str(discovery.entities_updated))
+    table.add_row("Entities Removed", str(discovery.entities_removed))
+    table.add_row("Areas Found", str(discovery.areas_found))
+    table.add_row("Devices Found", str(discovery.devices_found))
+
+    if discovery.duration_seconds:
+        table.add_row("Duration", f"{discovery.duration_seconds:.2f}s")
+
+    console.print(table)
+
+    # Show domain breakdown
+    if discovery.domain_counts:
+        domain_table = Table(title="Entities by Domain", show_header=True)
+        domain_table.add_column("Domain", style="cyan")
+        domain_table.add_column("Count", justify="right")
+
+        for dom, count in sorted(discovery.domain_counts.items(), key=lambda x: -x[1]):
+            domain_table.add_row(dom, str(count))
+
+        console.print(domain_table)
+
+    console.print(f"\n[green]✅ Discovery session: {discovery.id}[/green]")
+
+
+@app.command()
+def entities(
+    domain: Annotated[
+        Optional[str],  # noqa: UP007
+        typer.Option("--domain", "-d", help="Filter by domain"),
+    ] = None,
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="Maximum entities to show"),
+    ] = 50,
+) -> None:
+    """List entities from the database.
+
+    Shows discovered entities with their current state.
+    """
+    asyncio.run(_list_entities(domain, limit))
+
+
+async def _list_entities(domain: str | None, limit: int) -> None:
+    """List entities from database."""
+    from rich.table import Table
+
+    from src.dal.entities import EntityRepository
+    from src.storage import get_session
+
+    async with get_session() as session:
+        repo = EntityRepository(session)
+        entities = await repo.list_all(domain=domain, limit=limit)
+        total = await repo.count(domain=domain)
+
+    if not entities:
+        console.print("[yellow]No entities found. Run 'aether discover' first.[/yellow]")
+        return
+
+    table = Table(
+        title=f"Entities ({len(entities)}/{total})",
+        show_header=True,
     )
+    table.add_column("Entity ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("State", justify="center")
+    table.add_column("Area")
+
+    for entity in entities:
+        state_color = "green" if entity.state == "on" else "dim"
+        table.add_row(
+            entity.entity_id,
+            entity.name,
+            f"[{state_color}]{entity.state or 'unknown'}[/{state_color}]",
+            entity.area.name if entity.area else "-",
+        )
+
+    console.print(table)
+
+
+@app.command()
+def areas() -> None:
+    """List discovered areas."""
+    asyncio.run(_list_areas())
+
+
+async def _list_areas() -> None:
+    """List areas from database."""
+    from rich.table import Table
+
+    from src.dal.areas import AreaRepository
+    from src.storage import get_session
+
+    async with get_session() as session:
+        repo = AreaRepository(session)
+        area_list = await repo.list_all()
+
+    if not area_list:
+        console.print("[yellow]No areas found. Run 'aether discover' first.[/yellow]")
+        return
+
+    table = Table(title="Areas", show_header=True)
+    table.add_column("Area ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Entities", justify="right")
+
+    for area in area_list:
+        entity_count = len(area.entities) if area.entities else 0
+        table.add_row(area.ha_area_id, area.name, str(entity_count))
+
+    console.print(table)
 
 
 @app.command()
