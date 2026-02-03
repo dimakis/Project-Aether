@@ -305,7 +305,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T093 [P] [US2] Create tests/unit/test_developer_agent.py - Deployment logic (mock MCP) (commit: cd7ac6e)
 - [x] T094 [P] [US2] Create tests/unit/test_approval_state.py - HITL state machine transitions (commit: cd7ac6e)
 - [x] T095 [P] [US2] Create tests/unit/test_automation_yaml.py - YAML generation validation (commit: cd7ac6e)
-- [ ] T143 [P] [US2] Create tests/unit/test_architect_tools.py - Architect HA tool usage + context retrieval
+- [x] T143 [P] [US2] Create tests/unit/test_architect_tools.py - Architect HA tool usage + context retrieval
 
 **Integration Tests**:
 - [x] T096 [US2] Create tests/integration/test_conversation_workflow.py - Full conversation flow with mocks
