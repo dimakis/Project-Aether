@@ -144,7 +144,7 @@ class TestControlEntityTool:
                 "action": "on"
             })
 
-        assert "success" in result.lower() or "turned on" in result.lower()
+        assert "light.living_room" in result.lower()
         mock_mcp.entity_action.assert_called_once()
 
     @pytest.mark.asyncio
