@@ -1,0 +1,920 @@
+openapi: 3.1.0
+info:
+  title: Project Aether API
+  description: |
+    API for Project Aether - an intelligent home automation system with multi-agent architecture.
+    
+    ## Authentication
+    All endpoints require Bearer token authentication via the `Authorization` header.
+    
+    ## Constitution Compliance
+    - **Safety First**: All automation endpoints require explicit HITL approval
+    - **Observability**: All requests are traced via MLflow (X-MLflow-Run-ID header returned)
+  version: 1.0.0
+  contact:
+    name: Project Aether
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: http://aether.local:8000
+    description: Home network
+
+tags:
+  - name: Entities
+    description: Home Assistant entity discovery and queries
+  - name: Chat
+    description: Conversational interface with Architect agent
+  - name: Automations
+    description: Automation proposals and HITL approval
+  - name: Insights
+    description: Data Scientist analysis and recommendations
+  - name: Dashboards
+    description: Custom dashboard generation
+  - name: System
+    description: Health checks and system status
+
+paths:
+  # ============== Entities ==============
+  /api/v1/entities:
+    get:
+      tags: [Entities]
+      summary: List all entities
+      description: Returns all discovered Home Assistant entities with optional filtering
+      operationId: listEntities
+      parameters:
+        - name: domain
+          in: query
+          schema:
+            type: string
+          description: Filter by HA domain (light, switch, sensor, etc.)
+        - name: area
+          in: query
+          schema:
+            type: string
+          description: Filter by area name
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: Filter by current state
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Natural language search query
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of entities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityList'
+
+  /api/v1/entities/{entity_id}:
+    get:
+      tags: [Entities]
+      summary: Get entity details
+      operationId: getEntity
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Entity details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/entities/query:
+    post:
+      tags: [Entities]
+      summary: Natural language entity query
+      description: Query entities using natural language (e.g., "all lights in the living room")
+      operationId: queryEntities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityQuery'
+      responses:
+        '200':
+          description: Matching entities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityQueryResult'
+
+  /api/v1/entities/sync:
+    post:
+      tags: [Entities]
+      summary: Trigger entity sync
+      description: Manually trigger a sync with Home Assistant
+      operationId: syncEntities
+      responses:
+        '202':
+          description: Sync started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverySession'
+
+  # ============== Chat ==============
+  /api/v1/conversations:
+    get:
+      tags: [Chat]
+      summary: List conversations
+      operationId: listConversations
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, completed, archived]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationList'
+
+    post:
+      tags: [Chat]
+      summary: Start new conversation
+      description: Start a new conversation with the Architect agent
+      operationId: createConversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationCreate'
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+
+  /api/v1/conversations/{conversation_id}:
+    get:
+      tags: [Chat]
+      summary: Get conversation details
+      operationId: getConversation
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+
+  /api/v1/conversations/{conversation_id}/messages:
+    post:
+      tags: [Chat]
+      summary: Send message
+      description: Send a message to the Architect agent and receive a response
+      operationId: sendMessage
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate'
+      responses:
+        '200':
+          description: Agent response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+  /api/v1/conversations/{conversation_id}/stream:
+    get:
+      tags: [Chat]
+      summary: Stream conversation (WebSocket)
+      description: |
+        WebSocket endpoint for streaming conversation with the Architect agent.
+        Send JSON messages, receive streamed responses.
+      operationId: streamConversation
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '101':
+          description: WebSocket upgrade
+
+  # ============== Automations ==============
+  /api/v1/automations:
+    get:
+      tags: [Automations]
+      summary: List automations
+      operationId: listAutomations
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, proposed, approved, deployed, rolled_back, archived]
+      responses:
+        '200':
+          description: List of automations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationList'
+
+  /api/v1/automations/{automation_id}:
+    get:
+      tags: [Automations]
+      summary: Get automation details
+      operationId: getAutomation
+      parameters:
+        - name: automation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Automation details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+
+  /api/v1/automations/{automation_id}/approve:
+    post:
+      tags: [Automations]
+      summary: Approve automation (HITL)
+      description: |
+        **Constitution Compliance**: This endpoint implements the HITL approval requirement.
+        Automations cannot be deployed without explicit approval through this endpoint.
+      operationId: approveAutomation
+      parameters:
+        - name: automation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalRequest'
+      responses:
+        '200':
+          description: Automation approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+        '400':
+          description: Cannot approve (wrong status)
+
+  /api/v1/automations/{automation_id}/reject:
+    post:
+      tags: [Automations]
+      summary: Reject automation
+      operationId: rejectAutomation
+      parameters:
+        - name: automation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectionRequest'
+      responses:
+        '200':
+          description: Automation rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+
+  /api/v1/automations/{automation_id}/deploy:
+    post:
+      tags: [Automations]
+      summary: Deploy approved automation
+      description: Deploy an approved automation to Home Assistant
+      operationId: deployAutomation
+      parameters:
+        - name: automation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Automation deployed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+        '400':
+          description: Not approved (HITL violation)
+
+  /api/v1/automations/{automation_id}/rollback:
+    post:
+      tags: [Automations]
+      summary: Rollback deployed automation
+      description: Remove automation from Home Assistant
+      operationId: rollbackAutomation
+      parameters:
+        - name: automation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Automation rolled back
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+
+  # ============== Insights ==============
+  /api/v1/insights:
+    get:
+      tags: [Insights]
+      summary: List insights
+      operationId: listInsights
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [energy_optimization, pattern, anomaly, recommendation]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [generated, reviewed, acted_upon, dismissed]
+      responses:
+        '200':
+          description: List of insights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightList'
+
+  /api/v1/insights/{insight_id}:
+    get:
+      tags: [Insights]
+      summary: Get insight details
+      operationId: getInsight
+      parameters:
+        - name: insight_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Insight details with evidence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Insight'
+
+  /api/v1/insights/analyze:
+    post:
+      tags: [Insights]
+      summary: Request analysis
+      description: |
+        Request the Data Scientist agent to analyze specific aspects.
+        Generated scripts run in gVisor sandbox per Constitution.
+      operationId: requestAnalysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisRequest'
+      responses:
+        '202':
+          description: Analysis started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+
+  # ============== Dashboards ==============
+  /api/v1/dashboards:
+    get:
+      tags: [Dashboards]
+      summary: List dashboards
+      operationId: listDashboards
+      responses:
+        '200':
+          description: List of dashboards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardList'
+
+  /api/v1/dashboards/{dashboard_id}:
+    get:
+      tags: [Dashboards]
+      summary: Get dashboard details
+      operationId: getDashboard
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dashboard configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+
+  /api/v1/dashboards/{dashboard_id}/deploy:
+    post:
+      tags: [Dashboards]
+      summary: Deploy dashboard to HA
+      operationId: deployDashboard
+      parameters:
+        - name: dashboard_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dashboard deployed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+
+  # ============== System ==============
+  /api/v1/health:
+    get:
+      tags: [System]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: System healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /api/v1/status:
+    get:
+      tags: [System]
+      summary: System status
+      description: Detailed system status including HA connection, agent states
+      operationId: systemStatus
+      responses:
+        '200':
+          description: System status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+
+components:
+  schemas:
+    # ============== Entity Schemas ==============
+    Entity:
+      type: object
+      required: [id, ha_entity_id, domain, state]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ha_entity_id:
+          type: string
+          example: "light.living_room"
+        domain:
+          type: string
+          example: "light"
+        friendly_name:
+          type: string
+          example: "Living Room Light"
+        state:
+          type: string
+          example: "on"
+        attributes:
+          type: object
+          additionalProperties: true
+        capabilities:
+          type: array
+          items:
+            type: string
+        area:
+          $ref: '#/components/schemas/Area'
+        last_changed:
+          type: string
+          format: date-time
+
+    EntityList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    EntityQuery:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          example: "all lights in the living room that are currently on"
+
+    EntityQueryResult:
+      type: object
+      properties:
+        query:
+          type: string
+        interpretation:
+          type: string
+          description: How the query was understood
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+
+    Area:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        floor:
+          type: string
+
+    DiscoverySession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [running, completed, failed]
+        started_at:
+          type: string
+          format: date-time
+        entities_found:
+          type: integer
+
+    # ============== Conversation Schemas ==============
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [active, completed, archived]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ConversationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conversation'
+
+    ConversationCreate:
+      type: object
+      properties:
+        initial_message:
+          type: string
+          description: Optional first message to start the conversation
+
+    ConversationDetail:
+      allOf:
+        - $ref: '#/components/schemas/Conversation'
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    MessageCreate:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+
+    # ============== Automation Schemas ==============
+    Automation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        trigger:
+          type: object
+        conditions:
+          type: array
+          items:
+            type: object
+        actions:
+          type: array
+          items:
+            type: object
+        status:
+          type: string
+          enum: [draft, proposed, approved, deployed, rolled_back, archived]
+        proposed_at:
+          type: string
+          format: date-time
+        approved_at:
+          type: string
+          format: date-time
+        deployed_at:
+          type: string
+          format: date-time
+
+    AutomationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Automation'
+
+    ApprovalRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+          description: Optional approval comment
+
+    RejectionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          description: Why the automation was rejected
+
+    # ============== Insight Schemas ==============
+    Insight:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [energy_optimization, pattern, anomaly, recommendation]
+        title:
+          type: string
+        description:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        impact:
+          type: string
+          enum: [low, medium, high]
+        evidence:
+          type: object
+        status:
+          type: string
+          enum: [generated, reviewed, acted_upon, dismissed]
+        created_at:
+          type: string
+          format: date-time
+
+    InsightList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Insight'
+
+    AnalysisRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [energy, patterns, anomalies]
+        time_range:
+          type: string
+          enum: [7d, 30d, 90d]
+          default: "30d"
+        entities:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Specific entities to analyze (empty = all)
+
+    AnalysisJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        created_at:
+          type: string
+          format: date-time
+
+    # ============== Dashboard Schemas ==============
+    Dashboard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        theme:
+          type: string
+        layout:
+          type: object
+          description: HA Lovelace configuration
+        status:
+          type: string
+          enum: [draft, approved, deployed, archived]
+        deployed_at:
+          type: string
+          format: date-time
+
+    DashboardList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dashboard'
+
+    # ============== System Schemas ==============
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+
+    SystemStatus:
+      type: object
+      properties:
+        version:
+          type: string
+        uptime_seconds:
+          type: integer
+        ha_connected:
+          type: boolean
+        database_connected:
+          type: boolean
+        mlflow_connected:
+          type: boolean
+        agents:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [idle, running, error]
+        entity_count:
+          type: integer
+        last_sync:
+          type: string
+          format: date-time
+
+    # ============== Error Schemas ==============
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+security:
+  - bearerAuth: []

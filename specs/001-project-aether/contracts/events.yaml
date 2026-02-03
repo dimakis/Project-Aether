@@ -1,0 +1,370 @@
+asyncapi: 2.6.0
+info:
+  title: Project Aether Events
+  version: 1.0.0
+  description: |
+    Internal event schemas for Project Aether agent communication and state changes.
+    Events are used for:
+    - Agent-to-agent negotiation
+    - LangGraph state transitions
+    - MLflow tracing
+    - WebSocket streaming
+
+channels:
+  entity/discovered:
+    description: Emitted when Librarian discovers a new entity
+    publish:
+      message:
+        $ref: '#/components/messages/EntityDiscovered'
+
+  entity/changed:
+    description: Emitted when an entity state changes
+    publish:
+      message:
+        $ref: '#/components/messages/EntityChanged'
+
+  entity/removed:
+    description: Emitted when an entity is removed from HA
+    publish:
+      message:
+        $ref: '#/components/messages/EntityRemoved'
+
+  conversation/message:
+    description: Chat message in conversation
+    publish:
+      message:
+        $ref: '#/components/messages/ConversationMessage'
+
+  conversation/stream:
+    description: Streaming response chunk
+    publish:
+      message:
+        $ref: '#/components/messages/StreamChunk'
+
+  automation/proposed:
+    description: Architect proposes a new automation
+    publish:
+      message:
+        $ref: '#/components/messages/AutomationProposed'
+
+  automation/approved:
+    description: User approves an automation (HITL)
+    publish:
+      message:
+        $ref: '#/components/messages/AutomationApproved'
+
+  automation/deployed:
+    description: Automation deployed to Home Assistant
+    publish:
+      message:
+        $ref: '#/components/messages/AutomationDeployed'
+
+  automation/rolled_back:
+    description: Automation removed from Home Assistant
+    publish:
+      message:
+        $ref: '#/components/messages/AutomationRolledBack'
+
+  insight/generated:
+    description: Data Scientist generates new insight
+    publish:
+      message:
+        $ref: '#/components/messages/InsightGenerated'
+
+  agent/negotiation:
+    description: Agent-to-agent communication (traced to MLflow)
+    publish:
+      message:
+        $ref: '#/components/messages/AgentNegotiation'
+
+  checkpoint/saved:
+    description: LangGraph checkpoint persisted
+    publish:
+      message:
+        $ref: '#/components/messages/CheckpointSaved'
+
+components:
+  messages:
+    EntityDiscovered:
+      payload:
+        type: object
+        required: [event_id, timestamp, entity]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          session_id:
+            type: string
+            format: uuid
+            description: Discovery session ID
+          entity:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              ha_entity_id:
+                type: string
+              domain:
+                type: string
+              friendly_name:
+                type: string
+              state:
+                type: string
+              capabilities:
+                type: array
+                items:
+                  type: string
+
+    EntityChanged:
+      payload:
+        type: object
+        required: [event_id, timestamp, entity_id, old_state, new_state]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          entity_id:
+            type: string
+            format: uuid
+          ha_entity_id:
+            type: string
+          old_state:
+            type: string
+          new_state:
+            type: string
+          changed_attributes:
+            type: array
+            items:
+              type: string
+
+    EntityRemoved:
+      payload:
+        type: object
+        required: [event_id, timestamp, entity_id]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          entity_id:
+            type: string
+            format: uuid
+          ha_entity_id:
+            type: string
+          reason:
+            type: string
+            enum: [deleted, unavailable, orphaned]
+
+    ConversationMessage:
+      payload:
+        type: object
+        required: [event_id, timestamp, conversation_id, message]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          conversation_id:
+            type: string
+            format: uuid
+          message:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              role:
+                type: string
+                enum: [user, assistant, system]
+              content:
+                type: string
+
+    StreamChunk:
+      payload:
+        type: object
+        required: [conversation_id, chunk]
+        properties:
+          conversation_id:
+            type: string
+            format: uuid
+          message_id:
+            type: string
+            format: uuid
+          chunk:
+            type: string
+            description: Partial response text
+          done:
+            type: boolean
+            description: True when streaming complete
+
+    AutomationProposed:
+      payload:
+        type: object
+        required: [event_id, timestamp, automation]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          conversation_id:
+            type: string
+            format: uuid
+          automation:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              description:
+                type: string
+              trigger:
+                type: object
+              actions:
+                type: array
+                items:
+                  type: object
+
+    AutomationApproved:
+      payload:
+        type: object
+        required: [event_id, timestamp, automation_id, approved_by]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          automation_id:
+            type: string
+            format: uuid
+          approved_by:
+            type: string
+          comment:
+            type: string
+
+    AutomationDeployed:
+      payload:
+        type: object
+        required: [event_id, timestamp, automation_id, ha_automation_id]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          automation_id:
+            type: string
+            format: uuid
+          ha_automation_id:
+            type: string
+            description: Home Assistant automation ID
+
+    AutomationRolledBack:
+      payload:
+        type: object
+        required: [event_id, timestamp, automation_id]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          automation_id:
+            type: string
+            format: uuid
+          reason:
+            type: string
+
+    InsightGenerated:
+      payload:
+        type: object
+        required: [event_id, timestamp, insight]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          insight:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              type:
+                type: string
+                enum: [energy_optimization, pattern, anomaly, recommendation]
+              title:
+                type: string
+              confidence:
+                type: number
+              impact:
+                type: string
+                enum: [low, medium, high]
+
+    AgentNegotiation:
+      payload:
+        type: object
+        required: [event_id, timestamp, from_agent, to_agent, message_type]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          mlflow_span_id:
+            type: string
+            description: MLflow tracing span ID
+          from_agent:
+            type: string
+            enum: [librarian, categorizer, architect, developer, data_scientist]
+          to_agent:
+            type: string
+            enum: [librarian, categorizer, architect, developer, data_scientist]
+          message_type:
+            type: string
+            enum: [request, response, handoff, error]
+          payload:
+            type: object
+            description: Agent-specific message content
+
+    CheckpointSaved:
+      payload:
+        type: object
+        required: [event_id, timestamp, thread_id, checkpoint_id]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          timestamp:
+            type: string
+            format: date-time
+          thread_id:
+            type: string
+          checkpoint_id:
+            type: string
+          workflow:
+            type: string
+            description: Which workflow was checkpointed
+          state_size_bytes:
+            type: integer
