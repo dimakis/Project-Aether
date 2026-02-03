@@ -182,12 +182,15 @@ asyncio_mode = "auto"
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",
+    "ignore::ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 markers = [
     "unit: Unit tests (fast, isolated)",
     "integration: Integration tests (require services)",
     "e2e: End-to-end tests (full system)",
     "slow: Slow tests (skip with -m 'not slow')",
+    "requires_postgres: Tests requiring PostgreSQL container",
 ]
 
 # =============================================================================

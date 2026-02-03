@@ -39,7 +39,7 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 def test_settings() -> Settings:
     """Provide test settings with safe defaults."""
     return Settings(
-        environment="testing",
+        environment="development",  # Use valid environment
         debug=True,
         database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
         ha_url="http://localhost:8123",

@@ -39,15 +39,16 @@ def mock_discovery_session():
 class TestEntityListEndpoint:
     """Tests for GET /entities endpoint."""
 
-    async def test_list_entities_empty(self, async_client):
+    async def test_list_entities_empty(self, async_client, mock_entity_repo):
         """Test listing entities when database is empty."""
-        response = await async_client.get("/api/v1/entities")
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
+            response = await async_client.get("/api/v1/entities")
 
-        # Should return 200 with empty list
-        assert response.status_code == 200
-        data = response.json()
-        assert "entities" in data
-        assert data["total"] == 0
+            # Should return 200 with empty list
+            assert response.status_code == 200
+            data = response.json()
+            assert "entities" in data
+            assert data["total"] == 0
 
     async def test_list_entities_with_domain_filter(self, async_client, mock_entity_repo):
         """Test listing entities with domain filter."""
