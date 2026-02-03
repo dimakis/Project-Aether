@@ -83,7 +83,7 @@ class TestDeveloperAgent:
         from src.agents.developer import DeveloperAgent
 
         agent = DeveloperAgent(mcp_client=mock_mcp_client)
-        result = await agent.enable_automation("test_auto")
+        result = await agent.enable_automation("automation.test_auto")
 
         assert result["enabled"] is True
         mock_mcp_client.call_service.assert_called_once_with(
@@ -98,7 +98,7 @@ class TestDeveloperAgent:
         from src.agents.developer import DeveloperAgent
 
         agent = DeveloperAgent(mcp_client=mock_mcp_client)
-        result = await agent.disable_automation("test_auto")
+        result = await agent.disable_automation("automation.test_auto")
 
         assert result["disabled"] is True
         mock_mcp_client.call_service.assert_called_once_with(
@@ -113,7 +113,7 @@ class TestDeveloperAgent:
         from src.agents.developer import DeveloperAgent
 
         agent = DeveloperAgent(mcp_client=mock_mcp_client)
-        result = await agent.trigger_automation("test_auto")
+        result = await agent.trigger_automation("automation.test_auto")
 
         assert result["triggered"] is True
         mock_mcp_client.call_service.assert_called_once_with(

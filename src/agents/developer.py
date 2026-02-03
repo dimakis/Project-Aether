@@ -283,7 +283,7 @@ class DeveloperAgent(BaseAgent):
         """Manually trigger an automation.
 
         Args:
-            ha_automation_id: Home Assistant automation ID
+            ha_automation_id: Home Assistant automation ID (full entity_id)
 
         Returns:
             Result dict
@@ -291,7 +291,7 @@ class DeveloperAgent(BaseAgent):
         await self.mcp.call_service(
             domain="automation",
             service="trigger",
-            data={"entity_id": f"automation.{ha_automation_id}"},
+            data={"entity_id": ha_automation_id},
         )
         return {"triggered": True, "automation_id": ha_automation_id}
 
