@@ -284,11 +284,11 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### API Endpoints for User Story 2
 
-- [ ] T084 [P] [US2] Create conversation schemas in src/api/schemas/conversations.py (Conversation, ConversationCreate, Message, MessageCreate)
-- [ ] T085 [P] [US2] Create proposal schemas in src/api/schemas/proposals.py (AutomationProposal, ApprovalRequest, RejectionRequest)
-- [ ] T086 [US2] Create src/api/routes/chat.py with GET/POST /conversations, GET /conversations/{id}, POST /conversations/{id}/messages
-- [ ] T087 [US2] Add WebSocket endpoint for streaming at /conversations/{id}/stream in src/api/routes/chat.py
-- [ ] T088 [US2] Create src/api/routes/proposals.py with GET /proposals, GET /proposals/{id}, POST approve/reject/deploy/rollback
+- [x] T084 [P] [US2] Create conversation schemas in src/api/schemas/conversations.py (Conversation, ConversationCreate, Message, MessageCreate) (commit: 4a2b7e9)
+- [x] T085 [P] [US2] Create proposal schemas in src/api/schemas/proposals.py (AutomationProposal, ApprovalRequest, RejectionRequest) (commit: 4a2b7e9)
+- [x] T086 [US2] Create src/api/routes/chat.py with GET/POST /conversations, GET /conversations/{id}, POST /conversations/{id}/messages (commit: 4a2b7e9)
+- [x] T087 [US2] Add WebSocket endpoint for streaming at /conversations/{id}/stream in src/api/routes/chat.py (commit: 4a2b7e9)
+- [x] T088 [US2] Create src/api/routes/proposals.py with GET /proposals, GET /proposals/{id}, POST approve/reject/deploy/rollback (commit: 4a2b7e9)
 
 ### CLI Commands for User Story 2
 
