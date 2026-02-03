@@ -1,15 +1,16 @@
 <!--
 Sync Impact Report:
-Version: 1.0.0 → 1.1.0 (MINOR: Added Development Standards section with Conventional Commits)
+Version: 1.1.0 → 1.2.0 (MINOR: Added Reliability & Quality principle with comprehensive testing requirements)
 Modified Principles: None
-Added Sections: Development Standards (Conventional Commits)
+Added Sections: V. Reliability & Quality (Testing Pyramid)
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ plan-template.md - No updates needed (commit standards are workflow-level)
+  ✅ plan-template.md - Should verify test strategy section exists
+  ✅ tasks-template.md - Should include test tasks for each phase
   ✅ spec-template.md - No updates needed
-  ✅ tasks-template.md - No updates needed
   ✅ .cursor/commands/speckit.constitution.md - No updates needed
-Follow-up TODOs: None
+Follow-up TODOs: 
+  - Update tasks.md to include comprehensive test tasks
 -->
 
 # Aether Home Architect Constitution
@@ -31,6 +32,45 @@ Every agent negotiation and data science insight MUST be traced via MLflow. All 
 ### IV. State
 
 Use LangGraph for state management and Postgres for long-term checkpointing. LangGraph handles in-memory state transitions and workflow orchestration, while Postgres provides durable persistence for state snapshots and recovery. Rationale: Complex agent workflows require robust state management. LangGraph provides structured state transitions, while Postgres ensures durability and enables system recovery from failures.
+
+### V. Reliability & Quality
+
+All code MUST be enterprise-grade with comprehensive test coverage following the testing pyramid:
+
+**Unit Tests (Foundation)**:
+- Every module, function, and class MUST have unit tests
+- Minimum 80% code coverage required; critical paths require 95%+
+- Tests MUST be fast, isolated, and deterministic
+- Use mocking/stubbing for external dependencies (HA, databases, LLMs)
+- Framework: `pytest` with `pytest-cov` for coverage
+
+**Integration Tests (Middle Layer)**:
+- All component boundaries MUST have integration tests
+- Database operations tested against real PostgreSQL (via testcontainers)
+- MCP client tested against mock HA responses
+- Agent workflows tested with LangGraph test utilities
+- API routes tested with FastAPI TestClient
+
+**End-to-End Tests (Top Layer)**:
+- Critical user journeys MUST have E2E tests
+- Full system tests with containerized dependencies
+- Includes: discovery flow, conversation flow, automation deployment, insight generation
+- Framework: `pytest` with docker-compose test environment
+
+**Test Requirements**:
+- All PRs MUST include tests for new functionality
+- All bug fixes MUST include regression tests
+- Tests MUST run in CI before merge
+- Flaky tests are bugs and must be fixed immediately
+- Test code follows same quality standards as production code
+
+**Quality Gates**:
+- Pre-commit hooks: `ruff` (lint), `ruff format` (format), `mypy` (type check)
+- CI pipeline: unit tests → integration tests → E2E tests → coverage report
+- Coverage regression blocks merge
+- Type hints required for all public APIs
+
+Rationale: Home automation systems control physical environments where reliability is critical. Enterprise-grade testing ensures system stability, enables confident refactoring, and catches regressions before they reach production. The testing pyramid provides fast feedback loops while ensuring comprehensive coverage.
 
 ## Development Standards
 
@@ -78,4 +118,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.1.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-02
+**Version**: 1.2.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-03
