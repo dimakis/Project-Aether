@@ -298,11 +298,11 @@ These features would unlock additional capabilities. **Report back when these be
 ### Tests for User Story 2 (Constitution: Reliability & Quality)
 
 **Unit Tests**:
-- [ ] T091 [P] [US2] Create tests/unit/test_storage_conversations.py - Conversation/Message CRUD
-- [ ] T092 [P] [US2] Create tests/unit/test_architect_agent.py - Proposal generation (mock LLM)
-- [ ] T093 [P] [US2] Create tests/unit/test_developer_agent.py - Deployment logic (mock MCP)
-- [ ] T094 [P] [US2] Create tests/unit/test_approval_state.py - HITL state machine transitions
-- [ ] T095 [P] [US2] Create tests/unit/test_automation_yaml.py - YAML generation validation
+- [x] T091 [P] [US2] Create tests/unit/test_storage_conversations.py - Conversation/Message CRUD (commit: cd7ac6e)
+- [x] T092 [P] [US2] Create tests/unit/test_architect_agent.py - Proposal generation (mock LLM) (commit: cd7ac6e)
+- [x] T093 [P] [US2] Create tests/unit/test_developer_agent.py - Deployment logic (mock MCP) (commit: cd7ac6e)
+- [x] T094 [P] [US2] Create tests/unit/test_approval_state.py - HITL state machine transitions (commit: cd7ac6e)
+- [x] T095 [P] [US2] Create tests/unit/test_automation_yaml.py - YAML generation validation (commit: cd7ac6e)
 
 **Integration Tests**:
 - [ ] T096 [US2] Create tests/integration/test_conversation_workflow.py - Full conversation flow with mocks
