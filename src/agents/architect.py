@@ -10,7 +10,7 @@ from typing import Any
 
 import mlflow
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.agents import BaseAgent
 from src.dal import (
@@ -133,8 +133,22 @@ class ArchitectAgent(BaseAgent):
                 if entity_context:
                     messages.insert(1, SystemMessage(content=entity_context))
 
-            # Generate response
-            response = await self.llm.ainvoke(messages)
+            # Generate response (with HA tools available)
+            tools = self._get_ha_tools()
+            tool_llm = self.llm.bind_tools(tools) if tools else self.llm
+            response = await tool_llm.ainvoke(messages)
+
+            # Handle tool calls with strict approval for any HA-altering actions
+            if hasattr(response, "tool_calls") and response.tool_calls:
+                tool_call_updates = await self._handle_tool_calls(
+                    response,
+                    messages,
+                    tools,
+                    state,
+                )
+                if tool_call_updates is not None:
+                    return tool_call_updates
+
             response_text = response.content
 
             # Track metrics
@@ -187,6 +201,81 @@ class ArchitectAgent(BaseAgent):
                 messages.append(msg)
 
         return messages
+
+    def _get_ha_tools(self) -> list[Any]:
+        """Get Home Assistant tools for the Architect agent."""
+        try:
+            from src.tools.ha_tools import get_ha_tools
+            return get_ha_tools()
+        except Exception:
+            return []
+
+    def _is_mutating_tool(self, tool_name: str) -> bool:
+        """Check if a tool call can mutate Home Assistant state."""
+        return tool_name in {"control_entity"}
+
+    async def _handle_tool_calls(
+        self,
+        response: AIMessage,
+        messages: list[Any],
+        tools: list[Any],
+        state: ConversationState,
+    ) -> dict[str, Any] | None:
+        """Handle tool calls from the LLM.
+
+        Read-only tools are executed immediately. Any mutating tool requires
+        explicit user approval before execution.
+        """
+        tool_lookup = {tool.name: tool for tool in tools}
+        tool_calls = response.tool_calls or []
+
+        mutating_calls = [call for call in tool_calls if self._is_mutating_tool(call["name"])]
+        if mutating_calls:
+            # Require explicit approval for HA-altering actions
+            description_lines = []
+            for call in mutating_calls:
+                description_lines.append(f"- {call['name']}({call.get('args', {})})")
+
+            approval_text = (
+                "I can perform the following Home Assistant action(s), but need your approval:\n"
+                + "\n".join(description_lines)
+                + "\n\nPlease reply 'approve' to proceed or 'reject' to cancel."
+            )
+
+            return {
+                "messages": [AIMessage(content=approval_text)],
+                "pending_approvals": [
+                    HITLApproval(
+                        request_type="tool_action",
+                        description=approval_text,
+                        yaml_content=str(mutating_calls),
+                    )
+                ],
+                "status": ConversationStatus.WAITING_APPROVAL,
+            }
+
+        # Execute read-only tools and continue the conversation
+        tool_messages: list[ToolMessage] = []
+        for call in tool_calls:
+            tool = tool_lookup.get(call["name"])
+            if not tool:
+                continue
+            result = await tool.ainvoke(call.get("args", {}))
+            tool_messages.append(
+                ToolMessage(
+                    content=str(result),
+                    tool_call_id=call.get("id", ""),
+                )
+            )
+
+        # Ask LLM to produce a final response with tool results
+        follow_up = await self.llm.ainvoke(
+            messages + [response] + tool_messages
+        )
+
+        return {
+            "messages": [response, *tool_messages, AIMessage(content=follow_up.content)],
+        }
 
     async def _get_entity_context(
         self,
