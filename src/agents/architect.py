@@ -17,7 +17,7 @@ from src.dal import EntityRepository, ProposalRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
 from src.settings import get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
-from src.tracing import start_experiment_run
+from src.tracing import start_run
 
 # System prompt for the Architect agent
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect agent for Project Aether, a Home Assistant automation assistant.

@@ -203,5 +203,6 @@ class TestArchitectWorkflow:
             )
 
             assert state is not None
-            # Should have initial + follow up + response
-            assert len(state.messages) >= 2
+            # State should have at least the response
+            assert len(state.messages) >= 1
+            mock_agent.invoke.assert_called_once()

@@ -8,7 +8,7 @@ import pytest
 
 from src.mcp.parsers import (
     parse_entity_list,
-    parse_single_entity,
+    parse_entity,
     ParsedEntity,
 )
 
@@ -21,7 +21,7 @@ class TestParseEntityList:
         result = parse_entity_list([])
         assert result == []
 
-    def test_parse_single_entity(self):
+    def test_parse_entity(self):
         """Test parsing single entity in list."""
         raw = [
             {
@@ -160,7 +160,7 @@ class TestParseEntityList:
 
 
 class TestParseSingleEntity:
-    """Tests for parse_single_entity function."""
+    """Tests for parse_entity function."""
 
     def test_parse_full_entity(self):
         """Test parsing entity with all fields."""
@@ -177,7 +177,7 @@ class TestParseSingleEntity:
             "device_id": "device_123",
         }
 
-        result = parse_single_entity(raw)
+        result = parse_entity(raw)
 
         assert isinstance(result, ParsedEntity)
         assert result.entity_id == "light.living_room"
@@ -193,7 +193,7 @@ class TestParseSingleEntity:
             "state": "off",
         }
 
-        result = parse_single_entity(raw)
+        result = parse_entity(raw)
 
         assert result.entity_id == "switch.test"
         assert result.state == "off"
@@ -220,7 +220,7 @@ class TestParsedEntity:
         assert entity.state == "off"
         assert entity.area_id is None
         assert entity.device_id is None
-        assert entity.attributes is None
+        assert entity.attributes == {}
 
     def test_parsed_entity_with_all_fields(self):
         """Test creating ParsedEntity with all fields."""

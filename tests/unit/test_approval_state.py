@@ -21,6 +21,7 @@ class TestProposalStatusTransitions:
             name="Test Automation",
             trigger={"platform": "time", "at": "08:00"},
             actions={"service": "light.turn_on"},
+            mode="single",
             status=ProposalStatus.DRAFT,
         )
         return proposal

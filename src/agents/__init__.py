@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from src.graph.state import AgentRole, BaseState
 from src.settings import get_settings
-from src.tracing import get_mlflow_client, start_experiment_run
 
 
 class AgentContext(BaseModel):

@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-from src.mcp import MCPClient, get_mcp_client
+from src.mcp.client import MCPClient, get_mcp_client
 from src.settings import get_settings
 
 
