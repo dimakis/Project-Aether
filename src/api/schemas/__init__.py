@@ -21,6 +21,19 @@ from src.api.schemas.entities import (
     EntitySyncRequest,
     EntitySyncResponse,
 )
+from src.api.schemas.ha_automations import (
+    AutomationListResponse,
+    AutomationResponse,
+    HARegistrySummary,
+    SceneListResponse,
+    SceneResponse,
+    ScriptListResponse,
+    ScriptResponse,
+    ServiceCallRequest,
+    ServiceCallResponse,
+    ServiceListResponse,
+    ServiceResponse,
+)
 
 T = TypeVar("T")
 
@@ -167,4 +180,18 @@ __all__ = [
     # Devices
     "DeviceResponse",
     "DeviceListResponse",
+    # Automations, Scripts, Scenes
+    "AutomationResponse",
+    "AutomationListResponse",
+    "ScriptResponse",
+    "ScriptListResponse",
+    "SceneResponse",
+    "SceneListResponse",
+    # Services
+    "ServiceResponse",
+    "ServiceListResponse",
+    "ServiceCallRequest",
+    "ServiceCallResponse",
+    # HA Registry
+    "HARegistrySummary",
 ]
