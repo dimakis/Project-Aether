@@ -266,10 +266,10 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Architect Agent for User Story 2
 
-- [ ] T075 [US2] Create src/agents/architect.py with conversational automation design using OpenAI Responses API
-- [ ] T076 [US2] Create src/agents/developer.py with automation deployment to HA via call_service_tool
-- [ ] T077 [US2] Add Architect and Developer nodes to src/graph/nodes.py (propose, refine, approve_gate, deploy, rollback)
-- [ ] T078 [US2] Add conversation workflow to src/graph/workflows.py with HITL interrupt_before at approval gate
+- [x] T075 [US2] Create src/agents/architect.py with conversational automation design using OpenAI Responses API (commit: 1e0e233)
+- [x] T076 [US2] Create src/agents/developer.py with automation deployment to HA via call_service_tool (commit: 1e0e233)
+- [x] T077 [US2] Add Architect and Developer nodes to src/graph/nodes.py (propose, refine, approve_gate, deploy, rollback) (commit: 1e0e233)
+- [x] T078 [US2] Add conversation workflow to src/graph/workflows.py with HITL interrupt_before at approval gate (commit: 1e0e233)
 
 ### HITL Approval Flow (Constitution: Safety First)
 
