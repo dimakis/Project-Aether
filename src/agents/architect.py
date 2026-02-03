@@ -205,8 +205,24 @@ class ArchitectAgent(BaseAgent):
                 return None
 
             context_parts = ["Available entities in this Home Assistant instance:"]
+
+            # Key domains to list in detail (most useful for automations)
+            detailed_domains = ["light", "switch", "climate", "cover", "fan", "lock", "alarm_control_panel"]
+
             for domain, count in sorted(counts.items()):
-                context_parts.append(f"- {domain}: {count} entities")
+                if domain in detailed_domains and count <= 50:
+                    # List actual entities for key domains
+                    entities = await repo.list_all(domain=domain, limit=50)
+                    entity_list = []
+                    for e in entities:
+                        name = e.name or e.entity_id.split(".")[-1].replace("_", " ").title()
+                        state_str = f" ({e.state})" if e.state else ""
+                        area_str = f" in {e.area.name}" if e.area else ""
+                        entity_list.append(f"  - {e.entity_id}: {name}{state_str}{area_str}")
+                    context_parts.append(f"- {domain} ({count}):")
+                    context_parts.extend(entity_list)
+                else:
+                    context_parts.append(f"- {domain}: {count} entities")
 
             # If specific entities mentioned, get their details
             if state.entities_mentioned:
@@ -220,7 +236,9 @@ class ArchitectAgent(BaseAgent):
                         )
 
             return "\n".join(context_parts)
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to get entity context: {e}")
             return None
 
     def _extract_proposal(self, response: str) -> dict | None:

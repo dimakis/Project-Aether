@@ -94,8 +94,11 @@ def get_llm(
         **kwargs,
     }
 
+    # Set API key - use dummy for Ollama since it doesn't need one
     if api_key:
         llm_kwargs["api_key"] = api_key
+    elif provider == "ollama":
+        llm_kwargs["api_key"] = "ollama"  # Dummy key for Ollama
 
     if base_url:
         llm_kwargs["base_url"] = base_url
