@@ -1,0 +1,92 @@
+# =============================================================================
+# Pre-commit Configuration
+# =============================================================================
+# Constitution: Principle V - Reliability & Quality
+# Quality Gates: Pre-commit hooks for ruff, ruff format, mypy
+#
+# Install: uv run pre-commit install
+# Run all: uv run pre-commit run --all-files
+# Update:  uv run pre-commit autoupdate
+
+default_language_version:
+  python: python3.11
+
+repos:
+  # ===========================================================================
+  # General Hooks
+  # ===========================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom tags
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: debug-statements
+
+  # ===========================================================================
+  # Ruff - Linting & Formatting (replaces black, isort, flake8)
+  # ===========================================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      # Formatter
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ===========================================================================
+  # MyPy - Type Checking
+  # ===========================================================================
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.10.0
+          - sqlalchemy[mypy]>=2.0.0
+          - types-python-dateutil>=2.9.0
+        args: [--config-file=pyproject.toml]
+        pass_filenames: false
+        # Only run on src/ to avoid test file issues
+        files: ^src/
+
+  # ===========================================================================
+  # Conventional Commits (Constitution: Development Standards)
+  # ===========================================================================
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []
+
+  # ===========================================================================
+  # Security Checks
+  # ===========================================================================
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^tests/
+
+# ===========================================================================
+# CI Configuration
+# ===========================================================================
+ci:
+  autofix_commit_msg: "style: auto-fix by pre-commit hooks"
+  autofix_prs: true
+  autoupdate_commit_msg: "chore: update pre-commit hooks"
+  autoupdate_schedule: weekly
