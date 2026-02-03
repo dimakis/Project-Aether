@@ -270,6 +270,8 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T076 [US2] Create src/agents/developer.py with automation deployment to HA via call_service_tool (commit: 1e0e233)
 - [x] T077 [US2] Add Architect and Developer nodes to src/graph/nodes.py (propose, refine, approve_gate, deploy, rollback) (commit: 1e0e233)
 - [x] T078 [US2] Add conversation workflow to src/graph/workflows.py with HITL interrupt_before at approval gate (commit: 1e0e233)
+- [ ] T141 [US2] Extend Architect context retrieval in src/agents/architect.py to include entities/devices/areas/services from DAL (structured prompt context)
+- [ ] T142 [US2] Add MCP query capability to Architect via src/tools/ha_tools.py tool binding (tool-calling with safety guards)
 
 ### HITL Approval Flow (Constitution: Safety First)
 
@@ -303,6 +305,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T093 [P] [US2] Create tests/unit/test_developer_agent.py - Deployment logic (mock MCP) (commit: cd7ac6e)
 - [x] T094 [P] [US2] Create tests/unit/test_approval_state.py - HITL state machine transitions (commit: cd7ac6e)
 - [x] T095 [P] [US2] Create tests/unit/test_automation_yaml.py - YAML generation validation (commit: cd7ac6e)
+- [ ] T143 [P] [US2] Create tests/unit/test_architect_tools.py - Architect HA tool usage + context retrieval
 
 **Integration Tests**:
 - [x] T096 [US2] Create tests/integration/test_conversation_workflow.py - Full conversation flow with mocks
