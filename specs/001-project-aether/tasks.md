@@ -255,10 +255,10 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Models for User Story 2
 
-- [ ] T070 [P] [US2] Create Conversation model in src/storage/models.py (id, agent_id, user_id, title, status, context, created_at, updated_at)
-- [ ] T071 [P] [US2] Create Message model in src/storage/models.py (id, conversation_id, role, content, tool_calls, tool_results, tokens_used, latency_ms, mlflow_span_id)
-- [ ] T072 [P] [US2] Create AutomationProposal model in src/storage/models.py per data-model.md (with HITL state machine)
-- [ ] T073 [US2] Create Alembic migration for Conversation, Message, AutomationProposal tables in alembic/versions/003_conversations.py
+- [x] T070 [P] [US2] Create Conversation model in src/storage/models.py (id, agent_id, user_id, title, status, context, created_at, updated_at) (commit: 1011c15)
+- [x] T071 [P] [US2] Create Message model in src/storage/models.py (id, conversation_id, role, content, tool_calls, tool_results, tokens_used, latency_ms, mlflow_span_id) (commit: 1011c15)
+- [x] T072 [P] [US2] Create AutomationProposal model in src/storage/models.py per data-model.md (with HITL state machine) (commit: 1011c15)
+- [x] T073 [US2] Create Alembic migration for Conversation, Message, AutomationProposal tables in alembic/versions/003_conversations.py (commit: 1011c15)
 
 ### Storage Layer for User Story 2
 
