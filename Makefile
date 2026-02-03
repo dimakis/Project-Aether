@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev up down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow clean
+.PHONY: help install dev up down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean
 
 # Default target
 help:
@@ -19,6 +19,7 @@ help:
 	@echo "  make logs        - View container logs"
 	@echo "  make psql        - Connect to PostgreSQL"
 	@echo "  make mlflow      - Start local MLflow server (Postgres backend)"
+	@echo "  make mlflow-up   - Start PostgreSQL + MLflow containers"
 	@echo ""
 	@echo "Database:"
 	@echo "  make migrate     - Run Alembic migrations"
@@ -75,6 +76,10 @@ up:
 mlflow:
 	@chmod +x scripts/mlflow_local.sh 2>/dev/null || true
 	./scripts/mlflow_local.sh
+
+mlflow-up:
+	podman-compose -f infrastructure/podman/compose.yaml up -d postgres mlflow
+	@echo "PostgreSQL and MLflow are running on localhost:5432 and :5000"
 
 down:
 	podman-compose -f infrastructure/podman/compose.yaml down

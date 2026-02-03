@@ -40,7 +40,10 @@ cp .env.example .env
 # Start infrastructure and run migrations
 make dev
 
-# Start a local MLflow server (uses Postgres if running)
+# Start PostgreSQL + MLflow containers
+make mlflow-up
+
+# Or start a local MLflow server (uses Postgres if running)
 make mlflow
 
 # Discover entities from Home Assistant
@@ -96,7 +99,10 @@ LLM_MODEL=meta-llama/Llama-3-70b-chat-hf
 # Install with dev dependencies
 uv sync
 
-# Start local MLflow server (uses Postgres if running)
+# Start PostgreSQL + MLflow containers
+make mlflow-up
+
+# Or start local MLflow server (uses Postgres if running)
 make mlflow
 
 # Run tests
