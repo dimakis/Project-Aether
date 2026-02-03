@@ -226,13 +226,13 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T076 [P] [US1] Create tests/unit/test_librarian.py - Agent logic with mocked MCP
 
 **Integration Tests**:
-- [ ] T077 [US1] Create tests/integration/test_dal_db.py - DAL against real PostgreSQL
-- [ ] T078 [US1] Create tests/integration/test_discovery_workflow.py - LangGraph workflow with mocked MCP
+- [x] T077 [US1] Create tests/integration/test_dal_db.py - DAL against real PostgreSQL (commit: 1821985)
+- [x] T078 [US1] Create tests/integration/test_discovery_workflow.py - LangGraph workflow with mocked MCP (commit: 1821985)
 - [x] T079 [US1] Create tests/integration/test_api_entities.py - FastAPI routes with TestClient
 
 **E2E Tests**:
 - [x] T080 [US1] Create tests/e2e/test_discovery_flow.py - Full discovery with mock HA
-- [ ] T081 [US1] Create tests/e2e/test_entity_query.py - NL query end-to-end
+- [x] T081 [US1] Create tests/e2e/test_entity_query.py - NL query end-to-end (commit: 1821985)
 
 **Checkpoint**: User Story 1 complete - entities discoverable, stored, and queryable via NL
 
