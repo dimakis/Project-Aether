@@ -41,7 +41,7 @@ services:
       MLFLOW_BACKEND_STORE_URI: postgresql://aether:aether@postgres:5432/aether
       MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
     ports:
-      - "5000:5000"
+      - "${MLFLOW_PORT:-5001}:5000"
     volumes:
       - mlflow_artifacts:/mlflow/artifacts
     depends_on:

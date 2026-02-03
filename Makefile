@@ -18,8 +18,8 @@ help:
 	@echo "  make down        - Stop all containers"
 	@echo "  make logs        - View container logs"
 	@echo "  make psql        - Connect to PostgreSQL"
-	@echo "  make mlflow      - Start local MLflow server (Postgres backend)"
-	@echo "  make mlflow-up   - Start PostgreSQL + MLflow containers"
+	@echo "  make mlflow      - Start local MLflow server (Postgres backend, port 5001)"
+	@echo "  make mlflow-up   - Start PostgreSQL + MLflow containers (MLflow on 5001)"
 	@echo ""
 	@echo "Database:"
 	@echo "  make migrate     - Run Alembic migrations"
@@ -79,7 +79,7 @@ mlflow:
 
 mlflow-up:
 	podman-compose -f infrastructure/podman/compose.yaml up -d postgres mlflow
-	@echo "PostgreSQL and MLflow are running on localhost:5432 and :5000"
+	@echo "PostgreSQL and MLflow are running on localhost:5432 and :5001"
 
 down:
 	podman-compose -f infrastructure/podman/compose.yaml down
