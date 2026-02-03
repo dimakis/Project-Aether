@@ -270,7 +270,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T076 [US2] Create src/agents/developer.py with automation deployment to HA via call_service_tool (commit: 1e0e233)
 - [x] T077 [US2] Add Architect and Developer nodes to src/graph/nodes.py (propose, refine, approve_gate, deploy, rollback) (commit: 1e0e233)
 - [x] T078 [US2] Add conversation workflow to src/graph/workflows.py with HITL interrupt_before at approval gate (commit: 1e0e233)
-- [ ] T141 [US2] Extend Architect context retrieval in src/agents/architect.py to include entities/devices/areas/services from DAL (structured prompt context)
+- [x] T141 [US2] Extend Architect context retrieval in src/agents/architect.py to include entities/devices/areas/services from DAL (structured prompt context)
 - [ ] T142 [US2] Add MCP query capability to Architect via src/tools/ha_tools.py tool binding (tool-calling with safety guards)
 
 ### HITL Approval Flow (Constitution: Safety First)

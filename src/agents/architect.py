@@ -13,7 +13,13 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src.agents import BaseAgent
-from src.dal import EntityRepository, ProposalRepository
+from src.dal import (
+    AreaRepository,
+    DeviceRepository,
+    EntityRepository,
+    ProposalRepository,
+    ServiceRepository,
+)
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
 from src.llm import get_llm
 from src.settings import get_settings
@@ -198,6 +204,9 @@ class ArchitectAgent(BaseAgent):
         """
         try:
             repo = EntityRepository(session)
+            device_repo = DeviceRepository(session)
+            area_repo = AreaRepository(session)
+            service_repo = ServiceRepository(session)
 
             # Get counts by domain
             counts = await repo.get_domain_counts()
@@ -223,6 +232,30 @@ class ArchitectAgent(BaseAgent):
                     context_parts.extend(entity_list)
                 else:
                     context_parts.append(f"- {domain}: {count} entities")
+
+            # Areas summary
+            areas = await area_repo.list_all(limit=20)
+            if areas:
+                context_parts.append("\nAreas (up to 20):")
+                for area in areas:
+                    context_parts.append(f"- {area.name} (id: {area.ha_area_id})")
+
+            # Devices summary
+            devices = await device_repo.list_all(limit=20)
+            if devices:
+                context_parts.append("\nDevices (up to 20):")
+                for device in devices:
+                    area_name = device.area.name if device.area else "unknown area"
+                    context_parts.append(
+                        f"- {device.name} (area: {area_name}, id: {device.ha_device_id})"
+                    )
+
+            # Services summary
+            services = await service_repo.list_all(limit=30)
+            if services:
+                context_parts.append("\nServices (sample of 30):")
+                for svc in services:
+                    context_parts.append(f"- {svc.domain}.{svc.service}")
 
             # If specific entities mentioned, get their details
             if state.entities_mentioned:
