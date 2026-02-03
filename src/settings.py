@@ -51,14 +51,43 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ha_token", "hass_token"),
     )
 
-    # OpenAI (Research Decision #6)
-    openai_api_key: SecretStr = Field(
-        default=SecretStr(""),
-        description="OpenAI API key for LLM operations",
+    # LLM Configuration (Research Decision #6)
+    # Supports: openai, openrouter, google, or any OpenAI-compatible API
+    llm_provider: Literal["openai", "openrouter", "google"] = Field(
+        default="openrouter",
+        description="LLM provider (openai, openrouter, google)",
     )
-    openai_model: str = Field(
-        default="gpt-4o",
-        description="OpenAI model to use for agents",
+    llm_model: str = Field(
+        default="anthropic/claude-sonnet-4",
+        description="Model name (provider-specific format)",
+    )
+    llm_temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="LLM temperature for generation",
+    )
+    llm_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="API key for the LLM provider",
+        validation_alias=AliasChoices("llm_api_key", "openrouter_api_key", "openai_api_key"),
+    )
+    llm_base_url: str | None = Field(
+        default=None,
+        description="Custom base URL for OpenAI-compatible APIs",
+    )
+
+    # Provider-specific defaults (used if llm_base_url not set)
+    # OpenRouter: https://openrouter.ai/api/v1
+    # OpenAI: https://api.openai.com/v1
+    # Together: https://api.together.xyz/v1
+    # Groq: https://api.groq.com/openai/v1
+    # Ollama: http://localhost:11434/v1
+
+    # Google Gemini (separate SDK, not OpenAI-compatible)
+    google_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="Google API key for Gemini (if using google provider)",
     )
 
     # MLflow (Constitution: Observability)

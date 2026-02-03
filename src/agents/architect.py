@@ -9,12 +9,13 @@ from datetime import datetime
 from typing import Any
 
 import mlflow
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
 from src.agents import BaseAgent
 from src.dal import EntityRepository, ProposalRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
+from src.llm import get_llm
 from src.settings import get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
 from src.tracing import start_run
@@ -74,32 +75,29 @@ class ArchitectAgent(BaseAgent):
     def __init__(
         self,
         model_name: str | None = None,
-        temperature: float = 0.7,
+        temperature: float | None = None,
     ):
         """Initialize Architect agent.
 
         Args:
             model_name: LLM model to use (defaults to settings)
-            temperature: LLM temperature for response generation
+            temperature: LLM temperature for response generation (defaults to settings)
         """
         super().__init__(
             role=AgentRole.ARCHITECT,
             name="Architect",
         )
-        settings = get_settings()
-        self.model_name = model_name or settings.openai_model
+        self.model_name = model_name
         self.temperature = temperature
-        self._llm: ChatOpenAI | None = None
+        self._llm: BaseChatModel | None = None
 
     @property
-    def llm(self) -> ChatOpenAI:
+    def llm(self) -> BaseChatModel:
         """Get LLM instance, creating if needed."""
         if self._llm is None:
-            settings = get_settings()
-            self._llm = ChatOpenAI(
+            self._llm = get_llm(
                 model=self.model_name,
                 temperature=self.temperature,
-                api_key=settings.openai_api_key.get_secret_value(),
             )
         return self._llm
 

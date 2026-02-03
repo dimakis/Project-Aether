@@ -23,35 +23,29 @@ dependencies = [
     "langgraph>=0.2.0",
     "langchain-core>=0.3.0",
     "langchain-openai>=0.2.0",
-    
     # OpenAI for LLM (Research Decision #6)
     "openai>=1.50.0",
-    
     # FastAPI for HTTP API (Research Decision #8)
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "websockets>=13.0",
-    
     # Database (Research Decision #5: PostgreSQL)
     "sqlalchemy[asyncio]>=2.0.0",
     "asyncpg>=0.30.0",
     "alembic>=1.14.0",
-    
     # MLflow for observability (Constitution: Observability)
     "mlflow>=2.18.0",
-    
     # Pydantic for validation
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
-    
     # CLI
     "typer>=0.14.0",
     "rich>=13.9.0",
-    
     # Utilities
     "httpx>=0.28.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.4.0",
+    "langchain-google-genai>=4.2.0",
 ]
 
 [project.optional-dependencies]
