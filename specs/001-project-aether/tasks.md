@@ -292,8 +292,8 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### CLI Commands for User Story 2
 
-- [ ] T089 [US2] Add `aether chat` interactive command in src/cli/main.py
-- [ ] T090 [US2] Add `aether proposals list/approve/reject/rollback` commands in src/cli/main.py
+- [x] T089 [US2] Add `aether chat` interactive command in src/cli/main.py (commit: 78c484a)
+- [x] T090 [US2] Add `aether proposals list/approve/reject/rollback` commands in src/cli/main.py (commit: 78c484a)
 
 ### Tests for User Story 2 (Constitution: Reliability & Quality)
 
