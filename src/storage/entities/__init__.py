@@ -3,9 +3,9 @@
 All SQLAlchemy ORM models for Project Aether.
 """
 
-# Existing models
+# Core models
 from src.storage.entities.agent import Agent
-from src.storage.entities.conversation import Conversation
+from src.storage.entities.conversation import Conversation, ConversationStatus
 from src.storage.entities.message import Message
 
 # HA Registry models (User Story 1)
@@ -15,10 +15,18 @@ from src.storage.entities.discovery_session import DiscoverySession, DiscoverySt
 from src.storage.entities.ha_automation import HAAutomation, Scene, Script, Service
 from src.storage.entities.ha_entity import HAEntity
 
+# Automation Proposals (User Story 2)
+from src.storage.entities.automation_proposal import (
+    AutomationProposal,
+    ProposalStatus,
+    VALID_TRANSITIONS,
+)
+
 __all__ = [
-    # Existing
+    # Core
     "Agent",
     "Conversation",
+    "ConversationStatus",
     "Message",
     # HA Registry
     "Area",
@@ -30,4 +38,8 @@ __all__ = [
     "Script",
     "Scene",
     "Service",
+    # Automation Proposals
+    "AutomationProposal",
+    "ProposalStatus",
+    "VALID_TRANSITIONS",
 ]
