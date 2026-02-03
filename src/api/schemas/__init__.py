@@ -10,6 +10,18 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
+# Import entity schemas
+from src.api.schemas.areas import AreaListResponse, AreaResponse
+from src.api.schemas.devices import DeviceListResponse, DeviceResponse
+from src.api.schemas.entities import (
+    EntityListResponse,
+    EntityQueryRequest,
+    EntityQueryResult,
+    EntityResponse,
+    EntitySyncRequest,
+    EntitySyncResponse,
+)
+
 T = TypeVar("T")
 
 
@@ -128,15 +140,31 @@ class MessageResponse(BaseModel):
 
 # Exports
 __all__ = [
+    # Error types
     "ErrorType",
     "ErrorDetail",
     "ErrorResponse",
+    # Health
     "HealthStatus",
     "ComponentHealth",
     "HealthResponse",
     "SystemStatus",
+    # Pagination
     "PaginationMeta",
     "PaginatedResponse",
     "SuccessResponse",
     "MessageResponse",
+    # Entities
+    "EntityResponse",
+    "EntityListResponse",
+    "EntityQueryRequest",
+    "EntityQueryResult",
+    "EntitySyncRequest",
+    "EntitySyncResponse",
+    # Areas
+    "AreaResponse",
+    "AreaListResponse",
+    # Devices
+    "DeviceResponse",
+    "DeviceListResponse",
 ]
