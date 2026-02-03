@@ -94,7 +94,7 @@ These features would unlock additional capabilities. **Report back when these be
 ### Database & Models
 
 - [x] T009 Create src/storage/__init__.py with database connection setup (asyncpg + SQLAlchemy async)
-- [ ] T010 Create src/storage/models.py with base SQLAlchemy model and common mixins
+- [x] T010 Create src/storage/models.py with base SQLAlchemy model and common mixins
 - [ ] T011 [P] Create Alembic migration configuration in alembic.ini and alembic/env.py
 - [ ] T012 Create initial migration with Agent table in alembic/versions/001_initial.py
 
