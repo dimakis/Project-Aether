@@ -250,7 +250,38 @@ This document captures research findings for Project Aether's technical decision
 
 ---
 
-## 10. HITL Approval Flow
+## 10. Package Management: uv
+
+**Decision**: Use `uv` for Python package management, virtual environments, and project tooling.
+
+**Rationale**:
+- Extremely fast (10-100x faster than pip) - written in Rust by Astral (ruff authors)
+- Unified tool: replaces pip, pip-tools, virtualenv, pyenv in one
+- Lock file support (`uv.lock`) for reproducible builds
+- Compatible with `pyproject.toml` and PEP standards
+- Active development, modern Python packaging best practices
+
+**Alternatives Considered**:
+
+| Alternative | Why Rejected |
+|-------------|--------------|
+| pip + venv | Slow; no lock file without pip-tools |
+| pip-tools | Separate tool; uv does this natively |
+| Poetry | Slower; uv is faster and simpler |
+| PDM | Less mature ecosystem; uv has better DX |
+| conda | Overkill; uv handles pure Python deps well |
+
+**Implementation Notes**:
+- Initialize project with `uv init` or manage via `pyproject.toml`
+- Create venv with `uv venv`
+- Install dependencies with `uv pip install` or `uv sync`
+- Lock dependencies with `uv lock`
+- CI/CD: `uv sync --frozen` for reproducible installs
+- Dev dependencies managed via `[project.optional-dependencies]` or `[tool.uv]`
+
+---
+
+## 11. HITL Approval Flow
 
 **Decision**: Implement approval gates using LangGraph interrupts.
 
@@ -287,6 +318,7 @@ This document captures research findings for Project Aether's technical decision
 | Containers | Podman | User requirement, rootless, gVisor runtime |
 | API Framework | FastAPI | Async, OpenAPI, WebSocket support |
 | Entity Abstraction | Custom DAL | NL queries, semantic search, caching |
+| Package Management | uv | Fast, unified tooling, lock files, Rust-based |
 | HITL Approval | LangGraph interrupts | Constitution compliance, checkpoint-based |
 
-All NEEDS CLARIFICATION items have been resolved. Ready for Phase 1 design.
+All NEEDS CLARIFICATION items have been resolved. Ready for Phase 1 implementation.

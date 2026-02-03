@@ -72,13 +72,14 @@ These features would unlock additional capabilities. **Report back when these be
 **Purpose**: Project initialization and basic structure
 
 - [ ] T001 Create project structure with src/, tests/, infrastructure/ directories per plan.md
-- [ ] T002 Initialize Python 3.11+ project with pyproject.toml and dependencies (langgraph, fastapi, sqlalchemy, mlflow, openai, pydantic)
-- [ ] T003 [P] Configure ruff for linting and formatting in pyproject.toml
+- [ ] T002 Initialize Python 3.11+ project with pyproject.toml using uv (`uv init` or manual), add dependencies (langgraph, fastapi, sqlalchemy, mlflow, openai, pydantic)
+- [ ] T003 [P] Configure ruff for linting and formatting in pyproject.toml `[tool.ruff]` section
 - [ ] T004 [P] Create .env.example with HA_TOKEN, HA_URL, DATABASE_URL, MLFLOW_TRACKING_URI, OPENAI_API_KEY
-- [ ] T005 [P] Create infrastructure/podman/Containerfile for main application
+- [ ] T005 [P] Create infrastructure/podman/Containerfile for main application (use `uv sync --frozen` for reproducible installs)
 - [ ] T006 [P] Create infrastructure/podman/compose.yaml for local dev (app + postgres + mlflow)
 - [ ] T007 [P] Create infrastructure/gvisor/config.toml for runsc sandbox configuration
 - [ ] T008 [P] Create infrastructure/postgres/init.sql with database initialization
+- [ ] T009 [P] Generate uv.lock file with `uv lock` and commit to repo for reproducible builds
 
 **Checkpoint**: Project skeleton ready for development
 
@@ -129,14 +130,14 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Test Infrastructure (Constitution: Reliability & Quality)
 
-- [ ] T028 Configure pytest in pyproject.toml with pytest-cov, pytest-asyncio, pytest-mock
-- [ ] T029 [P] Create tests/conftest.py with shared fixtures (async db, mock MCP client, test settings)
-- [ ] T030 [P] Create tests/factories.py with factory_boy factories for all models
-- [ ] T031 [P] Create tests/mocks/__init__.py with MCP response mocks and HA state fixtures
-- [ ] T032 [P] Create infrastructure/test/docker-compose.test.yaml for integration test environment
-- [ ] T033 [P] Configure pre-commit hooks in .pre-commit-config.yaml (ruff, ruff-format, mypy)
-- [ ] T034 Create tests/integration/conftest.py with testcontainers setup for PostgreSQL
-- [ ] T035 Create .github/workflows/ci.yaml with test pipeline (unit → integration → E2E → coverage)
+- [ ] T029 Configure pytest in pyproject.toml with pytest-cov, pytest-asyncio, pytest-mock
+- [ ] T030 [P] Create tests/conftest.py with shared fixtures (async db, mock MCP client, test settings)
+- [ ] T031 [P] Create tests/factories.py with factory_boy factories for all models
+- [ ] T032 [P] Create tests/mocks/__init__.py with MCP response mocks and HA state fixtures
+- [ ] T033 [P] Create infrastructure/test/docker-compose.test.yaml for integration test environment
+- [ ] T034 [P] Configure pre-commit hooks in .pre-commit-config.yaml (ruff, ruff-format, mypy)
+- [ ] T035 Create tests/integration/conftest.py with testcontainers setup for PostgreSQL
+- [ ] T036 Create .github/workflows/ci.yaml with test pipeline using uv (uv sync --frozen → unit → integration → E2E → coverage)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 

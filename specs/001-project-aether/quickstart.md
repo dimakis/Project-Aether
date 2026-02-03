@@ -7,6 +7,7 @@
 
 - **Home Assistant**: Running instance with long-lived access token
 - **Python**: 3.11+
+- **uv**: 0.4+ (fast Python package manager) - install via `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - **Podman**: 4.0+ with rootless mode configured
 - **gVisor**: runsc runtime installed and configured
 - **PostgreSQL**: 15+ (can use containerized)
@@ -18,9 +19,16 @@
 
 ```bash
 cd /Users/dsaridak/projects/home_agent
-python -m venv .venv
+
+# Create venv and install dependencies (uv does both in one step)
+uv sync
+
+# Or if starting fresh:
+uv venv
+uv pip install -e ".[dev]"
+
+# Activate the virtual environment
 source .venv/bin/activate
-pip install -e ".[dev]"
 ```
 
 ### 2. Configure Environment
@@ -137,33 +145,58 @@ aether insights list --type energy_optimization
 
 ## Development Workflow
 
+### Dependency Management
+
+```bash
+# Add a production dependency
+uv add langgraph
+
+# Add a dev dependency
+uv add --dev pytest-cov
+
+# Update all dependencies
+uv lock --upgrade
+
+# Sync environment with lockfile (CI-safe, reproducible)
+uv sync --frozen
+
+# Show dependency tree
+uv tree
+```
+
 ### Run Tests
 
 ```bash
-# Unit tests
-pytest tests/unit
+# Unit tests (fast, isolated)
+uv run pytest tests/unit -v
 
 # Integration tests (requires running services)
-pytest tests/integration
+uv run pytest tests/integration -v
 
-# Contract tests
-pytest tests/contract
+# E2E tests (full system)
+uv run pytest tests/e2e -v
 
-# All tests with coverage
-pytest --cov=src --cov-report=html
+# All tests with coverage (Constitution: 80%+ required)
+uv run pytest --cov=src --cov-report=html --cov-fail-under=80
+
+# Run specific test file
+uv run pytest tests/unit/test_dal_entities.py -v
 ```
 
-### Lint and Format
+### Lint and Format (Pre-commit)
 
 ```bash
 # Format code
-ruff format src tests
+uv run ruff format src tests
 
-# Lint
-ruff check src tests
+# Lint and auto-fix
+uv run ruff check src tests --fix
 
-# Type check
-mypy src
+# Type check (strict mode)
+uv run mypy src --strict
+
+# Run all pre-commit hooks
+uv run pre-commit run --all-files
 ```
 
 ### View MLflow Traces
