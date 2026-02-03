@@ -273,8 +273,8 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### HITL Approval Flow (Constitution: Safety First)
 
-- [ ] T079 [US2] Create ApprovalState in src/graph/state.py with proposal, user_decision, timestamp
-- [ ] T080 [US2] Implement LangGraph interrupt_before for HITL approval in src/graph/workflows.py
+- [x] T079 [US2] Create ApprovalState in src/graph/state.py with proposal, user_decision, timestamp (commit: 86faa4b)
+- [x] T080 [US2] Implement LangGraph interrupt_before for HITL approval in src/graph/workflows.py (commit: 1e0e233)
 
 ### Automation Deployment via MCP
 
