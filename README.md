@@ -28,27 +28,63 @@ This project follows strict principles defined in our [Constitution](.specify/me
 ## Quick Start
 
 ```bash
-# Prerequisites: Python 3.11+, uv, Podman, gVisor
+# Prerequisites: Python 3.11+, uv, Podman
 
-# Clone and install
-cd home_agent
-uv sync
+# Install dependencies
+make install
 
-# Configure environment
+# Configure environment (see LLM Configuration below)
 cp .env.example .env
-# Edit .env with your HA token and settings
+# Edit .env with your HA token and LLM settings
 
-# Start infrastructure
-podman-compose -f infrastructure/podman/compose.yaml up -d
+# Start infrastructure and run migrations
+make dev
 
-# Run migrations
-uv run alembic upgrade head
-
-# Discover entities
-uv run aether discover
+# Discover entities from Home Assistant
+make discover
 
 # Start chatting with the Architect
-uv run aether chat
+make chat
+```
+
+## LLM Configuration
+
+Project Aether supports multiple LLM backends. Configure in your `.env`:
+
+### OpenRouter (Recommended - access to 100+ models)
+```bash
+LLM_PROVIDER=openrouter
+LLM_API_KEY=sk-or-v1-your-key
+LLM_MODEL=anthropic/claude-sonnet-4
+```
+
+### Local Ollama (Free, private)
+```bash
+LLM_PROVIDER=ollama
+LLM_MODEL=mistral:latest
+# No API key needed
+```
+
+### OpenAI Direct
+```bash
+LLM_PROVIDER=openai
+LLM_API_KEY=sk-your-openai-key
+LLM_MODEL=gpt-4o
+```
+
+### Google Gemini
+```bash
+LLM_PROVIDER=google
+GOOGLE_API_KEY=your-google-key
+LLM_MODEL=gemini-2.0-flash
+```
+
+### Other OpenAI-compatible APIs
+```bash
+LLM_PROVIDER=together  # or groq, custom
+LLM_API_KEY=your-key
+LLM_BASE_URL=https://api.together.xyz/v1
+LLM_MODEL=meta-llama/Llama-3-70b-chat-hf
 ```
 
 ## Development
