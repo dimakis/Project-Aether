@@ -305,13 +305,13 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T095 [P] [US2] Create tests/unit/test_automation_yaml.py - YAML generation validation (commit: cd7ac6e)
 
 **Integration Tests**:
-- [ ] T096 [US2] Create tests/integration/test_conversation_workflow.py - Full conversation flow with mocks
-- [ ] T097 [US2] Create tests/integration/test_hitl_interrupt.py - LangGraph interrupt_before behavior
-- [ ] T098 [US2] Create tests/integration/test_api_chat.py - Chat API with WebSocket
+- [x] T096 [US2] Create tests/integration/test_conversation_workflow.py - Full conversation flow with mocks
+- [x] T097 [US2] Create tests/integration/test_hitl_interrupt.py - LangGraph interrupt_before behavior
+- [x] T098 [US2] Create tests/integration/test_api_chat.py - Chat API with WebSocket
 
 **E2E Tests**:
-- [ ] T099 [US2] Create tests/e2e/test_automation_design.py - Full conversation → proposal → approval
-- [ ] T100 [US2] Create tests/e2e/test_automation_rollback.py - Deploy and rollback flow
+- [x] T099 [US2] Create tests/e2e/test_automation_design.py - Full conversation → proposal → approval
+- [x] T100 [US2] Create tests/e2e/test_automation_rollback.py - Deploy and rollback flow
 
 **Checkpoint**: User Story 2 complete - conversational automation design with HITL approval working
 

@@ -421,20 +421,25 @@ async def process_approval_node(
     rejected_ids: list[str] = []
 
     for approval in state.pending_approvals:
-        if session:
-            repo = ProposalRepository(session)
+        if approved:
+            approval.approved = True
+            approval.approved_by = approved_by
+            approval.approved_at = datetime.utcnow()
+            approved_ids.append(approval.id)
 
-            if approved:
+            # Persist to DB if session available
+            if session:
+                repo = ProposalRepository(session)
                 await repo.approve(approval.id, approved_by)
-                approval.approved = True
-                approval.approved_by = approved_by
-                approval.approved_at = datetime.utcnow()
-                approved_ids.append(approval.id)
-            else:
+        else:
+            approval.approved = False
+            approval.rejection_reason = rejection_reason
+            rejected_ids.append(approval.id)
+
+            # Persist to DB if session available
+            if session:
+                repo = ProposalRepository(session)
                 await repo.reject(approval.id, rejection_reason or "User rejected")
-                approval.approved = False
-                approval.rejection_reason = rejection_reason
-                rejected_ids.append(approval.id)
 
     if approved:
         updates["status"] = ConversationStatus.APPROVED
