@@ -278,9 +278,9 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Automation Deployment via MCP
 
-- [ ] T081 [US2] Create src/mcp/automation_deploy.py with automation YAML generation
-- [ ] T082 [US2] Implement deployment via `call_service_tool` to `automation.reload` after file creation
-- [ ] T083 [US2] **Workaround**: Store automation YAML locally, use HA config reload - **Note: Direct automation creation requires HA REST API or file access**
+- [x] T081 [US2] Create src/mcp/automation_deploy.py with automation YAML generation (commit: f6c2224)
+- [x] T082 [US2] Implement deployment via `call_service_tool` to `automation.reload` after file creation (commit: f6c2224)
+- [x] T083 [US2] **Workaround**: Store automation YAML locally, use HA config reload - **Note: Direct automation creation requires HA REST API or file access** (commit: f6c2224)
 
 ### API Endpoints for User Story 2
 
