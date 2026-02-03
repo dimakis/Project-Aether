@@ -22,6 +22,9 @@ from src.storage.entities.automation_proposal import (
     VALID_TRANSITIONS,
 )
 
+# Insights (User Story 3)
+from src.storage.entities.insight import Insight, InsightStatus, InsightType
+
 __all__ = [
     # Core
     "Agent",
@@ -42,4 +45,8 @@ __all__ = [
     "AutomationProposal",
     "ProposalStatus",
     "VALID_TRANSITIONS",
+    # Insights
+    "Insight",
+    "InsightType",
+    "InsightStatus",
 ]
