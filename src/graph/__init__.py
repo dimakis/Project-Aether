@@ -27,7 +27,28 @@ __all__ = [
     # Utilities
     "get_llm",
     "create_graph",
+    # Workflows
+    "get_workflow",
+    "run_discovery_workflow",
 ]
+
+
+def get_workflow(name: str, **kwargs):  # type: ignore[no-untyped-def]
+    """Get a workflow graph by name.
+
+    Lazy import to avoid circular dependencies.
+    """
+    from src.graph.workflows import get_workflow as _get_workflow
+    return _get_workflow(name, **kwargs)
+
+
+async def run_discovery_workflow(**kwargs):  # type: ignore[no-untyped-def]
+    """Run the discovery workflow.
+
+    Lazy import to avoid circular dependencies.
+    """
+    from src.graph.workflows import run_discovery_workflow as _run
+    return await _run(**kwargs)
 
 
 def get_llm(
