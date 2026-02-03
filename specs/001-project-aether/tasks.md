@@ -124,9 +124,9 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Sandbox Infrastructure (Constitution: Isolation)
 
-- [ ] T025 Create src/sandbox/__init__.py with sandbox runner imports
-- [ ] T026 Create src/sandbox/policies.py with gVisor security policies (no network, read-only mounts, timeout)
-- [ ] T027 Create src/sandbox/runner.py with Podman + runsc script execution
+- [x] T025 Create src/sandbox/__init__.py with sandbox runner imports
+- [x] T026 Create src/sandbox/policies.py with gVisor security policies (no network, read-only mounts, timeout)
+- [x] T027 Create src/sandbox/runner.py with Podman + runsc script execution
 
 ### Test Infrastructure (Constitution: Reliability & Quality)
 
