@@ -1,0 +1,116 @@
+# =============================================================================
+# Project Aether - Local Development Stack
+# =============================================================================
+# Usage:
+#   podman-compose up -d          # Start all services
+#   podman-compose logs -f        # View logs
+#   podman-compose down           # Stop and remove
+#   podman-compose down -v        # Stop and remove with volumes
+
+services:
+  # ===========================================================================
+  # PostgreSQL Database (Constitution: Principle IV - State)
+  # ===========================================================================
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: aether-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aether
+      POSTGRES_PASSWORD: aether
+      POSTGRES_DB: aether
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aether -d aether"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # MLflow Tracking Server (Constitution: Principle III - Observability)
+  # ===========================================================================
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.18.0
+    container_name: aether-mlflow
+    restart: unless-stopped
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://aether:aether@postgres:5432/aether
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://aether:aether@postgres:5432/aether
+      --default-artifact-root /mlflow/artifacts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # Redis Cache (Optional - for entity caching)
+  # ===========================================================================
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: aether-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Aether Application (uncomment for containerized development)
+  # ===========================================================================
+  # app:
+  #   build:
+  #     context: ../..
+  #     dockerfile: infrastructure/podman/Containerfile
+  #   container_name: aether-app
+  #   restart: unless-stopped
+  #   env_file:
+  #     - ../../.env
+  #   environment:
+  #     DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+  #     MLFLOW_TRACKING_URI: http://mlflow:5000
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     mlflow:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+volumes:
+  postgres_data:
+    name: aether-postgres-data
+  mlflow_artifacts:
+    name: aether-mlflow-artifacts
+  redis_data:
+    name: aether-redis-data
+
+networks:
+  default:
+    name: aether-network

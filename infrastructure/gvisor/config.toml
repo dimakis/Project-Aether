@@ -1,0 +1,111 @@
+# =============================================================================
+# gVisor (runsc) Sandbox Configuration
+# =============================================================================
+# Constitution: Principle II - Isolation
+# All generated analysis scripts MUST run in a gVisor sandbox
+#
+# This configuration is used by Podman when running sandbox containers:
+#   podman run --runtime=runsc ...
+#
+# Install gVisor: https://gvisor.dev/docs/user_guide/install/
+
+# =============================================================================
+# Podman Runtime Configuration
+# =============================================================================
+# Add to ~/.config/containers/containers.conf or /etc/containers/containers.conf:
+#
+# [engine.runtimes]
+# runsc = ["/usr/local/bin/runsc", "run"]
+#
+# Or use: podman run --runtime=/usr/local/bin/runsc
+
+# =============================================================================
+# runsc Configuration Options
+# =============================================================================
+# These options are passed to runsc when creating sandbox containers
+
+[runsc]
+# Platform: ptrace (default) or kvm (faster, requires /dev/kvm)
+platform = "ptrace"
+
+# Network mode: sandbox (isolated) or host (for debugging only)
+network = "sandbox"
+
+# Enable debug logging (disable in production)
+debug = false
+debug-log = "/tmp/runsc-debug.log"
+
+# Filesystem configuration
+overlay = true
+fsgofer-host-uds = true
+
+# =============================================================================
+# Sandbox Security Policies
+# =============================================================================
+# These settings enforce the isolation requirements from the constitution
+
+[sandbox.security]
+# Disable network access for scripts (critical for security)
+network_enabled = false
+
+# Read-only root filesystem
+rootfs_readonly = true
+
+# No access to host devices
+allow_devices = false
+
+# Resource limits
+max_memory_mb = 512
+max_cpu_cores = 1
+max_runtime_seconds = 300
+
+# Syscall filtering (additional layer on top of gVisor)
+enable_seccomp = true
+
+# =============================================================================
+# Allowed Mounts (Read-Only Data)
+# =============================================================================
+# Scripts can only read data passed to them, not write to host
+
+[sandbox.mounts]
+# Input data directory (read-only)
+data_input = { source = "/tmp/aether/sandbox/input", target = "/data", readonly = true }
+
+# Output directory (write allowed, copied out after execution)
+data_output = { source = "/tmp/aether/sandbox/output", target = "/output", readonly = false }
+
+# =============================================================================
+# Sandbox Container Image
+# =============================================================================
+# Pre-built image with data science libraries
+
+[sandbox.image]
+name = "aether-sandbox"
+tag = "latest"
+
+# Included packages (see Containerfile.sandbox)
+packages = [
+    "pandas>=2.0.0",
+    "numpy>=1.26.0",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "scikit-learn>=1.4.0",
+]
+
+# =============================================================================
+# Usage Example
+# =============================================================================
+# From src/sandbox/runner.py:
+#
+# podman run \
+#   --runtime=runsc \
+#   --rm \
+#   --network=none \
+#   --memory=512m \
+#   --cpus=1 \
+#   --read-only \
+#   --tmpfs /tmp \
+#   -v /tmp/aether/sandbox/input:/data:ro \
+#   -v /tmp/aether/sandbox/output:/output:rw \
+#   aether-sandbox:latest \
+#   python /data/script.py
