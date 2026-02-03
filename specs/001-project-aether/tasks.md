@@ -169,9 +169,9 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T038 [US1] Create src/dal/entities.py with Entity CRUD operations and caching
 - [x] T039 [US1] Create src/dal/devices.py with Device CRUD - **Workaround: infer device_id from entity attributes**
 - [x] T040 [US1] Create src/dal/areas.py with Area CRUD - **Workaround: extract unique area_ids from entities**
-- [ ] T041 [US1] Create src/dal/automations.py with HAAutomation, Script, Scene CRUD
-- [ ] T042 [US1] Create src/dal/services.py with Service registry - **Workaround: seed common services from constants**
-- [ ] T043 [US1] Create src/dal/queries.py with natural language query interface using LLM
+- [x] T041 [US1] Create src/dal/automations.py with HAAutomation, Script, Scene CRUD
+- [x] T042 [US1] Create src/dal/services.py with Service registry - **Workaround: seed common services from constants**
+- [x] T043 [US1] Create src/dal/queries.py with natural language query interface using LLM
 - [x] T044 [US1] Create src/dal/sync.py with HA synchronization orchestration
 
 ### MCP Integration Layer for User Story 1
@@ -184,54 +184,54 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Librarian Agent for User Story 1
 
-- [ ] T050 [US1] Create src/agents/__init__.py with agent base class and MLflow tracing
-- [ ] T051 [US1] Create src/agents/librarian.py with entity discovery workflow using MCP layer
-- [ ] T052 [US1] Create src/graph/nodes.py with Librarian graph nodes (discover, infer_devices, infer_areas, sync_automations, persist)
-- [ ] T053 [US1] Create src/graph/workflows.py with discovery workflow using StateGraph
+- [x] T050 [US1] Create src/agents/__init__.py with agent base class and MLflow tracing
+- [x] T051 [US1] Create src/agents/librarian.py with entity discovery workflow using MCP layer
+- [x] T052 [US1] Create src/graph/nodes.py with Librarian graph nodes (discover, infer_devices, infer_areas, sync_automations, persist)
+- [x] T053 [US1] Create src/graph/workflows.py with discovery workflow using StateGraph
 
 ### API Endpoints for User Story 1
 
 - [x] T054 [P] [US1] Create entity schemas in src/api/schemas/entities.py (Entity, EntityList, EntityQuery, EntityQueryResult)
 - [x] T055 [P] [US1] Create device schemas in src/api/schemas/devices.py (Device, DeviceList)
 - [x] T056 [P] [US1] Create area schemas in src/api/schemas/areas.py (Area, AreaList)
-- [ ] T057 [P] [US1] Create automation schemas in src/api/schemas/ha_automations.py (HAAutomation, Script, Scene lists)
+- [x] T057 [P] [US1] Create automation schemas in src/api/schemas/ha_automations.py (HAAutomation, Script, Scene lists)
 - [x] T058 [US1] Create src/api/routes/entities.py with GET /entities, GET /entities/{id}, POST /entities/query, POST /entities/sync
 - [x] T059 [US1] Create src/api/routes/devices.py with GET /devices, GET /devices/{id}
 - [x] T060 [US1] Create src/api/routes/areas.py with GET /areas, GET /areas/{id}
-- [ ] T061 [US1] Create src/api/routes/ha_registry.py with GET /automations, /scripts, /scenes, /services
+- [x] T061 [US1] Create src/api/routes/ha_registry.py with GET /automations, /scripts, /scenes, /services
 
 ### CLI Commands for User Story 1
 
 - [x] T062 [US1] Add `aether discover` command in src/cli/main.py to trigger Librarian discovery
 - [x] T063 [US1] Add `aether entities list/query/show` commands in src/cli/main.py
-- [ ] T064 [US1] Add `aether devices list/show` commands in src/cli/main.py
+- [x] T064 [US1] Add `aether devices list/show` commands in src/cli/main.py
 - [x] T065 [US1] Add `aether areas list/show` commands in src/cli/main.py
-- [ ] T066 [US1] Add `aether automations/scripts/scenes/services list` commands in src/cli/main.py
+- [x] T066 [US1] Add `aether automations/scripts/scenes/services list` commands in src/cli/main.py
 
 ### MCP Gap Tracking for User Story 1
 
-- [ ] T067 [US1] Create src/mcp/gaps.py with MCP capability gap tracker (log missing features with context)
+- [x] T067 [US1] Create src/mcp/gaps.py with MCP capability gap tracker (log missing features with context)
 - [x] T068 [US1] Add gap reporting to DiscoverySession (mcp_gaps_encountered JSONB field)
-- [ ] T069 [US1] Create `aether mcp-gaps report` CLI command to show what MCP enhancements would help
+- [x] T069 [US1] Create `aether mcp-gaps report` CLI command to show what MCP enhancements would help
 
 ### Tests for User Story 1 (Constitution: Reliability & Quality)
 
 **Unit Tests**:
-- [ ] T070 [P] [US1] Create tests/unit/test_dal_entities.py - Entity CRUD, caching logic
-- [ ] T071 [P] [US1] Create tests/unit/test_dal_devices.py - Device inference from attributes
-- [ ] T072 [P] [US1] Create tests/unit/test_dal_areas.py - Area extraction logic
-- [ ] T073 [P] [US1] Create tests/unit/test_dal_queries.py - NL query parsing (mock LLM)
-- [ ] T074 [P] [US1] Create tests/unit/test_mcp_parsers.py - Response parsing logic
-- [ ] T075 [P] [US1] Create tests/unit/test_mcp_workarounds.py - Device/area inference
-- [ ] T076 [P] [US1] Create tests/unit/test_librarian.py - Agent logic with mocked MCP
+- [x] T070 [P] [US1] Create tests/unit/test_dal_entities.py - Entity CRUD, caching logic
+- [x] T071 [P] [US1] Create tests/unit/test_dal_devices.py - Device inference from attributes
+- [x] T072 [P] [US1] Create tests/unit/test_dal_areas.py - Area extraction logic
+- [x] T073 [P] [US1] Create tests/unit/test_dal_queries.py - NL query parsing (mock LLM)
+- [x] T074 [P] [US1] Create tests/unit/test_mcp_parsers.py - Response parsing logic
+- [x] T075 [P] [US1] Create tests/unit/test_mcp_workarounds.py - Device/area inference
+- [x] T076 [P] [US1] Create tests/unit/test_librarian.py - Agent logic with mocked MCP
 
 **Integration Tests**:
 - [ ] T077 [US1] Create tests/integration/test_dal_db.py - DAL against real PostgreSQL
 - [ ] T078 [US1] Create tests/integration/test_discovery_workflow.py - LangGraph workflow with mocked MCP
-- [ ] T079 [US1] Create tests/integration/test_api_entities.py - FastAPI routes with TestClient
+- [x] T079 [US1] Create tests/integration/test_api_entities.py - FastAPI routes with TestClient
 
 **E2E Tests**:
-- [ ] T080 [US1] Create tests/e2e/test_discovery_flow.py - Full discovery with mock HA
+- [x] T080 [US1] Create tests/e2e/test_discovery_flow.py - Full discovery with mock HA
 - [ ] T081 [US1] Create tests/e2e/test_entity_query.py - NL query end-to-end
 
 **Checkpoint**: User Story 1 complete - entities discoverable, stored, and queryable via NL

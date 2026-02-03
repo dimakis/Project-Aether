@@ -196,27 +196,33 @@ async def _list_entities(domain: str | None, limit: int) -> None:
         entities = await repo.list_all(domain=domain, limit=limit)
         total = await repo.count(domain=domain)
 
-    if not entities:
-        console.print("[yellow]No entities found. Run 'aether discover' first.[/yellow]")
-        return
+        if not entities:
+            console.print("[yellow]No entities found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(
-        title=f"Entities ({len(entities)}/{total})",
-        show_header=True,
-    )
-    table.add_column("Entity ID", style="cyan")
-    table.add_column("Name")
-    table.add_column("State", justify="center")
-    table.add_column("Area")
-
-    for entity in entities:
-        state_color = "green" if entity.state == "on" else "dim"
-        table.add_row(
-            entity.entity_id,
-            entity.name,
-            f"[{state_color}]{entity.state or 'unknown'}[/{state_color}]",
-            entity.area.name if entity.area else "-",
+        table = Table(
+            title=f"Entities ({len(entities)}/{total})",
+            show_header=True,
         )
+        table.add_column("Entity ID", style="cyan")
+        table.add_column("Name")
+        table.add_column("Domain")
+        table.add_column("State", justify="center")
+
+        # Extract data while session is active
+        rows = []
+        for entity in entities:
+            state_color = "green" if entity.state == "on" else "dim"
+            rows.append((
+                entity.entity_id,
+                entity.name or entity.entity_id,
+                entity.domain,
+                f"[{state_color}]{entity.state or 'unknown'}[/{state_color}]",
+            ))
+
+    # Build table outside session (data already extracted)
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
@@ -322,36 +328,44 @@ async def _list_automations(state: str | None, limit: int) -> None:
     """List automations from database."""
     from rich.table import Table
 
-    from src.dal.automations import AutomationRepository
+    from src.dal.entities import EntityRepository
     from src.storage import get_session
 
     async with get_session() as session:
-        repo = AutomationRepository(session)
-        automation_list = await repo.list_all(state=state, limit=limit)
-        total = await repo.count()
+        repo = EntityRepository(session)
+        # Query entities with domain='automation'
+        automation_list = await repo.list_all(domain="automation", limit=limit)
+        total = await repo.count(domain="automation")
+        
+        # Filter by state if specified
+        if state:
+            automation_list = [a for a in automation_list if a.state == state]
 
-    if not automation_list:
-        console.print("[yellow]No automations found. Run 'aether discover' first.[/yellow]")
-        return
+        if not automation_list:
+            console.print("[yellow]No automations found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(title=f"Automations ({len(automation_list)}/{total})", show_header=True)
+        # Extract data while session is active
+        rows = []
+        for auto in automation_list:
+            state_color = "green" if auto.state == "on" else "dim"
+            # Get mode from attributes if available
+            mode = auto.attributes.get("mode", "single") if auto.attributes else "single"
+            rows.append((
+                auto.entity_id,
+                auto.name or auto.entity_id,
+                f"[{state_color}]{auto.state}[/{state_color}]",
+                mode,
+            ))
+
+    table = Table(title=f"Automations ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
     table.add_column("Name")
     table.add_column("State", justify="center")
     table.add_column("Mode")
-    table.add_column("Triggers", justify="right")
-    table.add_column("Actions", justify="right")
 
-    for auto in automation_list:
-        state_color = "green" if auto.state == "on" else "dim"
-        table.add_row(
-            auto.entity_id,
-            auto.alias,
-            f"[{state_color}]{auto.state}[/{state_color}]",
-            auto.mode,
-            str(auto.trigger_count),
-            str(auto.action_count),
-        )
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
@@ -371,34 +385,40 @@ async def _list_scripts(limit: int) -> None:
     """List scripts from database."""
     from rich.table import Table
 
-    from src.dal.automations import ScriptRepository
+    from src.dal.entities import EntityRepository
     from src.storage import get_session
 
     async with get_session() as session:
-        repo = ScriptRepository(session)
-        script_list = await repo.list_all(limit=limit)
-        total = await repo.count()
+        repo = EntityRepository(session)
+        script_list = await repo.list_all(domain="script", limit=limit)
+        total = await repo.count(domain="script")
 
-    if not script_list:
-        console.print("[yellow]No scripts found. Run 'aether discover' first.[/yellow]")
-        return
+        if not script_list:
+            console.print("[yellow]No scripts found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(title=f"Scripts ({len(script_list)}/{total})", show_header=True)
+        rows = []
+        for script in script_list:
+            state_color = "green" if script.state == "on" else "dim"
+            mode = script.attributes.get("mode", "single") if script.attributes else "single"
+            icon = script.icon or (script.attributes.get("icon") if script.attributes else None) or "-"
+            rows.append((
+                script.entity_id,
+                script.name or script.entity_id,
+                f"[{state_color}]{script.state}[/{state_color}]",
+                mode,
+                icon,
+            ))
+
+    table = Table(title=f"Scripts ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
     table.add_column("Name")
     table.add_column("State", justify="center")
     table.add_column("Mode")
     table.add_column("Icon")
 
-    for script in script_list:
-        state_color = "green" if script.state == "on" else "dim"
-        table.add_row(
-            script.entity_id,
-            script.alias,
-            f"[{state_color}]{script.state}[/{state_color}]",
-            script.mode,
-            script.icon or "-",
-        )
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
@@ -418,29 +438,34 @@ async def _list_scenes(limit: int) -> None:
     """List scenes from database."""
     from rich.table import Table
 
-    from src.dal.automations import SceneRepository
+    from src.dal.entities import EntityRepository
     from src.storage import get_session
 
     async with get_session() as session:
-        repo = SceneRepository(session)
-        scene_list = await repo.list_all(limit=limit)
-        total = await repo.count()
+        repo = EntityRepository(session)
+        scene_list = await repo.list_all(domain="scene", limit=limit)
+        total = await repo.count(domain="scene")
 
-    if not scene_list:
-        console.print("[yellow]No scenes found. Run 'aether discover' first.[/yellow]")
-        return
+        if not scene_list:
+            console.print("[yellow]No scenes found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(title=f"Scenes ({len(scene_list)}/{total})", show_header=True)
+        rows = []
+        for scene in scene_list:
+            icon = scene.icon or (scene.attributes.get("icon") if scene.attributes else None) or "-"
+            rows.append((
+                scene.entity_id,
+                scene.name or scene.entity_id,
+                icon,
+            ))
+
+    table = Table(title=f"Scenes ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
     table.add_column("Name")
     table.add_column("Icon")
 
-    for scene in scene_list:
-        table.add_row(
-            scene.entity_id,
-            scene.name,
-            scene.icon or "-",
-        )
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
