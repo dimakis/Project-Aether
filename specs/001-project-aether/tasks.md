@@ -111,11 +111,11 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### API Framework
 
-- [ ] T018 Create src/api/__init__.py with FastAPI app factory
-- [ ] T019 Create src/api/main.py with FastAPI application, CORS, and middleware
-- [ ] T020 [P] Create src/api/routes/__init__.py with router registration
-- [ ] T021 [P] Create src/api/schemas/__init__.py with common Pydantic schemas (Error, HealthStatus, SystemStatus)
-- [ ] T022 Create health check endpoints GET /api/v1/health and GET /api/v1/status in src/api/routes/system.py
+- [x] T018 Create src/api/__init__.py with FastAPI app factory
+- [x] T019 Create src/api/main.py with FastAPI application, CORS, and middleware
+- [x] T020 [P] Create src/api/routes/__init__.py with router registration
+- [x] T021 [P] Create src/api/schemas/__init__.py with common Pydantic schemas (Error, HealthStatus, SystemStatus)
+- [x] T022 Create health check endpoints GET /api/v1/health and GET /api/v1/status in src/api/routes/system.py
 
 ### CLI Framework
 
