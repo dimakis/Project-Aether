@@ -153,34 +153,34 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Models for User Story 1
 
-- [ ] T028 [P] [US1] Create Entity model in src/storage/models.py per data-model.md (full schema with device_id, area_id, platform, device_class, supported_features, labels placeholder)
-- [ ] T029 [P] [US1] Create Area model in src/storage/models.py (id, ha_area_id, name, floor_id=null) - **Workaround: floor_id nullable until MCP supports floors**
-- [ ] T030 [P] [US1] Create Device model in src/storage/models.py (id, ha_device_id, name, area_id) - **Workaround: manufacturer/model/firmware null until MCP supports devices**
-- [ ] T031 [P] [US1] Create DiscoverySession model in src/storage/models.py (expanded with devices_found, areas_found, services_found counts)
-- [ ] T032 [P] [US1] Create HAAutomation model in src/storage/models.py per data-model.md (synced from HA via list_automations)
-- [ ] T033 [P] [US1] Create Script model in src/storage/models.py (entity_id FK, sequence=null) - **Workaround: sequence null until MCP supports script config**
-- [ ] T034 [P] [US1] Create Scene model in src/storage/models.py (entity_id FK, entity_states=null) - **Workaround: entity_states null until MCP supports scene config**
-- [ ] T035 [P] [US1] Create Service model in src/storage/models.py (domain, service, fields) - **Workaround: seed common services, expand as discovered**
-- [ ] T036 [US1] Create Alembic migration for all US1 models in alembic/versions/002_ha_registry.py
+- [x] T028 [P] [US1] Create Entity model in src/storage/models.py per data-model.md (full schema with device_id, area_id, platform, device_class, supported_features, labels placeholder)
+- [x] T029 [P] [US1] Create Area model in src/storage/models.py (id, ha_area_id, name, floor_id=null) - **Workaround: floor_id nullable until MCP supports floors**
+- [x] T030 [P] [US1] Create Device model in src/storage/models.py (id, ha_device_id, name, area_id) - **Workaround: manufacturer/model/firmware null until MCP supports devices**
+- [x] T031 [P] [US1] Create DiscoverySession model in src/storage/models.py (expanded with devices_found, areas_found, services_found counts)
+- [x] T032 [P] [US1] Create HAAutomation model in src/storage/models.py per data-model.md (synced from HA via list_automations)
+- [x] T033 [P] [US1] Create Script model in src/storage/models.py (entity_id FK, sequence=null) - **Workaround: sequence null until MCP supports script config**
+- [x] T034 [P] [US1] Create Scene model in src/storage/models.py (entity_id FK, entity_states=null) - **Workaround: entity_states null until MCP supports scene config**
+- [x] T035 [P] [US1] Create Service model in src/storage/models.py (domain, service, fields) - **Workaround: seed common services, expand as discovered**
+- [x] T036 [US1] Create Alembic migration for all US1 models in alembic/versions/002_ha_registry.py
 
 ### DAL Layer for User Story 1
 
-- [ ] T037 [US1] Create src/dal/__init__.py with DAL public interface
-- [ ] T038 [US1] Create src/dal/entities.py with Entity CRUD operations and caching
-- [ ] T039 [US1] Create src/dal/devices.py with Device CRUD - **Workaround: infer device_id from entity attributes**
-- [ ] T040 [US1] Create src/dal/areas.py with Area CRUD - **Workaround: extract unique area_ids from entities**
+- [x] T037 [US1] Create src/dal/__init__.py with DAL public interface
+- [x] T038 [US1] Create src/dal/entities.py with Entity CRUD operations and caching
+- [x] T039 [US1] Create src/dal/devices.py with Device CRUD - **Workaround: infer device_id from entity attributes**
+- [x] T040 [US1] Create src/dal/areas.py with Area CRUD - **Workaround: extract unique area_ids from entities**
 - [ ] T041 [US1] Create src/dal/automations.py with HAAutomation, Script, Scene CRUD
 - [ ] T042 [US1] Create src/dal/services.py with Service registry - **Workaround: seed common services from constants**
 - [ ] T043 [US1] Create src/dal/queries.py with natural language query interface using LLM
-- [ ] T044 [US1] Create src/dal/sync.py with HA synchronization orchestration
+- [x] T044 [US1] Create src/dal/sync.py with HA synchronization orchestration
 
 ### MCP Integration Layer for User Story 1
 
-- [ ] T045 [US1] Create src/mcp/__init__.py with MCP client wrapper interface
-- [ ] T046 [US1] Create src/mcp/client.py with hass-mcp tool invocation helpers
-- [ ] T047 [US1] Create src/mcp/parsers.py with response parsers for system_overview, list_entities, get_entity
-- [ ] T048 [US1] Create src/mcp/workarounds.py with device/area inference from entity attributes
-- [ ] T049 [US1] Create src/mcp/constants.py with common services seed data (light.turn_on, switch.toggle, etc.)
+- [x] T045 [US1] Create src/mcp/__init__.py with MCP client wrapper interface
+- [x] T046 [US1] Create src/mcp/client.py with hass-mcp tool invocation helpers
+- [x] T047 [US1] Create src/mcp/parsers.py with response parsers for system_overview, list_entities, get_entity
+- [x] T048 [US1] Create src/mcp/workarounds.py with device/area inference from entity attributes
+- [x] T049 [US1] Create src/mcp/constants.py with common services seed data (light.turn_on, switch.toggle, etc.)
 
 ### Librarian Agent for User Story 1
 
@@ -191,27 +191,27 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### API Endpoints for User Story 1
 
-- [ ] T054 [P] [US1] Create entity schemas in src/api/schemas/entities.py (Entity, EntityList, EntityQuery, EntityQueryResult)
-- [ ] T055 [P] [US1] Create device schemas in src/api/schemas/devices.py (Device, DeviceList)
-- [ ] T056 [P] [US1] Create area schemas in src/api/schemas/areas.py (Area, AreaList)
+- [x] T054 [P] [US1] Create entity schemas in src/api/schemas/entities.py (Entity, EntityList, EntityQuery, EntityQueryResult)
+- [x] T055 [P] [US1] Create device schemas in src/api/schemas/devices.py (Device, DeviceList)
+- [x] T056 [P] [US1] Create area schemas in src/api/schemas/areas.py (Area, AreaList)
 - [ ] T057 [P] [US1] Create automation schemas in src/api/schemas/ha_automations.py (HAAutomation, Script, Scene lists)
-- [ ] T058 [US1] Create src/api/routes/entities.py with GET /entities, GET /entities/{id}, POST /entities/query, POST /entities/sync
-- [ ] T059 [US1] Create src/api/routes/devices.py with GET /devices, GET /devices/{id}
-- [ ] T060 [US1] Create src/api/routes/areas.py with GET /areas, GET /areas/{id}
+- [x] T058 [US1] Create src/api/routes/entities.py with GET /entities, GET /entities/{id}, POST /entities/query, POST /entities/sync
+- [x] T059 [US1] Create src/api/routes/devices.py with GET /devices, GET /devices/{id}
+- [x] T060 [US1] Create src/api/routes/areas.py with GET /areas, GET /areas/{id}
 - [ ] T061 [US1] Create src/api/routes/ha_registry.py with GET /automations, /scripts, /scenes, /services
 
 ### CLI Commands for User Story 1
 
-- [ ] T062 [US1] Add `aether discover` command in src/cli/main.py to trigger Librarian discovery
-- [ ] T063 [US1] Add `aether entities list/query/show` commands in src/cli/main.py
+- [x] T062 [US1] Add `aether discover` command in src/cli/main.py to trigger Librarian discovery
+- [x] T063 [US1] Add `aether entities list/query/show` commands in src/cli/main.py
 - [ ] T064 [US1] Add `aether devices list/show` commands in src/cli/main.py
-- [ ] T065 [US1] Add `aether areas list/show` commands in src/cli/main.py
+- [x] T065 [US1] Add `aether areas list/show` commands in src/cli/main.py
 - [ ] T066 [US1] Add `aether automations/scripts/scenes/services list` commands in src/cli/main.py
 
 ### MCP Gap Tracking for User Story 1
 
 - [ ] T067 [US1] Create src/mcp/gaps.py with MCP capability gap tracker (log missing features with context)
-- [ ] T068 [US1] Add gap reporting to DiscoverySession (mcp_gaps_encountered JSONB field)
+- [x] T068 [US1] Add gap reporting to DiscoverySession (mcp_gaps_encountered JSONB field)
 - [ ] T069 [US1] Create `aether mcp-gaps report` CLI command to show what MCP enhancements would help
 
 ### Tests for User Story 1 (Constitution: Reliability & Quality)
