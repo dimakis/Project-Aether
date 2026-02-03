@@ -119,8 +119,8 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### CLI Framework
 
-- [ ] T023 Create src/cli/__init__.py with CLI app setup using Typer
-- [ ] T024 Create src/cli/main.py with CLI entry point and base commands (serve, discover, chat)
+- [x] T023 Create src/cli/__init__.py with CLI app setup using Typer
+- [x] T024 Create src/cli/main.py with CLI entry point and base commands (serve, discover, chat)
 
 ### Sandbox Infrastructure (Constitution: Isolation)
 
