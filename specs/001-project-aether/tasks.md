@@ -458,6 +458,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T124 [P] Create README.md with project overview, setup instructions, and usage examples
 - [ ] T125 [P] Create systemd unit files for production deployment in infrastructure/systemd/
 - [ ] T126 Run quickstart.md validation to ensure all setup steps work
+- [x] T144 [P] Add scripts/mlflow_local.sh and Makefile target for local MLflow server
 
 ### Error Handling & Observability
 
