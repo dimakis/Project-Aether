@@ -27,7 +27,8 @@ class MCPError(Exception):
 class MCPClientConfig(BaseModel):
     """Configuration for MCP client."""
 
-    ha_url: str = Field(..., description="Home Assistant URL")
+    ha_url: str = Field(..., description="Home Assistant URL (primary/local)")
+    ha_url_remote: str | None = Field(None, description="Home Assistant remote URL (fallback)")
     ha_token: str = Field(..., description="Home Assistant token")
     timeout: int = Field(default=30, description="Request timeout in seconds")
 
@@ -55,16 +56,106 @@ class MCPClient:
             settings = get_settings()
             config = MCPClientConfig(
                 ha_url=settings.ha_url,
+                ha_url_remote=settings.ha_url_remote,
                 ha_token=settings.ha_token.get_secret_value(),
             )
         self.config = config
         self._connected = False
+        self._active_url: str | None = None  # Which URL is currently working
 
     async def connect(self) -> None:
-        """Verify connection to Home Assistant."""
-        # In Cursor, tools are always available
-        # In production, this would verify the MCP server connection
-        self._connected = True
+        """Verify connection to Home Assistant.
+        
+        Tries local URL first, falls back to remote if configured.
+        """
+        import httpx
+
+        urls_to_try = [self.config.ha_url]
+        if self.config.ha_url_remote:
+            urls_to_try.append(self.config.ha_url_remote)
+
+        errors = []
+        for url in urls_to_try:
+            try:
+                async with httpx.AsyncClient(timeout=5) as client:
+                    response = await client.get(
+                        f"{url}/api/",
+                        headers={"Authorization": f"Bearer {self.config.ha_token}"},
+                    )
+                    if response.status_code == 200:
+                        self._active_url = url
+                        self._connected = True
+                        return
+                    errors.append(f"{url}: HTTP {response.status_code}")
+            except Exception as e:
+                errors.append(f"{url}: {type(e).__name__}")
+
+        raise MCPError(
+            f"All connection attempts failed: {'; '.join(errors)}",
+            "connect",
+        )
+
+    def _get_url(self) -> str:
+        """Get the active HA URL."""
+        return self._active_url or self.config.ha_url
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        json: dict | None = None,
+        params: dict | None = None,
+    ) -> Any:
+        """Make a request to HA, with automatic URL fallback.
+
+        Args:
+            method: HTTP method
+            path: API path (without base URL)
+            json: JSON body
+            params: Query parameters
+
+        Returns:
+            Response JSON
+        """
+        import httpx
+
+        # Build list of URLs to try
+        urls_to_try = []
+        if self._active_url:
+            urls_to_try.append(self._active_url)
+        if self.config.ha_url not in urls_to_try:
+            urls_to_try.append(self.config.ha_url)
+        if self.config.ha_url_remote and self.config.ha_url_remote not in urls_to_try:
+            urls_to_try.append(self.config.ha_url_remote)
+
+        errors = []
+        for url in urls_to_try:
+            try:
+                async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+                    response = await client.request(
+                        method,
+                        f"{url}{path}",
+                        headers={"Authorization": f"Bearer {self.config.ha_token}"},
+                        json=json,
+                        params=params,
+                    )
+                    if response.status_code in (200, 201):
+                        self._active_url = url  # Remember working URL
+                        return response.json() if response.content else {}
+                    elif response.status_code == 404:
+                        return None
+                    errors.append(f"{url}: HTTP {response.status_code}")
+            except httpx.ConnectError:
+                errors.append(f"{url}: Connection failed")
+            except httpx.TimeoutException:
+                errors.append(f"{url}: Timeout")
+            except Exception as e:
+                errors.append(f"{url}: {type(e).__name__}")
+
+        raise MCPError(
+            f"All connection attempts failed: {'; '.join(errors)}",
+            "request",
+        )
 
     async def get_version(self) -> str:
         """Get Home Assistant version.
@@ -72,19 +163,10 @@ class MCPClient:
         Returns:
             Version string (e.g., "2024.1.0")
         """
-        # This would invoke mcp_hass-mcp_get_version
-        # For now, we'll use httpx to call HA directly as fallback
-        import httpx
-
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-            response = await client.get(
-                f"{self.config.ha_url}/api/",
-                headers={"Authorization": f"Bearer {self.config.ha_token}"},
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("version", "unknown")
-            raise MCPError("Failed to get HA version", "get_version")
+        data = await self._request("GET", "/api/")
+        if data:
+            return data.get("version", "unknown")
+        raise MCPError("Failed to get HA version", "get_version")
 
     async def system_overview(self) -> dict[str, Any]:
         """Get comprehensive system overview.
@@ -92,39 +174,30 @@ class MCPClient:
         Returns:
             Dictionary with total_entities, domains, domain_samples, etc.
         """
-        import httpx
+        states = await self._request("GET", "/api/states")
+        if not states:
+            raise MCPError("Failed to get states", "system_overview")
 
-        # Fallback: call HA API directly
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-            response = await client.get(
-                f"{self.config.ha_url}/api/states",
-                headers={"Authorization": f"Bearer {self.config.ha_token}"},
-            )
-            if response.status_code != 200:
-                raise MCPError("Failed to get states", "system_overview")
+        # Build overview from states
+        domains: dict[str, dict[str, Any]] = {}
+        for state in states:
+            entity_id = state.get("entity_id", "")
+            domain = entity_id.split(".")[0] if "." in entity_id else "unknown"
+            entity_state = state.get("state", "unknown")
 
-            states = response.json()
+            if domain not in domains:
+                domains[domain] = {"count": 0, "states": {}}
 
-            # Build overview from states
-            domains: dict[str, dict[str, Any]] = {}
-            for state in states:
-                entity_id = state.get("entity_id", "")
-                domain = entity_id.split(".")[0] if "." in entity_id else "unknown"
-                entity_state = state.get("state", "unknown")
+            domains[domain]["count"] += 1
+            if entity_state not in domains[domain]["states"]:
+                domains[domain]["states"][entity_state] = 0
+            domains[domain]["states"][entity_state] += 1
 
-                if domain not in domains:
-                    domains[domain] = {"count": 0, "states": {}}
-
-                domains[domain]["count"] += 1
-                if entity_state not in domains[domain]["states"]:
-                    domains[domain]["states"][entity_state] = 0
-                domains[domain]["states"][entity_state] += 1
-
-            return {
-                "total_entities": len(states),
-                "domains": domains,
-                "domain_samples": {},  # Would need additional logic
-            }
+        return {
+            "total_entities": len(states),
+            "domains": domains,
+            "domain_samples": {},  # Would need additional logic
+        }
 
     async def list_entities(
         self,
@@ -144,56 +217,49 @@ class MCPClient:
         Returns:
             List of entity dictionaries
         """
-        import httpx
+        states = await self._request("GET", "/api/states")
+        if not states:
+            raise MCPError("Failed to list entities", "list_entities")
 
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-            response = await client.get(
-                f"{self.config.ha_url}/api/states",
-                headers={"Authorization": f"Bearer {self.config.ha_token}"},
-            )
-            if response.status_code != 200:
-                raise MCPError("Failed to list entities", "list_entities")
+        entities = []
 
-            states = response.json()
-            entities = []
+        for state in states:
+            entity_id = state.get("entity_id", "")
+            entity_domain = entity_id.split(".")[0] if "." in entity_id else ""
 
-            for state in states:
-                entity_id = state.get("entity_id", "")
-                entity_domain = entity_id.split(".")[0] if "." in entity_id else ""
+            # Filter by domain
+            if domain and entity_domain != domain:
+                continue
 
-                # Filter by domain
-                if domain and entity_domain != domain:
+            # Filter by search query
+            if search_query:
+                name = state.get("attributes", {}).get("friendly_name", entity_id)
+                if search_query.lower() not in name.lower() and search_query.lower() not in entity_id.lower():
                     continue
 
-                # Filter by search query
-                if search_query:
-                    name = state.get("attributes", {}).get("friendly_name", entity_id)
-                    if search_query.lower() not in name.lower() and search_query.lower() not in entity_id.lower():
-                        continue
+            entity = {
+                "entity_id": entity_id,
+                "state": state.get("state"),
+                "name": state.get("attributes", {}).get("friendly_name", entity_id),
+                "domain": entity_domain,
+            }
 
-                entity = {
-                    "entity_id": entity_id,
-                    "state": state.get("state"),
-                    "name": state.get("attributes", {}).get("friendly_name", entity_id),
-                    "domain": entity_domain,
-                }
+            if detailed:
+                entity["attributes"] = state.get("attributes", {})
+                entity["last_changed"] = state.get("last_changed")
+                entity["last_updated"] = state.get("last_updated")
 
-                if detailed:
-                    entity["attributes"] = state.get("attributes", {})
-                    entity["last_changed"] = state.get("last_changed")
-                    entity["last_updated"] = state.get("last_updated")
+            # Try to extract area_id from attributes
+            attrs = state.get("attributes", {})
+            if "area_id" in attrs:
+                entity["area_id"] = attrs["area_id"]
 
-                # Try to extract area_id from attributes
-                attrs = state.get("attributes", {})
-                if "area_id" in attrs:
-                    entity["area_id"] = attrs["area_id"]
+            entities.append(entity)
 
-                entities.append(entity)
+            if len(entities) >= limit:
+                break
 
-                if len(entities) >= limit:
-                    break
-
-            return entities
+        return entities
 
     async def get_entity(
         self,
@@ -209,34 +275,25 @@ class MCPClient:
         Returns:
             Entity dictionary or None if not found
         """
-        import httpx
+        state = await self._request("GET", f"/api/states/{entity_id}")
+        if not state:
+            return None
 
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-            response = await client.get(
-                f"{self.config.ha_url}/api/states/{entity_id}",
-                headers={"Authorization": f"Bearer {self.config.ha_token}"},
-            )
-            if response.status_code == 404:
-                return None
-            if response.status_code != 200:
-                raise MCPError(f"Failed to get entity {entity_id}", "get_entity")
+        domain = entity_id.split(".")[0] if "." in entity_id else ""
 
-            state = response.json()
-            domain = entity_id.split(".")[0] if "." in entity_id else ""
+        entity = {
+            "entity_id": entity_id,
+            "state": state.get("state"),
+            "name": state.get("attributes", {}).get("friendly_name", entity_id),
+            "domain": domain,
+        }
 
-            entity = {
-                "entity_id": entity_id,
-                "state": state.get("state"),
-                "name": state.get("attributes", {}).get("friendly_name", entity_id),
-                "domain": domain,
-            }
+        if detailed:
+            entity["attributes"] = state.get("attributes", {})
+            entity["last_changed"] = state.get("last_changed")
+            entity["last_updated"] = state.get("last_updated")
 
-            if detailed:
-                entity["attributes"] = state.get("attributes", {})
-                entity["last_changed"] = state.get("last_changed")
-                entity["last_updated"] = state.get("last_updated")
-
-            return entity
+        return entity
 
     async def domain_summary(
         self,
@@ -318,8 +375,6 @@ class MCPClient:
         Returns:
             Response from HA
         """
-        import httpx
-
         domain = entity_id.split(".")[0] if "." in entity_id else ""
         service = f"turn_{action}" if action in ("on", "off") else action
 
@@ -327,20 +382,8 @@ class MCPClient:
         if params:
             data.update(params)
 
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-            response = await client.post(
-                f"{self.config.ha_url}/api/services/{domain}/{service}",
-                headers={"Authorization": f"Bearer {self.config.ha_token}"},
-                json=data,
-            )
-            if response.status_code not in (200, 201):
-                raise MCPError(
-                    f"Failed to execute {action} on {entity_id}",
-                    "entity_action",
-                    {"status": response.status_code},
-                )
-
-            return {"success": True}
+        await self._request("POST", f"/api/services/{domain}/{service}", json=data)
+        return {"success": True}
 
     async def call_service(
         self,
@@ -358,22 +401,8 @@ class MCPClient:
         Returns:
             Response from HA
         """
-        import httpx
-
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-            response = await client.post(
-                f"{self.config.ha_url}/api/services/{domain}/{service}",
-                headers={"Authorization": f"Bearer {self.config.ha_token}"},
-                json=data or {},
-            )
-            if response.status_code not in (200, 201):
-                raise MCPError(
-                    f"Failed to call {domain}.{service}",
-                    "call_service",
-                    {"status": response.status_code},
-                )
-
-            return response.json() if response.content else {}
+        result = await self._request("POST", f"/api/services/{domain}/{service}", json=data or {})
+        return result or {}
 
     async def get_history(
         self,
@@ -389,39 +418,34 @@ class MCPClient:
         Returns:
             History data
         """
-        import httpx
         from datetime import datetime, timedelta, timezone
 
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(hours=hours)
 
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-            response = await client.get(
-                f"{self.config.ha_url}/api/history/period/{start_time.isoformat()}",
-                params={
-                    "filter_entity_id": entity_id,
-                    "end_time": end_time.isoformat(),
-                },
-                headers={"Authorization": f"Bearer {self.config.ha_token}"},
-            )
-            if response.status_code != 200:
-                raise MCPError(f"Failed to get history for {entity_id}", "get_history")
+        history = await self._request(
+            "GET",
+            f"/api/history/period/{start_time.isoformat()}",
+            params={
+                "filter_entity_id": entity_id,
+                "end_time": end_time.isoformat(),
+            },
+        )
 
-            history = response.json()
-            if not history or not history[0]:
-                return {"entity_id": entity_id, "states": [], "count": 0}
+        if not history or not history[0]:
+            return {"entity_id": entity_id, "states": [], "count": 0}
 
-            states = history[0]
-            return {
-                "entity_id": entity_id,
-                "states": [
-                    {"state": s.get("state"), "last_changed": s.get("last_changed")}
-                    for s in states
-                ],
-                "count": len(states),
-                "first_changed": states[0].get("last_changed") if states else None,
-                "last_changed": states[-1].get("last_changed") if states else None,
-            }
+        states = history[0]
+        return {
+            "entity_id": entity_id,
+            "states": [
+                {"state": s.get("state"), "last_changed": s.get("last_changed")}
+                for s in states
+            ],
+            "count": len(states),
+            "first_changed": states[0].get("last_changed") if states else None,
+            "last_changed": states[-1].get("last_changed") if states else None,
+        }
 
 
 # Singleton client

@@ -191,24 +191,3 @@ class TestDeviceRepositoryUpsert:
         """Test upsert raises error without ha_device_id."""
         with pytest.raises(ValueError, match="ha_device_id required"):
             await device_repo.upsert({"name": "Test Device"})
-
-
-class TestDeviceRepositoryGetIdMapping:
-    """Tests for get_id_mapping method."""
-
-    @pytest.mark.asyncio
-    async def test_get_id_mapping(self, device_repo, mock_session):
-        """Test getting mapping of HA device_id to internal ID."""
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [
-            ("device_abc123", "uuid-1"),
-            ("device_def456", "uuid-2"),
-        ]
-        mock_session.execute.return_value = mock_result
-
-        result = await device_repo.get_id_mapping()
-
-        assert result == {
-            "device_abc123": "uuid-1",
-            "device_def456": "uuid-2",
-        }

@@ -196,27 +196,33 @@ async def _list_entities(domain: str | None, limit: int) -> None:
         entities = await repo.list_all(domain=domain, limit=limit)
         total = await repo.count(domain=domain)
 
-    if not entities:
-        console.print("[yellow]No entities found. Run 'aether discover' first.[/yellow]")
-        return
+        if not entities:
+            console.print("[yellow]No entities found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(
-        title=f"Entities ({len(entities)}/{total})",
-        show_header=True,
-    )
-    table.add_column("Entity ID", style="cyan")
-    table.add_column("Name")
-    table.add_column("State", justify="center")
-    table.add_column("Area")
-
-    for entity in entities:
-        state_color = "green" if entity.state == "on" else "dim"
-        table.add_row(
-            entity.entity_id,
-            entity.name,
-            f"[{state_color}]{entity.state or 'unknown'}[/{state_color}]",
-            entity.area.name if entity.area else "-",
+        table = Table(
+            title=f"Entities ({len(entities)}/{total})",
+            show_header=True,
         )
+        table.add_column("Entity ID", style="cyan")
+        table.add_column("Name")
+        table.add_column("Domain")
+        table.add_column("State", justify="center")
+
+        # Extract data while session is active
+        rows = []
+        for entity in entities:
+            state_color = "green" if entity.state == "on" else "dim"
+            rows.append((
+                entity.entity_id,
+                entity.name or entity.entity_id,
+                entity.domain,
+                f"[{state_color}]{entity.state or 'unknown'}[/{state_color}]",
+            ))
+
+    # Build table outside session (data already extracted)
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
@@ -322,36 +328,44 @@ async def _list_automations(state: str | None, limit: int) -> None:
     """List automations from database."""
     from rich.table import Table
 
-    from src.dal.automations import AutomationRepository
+    from src.dal.entities import EntityRepository
     from src.storage import get_session
 
     async with get_session() as session:
-        repo = AutomationRepository(session)
-        automation_list = await repo.list_all(state=state, limit=limit)
-        total = await repo.count()
+        repo = EntityRepository(session)
+        # Query entities with domain='automation'
+        automation_list = await repo.list_all(domain="automation", limit=limit)
+        total = await repo.count(domain="automation")
+        
+        # Filter by state if specified
+        if state:
+            automation_list = [a for a in automation_list if a.state == state]
 
-    if not automation_list:
-        console.print("[yellow]No automations found. Run 'aether discover' first.[/yellow]")
-        return
+        if not automation_list:
+            console.print("[yellow]No automations found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(title=f"Automations ({len(automation_list)}/{total})", show_header=True)
+        # Extract data while session is active
+        rows = []
+        for auto in automation_list:
+            state_color = "green" if auto.state == "on" else "dim"
+            # Get mode from attributes if available
+            mode = auto.attributes.get("mode", "single") if auto.attributes else "single"
+            rows.append((
+                auto.entity_id,
+                auto.name or auto.entity_id,
+                f"[{state_color}]{auto.state}[/{state_color}]",
+                mode,
+            ))
+
+    table = Table(title=f"Automations ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
     table.add_column("Name")
     table.add_column("State", justify="center")
     table.add_column("Mode")
-    table.add_column("Triggers", justify="right")
-    table.add_column("Actions", justify="right")
 
-    for auto in automation_list:
-        state_color = "green" if auto.state == "on" else "dim"
-        table.add_row(
-            auto.entity_id,
-            auto.alias,
-            f"[{state_color}]{auto.state}[/{state_color}]",
-            auto.mode,
-            str(auto.trigger_count),
-            str(auto.action_count),
-        )
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
@@ -371,34 +385,40 @@ async def _list_scripts(limit: int) -> None:
     """List scripts from database."""
     from rich.table import Table
 
-    from src.dal.automations import ScriptRepository
+    from src.dal.entities import EntityRepository
     from src.storage import get_session
 
     async with get_session() as session:
-        repo = ScriptRepository(session)
-        script_list = await repo.list_all(limit=limit)
-        total = await repo.count()
+        repo = EntityRepository(session)
+        script_list = await repo.list_all(domain="script", limit=limit)
+        total = await repo.count(domain="script")
 
-    if not script_list:
-        console.print("[yellow]No scripts found. Run 'aether discover' first.[/yellow]")
-        return
+        if not script_list:
+            console.print("[yellow]No scripts found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(title=f"Scripts ({len(script_list)}/{total})", show_header=True)
+        rows = []
+        for script in script_list:
+            state_color = "green" if script.state == "on" else "dim"
+            mode = script.attributes.get("mode", "single") if script.attributes else "single"
+            icon = script.icon or (script.attributes.get("icon") if script.attributes else None) or "-"
+            rows.append((
+                script.entity_id,
+                script.name or script.entity_id,
+                f"[{state_color}]{script.state}[/{state_color}]",
+                mode,
+                icon,
+            ))
+
+    table = Table(title=f"Scripts ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
     table.add_column("Name")
     table.add_column("State", justify="center")
     table.add_column("Mode")
     table.add_column("Icon")
 
-    for script in script_list:
-        state_color = "green" if script.state == "on" else "dim"
-        table.add_row(
-            script.entity_id,
-            script.alias,
-            f"[{state_color}]{script.state}[/{state_color}]",
-            script.mode,
-            script.icon or "-",
-        )
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
@@ -418,29 +438,34 @@ async def _list_scenes(limit: int) -> None:
     """List scenes from database."""
     from rich.table import Table
 
-    from src.dal.automations import SceneRepository
+    from src.dal.entities import EntityRepository
     from src.storage import get_session
 
     async with get_session() as session:
-        repo = SceneRepository(session)
-        scene_list = await repo.list_all(limit=limit)
-        total = await repo.count()
+        repo = EntityRepository(session)
+        scene_list = await repo.list_all(domain="scene", limit=limit)
+        total = await repo.count(domain="scene")
 
-    if not scene_list:
-        console.print("[yellow]No scenes found. Run 'aether discover' first.[/yellow]")
-        return
+        if not scene_list:
+            console.print("[yellow]No scenes found. Run 'aether discover' first.[/yellow]")
+            return
 
-    table = Table(title=f"Scenes ({len(scene_list)}/{total})", show_header=True)
+        rows = []
+        for scene in scene_list:
+            icon = scene.icon or (scene.attributes.get("icon") if scene.attributes else None) or "-"
+            rows.append((
+                scene.entity_id,
+                scene.name or scene.entity_id,
+                icon,
+            ))
+
+    table = Table(title=f"Scenes ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
     table.add_column("Name")
     table.add_column("Icon")
 
-    for scene in scene_list:
-        table.add_row(
-            scene.entity_id,
-            scene.name,
-            scene.icon or "-",
-        )
+    for row in rows:
+        table.add_row(*row)
 
     console.print(table)
 
@@ -785,6 +810,496 @@ async def _check_components_directly() -> None:
             table.add_row("config", "[red]unhealthy[/red]", str(e)[:50])
 
     console.print(table)
+
+
+# =============================================================================
+# USER STORY 2: CHAT AND PROPOSALS COMMANDS
+# =============================================================================
+
+
+@app.command()
+def chat(
+    message: Annotated[
+        Optional[str],
+        typer.Argument(help="Initial message (or leave empty for interactive mode)"),
+    ] = None,
+    conversation_id: Annotated[
+        Optional[str],
+        typer.Option("--continue", "-c", help="Continue an existing conversation"),
+    ] = None,
+) -> None:
+    """Interactive chat with the Architect agent.
+
+    Start a conversation to design automations. The Architect will help
+    translate your requirements into Home Assistant automations.
+
+    Examples:
+        aether chat "Turn on lights when I get home"
+        aether chat --continue <conversation-id>
+        aether chat  # Interactive mode
+    """
+    asyncio.run(_chat_interactive(message, conversation_id))
+
+
+async def _chat_interactive(
+    initial_message: Optional[str],
+    conversation_id: Optional[str],
+) -> None:
+    """Run interactive chat session."""
+    from rich.markdown import Markdown
+    from rich.prompt import Prompt
+
+    from src.agents import ArchitectWorkflow
+    from src.dal import ConversationRepository, MessageRepository
+    from src.graph.state import ConversationState
+    from src.storage import get_session
+    from langchain_core.messages import HumanMessage, AIMessage
+
+    console.print(
+        Panel(
+            "[bold blue]Architect Chat[/bold blue]\n\n"
+            "Chat with the Architect to design automations.\n"
+            "Type [cyan]'exit'[/cyan] or [cyan]'quit'[/cyan] to end.\n"
+            "Type [cyan]'approve'[/cyan] to approve pending proposals.\n"
+            "Type [cyan]'reject'[/cyan] to reject pending proposals.",
+            title="🏗️ Architect Agent",
+            border_style="blue",
+        )
+    )
+
+    workflow = ArchitectWorkflow()
+    state: ConversationState | None = None
+    pending_proposal_id: str | None = None
+
+    async with get_session() as session:
+        conv_repo = ConversationRepository(session)
+        msg_repo = MessageRepository(session)
+
+        # Load existing conversation if specified
+        if conversation_id:
+            conv = await conv_repo.get_by_id(conversation_id, include_messages=True)
+            if conv:
+                console.print(f"[dim]Continuing conversation: {conversation_id}[/dim]\n")
+                # Show previous messages
+                for msg in conv.messages:
+                    if msg.role == "user":
+                        console.print(f"[bold cyan]You:[/bold cyan] {msg.content}")
+                    else:
+                        console.print(f"[bold green]Architect:[/bold green]")
+                        console.print(Markdown(msg.content))
+                console.print()
+
+                # Build state from history
+                state = ConversationState(
+                    conversation_id=conversation_id,
+                    messages=[
+                        HumanMessage(content=m.content) if m.role == "user"
+                        else AIMessage(content=m.content)
+                        for m in conv.messages
+                    ],
+                )
+            else:
+                console.print(f"[red]Conversation {conversation_id} not found.[/red]")
+                return
+
+        # Process initial message if provided
+        if initial_message:
+            console.print(f"[bold cyan]You:[/bold cyan] {initial_message}\n")
+
+            if state:
+                state = await workflow.continue_conversation(
+                    state=state,
+                    user_message=initial_message,
+                    session=session,
+                )
+            else:
+                state = await workflow.start_conversation(
+                    user_message=initial_message,
+                    session=session,
+                )
+
+            # Show response
+            if state.messages:
+                for msg in state.messages:
+                    if hasattr(msg, "type") and msg.type == "ai":
+                        console.print("[bold green]Architect:[/bold green]")
+                        console.print(Markdown(msg.content))
+                        break
+
+            # Check for proposals
+            if state.pending_approvals:
+                pending_proposal_id = state.pending_approvals[0].id
+                console.print(
+                    f"\n[yellow]📋 Proposal pending approval: {pending_proposal_id}[/yellow]"
+                )
+                console.print("[dim]Type 'approve' or 'reject <reason>' to respond.[/dim]\n")
+
+            await session.commit()
+
+        # Interactive loop
+        while True:
+            try:
+                user_input = Prompt.ask("\n[bold cyan]You[/bold cyan]")
+            except (KeyboardInterrupt, EOFError):
+                break
+
+            if not user_input:
+                continue
+
+            # Handle special commands
+            if user_input.lower() in ("exit", "quit", "q"):
+                console.print("[dim]Ending conversation.[/dim]")
+                break
+
+            if user_input.lower() == "approve" and pending_proposal_id:
+                from src.dal import ProposalRepository
+
+                proposal_repo = ProposalRepository(session)
+                await proposal_repo.approve(pending_proposal_id, "cli_user")
+                await session.commit()
+                console.print(f"[green]✅ Proposal {pending_proposal_id} approved![/green]")
+                console.print("[dim]Use 'aether proposals deploy <id>' to deploy.[/dim]")
+                pending_proposal_id = None
+                continue
+
+            if user_input.lower().startswith("reject") and pending_proposal_id:
+                reason = user_input[6:].strip() or "Rejected by user"
+                from src.dal import ProposalRepository
+
+                proposal_repo = ProposalRepository(session)
+                await proposal_repo.reject(pending_proposal_id, reason)
+                await session.commit()
+                console.print(f"[red]❌ Proposal rejected: {reason}[/red]")
+                pending_proposal_id = None
+                continue
+
+            # Process message
+            console.print()
+
+            if state:
+                state = await workflow.continue_conversation(
+                    state=state,
+                    user_message=user_input,
+                    session=session,
+                )
+            else:
+                state = await workflow.start_conversation(
+                    user_message=user_input,
+                    session=session,
+                )
+
+            # Show response
+            if state.messages:
+                for msg in reversed(state.messages):
+                    if hasattr(msg, "type") and msg.type == "ai":
+                        console.print("[bold green]Architect:[/bold green]")
+                        console.print(Markdown(msg.content))
+                        break
+
+            # Check for new proposals
+            if state.pending_approvals:
+                pending_proposal_id = state.pending_approvals[0].id
+                console.print(
+                    f"\n[yellow]📋 Proposal pending approval: {pending_proposal_id}[/yellow]"
+                )
+                console.print("[dim]Type 'approve' or 'reject <reason>' to respond.[/dim]")
+
+            await session.commit()
+
+    console.print("\n[dim]Chat session ended.[/dim]")
+
+
+# Proposals sub-command group
+proposals_app = typer.Typer(
+    name="proposals",
+    help="Manage automation proposals",
+    no_args_is_help=True,
+)
+app.add_typer(proposals_app, name="proposals")
+
+
+@proposals_app.command("list")
+def proposals_list(
+    status: Annotated[
+        Optional[str],
+        typer.Option("--status", "-s", help="Filter by status (proposed, approved, deployed, etc.)"),
+    ] = None,
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="Maximum number to show"),
+    ] = 20,
+) -> None:
+    """List automation proposals."""
+    asyncio.run(_list_proposals(status, limit))
+
+
+async def _list_proposals(status: Optional[str], limit: int) -> None:
+    """List proposals."""
+    from src.dal import ProposalRepository
+    from src.storage import get_session
+    from src.storage.entities import ProposalStatus
+
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+
+        # Get proposals
+        proposals = []
+        if status:
+            try:
+                status_filter = ProposalStatus(status.upper())
+                proposals = await repo.list_by_status(status_filter, limit=limit)
+            except ValueError:
+                console.print(f"[red]Invalid status: {status}[/red]")
+                return
+        else:
+            for s in ProposalStatus:
+                proposals.extend(await repo.list_by_status(s, limit=limit))
+            proposals = sorted(proposals, key=lambda p: p.created_at, reverse=True)[:limit]
+
+        if not proposals:
+            console.print("[dim]No proposals found.[/dim]")
+            return
+
+        table = Table(title=f"Proposals ({len(proposals)})", show_header=True)
+        table.add_column("ID", style="cyan", max_width=12)
+        table.add_column("Name", max_width=30)
+        table.add_column("Status")
+        table.add_column("Created")
+
+        status_colors = {
+            "draft": "dim",
+            "proposed": "yellow",
+            "approved": "green",
+            "rejected": "red",
+            "deployed": "blue",
+            "rolled_back": "magenta",
+            "archived": "dim",
+        }
+
+        for p in proposals:
+            color = status_colors.get(p.status.value, "white")
+            table.add_row(
+                p.id[:12] + "...",
+                p.name[:30],
+                f"[{color}]{p.status.value}[/{color}]",
+                p.created_at.strftime("%Y-%m-%d %H:%M") if p.created_at else "-",
+            )
+
+        console.print(table)
+
+
+@proposals_app.command("show")
+def proposals_show(
+    proposal_id: Annotated[str, typer.Argument(help="Proposal ID")],
+) -> None:
+    """Show details of a proposal."""
+    asyncio.run(_show_proposal(proposal_id))
+
+
+async def _show_proposal(proposal_id: str) -> None:
+    """Show proposal details."""
+    from src.dal import ProposalRepository
+    from src.storage import get_session
+
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            console.print(f"[red]Proposal {proposal_id} not found.[/red]")
+            return
+
+        # Generate YAML
+        import yaml
+
+        yaml_content = yaml.dump(proposal.to_ha_yaml_dict(), default_flow_style=False)
+
+        console.print(
+            Panel(
+                f"[bold]Name:[/bold] {proposal.name}\n"
+                f"[bold]Status:[/bold] {proposal.status.value}\n"
+                f"[bold]Mode:[/bold] {proposal.mode}\n"
+                f"[bold]Description:[/bold] {proposal.description or 'N/A'}\n\n"
+                f"[bold]Approved by:[/bold] {proposal.approved_by or 'N/A'}\n"
+                f"[bold]HA Automation ID:[/bold] {proposal.ha_automation_id or 'N/A'}\n\n"
+                f"[bold]YAML:[/bold]\n```yaml\n{yaml_content}```",
+                title=f"📋 Proposal {proposal_id[:12]}...",
+                border_style="blue",
+            )
+        )
+
+
+@proposals_app.command("approve")
+def proposals_approve(
+    proposal_id: Annotated[str, typer.Argument(help="Proposal ID to approve")],
+    user: Annotated[
+        str,
+        typer.Option("--user", "-u", help="Approver name"),
+    ] = "cli_user",
+) -> None:
+    """Approve a pending proposal."""
+    asyncio.run(_approve_proposal(proposal_id, user))
+
+
+async def _approve_proposal(proposal_id: str, user: str) -> None:
+    """Approve a proposal."""
+    from src.dal import ProposalRepository
+    from src.storage import get_session
+    from src.storage.entities import ProposalStatus
+
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            console.print(f"[red]Proposal {proposal_id} not found.[/red]")
+            return
+
+        if proposal.status != ProposalStatus.PROPOSED:
+            console.print(
+                f"[red]Cannot approve proposal in status {proposal.status.value}.[/red]"
+            )
+            return
+
+        await repo.approve(proposal_id, user)
+        await session.commit()
+
+        console.print(f"[green]✅ Proposal {proposal_id[:12]}... approved![/green]")
+        console.print("[dim]Use 'aether proposals deploy <id>' to deploy.[/dim]")
+
+
+@proposals_app.command("reject")
+def proposals_reject(
+    proposal_id: Annotated[str, typer.Argument(help="Proposal ID to reject")],
+    reason: Annotated[str, typer.Argument(help="Rejection reason")],
+) -> None:
+    """Reject a pending proposal."""
+    asyncio.run(_reject_proposal(proposal_id, reason))
+
+
+async def _reject_proposal(proposal_id: str, reason: str) -> None:
+    """Reject a proposal."""
+    from src.dal import ProposalRepository
+    from src.storage import get_session
+    from src.storage.entities import ProposalStatus
+
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            console.print(f"[red]Proposal {proposal_id} not found.[/red]")
+            return
+
+        if proposal.status not in (ProposalStatus.PROPOSED, ProposalStatus.APPROVED):
+            console.print(
+                f"[red]Cannot reject proposal in status {proposal.status.value}.[/red]"
+            )
+            return
+
+        await repo.reject(proposal_id, reason)
+        await session.commit()
+
+        console.print(f"[red]❌ Proposal {proposal_id[:12]}... rejected.[/red]")
+
+
+@proposals_app.command("deploy")
+def proposals_deploy(
+    proposal_id: Annotated[str, typer.Argument(help="Proposal ID to deploy")],
+) -> None:
+    """Deploy an approved proposal to Home Assistant."""
+    asyncio.run(_deploy_proposal(proposal_id))
+
+
+async def _deploy_proposal(proposal_id: str) -> None:
+    """Deploy a proposal."""
+    from src.agents import DeveloperWorkflow
+    from src.dal import ProposalRepository
+    from src.storage import get_session
+    from src.storage.entities import ProposalStatus
+
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            console.print(f"[red]Proposal {proposal_id} not found.[/red]")
+            return
+
+        if proposal.status != ProposalStatus.APPROVED:
+            console.print(
+                f"[red]Cannot deploy proposal in status {proposal.status.value}. "
+                f"Must be approved first.[/red]"
+            )
+            return
+
+        console.print(f"[yellow]Deploying proposal {proposal_id[:12]}...[/yellow]")
+
+        workflow = DeveloperWorkflow()
+
+        try:
+            result = await workflow.deploy(proposal_id, session)
+            await session.commit()
+
+            console.print(f"[green]✅ Deployment successful![/green]")
+            console.print(f"[dim]Method: {result.get('deployment_method', 'manual')}[/dim]")
+            console.print(f"[dim]HA Automation ID: {result.get('ha_automation_id', 'N/A')}[/dim]")
+
+            if result.get("instructions"):
+                console.print("\n[yellow]Manual steps required:[/yellow]")
+                console.print(result["instructions"])
+
+        except Exception as e:
+            console.print(f"[red]Deployment failed: {e}[/red]")
+
+
+@proposals_app.command("rollback")
+def proposals_rollback(
+    proposal_id: Annotated[str, typer.Argument(help="Proposal ID to rollback")],
+) -> None:
+    """Rollback a deployed proposal."""
+    asyncio.run(_rollback_proposal(proposal_id))
+
+
+async def _rollback_proposal(proposal_id: str) -> None:
+    """Rollback a proposal."""
+    from src.agents import DeveloperWorkflow
+    from src.dal import ProposalRepository
+    from src.storage import get_session
+    from src.storage.entities import ProposalStatus
+
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            console.print(f"[red]Proposal {proposal_id} not found.[/red]")
+            return
+
+        if proposal.status != ProposalStatus.DEPLOYED:
+            console.print(
+                f"[red]Cannot rollback proposal in status {proposal.status.value}. "
+                f"Must be deployed.[/red]"
+            )
+            return
+
+        console.print(f"[yellow]Rolling back proposal {proposal_id[:12]}...[/yellow]")
+
+        workflow = DeveloperWorkflow()
+
+        try:
+            result = await workflow.rollback(proposal_id, session)
+            await session.commit()
+
+            if result.get("rolled_back"):
+                console.print(f"[green]✅ Rollback successful![/green]")
+                if result.get("note"):
+                    console.print(f"[dim]{result['note']}[/dim]")
+            else:
+                console.print(f"[red]Rollback failed: {result.get('error', 'Unknown')}[/red]")
+
+        except Exception as e:
+            console.print(f"[red]Rollback failed: {e}[/red]")
 
 
 @app.command()

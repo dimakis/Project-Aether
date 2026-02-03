@@ -6,7 +6,7 @@ Loads configuration from environment variables with .env file support.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, SecretStr
+from pydantic import AliasChoices, Field, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,  # Allow both field name and alias
     )
 
     # Environment
@@ -36,11 +37,18 @@ class Settings(BaseSettings):
     # Home Assistant MCP
     ha_url: str = Field(
         default="http://localhost:8123",
-        description="Home Assistant instance URL",
+        description="Home Assistant instance URL (primary/local)",
+        validation_alias=AliasChoices("ha_url", "hass_url"),
+    )
+    ha_url_remote: str | None = Field(
+        default=None,
+        description="Home Assistant remote URL (fallback if local fails)",
+        validation_alias=AliasChoices("ha_url_remote", "hass_remote_url"),
     )
     ha_token: SecretStr = Field(
         default=SecretStr(""),
         description="Home Assistant long-lived access token",
+        validation_alias=AliasChoices("ha_token", "hass_token"),
     )
 
     # OpenAI (Research Decision #6)

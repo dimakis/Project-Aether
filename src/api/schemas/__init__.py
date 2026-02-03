@@ -12,6 +12,17 @@ from pydantic import BaseModel, Field
 
 # Import entity schemas
 from src.api.schemas.areas import AreaListResponse, AreaResponse
+from src.api.schemas.conversations import (
+    ChatRequest,
+    ChatResponse,
+    ConversationCreate,
+    ConversationDetailResponse,
+    ConversationListResponse,
+    ConversationResponse,
+    MessageCreate,
+    MessageResponse,
+    StreamChunk,
+)
 from src.api.schemas.devices import DeviceListResponse, DeviceResponse
 from src.api.schemas.entities import (
     EntityListResponse,
@@ -33,6 +44,18 @@ from src.api.schemas.ha_automations import (
     ServiceCallResponse,
     ServiceListResponse,
     ServiceResponse,
+)
+from src.api.schemas.proposals import (
+    ApprovalRequest,
+    DeploymentRequest,
+    DeploymentResponse,
+    ProposalCreate,
+    ProposalListResponse,
+    ProposalResponse,
+    ProposalYAMLResponse,
+    RejectionRequest,
+    RollbackRequest,
+    RollbackResponse,
 )
 
 T = TypeVar("T")
@@ -194,4 +217,25 @@ __all__ = [
     "ServiceCallResponse",
     # HA Registry
     "HARegistrySummary",
+    # Conversations (US2)
+    "ConversationCreate",
+    "ConversationResponse",
+    "ConversationDetailResponse",
+    "ConversationListResponse",
+    "MessageCreate",
+    "MessageResponse",
+    "ChatRequest",
+    "ChatResponse",
+    "StreamChunk",
+    # Proposals (US2)
+    "ProposalCreate",
+    "ProposalResponse",
+    "ProposalYAMLResponse",
+    "ProposalListResponse",
+    "ApprovalRequest",
+    "RejectionRequest",
+    "DeploymentRequest",
+    "DeploymentResponse",
+    "RollbackRequest",
+    "RollbackResponse",
 ]

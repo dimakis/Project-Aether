@@ -4,6 +4,15 @@ Provides a typed interface to the hass-mcp tools with
 parsing, error handling, and workarounds for MCP gaps.
 """
 
+from src.mcp.automation_deploy import (
+    AutomationDeployer,
+    build_condition,
+    build_delay_action,
+    build_service_action,
+    build_state_trigger,
+    build_sun_trigger,
+    build_time_trigger,
+)
 from src.mcp.client import MCPClient, get_mcp_client
 from src.mcp.constants import COMMON_SERVICES
 from src.mcp.parsers import (
@@ -28,6 +37,14 @@ __all__ = [
     # Workarounds
     "infer_devices_from_entities",
     "infer_areas_from_entities",
+    # Automation Deployment
+    "AutomationDeployer",
+    "build_state_trigger",
+    "build_time_trigger",
+    "build_sun_trigger",
+    "build_service_action",
+    "build_delay_action",
+    "build_condition",
     # Constants
     "COMMON_SERVICES",
 ]

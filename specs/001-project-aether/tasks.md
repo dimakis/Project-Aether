@@ -226,13 +226,13 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T076 [P] [US1] Create tests/unit/test_librarian.py - Agent logic with mocked MCP
 
 **Integration Tests**:
-- [ ] T077 [US1] Create tests/integration/test_dal_db.py - DAL against real PostgreSQL
-- [ ] T078 [US1] Create tests/integration/test_discovery_workflow.py - LangGraph workflow with mocked MCP
+- [x] T077 [US1] Create tests/integration/test_dal_db.py - DAL against real PostgreSQL (commit: 1821985)
+- [x] T078 [US1] Create tests/integration/test_discovery_workflow.py - LangGraph workflow with mocked MCP (commit: 1821985)
 - [x] T079 [US1] Create tests/integration/test_api_entities.py - FastAPI routes with TestClient
 
 **E2E Tests**:
 - [x] T080 [US1] Create tests/e2e/test_discovery_flow.py - Full discovery with mock HA
-- [ ] T081 [US1] Create tests/e2e/test_entity_query.py - NL query end-to-end
+- [x] T081 [US1] Create tests/e2e/test_entity_query.py - NL query end-to-end (commit: 1821985)
 
 **Checkpoint**: User Story 1 complete - entities discoverable, stored, and queryable via NL
 
@@ -255,63 +255,63 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Models for User Story 2
 
-- [ ] T070 [P] [US2] Create Conversation model in src/storage/models.py (id, agent_id, user_id, title, status, context, created_at, updated_at)
-- [ ] T071 [P] [US2] Create Message model in src/storage/models.py (id, conversation_id, role, content, tool_calls, tool_results, tokens_used, latency_ms, mlflow_span_id)
-- [ ] T072 [P] [US2] Create AutomationProposal model in src/storage/models.py per data-model.md (with HITL state machine)
-- [ ] T073 [US2] Create Alembic migration for Conversation, Message, AutomationProposal tables in alembic/versions/003_conversations.py
+- [x] T070 [P] [US2] Create Conversation model in src/storage/models.py (id, agent_id, user_id, title, status, context, created_at, updated_at) (commit: 1011c15)
+- [x] T071 [P] [US2] Create Message model in src/storage/models.py (id, conversation_id, role, content, tool_calls, tool_results, tokens_used, latency_ms, mlflow_span_id) (commit: 1011c15)
+- [x] T072 [P] [US2] Create AutomationProposal model in src/storage/models.py per data-model.md (with HITL state machine) (commit: 1011c15)
+- [x] T073 [US2] Create Alembic migration for Conversation, Message, AutomationProposal tables in alembic/versions/003_conversations.py (commit: 1011c15)
 
 ### Storage Layer for User Story 2
 
-- [ ] T074 [US2] Create src/storage/conversations.py with conversation and message CRUD operations
+- [x] T074 [US2] Create src/dal/conversations.py with conversation and message CRUD operations (commit: 5d20225)
 
 ### Architect Agent for User Story 2
 
-- [ ] T075 [US2] Create src/agents/architect.py with conversational automation design using OpenAI Responses API
-- [ ] T076 [US2] Create src/agents/developer.py with automation deployment to HA via call_service_tool
-- [ ] T077 [US2] Add Architect and Developer nodes to src/graph/nodes.py (propose, refine, approve_gate, deploy, rollback)
-- [ ] T078 [US2] Add conversation workflow to src/graph/workflows.py with HITL interrupt_before at approval gate
+- [x] T075 [US2] Create src/agents/architect.py with conversational automation design using OpenAI Responses API (commit: 1e0e233)
+- [x] T076 [US2] Create src/agents/developer.py with automation deployment to HA via call_service_tool (commit: 1e0e233)
+- [x] T077 [US2] Add Architect and Developer nodes to src/graph/nodes.py (propose, refine, approve_gate, deploy, rollback) (commit: 1e0e233)
+- [x] T078 [US2] Add conversation workflow to src/graph/workflows.py with HITL interrupt_before at approval gate (commit: 1e0e233)
 
 ### HITL Approval Flow (Constitution: Safety First)
 
-- [ ] T079 [US2] Create ApprovalState in src/graph/state.py with proposal, user_decision, timestamp
-- [ ] T080 [US2] Implement LangGraph interrupt_before for HITL approval in src/graph/workflows.py
+- [x] T079 [US2] Create ApprovalState in src/graph/state.py with proposal, user_decision, timestamp (commit: 86faa4b)
+- [x] T080 [US2] Implement LangGraph interrupt_before for HITL approval in src/graph/workflows.py (commit: 1e0e233)
 
 ### Automation Deployment via MCP
 
-- [ ] T081 [US2] Create src/mcp/automation_deploy.py with automation YAML generation
-- [ ] T082 [US2] Implement deployment via `call_service_tool` to `automation.reload` after file creation
-- [ ] T083 [US2] **Workaround**: Store automation YAML locally, use HA config reload - **Note: Direct automation creation requires HA REST API or file access**
+- [x] T081 [US2] Create src/mcp/automation_deploy.py with automation YAML generation (commit: f6c2224)
+- [x] T082 [US2] Implement deployment via `call_service_tool` to `automation.reload` after file creation (commit: f6c2224)
+- [x] T083 [US2] **Workaround**: Store automation YAML locally, use HA config reload - **Note: Direct automation creation requires HA REST API or file access** (commit: f6c2224)
 
 ### API Endpoints for User Story 2
 
-- [ ] T084 [P] [US2] Create conversation schemas in src/api/schemas/conversations.py (Conversation, ConversationCreate, Message, MessageCreate)
-- [ ] T085 [P] [US2] Create proposal schemas in src/api/schemas/proposals.py (AutomationProposal, ApprovalRequest, RejectionRequest)
-- [ ] T086 [US2] Create src/api/routes/chat.py with GET/POST /conversations, GET /conversations/{id}, POST /conversations/{id}/messages
-- [ ] T087 [US2] Add WebSocket endpoint for streaming at /conversations/{id}/stream in src/api/routes/chat.py
-- [ ] T088 [US2] Create src/api/routes/proposals.py with GET /proposals, GET /proposals/{id}, POST approve/reject/deploy/rollback
+- [x] T084 [P] [US2] Create conversation schemas in src/api/schemas/conversations.py (Conversation, ConversationCreate, Message, MessageCreate) (commit: 4a2b7e9)
+- [x] T085 [P] [US2] Create proposal schemas in src/api/schemas/proposals.py (AutomationProposal, ApprovalRequest, RejectionRequest) (commit: 4a2b7e9)
+- [x] T086 [US2] Create src/api/routes/chat.py with GET/POST /conversations, GET /conversations/{id}, POST /conversations/{id}/messages (commit: 4a2b7e9)
+- [x] T087 [US2] Add WebSocket endpoint for streaming at /conversations/{id}/stream in src/api/routes/chat.py (commit: 4a2b7e9)
+- [x] T088 [US2] Create src/api/routes/proposals.py with GET /proposals, GET /proposals/{id}, POST approve/reject/deploy/rollback (commit: 4a2b7e9)
 
 ### CLI Commands for User Story 2
 
-- [ ] T089 [US2] Add `aether chat` interactive command in src/cli/main.py
-- [ ] T090 [US2] Add `aether proposals list/approve/reject/rollback` commands in src/cli/main.py
+- [x] T089 [US2] Add `aether chat` interactive command in src/cli/main.py (commit: 78c484a)
+- [x] T090 [US2] Add `aether proposals list/approve/reject/rollback` commands in src/cli/main.py (commit: 78c484a)
 
 ### Tests for User Story 2 (Constitution: Reliability & Quality)
 
 **Unit Tests**:
-- [ ] T091 [P] [US2] Create tests/unit/test_storage_conversations.py - Conversation/Message CRUD
-- [ ] T092 [P] [US2] Create tests/unit/test_architect_agent.py - Proposal generation (mock LLM)
-- [ ] T093 [P] [US2] Create tests/unit/test_developer_agent.py - Deployment logic (mock MCP)
-- [ ] T094 [P] [US2] Create tests/unit/test_approval_state.py - HITL state machine transitions
-- [ ] T095 [P] [US2] Create tests/unit/test_automation_yaml.py - YAML generation validation
+- [x] T091 [P] [US2] Create tests/unit/test_storage_conversations.py - Conversation/Message CRUD (commit: cd7ac6e)
+- [x] T092 [P] [US2] Create tests/unit/test_architect_agent.py - Proposal generation (mock LLM) (commit: cd7ac6e)
+- [x] T093 [P] [US2] Create tests/unit/test_developer_agent.py - Deployment logic (mock MCP) (commit: cd7ac6e)
+- [x] T094 [P] [US2] Create tests/unit/test_approval_state.py - HITL state machine transitions (commit: cd7ac6e)
+- [x] T095 [P] [US2] Create tests/unit/test_automation_yaml.py - YAML generation validation (commit: cd7ac6e)
 
 **Integration Tests**:
-- [ ] T096 [US2] Create tests/integration/test_conversation_workflow.py - Full conversation flow with mocks
-- [ ] T097 [US2] Create tests/integration/test_hitl_interrupt.py - LangGraph interrupt_before behavior
-- [ ] T098 [US2] Create tests/integration/test_api_chat.py - Chat API with WebSocket
+- [x] T096 [US2] Create tests/integration/test_conversation_workflow.py - Full conversation flow with mocks
+- [x] T097 [US2] Create tests/integration/test_hitl_interrupt.py - LangGraph interrupt_before behavior
+- [x] T098 [US2] Create tests/integration/test_api_chat.py - Chat API with WebSocket
 
 **E2E Tests**:
-- [ ] T099 [US2] Create tests/e2e/test_automation_design.py - Full conversation → proposal → approval
-- [ ] T100 [US2] Create tests/e2e/test_automation_rollback.py - Deploy and rollback flow
+- [x] T099 [US2] Create tests/e2e/test_automation_design.py - Full conversation → proposal → approval
+- [x] T100 [US2] Create tests/e2e/test_automation_rollback.py - Deploy and rollback flow
 
 **Checkpoint**: User Story 2 complete - conversational automation design with HITL approval working
 

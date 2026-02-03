@@ -239,13 +239,13 @@ class TestExtractEntityMetadata:
         assert result["icon"] == "mdi:lightbulb"
 
     def test_handles_no_attributes(self):
-        """Test with entity without attributes."""
+        """Test with entity without attributes (defaults to empty dict)."""
         entity = ParsedEntity(
             entity_id="switch.test",
             domain="switch",
             name="Test",
             state="off",
-            attributes=None,
+            # attributes defaults to {}
         )
 
         result = extract_entity_metadata(entity)

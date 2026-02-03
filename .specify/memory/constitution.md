@@ -1,8 +1,8 @@
 <!--
 Sync Impact Report:
-Version: 1.1.0 → 1.2.0 (MINOR: Added Reliability & Quality principle with comprehensive testing requirements)
-Modified Principles: None
-Added Sections: V. Reliability & Quality (Testing Pyramid)
+Version: 1.2.0 → 1.3.0 (MINOR: Added TDD workflow requirement with atomic test+implementation commits)
+Modified Principles: V. Reliability & Quality (expanded with TDD workflow)
+Added Sections: TDD Workflow subsection
 Removed Sections: None
 Templates Requiring Updates:
   ✅ plan-template.md - Should verify test strategy section exists
@@ -10,7 +10,7 @@ Templates Requiring Updates:
   ✅ spec-template.md - No updates needed
   ✅ .cursor/commands/speckit.constitution.md - No updates needed
 Follow-up TODOs: 
-  - Update tasks.md to include comprehensive test tasks
+  - Ensure all future tasks follow TDD workflow
 -->
 
 # Aether Home Architect Constitution
@@ -63,6 +63,51 @@ All code MUST be enterprise-grade with comprehensive test coverage following the
 - Tests MUST run in CI before merge
 - Flaky tests are bugs and must be fixed immediately
 - Test code follows same quality standards as production code
+
+**TDD Workflow (Required)**:
+
+Tests MUST be written FIRST and committed ATOMICALLY with their implementation. Batching tests at the end leads to incorrect assumptions, multiple fix cycles, and wasted effort. The required workflow for each task:
+
+```
+For each task T0XX:
+  1. WRITE TEST FIRST
+     - Create test file with expected behavior
+     - Test should define the API contract (method names, parameters, return types)
+  
+  2. RUN TEST → SEE IT FAIL (Red)
+     - Confirms test is valid and not passing accidentally
+     - Example: "ModuleNotFoundError" or "AssertionError"
+  
+  3. IMPLEMENT THE FEATURE
+     - Write minimum code to make the test pass
+     - Follow the contract defined by the test
+  
+  4. RUN TEST → SEE IT PASS (Green)
+     - All assertions should pass
+     - No modifications to test assertions allowed at this stage
+  
+  5. REFACTOR (if needed)
+     - Clean up implementation
+     - Tests must still pass after refactoring
+  
+  6. COMMIT TEST + IMPLEMENTATION TOGETHER
+     - Single atomic commit with both test and implementation
+     - Commit message: "feat(scope): T0XX description"
+     - Update tasks.md with commit hash
+```
+
+**TDD Benefits**:
+- Tests define the API contract BEFORE implementation
+- Method signatures, parameter names, and return types are validated immediately
+- No "bolted-on" tests with wrong assumptions
+- Each commit is self-contained and independently verifiable
+- Faster feedback loops catch issues immediately
+
+**Anti-patterns (Prohibited)**:
+- ❌ Writing all implementation first, then batching tests
+- ❌ Modifying test assertions to match incorrect implementation
+- ❌ Committing tests separately from their implementation
+- ❌ Skipping the "red" phase (test must fail first)
 
 **Quality Gates**:
 - Pre-commit hooks: `ruff` (lint), `ruff format` (format), `mypy` (type check)
@@ -118,4 +163,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.2.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-03
+**Version**: 1.3.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-03

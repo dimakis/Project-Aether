@@ -149,6 +149,88 @@ class HITLApproval(BaseModel):
     rejection_reason: str | None = None
 
 
+class ApprovalDecision(StrEnum):
+    """User decision for HITL approval."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class ApprovalState(BaseModel):
+    """State for HITL approval workflow.
+
+    Tracks the approval decision for a proposal, including
+    who made the decision and when.
+
+    Constitution: Safety First - All automations require explicit
+    human approval before deployment.
+    """
+
+    proposal_id: str = Field(description="ID of the proposal being approved")
+    proposal_name: str = Field(description="Name of the automation for display")
+    proposal_yaml: str = Field(description="YAML content for review")
+    user_decision: ApprovalDecision = Field(
+        default=ApprovalDecision.PENDING,
+        description="Current approval status",
+    )
+    decided_by: str | None = Field(
+        default=None,
+        description="Who made the decision (user ID)",
+    )
+    decided_at: datetime | None = Field(
+        default=None,
+        description="When the decision was made",
+    )
+    rejection_reason: str | None = Field(
+        default=None,
+        description="Why the proposal was rejected (if applicable)",
+    )
+    comment: str | None = Field(
+        default=None,
+        description="Optional comment from approver",
+    )
+
+    def approve(self, approved_by: str, comment: str | None = None) -> None:
+        """Approve the proposal.
+
+        Args:
+            approved_by: Who approved
+            comment: Optional comment
+        """
+        self.user_decision = ApprovalDecision.APPROVED
+        self.decided_by = approved_by
+        self.decided_at = datetime.utcnow()
+        self.comment = comment
+
+    def reject(self, rejected_by: str, reason: str) -> None:
+        """Reject the proposal.
+
+        Args:
+            rejected_by: Who rejected
+            reason: Why it was rejected
+        """
+        self.user_decision = ApprovalDecision.REJECTED
+        self.decided_by = rejected_by
+        self.decided_at = datetime.utcnow()
+        self.rejection_reason = reason
+
+    @property
+    def is_pending(self) -> bool:
+        """Check if still pending."""
+        return self.user_decision == ApprovalDecision.PENDING
+
+    @property
+    def is_approved(self) -> bool:
+        """Check if approved."""
+        return self.user_decision == ApprovalDecision.APPROVED
+
+    @property
+    def is_rejected(self) -> bool:
+        """Check if rejected."""
+        return self.user_decision == ApprovalDecision.REJECTED
+
+
 class ConversationState(MessageState):
     """State for user-agent conversation.
 
@@ -277,6 +359,7 @@ __all__ = [
     "ConversationStatus",
     "DiscoveryStatus",
     "AnalysisType",
+    "ApprovalDecision",
     # Base states
     "BaseState",
     "MessageState",
@@ -285,6 +368,7 @@ __all__ = [
     "DiscoveryState",
     # Conversation
     "HITLApproval",
+    "ApprovalState",
     "ConversationState",
     # Analysis
     "ScriptExecution",

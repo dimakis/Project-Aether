@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from src.graph.state import AgentRole, BaseState
 from src.settings import get_settings
-from src.tracing import get_mlflow_client, start_experiment_run
 
 
 class AgentContext(BaseModel):
@@ -182,9 +181,17 @@ class LibrarianAgent(BaseAgent):
         return await run_discovery_node(state, **kwargs)
 
 
+# Import other agents
+from src.agents.architect import ArchitectAgent, ArchitectWorkflow
+from src.agents.developer import DeveloperAgent, DeveloperWorkflow
+
 # Exports
 __all__ = [
     "AgentContext",
     "BaseAgent",
     "LibrarianAgent",
+    "ArchitectAgent",
+    "ArchitectWorkflow",
+    "DeveloperAgent",
+    "DeveloperWorkflow",
 ]

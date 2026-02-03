@@ -23,6 +23,7 @@ from src.tracing.mlflow import (
     log_metrics,
     log_param,
     log_params,
+    start_experiment_run,
     start_run,
     trace_agent,
     trace_llm_call,
@@ -34,6 +35,7 @@ __all__ = [
     "get_or_create_experiment",
     # Run management
     "start_run",
+    "start_experiment_run",
     "end_run",
     "get_active_run",
     # Logging

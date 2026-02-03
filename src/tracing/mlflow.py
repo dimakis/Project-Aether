@@ -97,6 +97,42 @@ def end_run(status: str = "FINISHED") -> None:
     mlflow.end_run(status=status)
 
 
+from contextlib import contextmanager
+from typing import Generator
+
+
+@contextmanager
+def start_experiment_run(
+    run_name: str | None = None,
+    experiment_name: str | None = None,
+    tags: dict[str, str] | None = None,
+) -> Generator[Run, None, None]:
+    """Context manager for MLflow runs.
+
+    Automatically ends the run when exiting the context.
+
+    Args:
+        run_name: Optional name for the run
+        experiment_name: Experiment to log to
+        tags: Optional tags
+
+    Yields:
+        Active MLflow Run
+
+    Example:
+        with start_experiment_run("my_experiment") as run:
+            mlflow.log_metric("accuracy", 0.95)
+    """
+    run = start_run(run_name=run_name, experiment_name=experiment_name, tags=tags)
+    try:
+        yield run
+    except Exception:
+        end_run(status="FAILED")
+        raise
+    else:
+        end_run(status="FINISHED")
+
+
 def get_active_run() -> Run | None:
     """Get the currently active MLflow run.
 
