@@ -106,8 +106,8 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### MLflow Tracing (Constitution: Observability)
 
-- [ ] T016 Create src/tracing/__init__.py with MLflow client initialization
-- [ ] T017 Create src/tracing/mlflow.py with experiment setup and tracing decorators
+- [x] T016 Create src/tracing/__init__.py with MLflow client initialization
+- [x] T017 Create src/tracing/mlflow.py with experiment setup and tracing decorators
 
 ### API Framework
 
