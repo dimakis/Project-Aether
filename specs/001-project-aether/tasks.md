@@ -262,7 +262,7 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Storage Layer for User Story 2
 
-- [ ] T074 [US2] Create src/storage/conversations.py with conversation and message CRUD operations
+- [x] T074 [US2] Create src/dal/conversations.py with conversation and message CRUD operations (commit: 5d20225)
 
 ### Architect Agent for User Story 2
 

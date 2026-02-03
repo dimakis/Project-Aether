@@ -182,9 +182,17 @@ class LibrarianAgent(BaseAgent):
         return await run_discovery_node(state, **kwargs)
 
 
+# Import other agents
+from src.agents.architect import ArchitectAgent, ArchitectWorkflow
+from src.agents.developer import DeveloperAgent, DeveloperWorkflow
+
 # Exports
 __all__ = [
     "AgentContext",
     "BaseAgent",
     "LibrarianAgent",
+    "ArchitectAgent",
+    "ArchitectWorkflow",
+    "DeveloperAgent",
+    "DeveloperWorkflow",
 ]
