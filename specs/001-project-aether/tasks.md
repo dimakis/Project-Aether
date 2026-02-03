@@ -85,7 +85,7 @@ These features would unlock additional capabilities. **Report back when these be
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Phase 2: Foundational (Blocking Prerequisites) ✅
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
@@ -130,16 +130,16 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Test Infrastructure (Constitution: Reliability & Quality)
 
-- [ ] T029 Configure pytest in pyproject.toml with pytest-cov, pytest-asyncio, pytest-mock
-- [ ] T030 [P] Create tests/conftest.py with shared fixtures (async db, mock MCP client, test settings)
-- [ ] T031 [P] Create tests/factories.py with factory_boy factories for all models
-- [ ] T032 [P] Create tests/mocks/__init__.py with MCP response mocks and HA state fixtures
-- [ ] T033 [P] Create infrastructure/test/docker-compose.test.yaml for integration test environment
-- [ ] T034 [P] Configure pre-commit hooks in .pre-commit-config.yaml (ruff, ruff-format, mypy)
-- [ ] T035 Create tests/integration/conftest.py with testcontainers setup for PostgreSQL
-- [ ] T036 Create .github/workflows/ci.yaml with test pipeline using uv (uv sync --frozen → unit → integration → E2E → coverage)
+- [x] T029 Configure pytest in pyproject.toml with pytest-cov, pytest-asyncio, pytest-mock
+- [x] T030 [P] Create tests/conftest.py with shared fixtures (async db, mock MCP client, test settings)
+- [x] T031 [P] Create tests/factories.py with factory_boy factories for all models
+- [x] T032 [P] Create tests/mocks/__init__.py with MCP response mocks and HA state fixtures
+- [x] T033 [P] Create infrastructure/test/docker-compose.test.yaml for integration test environment
+- [x] T034 [P] Configure pre-commit hooks in .pre-commit-config.yaml (ruff, ruff-format, mypy)
+- [x] T035 Create tests/integration/conftest.py with testcontainers setup for PostgreSQL
+- [x] T036 Create .github/workflows/ci.yaml with test pipeline using uv (uv sync --frozen → unit → integration → E2E → coverage)
 
-**Checkpoint**: Foundation ready - user story implementation can now begin
+**Checkpoint**: Foundation ready - user story implementation can now begin ✅
 
 ---
 
