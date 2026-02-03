@@ -14,6 +14,9 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from src.settings import get_settings
 from src.storage.models import Base
 
+# Import all models for Alembic autogenerate
+from src.storage.entities import Agent, Conversation, Message  # noqa: F401
+
 # Alembic Config object
 config = context.config
 
