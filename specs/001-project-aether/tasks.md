@@ -67,21 +67,21 @@ These features would unlock additional capabilities. **Report back when these be
 
 ---
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Setup (Shared Infrastructure) ✅
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create project structure with src/, tests/, infrastructure/ directories per plan.md
-- [ ] T002 Initialize Python 3.11+ project with pyproject.toml using uv (`uv init` or manual), add dependencies (langgraph, fastapi, sqlalchemy, mlflow, openai, pydantic)
-- [ ] T003 [P] Configure ruff for linting and formatting in pyproject.toml `[tool.ruff]` section
-- [ ] T004 [P] Create .env.example with HA_TOKEN, HA_URL, DATABASE_URL, MLFLOW_TRACKING_URI, OPENAI_API_KEY
-- [ ] T005 [P] Create infrastructure/podman/Containerfile for main application (use `uv sync --frozen` for reproducible installs)
-- [ ] T006 [P] Create infrastructure/podman/compose.yaml for local dev (app + postgres + mlflow)
-- [ ] T007 [P] Create infrastructure/gvisor/config.toml for runsc sandbox configuration
-- [ ] T008 [P] Create infrastructure/postgres/init.sql with database initialization
-- [ ] T009 [P] Generate uv.lock file with `uv lock` and commit to repo for reproducible builds
+- [x] T001 Create project structure with src/, tests/, infrastructure/ directories per plan.md
+- [x] T002 Initialize Python 3.11+ project with pyproject.toml using uv (`uv init` or manual), add dependencies (langgraph, fastapi, sqlalchemy, mlflow, openai, pydantic)
+- [x] T003 [P] Configure ruff for linting and formatting in pyproject.toml `[tool.ruff]` section
+- [x] T004 [P] Create .env.example with HA_TOKEN, HA_URL, DATABASE_URL, MLFLOW_TRACKING_URI, OPENAI_API_KEY
+- [x] T005 [P] Create infrastructure/podman/Containerfile for main application (use `uv sync --frozen` for reproducible installs)
+- [x] T006 [P] Create infrastructure/podman/compose.yaml for local dev (app + postgres + mlflow)
+- [x] T007 [P] Create infrastructure/gvisor/config.toml for runsc sandbox configuration
+- [x] T008 [P] Create infrastructure/postgres/init.sql with database initialization
+- [x] T009 [P] Generate uv.lock file with `uv lock` and commit to repo for reproducible builds
 
-**Checkpoint**: Project skeleton ready for development
+**Checkpoint**: Project skeleton ready for development ✅
 
 ---
 
