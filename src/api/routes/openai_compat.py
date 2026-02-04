@@ -366,6 +366,41 @@ def _format_sse_error(error: str) -> str:
     return f"data: {json.dumps(error_data)}\n\n"
 
 
+def _is_background_request(messages: list[ChatMessage]) -> bool:
+    """Detect if this is a background request (title generation, suggestions).
+
+    Open WebUI and similar clients send background requests that shouldn't
+    be traced as part of the main conversation.
+
+    Args:
+        messages: List of chat messages
+
+    Returns:
+        True if this appears to be a background/meta request
+    """
+    # Check system messages for background task patterns
+    background_patterns = [
+        "generate a title",
+        "generate title",
+        "create a title",
+        "summarize the conversation",
+        "suggest follow-up",
+        "generate suggestions",
+        "create suggestions",
+        "what questions",
+        "follow up questions",
+    ]
+    
+    for msg in messages:
+        if msg.role == "system" and msg.content:
+            content_lower = msg.content.lower()
+            for pattern in background_patterns:
+                if pattern in content_lower:
+                    return True
+    
+    return False
+
+
 def _derive_conversation_id(messages: list[ChatMessage]) -> str:
     """Derive a stable conversation ID from message history.
 
@@ -373,28 +408,26 @@ def _derive_conversation_id(messages: list[ChatMessage]) -> str:
     Instead of generating a new UUID per request (which fragments MLflow traces),
     we derive a deterministic ID from the conversation fingerprint.
 
-    Strategy: Hash the first user message content. This groups all messages
-    in the same conversation under one MLflow session.
+    Strategy: 
+    - For background requests (title gen, suggestions): use ephemeral ID
+    - For main conversation: hash the first user message
 
     Args:
         messages: List of chat messages
 
     Returns:
-        Deterministic conversation ID (conv-<hash>)
+        Deterministic conversation ID (conv-<hash>) or ephemeral ID
     """
-    # Find the first user message
+    # Background requests get ephemeral IDs (won't clutter MLflow)
+    if _is_background_request(messages):
+        return f"bg-{uuid4().hex[:8]}"
+
+    # Find the first user message for main conversations
     first_user_content = ""
     for msg in messages:
         if msg.role == "user" and msg.content:
             first_user_content = msg.content
             break
-
-    if not first_user_content:
-        # Fallback: use system message or generate new
-        for msg in messages:
-            if msg.role == "system" and msg.content:
-                first_user_content = msg.content
-                break
 
     if not first_user_content:
         return str(uuid4())
