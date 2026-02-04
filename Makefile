@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev up down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean
+.PHONY: help install dev up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -14,13 +14,16 @@ help:
 	@echo "  make install     - Install dependencies with uv"
 	@echo "  make dev         - Full dev setup (install + infra + migrate)"
 	@echo ""
-	@echo "Infrastructure:"
-	@echo "  make up          - Start PostgreSQL and MLflow containers"
+	@echo "Infrastructure (Deployment Modes):"
+	@echo "  make up          - Infra only (dev mode, run API on host with hot-reload)"
+	@echo "  make up-full     - Everything containerized (production-like)"
+	@echo "  make up-ui       - Infra + Open WebUI (API on host)"
+	@echo "  make up-all      - Full stack including UI (all containerized)"
 	@echo "  make down        - Stop all containers"
 	@echo "  make logs        - View container logs"
+	@echo "  make logs-app    - View API container logs only"
 	@echo "  make psql        - Connect to PostgreSQL"
-	@echo "  make mlflow      - Start local MLflow server (SQLite backend, port $(MLFLOW_PORT))"
-	@echo "  make mlflow-up   - Start PostgreSQL + MLflow containers (MLflow on $(MLFLOW_PORT))"
+	@echo "  make mlflow      - Start local MLflow server (SQLite, port $(MLFLOW_PORT))"
 	@echo ""
 	@echo "Database:"
 	@echo "  make migrate     - Run Alembic migrations"
@@ -67,26 +70,70 @@ dev: install up migrate
 # ============================================================================
 # Infrastructure
 # ============================================================================
+# Deployment modes:
+#   make up          - Infrastructure only (dev mode, API on host)
+#   make up-full     - Everything containerized (production-like)
+#   make up-ui       - Infrastructure + Open WebUI (API on host)
+#   make up-all      - Full stack including UI
+
+COMPOSE := podman-compose -f infrastructure/podman/compose.yaml
 
 up:
-	podman-compose -f infrastructure/podman/compose.yaml up -d postgres
-	@echo "Waiting for PostgreSQL to be ready..."
+	$(COMPOSE) up -d postgres mlflow redis
+	@echo "Waiting for services..."
 	@sleep 3
-	@echo "PostgreSQL is running on localhost:5432"
+	@echo ""
+	@echo "Infrastructure ready:"
+	@echo "  PostgreSQL: localhost:5432"
+	@echo "  MLflow:     localhost:$(MLFLOW_PORT)"
+	@echo "  Redis:      localhost:6379"
+	@echo ""
+	@echo "Run 'make serve' to start the API on host (hot-reload)"
+
+up-full:
+	$(COMPOSE) --profile full up -d --build
+	@echo ""
+	@echo "Full containerized stack running:"
+	@echo "  API:        localhost:8000"
+	@echo "  PostgreSQL: localhost:5432"
+	@echo "  MLflow:     localhost:$(MLFLOW_PORT)"
+	@echo ""
+	@echo "View logs: make logs"
+
+up-ui:
+	$(COMPOSE) --profile ui up -d
+	@echo ""
+	@echo "Infrastructure + Open WebUI running:"
+	@echo "  Open WebUI: http://localhost:3000"
+	@echo "  PostgreSQL: localhost:5432"
+	@echo "  MLflow:     localhost:$(MLFLOW_PORT)"
+	@echo ""
+	@echo "Run 'make serve' to start the API on host"
+
+up-all:
+	AETHER_API_URL=http://app:8000/api $(COMPOSE) --profile full --profile ui up -d --build
+	@echo ""
+	@echo "Full stack with UI running:"
+	@echo "  Open WebUI: http://localhost:3000"
+	@echo "  API:        localhost:8000"
+	@echo "  MLflow:     localhost:$(MLFLOW_PORT)"
 
 mlflow:
 	@chmod +x scripts/mlflow_local.sh 2>/dev/null || true
 	./scripts/mlflow_local.sh
 
 mlflow-up:
-	podman-compose -f infrastructure/podman/compose.yaml up -d postgres mlflow
+	$(COMPOSE) up -d postgres mlflow
 	@echo "PostgreSQL and MLflow are running on localhost:5432 and :$(MLFLOW_PORT)"
 
 down:
-	podman-compose -f infrastructure/podman/compose.yaml down
+	$(COMPOSE) --profile full --profile ui down
 
 logs:
-	podman-compose -f infrastructure/podman/compose.yaml logs -f
+	$(COMPOSE) --profile full --profile ui logs -f
+
+logs-app:
+	$(COMPOSE) logs -f app
 
 psql:
 	podman exec -it aether-postgres psql -U aether -d aether
