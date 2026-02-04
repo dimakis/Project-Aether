@@ -406,21 +406,21 @@ def _derive_conversation_id(messages: list[ChatMessage]) -> str:
 
     Open WebUI and other OpenAI-compatible clients don't send a conversation_id.
     Instead of generating a new UUID per request (which fragments MLflow traces),
-    we derive a deterministic ID from the conversation fingerprint.
+    we derive a deterministic UUID from the conversation fingerprint.
 
     Strategy: 
-    - For background requests (title gen, suggestions): use ephemeral ID
-    - For main conversation: hash the first user message
+    - For background requests (title gen, suggestions): use random UUID
+    - For main conversation: derive UUID from hash of first user message
 
     Args:
         messages: List of chat messages
 
     Returns:
-        Deterministic conversation ID (conv-<hash>) or ephemeral ID
+        Valid UUID string (deterministic for conversations, random for background)
     """
-    # Background requests get ephemeral IDs (won't clutter MLflow)
+    # Background requests get random UUIDs (ephemeral, won't clutter MLflow)
     if _is_background_request(messages):
-        return f"bg-{uuid4().hex[:8]}"
+        return str(uuid4())
 
     # Find the first user message for main conversations
     first_user_content = ""
@@ -432,9 +432,12 @@ def _derive_conversation_id(messages: list[ChatMessage]) -> str:
     if not first_user_content:
         return str(uuid4())
 
-    # Create stable hash from first message
-    content_hash = hashlib.sha256(first_user_content.encode()).hexdigest()[:12]
-    return f"conv-{content_hash}"
+    # Create deterministic UUID from hash (UUID v5 style but simpler)
+    # Take 32 hex chars from SHA256 and format as UUID
+    content_hash = hashlib.sha256(first_user_content.encode()).hexdigest()[:32]
+    # Format as UUID: 8-4-4-4-12
+    uuid_str = f"{content_hash[:8]}-{content_hash[8:12]}-{content_hash[12:16]}-{content_hash[16:20]}-{content_hash[20:32]}"
+    return uuid_str
 
 
 __all__ = ["router"]
