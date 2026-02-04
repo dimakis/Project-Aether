@@ -96,12 +96,50 @@ aether serve --reload
 
 ### Chat with the Architect
 
+**Option 1: Open WebUI (Recommended)**
+
+```bash
+# Start Open WebUI (beautiful chat interface)
+podman-compose -f infrastructure/podman/compose.yaml up -d open-webui
+
+# Make sure Aether API is running
+aether serve --reload
+
+# Open in browser
+open http://localhost:3000
+```
+
+Open WebUI provides:
+- Streaming chat responses
+- Code syntax highlighting
+- Markdown rendering
+- File downloads (for reports/dashboards)
+- Conversation history
+
+**Option 2: CLI**
+
 ```bash
 # Start a conversation
 aether chat
 
-# Or via API
-curl -X POST http://localhost:8000/api/v1/conversations \
+# Continue existing conversation
+aether chat --continue <conversation-id>
+```
+
+**Option 3: API**
+
+```bash
+# OpenAI-compatible endpoint (works with any OpenAI client)
+curl -X POST http://localhost:8000/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "architect",
+    "messages": [{"role": "user", "content": "I want to automate my morning routine"}],
+    "stream": false
+  }'
+
+# Or the native conversation endpoint
+curl -X POST http://localhost:8000/api/conversations \
   -H "Content-Type: application/json" \
   -d '{"initial_message": "I want to automate my morning routine"}'
 ```
