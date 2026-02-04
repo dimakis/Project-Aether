@@ -23,7 +23,7 @@ from src.graph.state import ConversationState
 from src.storage import get_session
 from src.tracing.context import session_context
 
-router = APIRouter(prefix="/v1", tags=["OpenAI Compatible"])
+router = APIRouter(tags=["OpenAI Compatible"])
 
 
 # --- Request/Response Models ---
@@ -108,20 +108,27 @@ class ModelsResponse(BaseModel):
 
 @router.get("/models")
 async def list_models() -> ModelsResponse:
-    """List available models.
+    """List available LLM models.
 
-    Returns the Architect agent as the available model.
+    Dynamically discovers available models from:
+    - Ollama (local models - if running)
+    - Configured provider (openrouter, openai, google)
+    
+    Results are cached for 5 minutes.
+    All models power the Architect agent with Home Assistant tools.
     """
+    from src.api.services.model_discovery import get_model_discovery
+    
+    discovery = get_model_discovery()
+    models = await discovery.discover_all()
+    
     return ModelsResponse(
         data=[
             ModelInfo(
-                id="architect",
-                owned_by="aether",
-            ),
-            ModelInfo(
-                id="data-scientist",
-                owned_by="aether",
-            ),
+                id=model.id,
+                owned_by=model.provider,
+            )
+            for model in models
         ]
     )
 
@@ -177,8 +184,11 @@ async def _create_chat_completion(
                 messages=lc_messages[:-1],  # All but last user message
             )
 
-            # Process with Architect
-            workflow = ArchitectWorkflow()
+            # Process with Architect (using requested LLM model)
+            workflow = ArchitectWorkflow(
+                model_name=request.model,
+                temperature=request.temperature,
+            )
             state = await workflow.continue_conversation(
                 state=state,
                 user_message=user_message,
@@ -246,8 +256,11 @@ async def _stream_chat_completion(
                     messages=lc_messages[:-1],
                 )
 
-                # Process with Architect
-                workflow = ArchitectWorkflow()
+                # Process with Architect (using requested LLM model)
+                workflow = ArchitectWorkflow(
+                    model_name=request.model,
+                    temperature=request.temperature,
+                )
                 state = await workflow.continue_conversation(
                     state=state,
                     user_message=user_message,

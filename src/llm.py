@@ -41,7 +41,7 @@ def get_llm(
 
     Args:
         temperature: Override default temperature
-        model: Override default model name
+        model: Override default model name (can include provider prefix like "ollama/llama3")
         provider: Override default provider
         **kwargs: Additional provider-specific arguments
 
@@ -52,9 +52,22 @@ def get_llm(
         ValueError: If provider is not supported or API key is missing
     """
     settings = get_settings()
-    provider = provider or settings.llm_provider
     model_name = model or settings.llm_model
     temp = temperature if temperature is not None else settings.llm_temperature
+    
+    # Auto-detect provider from model prefix (e.g., "ollama/llama3" -> provider="ollama", model="llama3")
+    detected_provider = None
+    if model_name and "/" in model_name:
+        prefix, suffix = model_name.split("/", 1)
+        # Known provider prefixes
+        if prefix in ("ollama", "openai", "anthropic", "google", "meta-llama", "mistralai", "deepseek"):
+            if prefix == "ollama":
+                detected_provider = "ollama"
+                model_name = suffix  # Ollama uses just the model name
+            # For OpenRouter models, keep the full path
+            # (e.g., "anthropic/claude-sonnet-4" stays as-is)
+    
+    provider = provider or detected_provider or settings.llm_provider
 
     # Google Gemini uses separate SDK (not OpenAI-compatible)
     if provider == "google":
