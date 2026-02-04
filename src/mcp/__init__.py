@@ -15,6 +15,14 @@ from src.mcp.automation_deploy import (
 )
 from src.mcp.client import MCPClient, get_mcp_client
 from src.mcp.constants import COMMON_SERVICES
+from src.mcp.history import (
+    EnergyDataPoint,
+    EnergyHistory,
+    EnergyHistoryClient,
+    EnergyStats,
+    discover_energy_sensors,
+    get_energy_history,
+)
 from src.mcp.parsers import (
     parse_automation_list,
     parse_domain_summary,
@@ -45,6 +53,13 @@ __all__ = [
     "build_service_action",
     "build_delay_action",
     "build_condition",
+    # Energy History (US3)
+    "EnergyHistoryClient",
+    "EnergyHistory",
+    "EnergyDataPoint",
+    "EnergyStats",
+    "get_energy_history",
+    "discover_energy_sensors",
     # Constants
     "COMMON_SERVICES",
 ]
