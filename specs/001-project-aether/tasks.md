@@ -352,7 +352,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T098 [US3] Add analysis workflow to src/graph/workflows.py (commit: 24a1340)
 - [x] T167 [US3] Export DataScientistAgent from src/agents/__init__.py (pattern: Librarian/Architect) (commit: 9be9609)
 - [x] T168 [US3] Add trace_span integration to Data Scientist agent (Constitution: Observability - use BaseAgent.trace_span()) (commit: 1ff949e)
-- [ ] T169 [US3] Add session_context to analysis workflow entry point (multi-agent trace correlation per T158-T165)
+- [x] T169 [US3] Add session_context to analysis workflow entry point (multi-agent trace correlation per T158-T165) (commit: 24a1340)
 
 ### Sandbox Execution (Constitution: Isolation)
 
@@ -377,7 +377,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T107 [P] [US3] Create tests/unit/test_dal_energy.py - Energy aggregation logic (covered by T106)
 - [x] T108 [P] [US3] Create tests/unit/test_data_scientist.py - Script generation (mock LLM) (commit: 4cdf017)
 - [x] T109 [P] [US3] Create tests/unit/test_sandbox_runner.py - Sandbox execution logic (mock Podman) (commit: c0a8314)
-- [ ] T110 [P] [US3] Create tests/unit/test_insight_extraction.py - Output parsing
+- [x] T110 [P] [US3] Create tests/unit/test_insight_extraction.py - Output parsing (commit: 27b7c12)
 
 **Integration Tests**:
 - [ ] T111 [US3] Create tests/integration/test_analysis_workflow.py - Full analysis pipeline with mocks
