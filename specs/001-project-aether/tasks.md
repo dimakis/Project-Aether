@@ -336,6 +336,7 @@ These features would unlock additional capabilities. **Report back when these be
 
 - [ ] T091 [P] [US3] Create Insight model in src/storage/models.py per data-model.md (id, type, title, description, evidence, confidence, impact, entities, script_path, script_output, status, mlflow_run_id)
 - [ ] T092 [US3] Create Alembic migration for Insight table in alembic/versions/004_insights.py
+- [x] T145 [US3] Fix Insight migration schema to match data-model.md (drop/recreate insights table)
 
 ### Data Collection via MCP for User Story 3
 
@@ -458,7 +459,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T124 [P] Create README.md with project overview, setup instructions, and usage examples
 - [ ] T125 [P] Create systemd unit files for production deployment in infrastructure/systemd/
 - [ ] T126 Run quickstart.md validation to ensure all setup steps work
-- [x] T144 [P] Add scripts/mlflow_local.sh and Makefile targets for local MLflow (mlflow, mlflow-up)
+- [x] T144 [P] Add scripts/mlflow_local.sh and Makefile targets for local MLflow (mlflow, mlflow-up) with separate aether_mlflow DB
 
 ### Error Handling & Observability
 
