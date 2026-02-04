@@ -10,7 +10,11 @@ from datetime import datetime
 from typing import Any, AsyncGenerator
 
 import mlflow
-from mlflow.tracing.constant import TRACE_SESSION
+
+try:  # MLflow version compatibility
+    from mlflow.tracing.constant import TRACE_SESSION
+except Exception:  # pragma: no cover - fallback for older MLflow
+    TRACE_SESSION = "mlflow.trace.session"
 from pydantic import BaseModel
 
 from src.graph.state import AgentRole, BaseState
