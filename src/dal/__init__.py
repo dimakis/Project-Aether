@@ -13,6 +13,7 @@ from src.dal.conversations import (
 )
 from src.dal.devices import DeviceRepository
 from src.dal.entities import EntityRepository
+from src.dal.insights import InsightRepository
 from src.dal.queries import NaturalLanguageQueryEngine, query_entities
 from src.dal.services import ServiceRepository, seed_services
 from src.dal.sync import DiscoverySyncService
@@ -31,6 +32,8 @@ __all__ = [
     "ConversationRepository",
     "MessageRepository",
     "ProposalRepository",
+    # Insight repositories (US3)
+    "InsightRepository",
     # Services
     "DiscoverySyncService",
     "NaturalLanguageQueryEngine",
