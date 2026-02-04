@@ -703,18 +703,20 @@ Data-driven observation from the Data Scientist agent.
 | Field | Type | Description | Constraints |
 |-------|------|-------------|-------------|
 | id | UUID | Primary key | Generated |
-| type | Enum | Insight category | `energy_optimization`, `pattern`, `anomaly`, `recommendation` |
+| type | Enum | Insight category | `energy_optimization`, `anomaly_detection`, `usage_pattern`, `cost_saving`, `maintenance_prediction` |
 | title | String | Brief summary | Human-readable |
 | description | Text | Detailed explanation | Markdown supported |
 | evidence | JSONB | Supporting data | Charts, statistics, queries |
 | confidence | Float | Confidence score | 0.0 - 1.0 |
-| impact | Enum | Potential impact | `low`, `medium`, `high` |
+| impact | String | Potential impact | `low`, `medium`, `high`, `critical` |
 | entities | UUID[] | Related entities | FK to Entity |
 | script_path | String | Generated analysis script | Path in MLflow artifacts |
 | script_output | JSONB | Script execution results | Stdout, figures, metrics |
-| status | Enum | Insight state | `generated`, `reviewed`, `acted_upon`, `dismissed` |
+| status | Enum | Insight state | `pending`, `reviewed`, `actioned`, `dismissed` |
 | mlflow_run_id | String | Tracking ID | For observability |
 | created_at | Timestamp | Generated | Immutable |
+| reviewed_at | Timestamp | When reviewed | Nullable |
+| actioned_at | Timestamp | When actioned | Nullable |
 
 ---
 

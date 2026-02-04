@@ -334,13 +334,14 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Models for User Story 3
 
-- [ ] T091 [P] [US3] Create Insight model in src/storage/models.py per data-model.md (id, type, title, description, evidence, confidence, impact, entities, script_path, script_output, status, mlflow_run_id)
-- [ ] T092 [US3] Create Alembic migration for Insight table in alembic/versions/004_insights.py
+- [x] T091 [P] [US3] Create Insight model in src/storage/entities/insight.py per data-model.md (id, type, title, description, evidence, confidence, impact, entities, script_path, script_output, status, mlflow_run_id)
+- [x] T092 [US3] Create Alembic migration for Insight table in alembic/versions/004_insights.py
 - [x] T145 [US3] Fix Insight migration schema to match data-model.md (drop/recreate insights table)
+- [ ] T166 [P] [US3] Create src/dal/insights.py with InsightRepository (CRUD operations for Insight model)
 
 ### Data Collection via MCP for User Story 3
 
-- [ ] T093 [US3] Create src/mcp/history.py with get_history wrapper for energy sensors
+- [ ] T093 [US3] Create src/mcp/history.py with energy-specific history aggregation (get_history exists in client.py; add filtering by device_class=energy, sum/average calculations)
 - [ ] T094 [US3] Create src/dal/energy.py with energy data aggregation from history
 - [ ] T095 [US3] Implement energy sensor discovery (device_class=energy, unit_of_measurement=kWh/W)
 
@@ -349,11 +350,14 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T096 [US3] Create src/agents/data_scientist.py with energy analysis and visualization generation
 - [ ] T097 [US3] Add Data Scientist nodes to src/graph/nodes.py (collect_data, generate_script, execute_sandbox, extract_insights)
 - [ ] T098 [US3] Add analysis workflow to src/graph/workflows.py
+- [ ] T167 [US3] Export DataScientistAgent from src/agents/__init__.py (pattern: Librarian/Architect)
+- [ ] T168 [US3] Add trace_span integration to Data Scientist agent (Constitution: Observability - use BaseAgent.trace_span())
+- [ ] T169 [US3] Add session_context to analysis workflow entry point (multi-agent trace correlation per T158-T165)
 
 ### Sandbox Execution (Constitution: Isolation)
 
-- [ ] T099 [US3] Create sandbox container image with pandas, numpy, matplotlib in infrastructure/podman/Containerfile.sandbox
-- [ ] T100 [US3] Implement sandboxed script execution in src/sandbox/runner.py using Podman + runsc
+- [ ] T099 [US3] Create sandbox container image with pandas, numpy, matplotlib, scipy in infrastructure/podman/Containerfile.sandbox and update SandboxRunner.DEFAULT_IMAGE
+- [x] T100 [US3] Implement sandboxed script execution in src/sandbox/runner.py using Podman + runsc
 - [ ] T101 [US3] Add script output capture and insight extraction in src/agents/data_scientist.py
 
 ### API Endpoints for User Story 3
