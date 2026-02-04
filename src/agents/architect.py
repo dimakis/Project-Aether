@@ -6,6 +6,7 @@ structured automation proposals.
 """
 
 from datetime import datetime
+import time
 from typing import Any
 
 import mlflow
@@ -138,6 +139,19 @@ class ArchitectAgent(BaseAgent):
                     span.add_event("conversation_start", attributes={"message_count": len(state.messages)})
                 # Build messages for LLM
                 messages = self._build_messages(state)
+                message_payload = self._serialize_messages(messages)
+                if span and hasattr(span, "set_attribute"):
+                    span.set_attribute("message_count", len(messages))
+                if span and hasattr(span, "add_event"):
+                    span.add_event("messages_built", attributes={"messages": message_payload})
+                if mlflow.active_run():
+                    mlflow.log_dict(
+                        {
+                            "conversation_id": state.conversation_id,
+                            "messages": message_payload,
+                        },
+                        f"conversations/{state.conversation_id}_{int(time.time())}.json",
+                    )
 
                 # Add entity context if session available
                 if session:
@@ -173,6 +187,10 @@ class ArchitectAgent(BaseAgent):
                         return tool_call_updates
 
                 response_text = response.content
+                if span and hasattr(span, "set_attribute"):
+                    span.set_attribute("response_preview", response_text[:500])
+                if span and hasattr(span, "add_event"):
+                    span.add_event("response", attributes={"response": response_text[:500]})
 
             # Track metrics
             span["response_length"] = len(response_text)
@@ -224,6 +242,25 @@ class ArchitectAgent(BaseAgent):
                 messages.append(msg)
 
         return messages
+
+    def _serialize_messages(
+        self,
+        messages: list[Any],
+        max_messages: int = 20,
+        max_chars: int = 500,
+    ) -> list[dict[str, str]]:
+        """Serialize messages for MLflow logging."""
+        serialized: list[dict[str, str]] = []
+        for msg in messages[-max_messages:]:
+            role = getattr(msg, "type", msg.__class__.__name__)
+            content = getattr(msg, "content", "")
+            serialized.append(
+                {
+                    "role": str(role),
+                    "content": str(content)[:max_chars],
+                }
+            )
+        return serialized
 
     def _get_ha_tools(self) -> list[Any]:
         """Get Home Assistant tools for the Architect agent."""

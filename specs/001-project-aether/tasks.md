@@ -469,6 +469,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T146 Add MLflow GenAI spans across all agent invocations (BaseAgent + Librarian)
 - [x] T147 Add deep MLflow spans for Librarian and Developer steps (fetch, sync, deploy)
 - [x] T148 Add trace sessions + span events for multi-agent workflows
+- [x] T149 Log conversation message payloads to MLflow traces/artifacts
 
 ### Entity Sync & Caching
 
