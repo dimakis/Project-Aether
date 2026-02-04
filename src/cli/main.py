@@ -126,6 +126,11 @@ async def _run_discovery(domain: str | None, force: bool) -> None:
     from src.dal.sync import run_discovery
     from src.mcp import get_mcp_client
     from src.storage import get_session
+    from src.tracing import init_mlflow, start_experiment_run, log_param, log_metric
+    from src.tracing.context import session_context
+
+    # Initialize MLflow tracing
+    init_mlflow()
 
     with Progress(
         SpinnerColumn(),
@@ -139,12 +144,26 @@ async def _run_discovery(domain: str | None, force: bool) -> None:
             mcp = get_mcp_client()
             progress.update(task, description="Fetching entities from Home Assistant...")
 
-            async with get_session() as session:
-                discovery = await run_discovery(
-                    session=session,
-                    mcp_client=mcp,
-                    triggered_by="cli",
-                )
+            # Run discovery with session context and MLflow tracking
+            with session_context() as session_id:
+                with start_experiment_run(run_name="librarian_discovery") as run:
+                    log_param("triggered_by", "cli")
+                    log_param("domain_filter", domain or "all")
+                    log_param("session.id", session_id)
+
+                    async with get_session() as session:
+                        discovery = await run_discovery(
+                            session=session,
+                            mcp_client=mcp,
+                            triggered_by="cli",
+                        )
+
+                    # Log discovery metrics
+                    log_metric("entities_found", float(discovery.entities_found))
+                    log_metric("entities_added", float(discovery.entities_added))
+                    log_metric("entities_updated", float(discovery.entities_updated))
+                    log_metric("entities_removed", float(discovery.entities_removed))
+                    log_metric("duration_seconds", discovery.duration_seconds or 0.0)
 
             progress.update(task, description="Discovery complete!")
 
