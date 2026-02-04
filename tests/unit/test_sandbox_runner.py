@@ -162,18 +162,19 @@ class TestSandboxRunnerBuildCommand:
 
     def test_policy_applied(self):
         """Test that policy settings are respected."""
+        from src.sandbox.policies import NetworkPolicy, PolicyLevel
+        
         policy = SandboxPolicy(
             name="test",
+            level=PolicyLevel.STANDARD,
             timeout_seconds=10,
-            memory_limit_mb=128,
-            cpu_limit=0.5,
-            network_enabled=False,
-            filesystem_readonly=True,
+            network=NetworkPolicy.NONE,
+            read_only_root=True,
         )
 
         assert policy.timeout_seconds == 10
-        assert policy.memory_limit_mb == 128
-        assert policy.network_enabled is False
+        assert policy.network == NetworkPolicy.NONE
+        assert policy.read_only_root is True
 
 
 class TestSandboxRunnerScriptExecution:
@@ -237,30 +238,31 @@ class TestSandboxPolicy:
         assert policy is not None
         assert policy.name == "standard"
         assert policy.timeout_seconds > 0
-        assert policy.memory_limit_mb > 0
+        assert policy.resources.memory_mb > 0
 
     def test_policy_has_security_settings(self):
         """Test policy has security settings."""
         policy = get_default_policy()
 
-        assert hasattr(policy, "network_enabled")
-        assert hasattr(policy, "filesystem_readonly")
-        assert hasattr(policy, "cpu_limit")
+        assert hasattr(policy, "network")
+        assert hasattr(policy, "read_only_root")
+        assert hasattr(policy, "resources")
 
     def test_custom_policy(self):
         """Test creating custom policy."""
+        from src.sandbox.policies import NetworkPolicy, PolicyLevel
+        
         policy = SandboxPolicy(
             name="custom",
+            level=PolicyLevel.MINIMAL,
             timeout_seconds=5,
-            memory_limit_mb=64,
-            cpu_limit=0.25,
-            network_enabled=False,
-            filesystem_readonly=True,
+            network=NetworkPolicy.NONE,
+            read_only_root=True,
         )
 
         assert policy.name == "custom"
         assert policy.timeout_seconds == 5
-        assert policy.memory_limit_mb == 64
+        assert policy.level == PolicyLevel.MINIMAL
 
 
 class TestSandboxRunnerDataMount:

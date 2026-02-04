@@ -144,8 +144,8 @@ class AnalysisJob(BaseModel):
         description="Progress 0.0-1.0",
     )
     started_at: datetime = Field(description="When started")
-    completed_at: datetime | None = Field(description="When completed")
-    mlflow_run_id: str | None = Field(description="MLflow run ID")
+    completed_at: datetime | None = Field(default=None, description="When completed")
+    mlflow_run_id: str | None = Field(default=None, description="MLflow run ID")
     insight_ids: list[str] = Field(
         default_factory=list,
         description="Generated insight IDs",

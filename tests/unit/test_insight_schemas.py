@@ -309,6 +309,7 @@ class TestAnalysisJob:
 
         assert job.status == "completed"
         assert len(job.insight_ids) == 2
+        assert job.mlflow_run_id is None  # Optional field
 
     def test_failed_job(self):
         """Test failed job with error."""
@@ -318,12 +319,12 @@ class TestAnalysisJob:
             analysis_type="energy",
             progress=0.3,
             started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow(),
             error="Connection timeout",
         )
 
         assert job.status == "failed"
         assert job.error == "Connection timeout"
+        assert job.completed_at is None  # Not completed, just failed
 
 
 class TestActionSchemas:
