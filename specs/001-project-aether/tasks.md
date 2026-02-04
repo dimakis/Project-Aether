@@ -363,12 +363,12 @@ These features would unlock additional capabilities. **Report back when these be
 ### API Endpoints for User Story 3
 
 - [x] T102 [P] [US3] Create insight schemas in src/api/schemas/insights.py (Insight, InsightList, AnalysisRequest, AnalysisJob) (commit: 10a9f7a)
-- [ ] T103 [US3] Create src/api/routes/insights.py with GET /insights, GET /insights/{id}, POST /insights/analyze
+- [x] T103 [US3] Create src/api/routes/insights.py with GET /insights, GET /insights/{id}, POST /insights/analyze (commit: a3e543a)
 
 ### CLI Commands for User Story 3
 
-- [ ] T104 [US3] Add `aether analyze energy --days N` command in src/cli/main.py
-- [ ] T105 [US3] Add `aether insights list/show` commands in src/cli/main.py
+- [x] T104 [US3] Add `aether analyze energy --days N` command in src/cli/main.py (commit: 401405c)
+- [x] T105 [US3] Add `aether insights list/show` commands in src/cli/main.py (commit: 401405c)
 
 ### Tests for User Story 3 (Constitution: Reliability & Quality)
 
