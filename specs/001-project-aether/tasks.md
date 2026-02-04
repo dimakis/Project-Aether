@@ -466,6 +466,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T127 [P] Add comprehensive error handling across all API routes in src/api/routes/
 - [ ] T128 [P] Add request/response logging middleware in src/api/main.py
 - [ ] T129 Add MLflow experiment dashboard configuration for agent tracing
+- [x] T146 Add MLflow GenAI spans across all agent invocations (BaseAgent + Librarian)
 
 ### Entity Sync & Caching
 

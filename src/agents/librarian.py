@@ -69,18 +69,24 @@ class LibrarianWorkflow:
         )
 
         # Start MLflow run
+        mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
         with start_experiment_run("librarian_discovery") as run:
             state.mlflow_run_id = run.info.run_id
             mlflow.log_param("triggered_by", triggered_by)
             mlflow.log_param("domain_filter", domain_filter or "all")
 
             try:
-                # Execute discovery phases
-                state = await self._fetch_entities(state, domain_filter)
-                state = await self._sync_to_database(state, triggered_by)
-                state = await self._report_results(state)
+                with mlflow.start_span(
+                    name="librarian.discovery",
+                    span_type="CHAIN",
+                    attributes={"triggered_by": triggered_by},
+                ):
+                    # Execute discovery phases
+                    state = await self._fetch_entities(state, domain_filter)
+                    state = await self._sync_to_database(state, triggered_by)
+                    state = await self._report_results(state)
 
-                state.status = DiscoveryStatus.COMPLETED
+                    state.status = DiscoveryStatus.COMPLETED
 
             except Exception as e:
                 state.status = DiscoveryStatus.FAILED

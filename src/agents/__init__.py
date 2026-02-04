@@ -78,29 +78,39 @@ class BaseAgent(ABC):
         if state:
             span_metadata["run_id"] = state.run_id
 
-        try:
-            # Log to MLflow if available
-            if mlflow.active_run():
-                mlflow.log_param(f"{span_name}_started", datetime.utcnow().isoformat())
+        mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
+        span_attrs = {
+            "agent": self.name,
+            "agent_role": self.role.value,
+            "operation": operation,
+        }
+        if state:
+            span_attrs["run_id"] = state.run_id
 
-            yield span_metadata
+        with mlflow.start_span(name=span_name, span_type="CHAIN", attributes=span_attrs):
+            try:
+                # Log to MLflow if available
+                if mlflow.active_run():
+                    mlflow.log_param(f"{span_name}_started", datetime.utcnow().isoformat())
 
-            span_metadata["completed_at"] = datetime.utcnow().isoformat()
-            span_metadata["status"] = "success"
+                yield span_metadata
 
-            if mlflow.active_run():
-                mlflow.log_param(f"{span_name}_status", "success")
+                span_metadata["completed_at"] = datetime.utcnow().isoformat()
+                span_metadata["status"] = "success"
 
-        except Exception as e:
-            span_metadata["completed_at"] = datetime.utcnow().isoformat()
-            span_metadata["status"] = "error"
-            span_metadata["error"] = str(e)
+                if mlflow.active_run():
+                    mlflow.log_param(f"{span_name}_status", "success")
 
-            if mlflow.active_run():
-                mlflow.log_param(f"{span_name}_status", "error")
-                mlflow.log_param(f"{span_name}_error", str(e)[:500])
+            except Exception as e:
+                span_metadata["completed_at"] = datetime.utcnow().isoformat()
+                span_metadata["status"] = "error"
+                span_metadata["error"] = str(e)
 
-            raise
+                if mlflow.active_run():
+                    mlflow.log_param(f"{span_name}_status", "error")
+                    mlflow.log_param(f"{span_name}_error", str(e)[:500])
+
+                raise
 
     def log_metric(self, key: str, value: float, step: int | None = None) -> None:
         """Log a metric to MLflow.
