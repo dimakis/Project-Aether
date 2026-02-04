@@ -471,6 +471,14 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T148 Add trace sessions + span events for multi-agent workflows
 - [x] T149 Log conversation message payloads to MLflow traces/artifacts
 - [x] T150 Apply mlflow.trace across agents/tools/workflows for auto capture
+- [x] T151 [P] Refactor src/tracing/__init__.py to use lazy imports via __getattr__ pattern
+- [x] T152 [P] Add enable_autolog() to src/tracing/mlflow.py for MLflow openai/langchain auto-tracing
+- [x] T153 Fix trace_with_uri() decorator to create actual MLflow spans (was only initializing)
+- [x] T154 [P] Create src/tracing/context.py with session ID context management (start_session, get_session_id)
+- [x] T155 Add session_id attribute to AetherTracer and BaseAgent.trace_span() for trace correlation
+- [x] T156 [P] Add @trace_with_uri decorators to MCPClient methods (list_entities, get_entity, call_service, etc.)
+- [x] T157 Enhance BaseAgent.log_conversation() to capture tool_calls and token_usage
+- [x] T158 Add session.start() call at workflow entry points (run_discovery_workflow, run_conversation_workflow)
 
 ### Entity Sync & Caching
 
