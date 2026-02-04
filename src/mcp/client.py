@@ -6,8 +6,11 @@ response parsing.
 
 Note: This client wraps the MCP tools that Cursor has access to.
 In production, this would use the MCP protocol directly.
+
+All public methods are traced via MLflow for observability.
 """
 
+import time
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -28,9 +31,25 @@ class MCPClientConfig(BaseModel):
     """Configuration for MCP client."""
 
     ha_url: str = Field(..., description="Home Assistant URL (primary/local)")
-    ha_url_remote: str | None = Field(None, description="Home Assistant remote URL (fallback)")
+    ha_url_remote: str | None = Field(
+        None, description="Home Assistant remote URL (fallback)"
+    )
     ha_token: str = Field(..., description="Home Assistant token")
     timeout: int = Field(default=30, description="Request timeout in seconds")
+
+
+def _trace_mcp_call(name: str):
+    """Decorator to trace MCP client methods.
+
+    Creates an MLflow span for the decorated method, capturing timing,
+    parameters, and errors.
+
+    Args:
+        name: Name for the span (e.g., "mcp.list_entities")
+    """
+    from src.tracing import trace_with_uri
+
+    return trace_with_uri(name=name, span_type="RETRIEVER")
 
 
 class MCPClient:
@@ -39,6 +58,8 @@ class MCPClient:
     This class provides a typed interface to the MCP tools.
     In the Cursor environment, these tools are available directly.
     In production, this would connect to the MCP server.
+
+    All public methods are traced via MLflow for observability.
 
     Usage:
         client = MCPClient()
@@ -63,9 +84,10 @@ class MCPClient:
         self._connected = False
         self._active_url: str | None = None  # Which URL is currently working
 
+    @_trace_mcp_call("mcp.connect")
     async def connect(self) -> None:
         """Verify connection to Home Assistant.
-        
+
         Tries local URL first, falls back to remote if configured.
         """
         import httpx
@@ -119,6 +141,10 @@ class MCPClient:
         """
         import httpx
 
+        from src.tracing import log_metric
+
+        start_time = time.perf_counter()
+
         # Build list of URLs to try
         urls_to_try = []
         if self._active_url:
@@ -139,6 +165,9 @@ class MCPClient:
                         json=json,
                         params=params,
                     )
+                    duration_ms = (time.perf_counter() - start_time) * 1000
+                    log_metric(f"mcp.request.{method.lower()}.duration_ms", duration_ms)
+
                     if response.status_code in (200, 201):
                         self._active_url = url  # Remember working URL
                         return response.json() if response.content else {}
@@ -157,6 +186,7 @@ class MCPClient:
             "request",
         )
 
+    @_trace_mcp_call("mcp.get_version")
     async def get_version(self) -> str:
         """Get Home Assistant version.
 
@@ -168,6 +198,7 @@ class MCPClient:
             return data.get("version", "unknown")
         raise MCPError("Failed to get HA version", "get_version")
 
+    @_trace_mcp_call("mcp.system_overview")
     async def system_overview(self) -> dict[str, Any]:
         """Get comprehensive system overview.
 
@@ -199,6 +230,7 @@ class MCPClient:
             "domain_samples": {},  # Would need additional logic
         }
 
+    @_trace_mcp_call("mcp.list_entities")
     async def list_entities(
         self,
         domain: str | None = None,
@@ -217,6 +249,14 @@ class MCPClient:
         Returns:
             List of entity dictionaries
         """
+        from src.tracing import log_param
+
+        # Log query parameters
+        if domain:
+            log_param("mcp.list_entities.domain", domain)
+        if search_query:
+            log_param("mcp.list_entities.search_query", search_query)
+
         states = await self._request("GET", "/api/states")
         if not states:
             raise MCPError("Failed to list entities", "list_entities")
@@ -234,7 +274,10 @@ class MCPClient:
             # Filter by search query
             if search_query:
                 name = state.get("attributes", {}).get("friendly_name", entity_id)
-                if search_query.lower() not in name.lower() and search_query.lower() not in entity_id.lower():
+                if (
+                    search_query.lower() not in name.lower()
+                    and search_query.lower() not in entity_id.lower()
+                ):
                     continue
 
             entity = {
@@ -261,6 +304,7 @@ class MCPClient:
 
         return entities
 
+    @_trace_mcp_call("mcp.get_entity")
     async def get_entity(
         self,
         entity_id: str,
@@ -275,6 +319,10 @@ class MCPClient:
         Returns:
             Entity dictionary or None if not found
         """
+        from src.tracing import log_param
+
+        log_param("mcp.get_entity.entity_id", entity_id)
+
         state = await self._request("GET", f"/api/states/{entity_id}")
         if not state:
             return None
@@ -295,6 +343,7 @@ class MCPClient:
 
         return entity
 
+    @_trace_mcp_call("mcp.domain_summary")
     async def domain_summary(
         self,
         domain: str,
@@ -309,6 +358,10 @@ class MCPClient:
         Returns:
             Dictionary with count, state distribution, examples
         """
+        from src.tracing import log_param
+
+        log_param("mcp.domain_summary.domain", domain)
+
         entities = await self.list_entities(domain=domain, detailed=True)
 
         state_distribution: dict[str, int] = {}
@@ -322,10 +375,12 @@ class MCPClient:
             if state not in examples:
                 examples[state] = []
             if len(examples[state]) < example_limit:
-                examples[state].append({
-                    "entity_id": entity["entity_id"],
-                    "name": entity["name"],
-                })
+                examples[state].append(
+                    {
+                        "entity_id": entity["entity_id"],
+                        "name": entity["name"],
+                    }
+                )
 
             if entity.get("attributes"):
                 common_attributes.update(entity["attributes"].keys())
@@ -337,6 +392,7 @@ class MCPClient:
             "common_attributes": list(common_attributes)[:20],
         }
 
+    @_trace_mcp_call("mcp.list_automations")
     async def list_automations(self) -> list[dict[str, Any]]:
         """List all automations.
 
@@ -348,17 +404,20 @@ class MCPClient:
         automations = []
         for entity in entities:
             attrs = entity.get("attributes", {})
-            automations.append({
-                "id": attrs.get("id", entity["entity_id"]),
-                "entity_id": entity["entity_id"],
-                "state": entity["state"],
-                "alias": attrs.get("friendly_name", entity["name"]),
-                "last_triggered": attrs.get("last_triggered"),
-                "mode": attrs.get("mode", "single"),
-            })
+            automations.append(
+                {
+                    "id": attrs.get("id", entity["entity_id"]),
+                    "entity_id": entity["entity_id"],
+                    "state": entity["state"],
+                    "alias": attrs.get("friendly_name", entity["name"]),
+                    "last_triggered": attrs.get("last_triggered"),
+                    "mode": attrs.get("mode", "single"),
+                }
+            )
 
         return automations
 
+    @_trace_mcp_call("mcp.entity_action")
     async def entity_action(
         self,
         entity_id: str,
@@ -375,6 +434,11 @@ class MCPClient:
         Returns:
             Response from HA
         """
+        from src.tracing import log_param
+
+        log_param("mcp.entity_action.entity_id", entity_id)
+        log_param("mcp.entity_action.action", action)
+
         domain = entity_id.split(".")[0] if "." in entity_id else ""
         service = f"turn_{action}" if action in ("on", "off") else action
 
@@ -385,6 +449,7 @@ class MCPClient:
         await self._request("POST", f"/api/services/{domain}/{service}", json=data)
         return {"success": True}
 
+    @_trace_mcp_call("mcp.call_service")
     async def call_service(
         self,
         domain: str,
@@ -401,9 +466,17 @@ class MCPClient:
         Returns:
             Response from HA
         """
-        result = await self._request("POST", f"/api/services/{domain}/{service}", json=data or {})
+        from src.tracing import log_param
+
+        log_param("mcp.call_service.domain", domain)
+        log_param("mcp.call_service.service", service)
+
+        result = await self._request(
+            "POST", f"/api/services/{domain}/{service}", json=data or {}
+        )
         return result or {}
 
+    @_trace_mcp_call("mcp.get_history")
     async def get_history(
         self,
         entity_id: str,
@@ -419,6 +492,11 @@ class MCPClient:
             History data
         """
         from datetime import datetime, timedelta, timezone
+
+        from src.tracing import log_param
+
+        log_param("mcp.get_history.entity_id", entity_id)
+        log_param("mcp.get_history.hours", hours)
 
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(hours=hours)
@@ -445,6 +523,39 @@ class MCPClient:
             "count": len(states),
             "first_changed": states[0].get("last_changed") if states else None,
             "last_changed": states[-1].get("last_changed") if states else None,
+        }
+
+    @_trace_mcp_call("mcp.search_entities")
+    async def search_entities(
+        self,
+        query: str,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """Search for entities matching a query.
+
+        Args:
+            query: Search query
+            limit: Maximum results
+
+        Returns:
+            Search results with count and domain breakdown
+        """
+        from src.tracing import log_param
+
+        log_param("mcp.search_entities.query", query)
+
+        entities = await self.list_entities(search_query=query, limit=limit)
+
+        # Build domain counts
+        domains: dict[str, int] = {}
+        for entity in entities:
+            domain = entity.get("domain", "unknown")
+            domains[domain] = domains.get(domain, 0) + 1
+
+        return {
+            "count": len(entities),
+            "results": entities,
+            "domains": domains,
         }
 
 

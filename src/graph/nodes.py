@@ -7,7 +7,6 @@ Nodes are composable building blocks for agent workflows.
 from datetime import datetime
 from typing import Any
 
-import mlflow
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.graph.state import (
@@ -230,7 +229,9 @@ async def finalize_discovery_node(state: DiscoveryState) -> dict[str, Any]:
     Returns:
         Final state updates
     """
-    # Log metrics to MLflow
+    # Log metrics to MLflow (lazy import to avoid early loading)
+    import mlflow
+    
     if mlflow.active_run():
         mlflow.log_metrics({
             "entities_found": len(state.entities_found),
@@ -268,6 +269,9 @@ async def error_handler_node(
     """
     error_msg = f"{type(error).__name__}: {error}"
 
+    # Lazy import to avoid early loading
+    import mlflow
+    
     if mlflow.active_run():
         mlflow.set_tag("error", "true")
         mlflow.log_param("error_message", error_msg[:500])

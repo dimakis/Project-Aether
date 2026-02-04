@@ -1,11 +1,11 @@
 """LangGraph workflows for agent orchestration.
 
 Defines the graph structures that connect nodes into complete workflows.
+All workflow entry points start a trace session for correlation.
 """
 
 from typing import Any, Literal
 
-import mlflow
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.graph import END, START, StateGraph, create_graph
@@ -95,7 +95,9 @@ def build_discovery_graph(
         return await sync_automations_node(state, mcp_client=mcp_client)
 
     async def _persist_entities(state: DiscoveryState) -> dict[str, Any]:
-        return await persist_entities_node(state, session=session, mcp_client=mcp_client)
+        return await persist_entities_node(
+            state, session=session, mcp_client=mcp_client
+        )
 
     async def _finalize(state: DiscoveryState) -> dict[str, Any]:
         return await finalize_discovery_node(state)
@@ -134,6 +136,8 @@ async def run_discovery_workflow(
 ) -> DiscoveryState:
     """Execute the discovery workflow.
 
+    Starts a trace session for correlation across all operations.
+
     Args:
         mcp_client: Optional MCP client
         session: Optional database session
@@ -142,6 +146,9 @@ async def run_discovery_workflow(
     Returns:
         Final discovery state
     """
+    # Start a trace session for this workflow
+    from src.tracing.context import session_context
+
     # Build the graph with injected dependencies
     graph = build_discovery_graph(mcp_client=mcp_client, session=session)
 
@@ -152,28 +159,32 @@ async def run_discovery_workflow(
     if initial_state is None:
         initial_state = DiscoveryState()
 
-    # Run with MLflow tracking
-    with start_experiment_run("discovery_workflow") as run:
-        mlflow.set_tag("workflow", "discovery")
+    # Run with MLflow tracking and session context
+    import mlflow
 
-        try:
-            # Execute the graph
-            final_state = await compiled.ainvoke(initial_state)
+    with session_context() as session_id:
+        with start_experiment_run("discovery_workflow") as run:
+            mlflow.set_tag("workflow", "discovery")
+            mlflow.set_tag("session.id", session_id)
 
-            # Handle the result
-            if isinstance(final_state, dict):
-                # Merge into state
-                result = initial_state.model_copy(update=final_state)
-            else:
-                result = final_state
+            try:
+                # Execute the graph
+                final_state = await compiled.ainvoke(initial_state)
 
-            mlflow.set_tag("status", result.status.value)
-            return result
+                # Handle the result
+                if isinstance(final_state, dict):
+                    # Merge into state
+                    result = initial_state.model_copy(update=final_state)
+                else:
+                    result = final_state
 
-        except Exception as e:
-            mlflow.set_tag("status", "failed")
-            mlflow.log_param("error", str(e)[:500])
-            raise
+                mlflow.set_tag("status", result.status.value)
+                return result
+
+            except Exception as e:
+                mlflow.set_tag("status", "failed")
+                mlflow.log_param("error", str(e)[:500])
+                raise
 
 
 def build_simple_discovery_graph() -> StateGraph:
@@ -279,7 +290,9 @@ def build_conversation_graph(
     graph.add_node("deploy", _deploy)
 
     # Define routing
-    def route_after_propose(state: ConversationState) -> Literal["approval_gate", "__end__"]:
+    def route_after_propose(
+        state: ConversationState,
+    ) -> Literal["approval_gate", "__end__"]:
         """Route based on whether proposal was created."""
         if state.pending_approvals:
             return "approval_gate"
@@ -347,6 +360,8 @@ async def run_conversation_workflow(
 ) -> ConversationState:
     """Execute the conversation workflow.
 
+    Starts a trace session for correlation across all operations.
+
     Args:
         user_message: User's message
         session: Database session
@@ -357,6 +372,8 @@ async def run_conversation_workflow(
         Updated conversation state
     """
     from langchain_core.messages import HumanMessage
+
+    from src.tracing.context import session_context
 
     # Compile graph
     compiled = compile_conversation_graph(session=session, thread_id=thread_id)
@@ -371,31 +388,38 @@ async def run_conversation_workflow(
             messages=[HumanMessage(content=user_message)],
         )
 
-    # Run with MLflow tracking
-    with start_experiment_run("conversation_workflow") as run:
-        mlflow.set_tag("workflow", "conversation")
-        mlflow.set_tag("thread_id", thread_id or state.conversation_id)
+    # Run with MLflow tracking and session context
+    import mlflow
 
-        try:
-            # Execute the graph
-            config = {"configurable": {"thread_id": thread_id or state.conversation_id}}
-            final_state = await compiled.ainvoke(state, config=config)
+    with session_context() as session_id:
+        with start_experiment_run("conversation_workflow") as run:
+            mlflow.set_tag("workflow", "conversation")
+            mlflow.set_tag("thread_id", thread_id or state.conversation_id)
+            mlflow.set_tag("session.id", session_id)
 
-            # Handle the result
-            if isinstance(final_state, dict):
-                result = state.model_copy(update=final_state)
-            else:
-                result = final_state
+            try:
+                # Execute the graph
+                config = {
+                    "configurable": {"thread_id": thread_id or state.conversation_id}
+                }
+                final_state = await compiled.ainvoke(state, config=config)
 
-            mlflow.set_tag("status", result.status.value)
-            return result
+                # Handle the result
+                if isinstance(final_state, dict):
+                    result = state.model_copy(update=final_state)
+                else:
+                    result = final_state
 
-        except Exception as e:
-            mlflow.set_tag("status", "failed")
-            mlflow.log_param("error", str(e)[:500])
-            raise
+                mlflow.set_tag("status", result.status.value)
+                return result
+
+            except Exception as e:
+                mlflow.set_tag("status", "failed")
+                mlflow.log_param("error", str(e)[:500])
+                raise
 
 
+@trace_with_uri(name="workflow.resume_after_approval", span_type="CHAIN")
 async def resume_after_approval(
     thread_id: str,
     approved: bool,
@@ -404,6 +428,8 @@ async def resume_after_approval(
     session: Any = None,
 ) -> ConversationState:
     """Resume conversation workflow after HITL approval decision.
+
+    Restores the trace session from the original workflow.
 
     Args:
         thread_id: Thread ID to resume
@@ -416,6 +442,7 @@ async def resume_after_approval(
         Updated conversation state after resumption
     """
     from src.dal import ProposalRepository
+    from src.tracing.context import session_context
 
     # Compile graph with same checkpointer
     compiled = compile_conversation_graph(session=session, thread_id=thread_id)
@@ -452,12 +479,21 @@ async def resume_after_approval(
     # Update the state in the graph
     compiled.update_state(config, current_state.model_dump())
 
-    # Resume execution
-    final_state = await compiled.ainvoke(None, config=config)
+    # Resume execution with session context
+    import mlflow
 
-    if isinstance(final_state, dict):
-        return current_state.model_copy(update=final_state)
-    return final_state
+    with session_context() as session_id:
+        with start_experiment_run("conversation_workflow_resume") as run:
+            mlflow.set_tag("workflow", "conversation_resume")
+            mlflow.set_tag("thread_id", thread_id)
+            mlflow.set_tag("session.id", session_id)
+            mlflow.set_tag("approval.decision", "approved" if approved else "rejected")
+
+            final_state = await compiled.ainvoke(None, config=config)
+
+            if isinstance(final_state, dict):
+                return current_state.model_copy(update=final_state)
+            return final_state
 
 
 # =============================================================================
