@@ -123,33 +123,50 @@ class ArchitectAgent(BaseAgent):
         """
         async with self.trace_span("invoke", state) as span:
             session = kwargs.get("session")
+            mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
 
-            # Build messages for LLM
-            messages = self._build_messages(state)
+            with mlflow.start_span(
+                name="architect.invoke",
+                span_type="CHAIN",
+                attributes={
+                    "conversation_id": state.conversation_id,
+                    "agent": self.name,
+                },
+            ):
+                # Build messages for LLM
+                messages = self._build_messages(state)
 
-            # Add entity context if session available
-            if session:
-                entity_context = await self._get_entity_context(session, state)
-                if entity_context:
-                    messages.insert(1, SystemMessage(content=entity_context))
+                # Add entity context if session available
+                if session:
+                    entity_context = await self._get_entity_context(session, state)
+                    if entity_context:
+                        messages.insert(1, SystemMessage(content=entity_context))
 
-            # Generate response (with HA tools available)
-            tools = self._get_ha_tools()
-            tool_llm = self.llm.bind_tools(tools) if tools else self.llm
-            response = await tool_llm.ainvoke(messages)
+                # Generate response (with HA tools available)
+                tools = self._get_ha_tools()
+                tool_llm = self.llm.bind_tools(tools) if tools else self.llm
+                with mlflow.start_span(
+                    name="architect.llm",
+                    span_type="LLM",
+                    attributes={
+                        "model": self.model_name or self._settings.llm_model,
+                        "provider": self._settings.llm_provider,
+                    },
+                ):
+                    response = await tool_llm.ainvoke(messages)
 
-            # Handle tool calls with strict approval for any HA-altering actions
-            if hasattr(response, "tool_calls") and response.tool_calls:
-                tool_call_updates = await self._handle_tool_calls(
-                    response,
-                    messages,
-                    tools,
-                    state,
-                )
-                if tool_call_updates is not None:
-                    return tool_call_updates
+                # Handle tool calls with strict approval for any HA-altering actions
+                if hasattr(response, "tool_calls") and response.tool_calls:
+                    tool_call_updates = await self._handle_tool_calls(
+                        response,
+                        messages,
+                        tools,
+                        state,
+                    )
+                    if tool_call_updates is not None:
+                        return tool_call_updates
 
-            response_text = response.content
+                response_text = response.content
 
             # Track metrics
             span["response_length"] = len(response_text)
@@ -260,7 +277,12 @@ class ArchitectAgent(BaseAgent):
             tool = tool_lookup.get(call["name"])
             if not tool:
                 continue
-            result = await tool.ainvoke(call.get("args", {}))
+            with mlflow.start_span(
+                name=f"tool.{call['name']}",
+                span_type="TOOL",
+                attributes={"tool": call["name"]},
+            ):
+                result = await tool.ainvoke(call.get("args", {}))
             tool_messages.append(
                 ToolMessage(
                     content=str(result),
