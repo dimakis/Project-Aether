@@ -5,9 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ARTIFACT_ROOT="${MLFLOW_ARTIFACT_ROOT:-$ROOT_DIR/mlruns}"
-BACKEND_URI="${MLFLOW_BACKEND_STORE_URI:-postgresql://aether:aether@localhost:5432/aether}"
+BACKEND_URI="${MLFLOW_BACKEND_STORE_URI:-postgresql://aether:aether@localhost:5432/aether_mlflow}"
 HOST="${MLFLOW_HOST:-0.0.0.0}"
-PORT="${MLFLOW_PORT:-5001}"
+PORT="${MLFLOW_PORT:-5002}"
 
 mkdir -p "$ARTIFACT_ROOT"
 

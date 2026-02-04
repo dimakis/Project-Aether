@@ -23,16 +23,27 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 -- Note: Actual tables are managed by Alembic migrations.
 -- This file only sets up extensions and any database-level configuration.
 
+-- Create MLflow database if missing
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'aether_mlflow') THEN
+        CREATE DATABASE aether_mlflow;
+    END IF;
+END $$;
+
 -- =============================================================================
 -- Database Configuration
 -- =============================================================================
 
 -- Set default timezone to UTC
 ALTER DATABASE aether SET timezone TO 'UTC';
+ALTER DATABASE aether_mlflow SET timezone TO 'UTC';
 
 -- Optimize for our workload
 ALTER DATABASE aether SET random_page_cost = 1.1;  -- SSD storage
 ALTER DATABASE aether SET effective_io_concurrency = 200;  -- SSD storage
+ALTER DATABASE aether_mlflow SET random_page_cost = 1.1;  -- SSD storage
+ALTER DATABASE aether_mlflow SET effective_io_concurrency = 200;  -- SSD storage
 
 -- =============================================================================
 -- Roles (Optional - for production multi-user setup)
@@ -61,6 +72,7 @@ ALTER DATABASE aether SET effective_io_concurrency = 200;  -- SSD storage
 DO $$
 BEGIN
     RAISE NOTICE 'Aether database initialized successfully';
+    RAISE NOTICE 'MLflow database initialized successfully';
     RAISE NOTICE 'Extensions: uuid-ossp, pg_trgm';
     RAISE NOTICE 'Run Alembic migrations to create tables: alembic upgrade head';
 END $$;

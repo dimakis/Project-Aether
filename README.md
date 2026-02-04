@@ -43,7 +43,7 @@ make dev
 # Start PostgreSQL + MLflow containers (MLflow on http://localhost:5001)
 make mlflow-up
 
-# Or start a local MLflow server (defaults to http://localhost:5001)
+# Or start a local MLflow server (defaults to http://localhost:5002)
 make mlflow
 
 # Discover entities from Home Assistant
@@ -102,7 +102,7 @@ uv sync
 # Start PostgreSQL + MLflow containers (MLflow on http://localhost:5001)
 make mlflow-up
 
-# Or start local MLflow server (defaults to http://localhost:5001)
+# Or start local MLflow server (defaults to http://localhost:5002)
 make mlflow
 
 # Run tests

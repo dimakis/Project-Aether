@@ -46,6 +46,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "structlog>=24.4.0",
     "langchain-google-genai>=4.2.0",
+    "psycopg2-binary>=2.9.11",
 ]
 
 [project.optional-dependencies]

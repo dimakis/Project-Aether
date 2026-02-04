@@ -18,7 +18,7 @@ help:
 	@echo "  make down        - Stop all containers"
 	@echo "  make logs        - View container logs"
 	@echo "  make psql        - Connect to PostgreSQL"
-	@echo "  make mlflow      - Start local MLflow server (Postgres backend, port 5001)"
+	@echo "  make mlflow      - Start local MLflow server (Postgres backend, port 5002)"
 	@echo "  make mlflow-up   - Start PostgreSQL + MLflow containers (MLflow on 5001)"
 	@echo ""
 	@echo "Database:"
