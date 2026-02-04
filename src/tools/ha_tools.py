@@ -11,6 +11,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.mcp import get_mcp_client
+from src.tracing import trace_with_uri
 
 
 def _extract_results(payload: Any) -> list[dict[str, Any]]:
@@ -26,6 +27,7 @@ def _extract_results(payload: Any) -> list[dict[str, Any]]:
 
 
 @tool("get_entity_state")
+@trace_with_uri(name="ha.get_entity_state", span_type="TOOL")
 async def get_entity_state(entity_id: str) -> str:
     """Get the current state and key attributes for an entity."""
     mcp = get_mcp_client()
@@ -41,6 +43,7 @@ async def get_entity_state(entity_id: str) -> str:
 
 
 @tool("list_entities_by_domain")
+@trace_with_uri(name="ha.list_entities_by_domain", span_type="TOOL")
 async def list_entities_by_domain(domain: str, state_filter: str | None = None) -> str:
     """List entities for a given domain, optionally filtered by state."""
     mcp = get_mcp_client()
@@ -60,6 +63,7 @@ async def list_entities_by_domain(domain: str, state_filter: str | None = None) 
 
 
 @tool("search_entities")
+@trace_with_uri(name="ha.search_entities", span_type="TOOL")
 async def search_entities(query: str) -> str:
     """Search entities by name or ID."""
     mcp = get_mcp_client()
@@ -79,6 +83,7 @@ async def search_entities(query: str) -> str:
 
 
 @tool("get_domain_summary")
+@trace_with_uri(name="ha.get_domain_summary", span_type="TOOL")
 async def get_domain_summary(domain: str) -> str:
     """Get a summary of entity counts and states for a domain."""
     mcp = get_mcp_client()
@@ -92,6 +97,7 @@ async def get_domain_summary(domain: str) -> str:
 
 
 @tool("control_entity")
+@trace_with_uri(name="ha.control_entity", span_type="TOOL")
 async def control_entity(entity_id: str, action: str) -> str:
     """Control an entity (on/off/toggle)."""
     mcp = get_mcp_client()

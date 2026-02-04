@@ -14,7 +14,7 @@ from src.dal import DiscoverySyncService
 from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
 from src.mcp import MCPClient
 from src.settings import get_settings
-from src.tracing import start_experiment_run
+from src.tracing import start_experiment_run, trace_with_uri
 
 
 class LibrarianWorkflow:
@@ -48,6 +48,7 @@ class LibrarianWorkflow:
             self._mcp = get_mcp_client()
         return self._mcp
 
+    @trace_with_uri(name="librarian.run_discovery", span_type="CHAIN")
     async def run_discovery(
         self,
         triggered_by: str = "manual",
@@ -107,6 +108,7 @@ class LibrarianWorkflow:
 
         return state
 
+    @trace_with_uri(name="librarian.fetch_entities", span_type="TOOL")
     async def _fetch_entities(
         self,
         state: DiscoveryState,
@@ -158,6 +160,7 @@ class LibrarianWorkflow:
 
         return state
 
+    @trace_with_uri(name="librarian.sync_database", span_type="CHAIN")
     async def _sync_to_database(
         self,
         state: DiscoveryState,
@@ -198,6 +201,7 @@ class LibrarianWorkflow:
 
         return state
 
+    @trace_with_uri(name="librarian.report_results", span_type="CHAIN")
     async def _report_results(self, state: DiscoveryState) -> DiscoveryState:
         """Generate discovery report.
 

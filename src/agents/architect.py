@@ -25,7 +25,7 @@ from src.graph.state import AgentRole, ConversationState, ConversationStatus, HI
 from src.llm import get_llm
 from src.settings import get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
-from src.tracing import start_experiment_run, start_run
+from src.tracing import start_experiment_run, start_run, trace_with_uri
 
 # System prompt for the Architect agent
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect agent for Project Aether, a Home Assistant automation assistant.
@@ -108,6 +108,7 @@ class ArchitectAgent(BaseAgent):
             )
         return self._llm
 
+    @trace_with_uri(name="architect.invoke", span_type="CHAIN")
     async def invoke(
         self,
         state: ConversationState,
@@ -122,6 +123,7 @@ class ArchitectAgent(BaseAgent):
         Returns:
             State updates with response and any proposals
         """
+        """Process a user message and generate a response."""
         async with self.trace_span("invoke", state) as span:
             session = kwargs.get("session")
             mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
@@ -274,6 +276,7 @@ class ArchitectAgent(BaseAgent):
         """Check if a tool call can mutate Home Assistant state."""
         return tool_name in {"control_entity"}
 
+    @trace_with_uri(name="architect.handle_tool_calls", span_type="TOOL")
     async def _handle_tool_calls(
         self,
         response: AIMessage,
@@ -342,6 +345,7 @@ class ArchitectAgent(BaseAgent):
             "messages": [response, *tool_messages, AIMessage(content=follow_up.content)],
         }
 
+    @trace_with_uri(name="architect.get_entity_context", span_type="CHAIN")
     async def _get_entity_context(
         self,
         session: Any,

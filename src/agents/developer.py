@@ -17,6 +17,7 @@ from src.graph.state import AgentRole, ConversationState, ConversationStatus
 from src.mcp import MCPClient, get_mcp_client
 from src.settings import get_settings
 from src.storage.entities import ProposalStatus
+from src.tracing import trace_with_uri
 
 
 class DeveloperAgent(BaseAgent):
@@ -51,6 +52,7 @@ class DeveloperAgent(BaseAgent):
             self._mcp = get_mcp_client()
         return self._mcp
 
+    @trace_with_uri(name="developer.invoke", span_type="CHAIN")
     async def invoke(
         self,
         state: ConversationState,
@@ -109,6 +111,7 @@ class DeveloperAgent(BaseAgent):
                     "error": f"Deployment failed: {e}",
                 }
 
+    @trace_with_uri(name="developer.deploy_automation", span_type="CHAIN")
     async def deploy_automation(
         self,
         proposal: Any,
@@ -184,6 +187,7 @@ class DeveloperAgent(BaseAgent):
 """
         return header + yaml_str
 
+    @trace_with_uri(name="developer.deploy_via_mcp", span_type="TOOL")
     async def _deploy_via_mcp(
         self,
         automation_id: str,

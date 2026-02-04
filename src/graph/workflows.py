@@ -32,7 +32,7 @@ from src.graph.state import (
     DiscoveryState,
     DiscoveryStatus,
 )
-from src.tracing import start_experiment_run
+from src.tracing import start_experiment_run, trace_with_uri
 
 
 def build_discovery_graph(
@@ -126,6 +126,7 @@ def build_discovery_graph(
     return graph
 
 
+@trace_with_uri(name="workflow.run_discovery", span_type="CHAIN")
 async def run_discovery_workflow(
     mcp_client: Any = None,
     session: Any = None,
@@ -337,6 +338,7 @@ def compile_conversation_graph(
     return compiled
 
 
+@trace_with_uri(name="workflow.run_conversation", span_type="CHAIN")
 async def run_conversation_workflow(
     user_message: str,
     session: Any = None,

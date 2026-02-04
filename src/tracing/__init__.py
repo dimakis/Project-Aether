@@ -27,6 +27,7 @@ from src.tracing.mlflow import (
     start_run,
     trace_agent,
     trace_llm_call,
+    trace_with_uri,
 )
 
 __all__ = [
@@ -48,6 +49,7 @@ __all__ = [
     # Decorators
     "trace_agent",
     "trace_llm_call",
+    "trace_with_uri",
     # Tracer class
     "AetherTracer",
     "get_tracer",

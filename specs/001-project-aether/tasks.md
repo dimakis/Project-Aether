@@ -470,6 +470,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T147 Add deep MLflow spans for Librarian and Developer steps (fetch, sync, deploy)
 - [x] T148 Add trace sessions + span events for multi-agent workflows
 - [x] T149 Log conversation message payloads to MLflow traces/artifacts
+- [x] T150 Apply mlflow.trace across agents/tools/workflows for auto capture
 
 ### Entity Sync & Caching
 

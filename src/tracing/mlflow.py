@@ -428,6 +428,37 @@ def asyncio_iscoroutinefunction(func: Callable[..., Any]) -> bool:
     return asyncio.iscoroutinefunction(func) or inspect.iscoroutinefunction(func)
 
 
+def trace_with_uri(
+    name: str | None = None,
+    span_type: str = "UNKNOWN",
+    attributes: dict[str, Any] | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Trace a function after ensuring MLflow tracking URI is set.
+
+    This wraps mlflow.trace but ensures the tracking URI is configured
+    before the traced function executes (useful for CLI contexts).
+    """
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        traced = mlflow.trace(func, name=name, span_type=span_type, attributes=attributes)
+
+        if asyncio_iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
+                mlflow.set_tracking_uri(get_settings().mlflow_tracking_uri)
+                return await traced(*args, **kwargs)  # type: ignore[misc]
+
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            mlflow.set_tracking_uri(get_settings().mlflow_tracking_uri)
+            return traced(*args, **kwargs)  # type: ignore[misc]
+
+        return sync_wrapper
+
+    return decorator
+
+
 # =============================================================================
 # TRACER CLASS
 # =============================================================================
@@ -578,6 +609,7 @@ __all__ = [
     "log_agent_action",
     "trace_agent",
     "trace_llm_call",
+    "trace_with_uri",
     "AetherTracer",
     "get_tracer",
 ]
