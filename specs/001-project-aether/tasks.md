@@ -347,18 +347,18 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Data Scientist Agent for User Story 3
 
-- [ ] T096 [US3] Create src/agents/data_scientist.py with energy analysis and visualization generation
+- [x] T096 [US3] Create src/agents/data_scientist.py with energy analysis and visualization generation (commit: 1ff949e)
 - [ ] T097 [US3] Add Data Scientist nodes to src/graph/nodes.py (collect_data, generate_script, execute_sandbox, extract_insights)
 - [ ] T098 [US3] Add analysis workflow to src/graph/workflows.py
-- [ ] T167 [US3] Export DataScientistAgent from src/agents/__init__.py (pattern: Librarian/Architect)
-- [ ] T168 [US3] Add trace_span integration to Data Scientist agent (Constitution: Observability - use BaseAgent.trace_span())
+- [x] T167 [US3] Export DataScientistAgent from src/agents/__init__.py (pattern: Librarian/Architect) (commit: 9be9609)
+- [x] T168 [US3] Add trace_span integration to Data Scientist agent (Constitution: Observability - use BaseAgent.trace_span()) (commit: 1ff949e)
 - [ ] T169 [US3] Add session_context to analysis workflow entry point (multi-agent trace correlation per T158-T165)
 
 ### Sandbox Execution (Constitution: Isolation)
 
 - [x] T099 [US3] Create sandbox container image with pandas, numpy, matplotlib, scipy in infrastructure/podman/Containerfile.sandbox and update SandboxRunner.DEFAULT_IMAGE (commit: c0a8314)
 - [x] T100 [US3] Implement sandboxed script execution in src/sandbox/runner.py using Podman + runsc
-- [ ] T101 [US3] Add script output capture and insight extraction in src/agents/data_scientist.py
+- [x] T101 [US3] Add script output capture and insight extraction in src/agents/data_scientist.py (commit: 1ff949e)
 
 ### API Endpoints for User Story 3
 
@@ -375,7 +375,7 @@ These features would unlock additional capabilities. **Report back when these be
 **Unit Tests**:
 - [x] T106 [P] [US3] Create tests/unit/test_mcp_history.py - History data parsing (commit: 7168ae4)
 - [ ] T107 [P] [US3] Create tests/unit/test_dal_energy.py - Energy aggregation logic (covered by T106)
-- [ ] T108 [P] [US3] Create tests/unit/test_data_scientist.py - Script generation (mock LLM)
+- [x] T108 [P] [US3] Create tests/unit/test_data_scientist.py - Script generation (mock LLM) (commit: 4cdf017)
 - [x] T109 [P] [US3] Create tests/unit/test_sandbox_runner.py - Sandbox execution logic (mock Podman) (commit: c0a8314)
 - [ ] T110 [P] [US3] Create tests/unit/test_insight_extraction.py - Output parsing
 
