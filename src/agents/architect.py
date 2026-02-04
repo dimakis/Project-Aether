@@ -235,12 +235,17 @@ class ArchitectAgent(BaseAgent):
         Returns:
             List of messages for LLM
         """
+        from langchain_core.messages import ToolMessage
+
         messages = [SystemMessage(content=ARCHITECT_SYSTEM_PROMPT)]
 
         for msg in state.messages:
             if isinstance(msg, HumanMessage):
                 messages.append(msg)
             elif isinstance(msg, AIMessage):
+                messages.append(msg)
+            elif isinstance(msg, ToolMessage):
+                # Must include tool responses after AI messages with tool_calls
                 messages.append(msg)
 
         return messages
