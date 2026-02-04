@@ -7,6 +7,7 @@ for integration with Open WebUI and other OpenAI-compatible clients.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
 from typing import Any, AsyncGenerator
@@ -161,8 +162,9 @@ async def _create_chat_completion(
 ) -> ChatCompletionResponse:
     """Process non-streaming chat completion."""
     async with get_session() as session:
-        # Get or create conversation
-        conversation_id = request.conversation_id or str(uuid4())
+        # Get or create conversation - use stable ID derived from messages
+        # This ensures Open WebUI conversations stay grouped in MLflow
+        conversation_id = request.conversation_id or _derive_conversation_id(request.messages)
 
         with session_context(conversation_id):
             # Convert OpenAI messages to LangChain messages
@@ -233,7 +235,8 @@ async def _stream_chat_completion(
 
     try:
         async with get_session() as session:
-            conversation_id = request.conversation_id or str(uuid4())
+            # Use stable ID derived from messages for MLflow session correlation
+            conversation_id = request.conversation_id or _derive_conversation_id(request.messages)
 
             with session_context(conversation_id):
                 # Convert messages
@@ -361,6 +364,44 @@ def _format_sse_error(error: str) -> str:
         }
     }
     return f"data: {json.dumps(error_data)}\n\n"
+
+
+def _derive_conversation_id(messages: list[ChatMessage]) -> str:
+    """Derive a stable conversation ID from message history.
+
+    Open WebUI and other OpenAI-compatible clients don't send a conversation_id.
+    Instead of generating a new UUID per request (which fragments MLflow traces),
+    we derive a deterministic ID from the conversation fingerprint.
+
+    Strategy: Hash the first user message content. This groups all messages
+    in the same conversation under one MLflow session.
+
+    Args:
+        messages: List of chat messages
+
+    Returns:
+        Deterministic conversation ID (conv-<hash>)
+    """
+    # Find the first user message
+    first_user_content = ""
+    for msg in messages:
+        if msg.role == "user" and msg.content:
+            first_user_content = msg.content
+            break
+
+    if not first_user_content:
+        # Fallback: use system message or generate new
+        for msg in messages:
+            if msg.role == "system" and msg.content:
+                first_user_content = msg.content
+                break
+
+    if not first_user_content:
+        return str(uuid4())
+
+    # Create stable hash from first message
+    content_hash = hashlib.sha256(first_user_content.encode()).hexdigest()[:12]
+    return f"conv-{content_hash}"
 
 
 __all__ = ["router"]

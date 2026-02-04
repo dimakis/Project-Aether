@@ -598,9 +598,14 @@ class ArchitectWorkflow:
     4. Hand off to Developer for deployment
     """
 
-    def __init__(self):
-        """Initialize the Architect workflow."""
-        self.agent = ArchitectAgent()
+    def __init__(self, model_name: str | None = None, temperature: float | None = None):
+        """Initialize the Architect workflow.
+
+        Args:
+            model_name: LLM model to use (e.g., 'gpt-4o', 'gpt-4o-mini')
+            temperature: LLM temperature for response generation
+        """
+        self.agent = ArchitectAgent(model_name=model_name, temperature=temperature)
 
     async def start_conversation(
         self,
