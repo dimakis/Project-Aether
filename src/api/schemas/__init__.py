@@ -45,6 +45,22 @@ from src.api.schemas.ha_automations import (
     ServiceListResponse,
     ServiceResponse,
 )
+from src.api.schemas.insights import (
+    ActionRequest,
+    AnalysisJob,
+    AnalysisJobResponse,
+    AnalysisRequest,
+    DismissRequest,
+    EnergyOverviewResponse,
+    EnergyStatsResponse,
+    InsightCreate,
+    InsightListResponse,
+    InsightResponse,
+    InsightStatus,
+    InsightSummary,
+    InsightType,
+    ReviewRequest,
+)
 from src.api.schemas.proposals import (
     ApprovalRequest,
     DeploymentRequest,
@@ -238,4 +254,19 @@ __all__ = [
     "DeploymentResponse",
     "RollbackRequest",
     "RollbackResponse",
+    # Insights (US3)
+    "InsightType",
+    "InsightStatus",
+    "InsightCreate",
+    "InsightResponse",
+    "InsightListResponse",
+    "InsightSummary",
+    "AnalysisRequest",
+    "AnalysisJob",
+    "AnalysisJobResponse",
+    "ReviewRequest",
+    "ActionRequest",
+    "DismissRequest",
+    "EnergyStatsResponse",
+    "EnergyOverviewResponse",
 ]
