@@ -30,25 +30,16 @@ This project follows strict principles defined in our [Constitution](.specify/me
 ```bash
 # Prerequisites: Python 3.11+, uv, Podman
 
-# Install dependencies
+# Install and configure
 make install
-
-# Configure environment (see LLM Configuration below)
 cp .env.example .env
-# Edit .env with your HA token and LLM settings
+# Edit .env with your HA_TOKEN, HA_URL, and OPENAI_API_KEY
 
-# Start infrastructure and run migrations
-make dev
+# Start development environment (single command!)
+make run
 
-# Discover entities from Home Assistant
-make discover
-
-# Option 1: CLI chat
-make chat
-
-# Option 2: Start API + Open WebUI for chat interface
-make up-ui      # Start infra + chat UI
-make serve      # Start API on host (hot-reload)
+# Or with chat UI
+make run-ui
 open http://localhost:3000
 ```
 
@@ -56,9 +47,10 @@ open http://localhost:3000
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| **Development** | `make up && make serve` | Infra in containers, API on host with hot-reload |
-| **Dev + UI** | `make up-ui && make serve` | Above + Open WebUI chat interface |
-| **Production** | `make up-all` | Everything containerized |
+| **Development** | `make run` | API on host with hot-reload |
+| **Dev + Chat UI** | `make run-ui` | Above + Open WebUI interface |
+| **Production** | `make run-prod` | Everything containerized |
+| **Stop** | `make down` | Stop all services |
 
 ```
 ┌─────────────────────────────────────────────────────────┐

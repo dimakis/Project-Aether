@@ -83,7 +83,7 @@ Project Aether is an agentic home automation system that provides conversational
 
 ## Deployment Modes
 
-### Development Mode (Default)
+### Development Mode
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -102,10 +102,7 @@ Project Aether is an agentic home automation system that provides conversational
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
 
-Commands:
-  make up       # Start infrastructure
-  make serve    # Run API on host (hot-reload)
-  make chat     # CLI chat
+Command: make run
 ```
 
 ### Development + UI Mode
@@ -126,10 +123,7 @@ Commands:
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
 
-Commands:
-  make up-ui    # Start infra + Open WebUI
-  make serve    # Run API on host
-  open http://localhost:3000
+Command: make run-ui
 ```
 
 ### Production Mode (Fully Containerized)
@@ -152,9 +146,13 @@ Commands:
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
 
-Commands:
-  make up-all   # Start complete stack
-  open http://localhost:3000
+Command: make run-prod
+```
+
+### Stop All Services
+
+```bash
+make down
 ```
 
 ### Kubernetes Migration Path
@@ -382,11 +380,20 @@ View traces: `make mlflow` → http://localhost:5002
 | `WEBUI_PORT` | `3000` | Open WebUI port |
 | `MLFLOW_PORT` | `5002` | MLflow UI port |
 
-### Compose Profiles
+### Deployment Commands
+
+| Command | Description |
+|---------|-------------|
+| `make run` | Development mode (API on host with hot-reload) |
+| `make run-ui` | Development + Open WebUI chat interface |
+| `make run-prod` | Production mode (everything containerized) |
+| `make down` | Stop all services |
+
+### Compose Profiles (advanced)
 
 | Profile | Services Added | Use Case |
 |---------|----------------|----------|
-| (none) | postgres, mlflow, redis | Development (API on host) |
-| `ui` | + open-webui | Development with chat UI |
+| (none) | postgres, mlflow, redis | Infrastructure only |
+| `ui` | + open-webui | Add chat UI |
 | `full` | + aether-app | Containerized API |
-| `full` + `ui` | All services | Production-like |
+| `full` + `ui` | All services | Production stack |

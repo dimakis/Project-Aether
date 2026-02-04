@@ -56,48 +56,39 @@ MLFLOW_TRACKING_URI=http://localhost:5000
 LOG_LEVEL=INFO
 ```
 
-### 3. Start Infrastructure
+### 3. Start Aether
 
 Choose a deployment mode based on your needs:
 
 **Development Mode** (recommended for coding):
 ```bash
-# Start infrastructure only (API will run on host with hot-reload)
-make up
-
-# Run database migrations
-make migrate
-
-# Start API with hot-reload
-make serve
+make run
 ```
+This starts infrastructure containers + API on host with hot-reload.
 
 **Development + Chat UI**:
 ```bash
-# Start infra + Open WebUI
-make up-ui
-make migrate
-make serve
-
-# Open chat interface
+make run-ui
 open http://localhost:3000
 ```
+Adds Open WebUI for a beautiful chat experience.
 
 **Production Mode** (fully containerized):
 ```bash
-# Start everything in containers
-make up-all
-make migrate
+make run-prod
+open http://localhost:3000
+```
+Everything runs in containers.
 
-# Access services
-open http://localhost:3000  # Chat UI
-open http://localhost:5002  # MLflow
+**Stop all services**:
+```bash
+make down
 ```
 
-Verify services:
+**Verify services**:
 ```bash
 curl http://localhost:5002/health  # MLflow
-psql $DATABASE_URL -c "SELECT 1"   # PostgreSQL
+curl http://localhost:8000/api/health  # API
 ```
 
 ### 4. Run Initial Discovery
