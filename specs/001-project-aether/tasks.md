@@ -380,9 +380,9 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T110 [P] [US3] Create tests/unit/test_insight_extraction.py - Output parsing (commit: 27b7c12)
 
 **Integration Tests**:
-- [ ] T111 [US3] Create tests/integration/test_analysis_workflow.py - Full analysis pipeline with mocks
+- [x] T111 [US3] Create tests/integration/test_analysis_workflow.py - Full analysis pipeline with mocks (commit: 0b36dde)
 - [ ] T112 [US3] Create tests/integration/test_sandbox_isolation.py - Verify gVisor policies enforced
-- [ ] T113 [US3] Create tests/integration/test_api_insights.py - Insights API
+- [x] T113 [US3] Create tests/integration/test_api_insights.py - Insights API (commit: 81a022c)
 
 **E2E Tests**:
 - [ ] T114 [US3] Create tests/e2e/test_energy_analysis.py - Full analysis with containerized sandbox
