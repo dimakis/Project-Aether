@@ -25,8 +25,15 @@ from src.graph.nodes import (
     developer_deploy_node,
     developer_rollback_node,
     process_approval_node,
+    # Analysis nodes (User Story 3)
+    analysis_error_node,
+    collect_energy_data_node,
+    execute_sandbox_node,
+    extract_insights_node,
+    generate_script_node,
 )
 from src.graph.state import (
+    AnalysisState,
     ConversationState,
     ConversationStatus,
     DiscoveryState,
@@ -497,6 +504,148 @@ async def resume_after_approval(
 
 
 # =============================================================================
+# ANALYSIS WORKFLOW (User Story 3: Energy Optimization)
+# =============================================================================
+
+
+def build_analysis_graph(
+    mcp_client: Any = None,
+    session: Any = None,
+) -> StateGraph:
+    """Build the energy analysis workflow graph.
+
+    Graph structure:
+    ```
+    START
+      │
+      ▼
+    collect_data
+      │
+      ▼
+    generate_script
+      │
+      ▼
+    execute_sandbox
+      │
+      ▼
+    extract_insights
+      │
+      ▼
+    END
+    ```
+
+    Constitution: Isolation - scripts run in gVisor sandbox.
+
+    Args:
+        mcp_client: Optional MCP client to inject
+        session: Optional database session for insight persistence
+
+    Returns:
+        Configured StateGraph
+    """
+    graph = create_graph(AnalysisState)
+
+    # Define node wrappers with dependency injection
+    async def _collect_data(state: AnalysisState) -> dict[str, Any]:
+        return await collect_energy_data_node(state, mcp_client=mcp_client)
+
+    async def _generate_script(state: AnalysisState) -> dict[str, Any]:
+        return await generate_script_node(state, session=session)
+
+    async def _execute_sandbox(state: AnalysisState) -> dict[str, Any]:
+        return await execute_sandbox_node(state)
+
+    async def _extract_insights(state: AnalysisState) -> dict[str, Any]:
+        return await extract_insights_node(state, session=session)
+
+    async def _handle_error(state: AnalysisState) -> dict[str, Any]:
+        # Get error from state if available
+        error = Exception("Unknown error")
+        return await analysis_error_node(state, error)
+
+    # Add nodes
+    graph.add_node("collect_data", _collect_data)
+    graph.add_node("generate_script", _generate_script)
+    graph.add_node("execute_sandbox", _execute_sandbox)
+    graph.add_node("extract_insights", _extract_insights)
+    graph.add_node("error", _handle_error)
+
+    # Define flow
+    graph.add_edge(START, "collect_data")
+    graph.add_edge("collect_data", "generate_script")
+    graph.add_edge("generate_script", "execute_sandbox")
+    graph.add_edge("execute_sandbox", "extract_insights")
+    graph.add_edge("extract_insights", END)
+    graph.add_edge("error", END)
+
+    return graph
+
+
+async def run_analysis_workflow(
+    analysis_type: str = "energy_optimization",
+    entity_ids: list[str] | None = None,
+    hours: int = 24,
+    custom_query: str | None = None,
+    mcp_client: Any = None,
+    session: Any = None,
+) -> AnalysisState:
+    """Run an energy analysis workflow.
+
+    Entry point for energy analysis. Starts a trace session
+    for correlation across the workflow.
+
+    Args:
+        analysis_type: Type of analysis to perform
+        entity_ids: Specific entities to analyze (None = auto-discover)
+        hours: Hours of history to analyze
+        custom_query: Custom analysis query
+        mcp_client: Optional MCP client
+        session: Database session for persistence
+
+    Returns:
+        Final analysis state with insights
+    """
+    import mlflow
+
+    from src.graph.state import AnalysisType
+    from src.tracing.context import session_context
+
+    # Map string to enum
+    try:
+        analysis_enum = AnalysisType(analysis_type)
+    except ValueError:
+        analysis_enum = AnalysisType.ENERGY_OPTIMIZATION
+
+    # Build initial state
+    initial_state = AnalysisState(
+        analysis_type=analysis_enum,
+        entity_ids=entity_ids or [],
+        time_range_hours=hours,
+        custom_query=custom_query,
+    )
+
+    # Build and compile graph
+    graph = build_analysis_graph(mcp_client=mcp_client, session=session)
+    compiled = graph.compile()
+
+    # Run with tracing
+    with session_context() as session_id:
+        with start_experiment_run("analysis_workflow") as run:
+            if run:
+                initial_state.mlflow_run_id = run.info.run_id if hasattr(run, "info") else None
+
+            mlflow.set_tag("workflow", "analysis")
+            mlflow.set_tag("session.id", session_id)
+            mlflow.set_tag("analysis_type", analysis_type)
+
+            final_state = await compiled.ainvoke(initial_state)
+
+            if isinstance(final_state, dict):
+                return initial_state.model_copy(update=final_state)
+            return final_state
+
+
+# =============================================================================
 # GRAPH REGISTRY
 # =============================================================================
 
@@ -505,6 +654,7 @@ WORKFLOW_REGISTRY = {
     "discovery": build_discovery_graph,
     "discovery_simple": build_simple_discovery_graph,
     "conversation": build_conversation_graph,
+    "analysis": build_analysis_graph,
 }
 
 
