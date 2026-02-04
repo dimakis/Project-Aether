@@ -17,7 +17,7 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src.agents import BaseAgent
-from src.dal import InsightRepository
+from src.dal import EntityRepository, InsightRepository
 from src.graph.state import AgentRole, AnalysisState, AnalysisType
 from src.llm import get_llm
 from src.mcp import EnergyHistoryClient, MCPClient, get_mcp_client
@@ -134,8 +134,9 @@ class DataScientistAgent(BaseAgent):
 
         async with self.trace_span("analyze", state, inputs=trace_inputs) as span:
             try:
-                # 1. Collect energy data
-                energy_data = await self._collect_energy_data(state)
+                # 1. Collect energy data (uses DB for discovery, MCP for history)
+                session = kwargs.get("session")
+                energy_data = await self._collect_energy_data(state, session=session)
                 
                 # 2. Generate analysis script
                 script = await self._generate_script(state, energy_data)
@@ -174,25 +175,38 @@ class DataScientistAgent(BaseAgent):
     async def _collect_energy_data(
         self,
         state: AnalysisState,
+        session: Any = None,
     ) -> dict[str, Any]:
-        """Collect energy data from Home Assistant.
+        """Collect energy data for analysis.
+
+        Uses local database for entity discovery (faster, no MCP overhead),
+        then falls back to MCP only for historical data which isn't stored locally.
 
         Args:
             state: Analysis state with entity IDs and time range
+            session: Database session for entity lookups
 
         Returns:
             Energy data for analysis
         """
-        energy_client = EnergyHistoryClient(self.mcp)
-        
-        # If no specific entities, discover all energy sensors
         entity_ids = state.entity_ids
+        
+        # If no specific entities, discover energy sensors from DB first
         if not entity_ids:
-            sensors = await energy_client.get_energy_sensors()
-            entity_ids = [s["entity_id"] for s in sensors[:20]]  # Limit to 20
+            entity_ids = await self._discover_energy_sensors_from_db(session)
             log_param("discovered_sensors", len(entity_ids))
+            log_param("discovery_source", "database" if entity_ids else "mcp")
+        
+        # If DB discovery failed or returned nothing, fall back to MCP
+        if not entity_ids:
+            energy_client = EnergyHistoryClient(self.mcp)
+            sensors = await energy_client.get_energy_sensors()
+            entity_ids = [s["entity_id"] for s in sensors[:20]]
+            log_param("discovered_sensors", len(entity_ids))
+            log_param("discovery_source", "mcp_fallback")
 
-        # Collect aggregated data
+        # Collect historical data via MCP (not stored locally)
+        energy_client = EnergyHistoryClient(self.mcp)
         data = await energy_client.get_aggregated_energy(
             entity_ids,
             hours=state.time_range_hours,
@@ -202,6 +216,60 @@ class DataScientistAgent(BaseAgent):
         log_metric("energy.sensor_count", float(len(entity_ids)))
         
         return data
+
+    async def _discover_energy_sensors_from_db(
+        self,
+        session: Any,
+    ) -> list[str]:
+        """Discover energy sensors from the local database.
+
+        Queries the synced entities table instead of making MCP calls.
+        Much faster and doesn't require HA to be available.
+
+        Args:
+            session: Database session
+
+        Returns:
+            List of energy sensor entity IDs
+        """
+        if not session:
+            return []
+        
+        try:
+            repo = EntityRepository(session)
+            
+            # Get all sensor entities
+            sensors = await repo.list_all(domain="sensor", limit=500)
+            
+            # Filter for energy-related sensors
+            # Energy device classes: energy, power
+            # Energy units: kWh, Wh, MWh, W, kW, MW
+            energy_device_classes = {"energy", "power"}
+            energy_units = {"kWh", "Wh", "MWh", "W", "kW", "MW"}
+            
+            energy_sensors = []
+            for entity in sensors:
+                attrs = entity.attributes or {}
+                device_class = attrs.get("device_class", "")
+                unit = attrs.get("unit_of_measurement", "")
+                
+                is_energy = (
+                    device_class in energy_device_classes
+                    or unit in energy_units
+                )
+                
+                if is_energy:
+                    energy_sensors.append(entity.entity_id)
+            
+            return energy_sensors[:20]  # Limit to 20
+            
+        except Exception as e:
+            # Log but don't fail - will fall back to MCP
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Failed to discover energy sensors from DB: {e}"
+            )
+            return []
 
     async def _generate_script(
         self,
