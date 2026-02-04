@@ -54,11 +54,11 @@ class Settings(BaseSettings):
     # LLM Configuration (Research Decision #6)
     # Supports: openai, openrouter, google, ollama, together, groq, or custom
     llm_provider: Literal["openai", "openrouter", "google", "ollama", "together", "groq", "custom"] = Field(
-        default="openrouter",
+        default="openai",
         description="LLM provider (openai, openrouter, google, ollama, together, groq, custom)",
     )
     llm_model: str = Field(
-        default="anthropic/claude-sonnet-4",
+        default="gpt-4o",
         description="Model name (provider-specific format)",
     )
     llm_temperature: float = Field(
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     llm_api_key: SecretStr = Field(
         default=SecretStr(""),
         description="API key for the LLM provider",
-        validation_alias=AliasChoices("llm_api_key", "openrouter_api_key", "openai_api_key"),
+        validation_alias=AliasChoices("llm_api_key", "openai_api_key", "openrouter_api_key"),
     )
     llm_base_url: str | None = Field(
         default=None,
