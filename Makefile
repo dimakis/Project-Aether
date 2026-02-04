@@ -135,7 +135,7 @@ up:
 	@echo "  Redis:      localhost:6379"
 
 up-ui:
-	$(COMPOSE) --profile ui up -d postgres mlflow redis
+	$(COMPOSE) --profile ui up -d
 	@echo "Waiting for services..."
 	@sleep 3
 	@echo ""

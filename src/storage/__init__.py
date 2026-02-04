@@ -8,6 +8,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -115,7 +116,7 @@ async def init_db() -> None:
     engine = get_engine()
     # Verify connectivity
     async with engine.connect() as conn:
-        await conn.execute("SELECT 1")  # type: ignore[arg-type]
+        await conn.execute(text("SELECT 1"))
 
 
 async def close_db() -> None:

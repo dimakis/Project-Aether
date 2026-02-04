@@ -97,10 +97,12 @@ async def _check_database() -> ComponentHealth:
     start = time.perf_counter()
 
     try:
+        from sqlalchemy import text
+
         from src.storage import get_session
 
         async with get_session() as session:
-            await session.execute("SELECT 1")  # type: ignore[arg-type]
+            await session.execute(text("SELECT 1"))
 
         latency = (time.perf_counter() - start) * 1000
         return ComponentHealth(

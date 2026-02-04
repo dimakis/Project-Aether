@@ -825,10 +825,12 @@ async def _check_components_directly() -> None:
         # Check database
         progress.add_task("Checking database...", total=None)
         try:
+            from sqlalchemy import text
+
             from src.storage import get_session
 
             async with get_session() as session:
-                await session.execute("SELECT 1")  # type: ignore[arg-type]
+                await session.execute(text("SELECT 1"))
             table.add_row("database", "[green]healthy[/green]", "PostgreSQL connected")
         except Exception as e:
             table.add_row("database", "[red]unhealthy[/red]", str(e)[:50])
