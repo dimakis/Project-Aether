@@ -2,18 +2,19 @@
 
 Provides comprehensive tracing for agent operations, LLM calls,
 and data science workflows (Constitution: Observability).
+
+All functions are defensive - they silently skip tracing if MLflow
+is unavailable or misconfigured, rather than crashing the application.
 """
 
 import functools
+import logging
 import time
 from collections.abc import Callable
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
-from typing import Any, ParamSpec, TypeVar
-
-import mlflow
-from mlflow.entities import Run
-from mlflow.tracking import MlflowClient
+from typing import Any, Generator, ParamSpec, TypeVar
 
 from src.settings import get_settings
 
@@ -21,45 +22,122 @@ from src.settings import get_settings
 P = ParamSpec("P")
 R = TypeVar("R")
 
+# Logger for tracing issues (debug level to avoid noise)
+_logger = logging.getLogger(__name__)
+
+# Flag to track if MLflow is available
+_mlflow_available: bool = True
+_mlflow_initialized: bool = False
+
 # Context variable for current tracer
 _current_tracer: ContextVar["AetherTracer | None"] = ContextVar(
     "current_tracer", default=None
 )
 
 
-def init_mlflow() -> MlflowClient:
+def _safe_import_mlflow():
+    """Safely import MLflow, returning None if unavailable."""
+    global _mlflow_available
+    if not _mlflow_available:
+        return None
+    try:
+        import mlflow
+        return mlflow
+    except ImportError:
+        _mlflow_available = False
+        _logger.debug("MLflow not installed, tracing disabled")
+        return None
+
+
+def _ensure_mlflow_initialized() -> bool:
+    """Ensure MLflow is initialized with correct tracking URI.
+    
+    Returns:
+        True if MLflow is ready, False otherwise
+    """
+    global _mlflow_initialized, _mlflow_available
+    
+    if not _mlflow_available:
+        return False
+    
+    if _mlflow_initialized:
+        return True
+    
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return False
+    
+    try:
+        settings = get_settings()
+        uri = settings.mlflow_tracking_uri
+        
+        # Ensure URI is valid
+        if not uri or uri.startswith("/mlflow"):
+            # Fall back to local directory
+            uri = "./mlruns"
+            _logger.debug(f"Using fallback MLflow URI: {uri}")
+        
+        mlflow.set_tracking_uri(uri)
+        _mlflow_initialized = True
+        return True
+    except Exception as e:
+        _mlflow_available = False
+        _logger.debug(f"MLflow initialization failed: {e}")
+        return False
+
+
+def init_mlflow() -> Any:
     """Initialize MLflow with settings from environment.
 
     Returns:
-        Configured MlflowClient instance
+        Configured MlflowClient instance or None if unavailable
     """
-    settings = get_settings()
-    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
-    return MlflowClient(tracking_uri=settings.mlflow_tracking_uri)
+    if not _ensure_mlflow_initialized():
+        return None
+    
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return None
+    
+    try:
+        from mlflow.tracking import MlflowClient
+        settings = get_settings()
+        return MlflowClient(tracking_uri=settings.mlflow_tracking_uri)
+    except Exception as e:
+        _logger.debug(f"Failed to create MLflow client: {e}")
+        return None
 
 
-def get_or_create_experiment(name: str | None = None) -> str:
+def get_or_create_experiment(name: str | None = None) -> str | None:
     """Get or create an MLflow experiment.
 
     Args:
         name: Experiment name (defaults to settings.mlflow_experiment_name)
 
     Returns:
-        Experiment ID
+        Experiment ID or None if MLflow unavailable
     """
-    settings = get_settings()
-    experiment_name = name or settings.mlflow_experiment_name
+    if not _ensure_mlflow_initialized():
+        return None
+    
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return None
+    
+    try:
+        settings = get_settings()
+        experiment_name = name or settings.mlflow_experiment_name
 
-    # Ensure tracking URI is set for any caller (CLI, API, etc.)
-    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+        experiment = mlflow.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            experiment_id = mlflow.create_experiment(experiment_name)
+        else:
+            experiment_id = experiment.experiment_id
 
-    experiment = mlflow.get_experiment_by_name(experiment_name)
-    if experiment is None:
-        experiment_id = mlflow.create_experiment(experiment_name)
-    else:
-        experiment_id = experiment.experiment_id
-
-    return experiment_id
+        return experiment_id
+    except Exception as e:
+        _logger.debug(f"Failed to get/create experiment: {e}")
+        return None
 
 
 def start_run(
@@ -67,7 +145,7 @@ def start_run(
     experiment_name: str | None = None,
     tags: dict[str, str] | None = None,
     nested: bool = False,
-) -> Run:
+) -> Any:
     """Start a new MLflow run.
 
     Args:
@@ -77,18 +155,30 @@ def start_run(
         nested: Whether this is a nested run
 
     Returns:
-        Active MLflow Run
+        Active MLflow Run or None if unavailable
     """
-    experiment_id = get_or_create_experiment(experiment_name)
-    mlflow.set_experiment(experiment_id=experiment_id)
+    if not _ensure_mlflow_initialized():
+        return None
+    
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return None
+    
+    try:
+        experiment_id = get_or_create_experiment(experiment_name)
+        if experiment_id:
+            mlflow.set_experiment(experiment_id=experiment_id)
 
-    run = mlflow.start_run(run_name=run_name, tags=tags, nested=nested)
+        run = mlflow.start_run(run_name=run_name, tags=tags, nested=nested)
 
-    # Log standard tags
-    mlflow.set_tag("aether.version", "0.1.0")
-    mlflow.set_tag("aether.started_at", datetime.utcnow().isoformat())
+        # Log standard tags
+        mlflow.set_tag("aether.version", "0.1.0")
+        mlflow.set_tag("aether.started_at", datetime.utcnow().isoformat())
 
-    return run
+        return run
+    except Exception as e:
+        _logger.debug(f"Failed to start run: {e}")
+        return None
 
 
 def end_run(status: str = "FINISHED") -> None:
@@ -97,11 +187,14 @@ def end_run(status: str = "FINISHED") -> None:
     Args:
         status: Run status (FINISHED, FAILED, KILLED)
     """
-    mlflow.end_run(status=status)
-
-
-from contextlib import contextmanager
-from typing import Generator
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return
+    
+    try:
+        mlflow.end_run(status=status)
+    except Exception as e:
+        _logger.debug(f"Failed to end run: {e}")
 
 
 @contextmanager
@@ -109,7 +202,7 @@ def start_experiment_run(
     run_name: str | None = None,
     experiment_name: str | None = None,
     tags: dict[str, str] | None = None,
-) -> Generator[Run, None, None]:
+) -> Generator[Any, None, None]:
     """Context manager for MLflow runs.
 
     Automatically ends the run when exiting the context.
@@ -120,11 +213,7 @@ def start_experiment_run(
         tags: Optional tags
 
     Yields:
-        Active MLflow Run
-
-    Example:
-        with start_experiment_run("my_experiment") as run:
-            mlflow.log_metric("accuracy", 0.95)
+        Active MLflow Run or None if unavailable
     """
     run = start_run(run_name=run_name, experiment_name=experiment_name, tags=tags)
     try:
@@ -136,13 +225,20 @@ def start_experiment_run(
         end_run(status="FINISHED")
 
 
-def get_active_run() -> Run | None:
+def get_active_run() -> Any:
     """Get the currently active MLflow run.
 
     Returns:
         Active Run or None if no run is active
     """
-    return mlflow.active_run()
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return None
+    
+    try:
+        return mlflow.active_run()
+    except Exception:
+        return None
 
 
 # =============================================================================
@@ -151,58 +247,68 @@ def get_active_run() -> Run | None:
 
 
 def log_param(key: str, value: Any) -> None:
-    """Log a parameter to the active run.
-
-    Args:
-        key: Parameter name
-        value: Parameter value
-    """
-    if mlflow.active_run():
-        mlflow.log_param(key, value)
+    """Log a parameter to the active run."""
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return
+    
+    try:
+        if mlflow.active_run():
+            mlflow.log_param(key, value)
+    except Exception as e:
+        _logger.debug(f"Failed to log param {key}: {e}")
 
 
 def log_params(params: dict[str, Any]) -> None:
-    """Log multiple parameters to the active run.
-
-    Args:
-        params: Dictionary of parameter names to values
-    """
-    if mlflow.active_run():
-        mlflow.log_params(params)
+    """Log multiple parameters to the active run."""
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return
+    
+    try:
+        if mlflow.active_run():
+            mlflow.log_params(params)
+    except Exception as e:
+        _logger.debug(f"Failed to log params: {e}")
 
 
 def log_metric(key: str, value: float, step: int | None = None) -> None:
-    """Log a metric to the active run.
-
-    Args:
-        key: Metric name
-        value: Metric value
-        step: Optional step number
-    """
-    if mlflow.active_run():
-        mlflow.log_metric(key, value, step=step)
+    """Log a metric to the active run."""
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return
+    
+    try:
+        if mlflow.active_run():
+            mlflow.log_metric(key, value, step=step)
+    except Exception as e:
+        _logger.debug(f"Failed to log metric {key}: {e}")
 
 
 def log_metrics(metrics: dict[str, float], step: int | None = None) -> None:
-    """Log multiple metrics to the active run.
-
-    Args:
-        metrics: Dictionary of metric names to values
-        step: Optional step number
-    """
-    if mlflow.active_run():
-        mlflow.log_metrics(metrics, step=step)
+    """Log multiple metrics to the active run."""
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return
+    
+    try:
+        if mlflow.active_run():
+            mlflow.log_metrics(metrics, step=step)
+    except Exception as e:
+        _logger.debug(f"Failed to log metrics: {e}")
 
 
 def log_dict(data: dict[str, Any], filename: str) -> None:
-    """Log a dictionary as a JSON artifact.
-
-    Args:
-        data: Dictionary to log
-        filename: Artifact filename (should end in .json)
-    """
-    if mlflow.active_run():
-        mlflow.log_dict(data, filename)
+    """Log a dictionary as a JSON artifact."""
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return
+    
+    try:
+        if mlflow.active_run():
+            mlflow.log_dict(data, filename)
+    except Exception as e:
+        _logger.debug(f"Failed to log dict to {filename}: {e}")
 
 
 def log_agent_action(
@@ -213,38 +319,79 @@ def log_agent_action(
     duration_ms: float | None = None,
     error: str | None = None,
 ) -> None:
-    """Log an agent action with structured data.
+    """Log an agent action with structured data."""
+    mlflow = _safe_import_mlflow()
+    if mlflow is None or not mlflow.active_run():
+        return
+    
+    try:
+        mlflow.set_tag(f"agent.{agent}.last_action", action)
 
-    Args:
-        agent: Agent name (librarian, architect, etc.)
-        action: Action being performed
-        input_data: Input to the action
-        output_data: Output from the action
-        duration_ms: Duration in milliseconds
-        error: Error message if failed
+        if duration_ms is not None:
+            log_metric(f"agent.{agent}.{action}.duration_ms", duration_ms)
+
+        if error:
+            mlflow.set_tag(f"agent.{agent}.{action}.error", error[:250])
+
+        # Log detailed data as artifact
+        action_data = {
+            "agent": agent,
+            "action": action,
+            "timestamp": datetime.utcnow().isoformat(),
+            "input": input_data,
+            "output": output_data,
+            "duration_ms": duration_ms,
+            "error": error,
+        }
+        log_dict(action_data, f"actions/{agent}_{action}_{int(time.time())}.json")
+    except Exception as e:
+        _logger.debug(f"Failed to log agent action: {e}")
+
+
+# =============================================================================
+# SPAN UTILITIES
+# =============================================================================
+
+
+def get_active_span() -> Any | None:
+    """Return the current active span if supported by this MLflow version."""
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return None
+    
+    try:
+        # MLflow 3.x uses get_current_active_span()
+        get_span = getattr(mlflow, "get_current_active_span", None)
+        if get_span:
+            return get_span()
+        # Fallback for older versions
+        active_span = getattr(mlflow, "active_span", None)
+        if active_span:
+            return active_span()
+    except Exception:
+        pass
+    return None
+
+
+def add_span_event(
+    span: Any,
+    name: str,
+    attributes: dict[str, Any] | None = None,
+) -> None:
+    """Add an event to a span (MLflow 3.x compatible).
+
+    MLflow 3.x changed add_event() to require a SpanEvent object.
+    This helper provides a backward-compatible interface.
     """
-    if not mlflow.active_run():
+    if span is None or not hasattr(span, "add_event"):
         return
 
-    mlflow.set_tag(f"agent.{agent}.last_action", action)
-
-    if duration_ms is not None:
-        log_metric(f"agent.{agent}.{action}.duration_ms", duration_ms)
-
-    if error:
-        mlflow.set_tag(f"agent.{agent}.{action}.error", error[:250])  # Truncate
-
-    # Log detailed data as artifact
-    action_data = {
-        "agent": agent,
-        "action": action,
-        "timestamp": datetime.utcnow().isoformat(),
-        "input": input_data,
-        "output": output_data,
-        "duration_ms": duration_ms,
-        "error": error,
-    }
-    log_dict(action_data, f"actions/{agent}_{action}_{int(time.time())}.json")
+    try:
+        from mlflow.entities import SpanEvent
+        event = SpanEvent(name=name, attributes=attributes or {})
+        span.add_event(event)
+    except (ImportError, TypeError, Exception) as e:
+        _logger.debug(f"Failed to add span event: {e}")
 
 
 # =============================================================================
@@ -252,41 +399,37 @@ def log_agent_action(
 # =============================================================================
 
 
+def _is_async(func: Callable[..., Any]) -> bool:
+    """Check if a function is async."""
+    import asyncio
+    import inspect
+    return asyncio.iscoroutinefunction(func) or inspect.iscoroutinefunction(func)
+
+
 def trace_agent(agent_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator to trace agent function execution.
-
-    Usage:
-        @trace_agent("librarian")
-        async def discover_entities(state: DiscoveryState) -> DiscoveryState:
-            ...
-
-    Args:
-        agent_name: Name of the agent for logging
-
-    Returns:
-        Decorated function
-    """
+    """Decorator to trace agent function execution."""
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             start_time = time.perf_counter()
-            error_msg: str | None = None
+            mlflow = _safe_import_mlflow()
 
             try:
-                # Log start
-                mlflow.set_tag(f"agent.{agent_name}.status", "running")
-                log_param(f"agent.{agent_name}.function", func.__name__)
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag(f"agent.{agent_name}.status", "running")
+                    log_param(f"agent.{agent_name}.function", func.__name__)
 
                 result = await func(*args, **kwargs)  # type: ignore[misc]
 
-                mlflow.set_tag(f"agent.{agent_name}.status", "completed")
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag(f"agent.{agent_name}.status", "completed")
                 return result
 
             except Exception as e:
-                error_msg = str(e)
-                mlflow.set_tag(f"agent.{agent_name}.status", "failed")
-                mlflow.set_tag(f"agent.{agent_name}.error", error_msg[:250])
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag(f"agent.{agent_name}.status", "failed")
+                    mlflow.set_tag(f"agent.{agent_name}.error", str(e)[:250])
                 raise
 
             finally:
@@ -296,29 +439,30 @@ def trace_agent(agent_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             start_time = time.perf_counter()
-            error_msg: str | None = None
+            mlflow = _safe_import_mlflow()
 
             try:
-                mlflow.set_tag(f"agent.{agent_name}.status", "running")
-                log_param(f"agent.{agent_name}.function", func.__name__)
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag(f"agent.{agent_name}.status", "running")
+                    log_param(f"agent.{agent_name}.function", func.__name__)
 
                 result = func(*args, **kwargs)
 
-                mlflow.set_tag(f"agent.{agent_name}.status", "completed")
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag(f"agent.{agent_name}.status", "completed")
                 return result
 
             except Exception as e:
-                error_msg = str(e)
-                mlflow.set_tag(f"agent.{agent_name}.status", "failed")
-                mlflow.set_tag(f"agent.{agent_name}.error", error_msg[:250])
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag(f"agent.{agent_name}.status", "failed")
+                    mlflow.set_tag(f"agent.{agent_name}.error", str(e)[:250])
                 raise
 
             finally:
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 log_metric(f"agent.{agent_name}.duration_ms", duration_ms)
 
-        # Return appropriate wrapper based on function type
-        if asyncio_iscoroutinefunction(func):
+        if _is_async(func):
             return async_wrapper  # type: ignore[return-value]
         return sync_wrapper
 
@@ -328,49 +472,35 @@ def trace_agent(agent_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
 def trace_llm_call(
     model: str | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator to trace LLM API calls.
-
-    Logs token usage, latency, and model info.
-
-    Usage:
-        @trace_llm_call(model="gpt-4o")
-        async def generate_response(prompt: str) -> str:
-            ...
-
-    Args:
-        model: Model name (optional, can be inferred from response)
-
-    Returns:
-        Decorated function
-    """
+    """Decorator to trace LLM API calls."""
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             start_time = time.perf_counter()
+            mlflow = _safe_import_mlflow()
 
             try:
                 result = await func(*args, **kwargs)  # type: ignore[misc]
 
-                # Log LLM metrics
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 log_metric("llm.call.duration_ms", duration_ms)
 
-                if model:
+                if model and mlflow and mlflow.active_run():
                     mlflow.set_tag("llm.model", model)
 
-                # Try to extract token usage from result
                 _log_token_usage(result)
-
                 return result
 
             except Exception as e:
-                mlflow.set_tag("llm.call.error", str(e)[:250])
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag("llm.call.error", str(e)[:250])
                 raise
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             start_time = time.perf_counter()
+            mlflow = _safe_import_mlflow()
 
             try:
                 result = func(*args, **kwargs)
@@ -378,18 +508,18 @@ def trace_llm_call(
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 log_metric("llm.call.duration_ms", duration_ms)
 
-                if model:
+                if model and mlflow and mlflow.active_run():
                     mlflow.set_tag("llm.model", model)
 
                 _log_token_usage(result)
-
                 return result
 
             except Exception as e:
-                mlflow.set_tag("llm.call.error", str(e)[:250])
+                if mlflow and mlflow.active_run():
+                    mlflow.set_tag("llm.call.error", str(e)[:250])
                 raise
 
-        if asyncio_iscoroutinefunction(func):
+        if _is_async(func):
             return async_wrapper  # type: ignore[return-value]
         return sync_wrapper
 
@@ -398,34 +528,30 @@ def trace_llm_call(
 
 def _log_token_usage(result: Any) -> None:
     """Extract and log token usage from LLM response."""
-    if not mlflow.active_run():
+    mlflow = _safe_import_mlflow()
+    if mlflow is None or not mlflow.active_run():
         return
 
-    # Handle OpenAI-style responses
-    if hasattr(result, "usage") and result.usage:
-        usage = result.usage
-        if hasattr(usage, "prompt_tokens"):
-            log_metric("llm.tokens.prompt", usage.prompt_tokens)
-        if hasattr(usage, "completion_tokens"):
-            log_metric("llm.tokens.completion", usage.completion_tokens)
-        if hasattr(usage, "total_tokens"):
-            log_metric("llm.tokens.total", usage.total_tokens)
+    try:
+        # Handle OpenAI-style responses
+        if hasattr(result, "usage") and result.usage:
+            usage = result.usage
+            if hasattr(usage, "prompt_tokens"):
+                log_metric("llm.tokens.prompt", usage.prompt_tokens)
+            if hasattr(usage, "completion_tokens"):
+                log_metric("llm.tokens.completion", usage.completion_tokens)
+            if hasattr(usage, "total_tokens"):
+                log_metric("llm.tokens.total", usage.total_tokens)
 
-    # Handle LangChain AIMessage with usage_metadata
-    if hasattr(result, "usage_metadata") and result.usage_metadata:
-        usage = result.usage_metadata
-        if "input_tokens" in usage:
-            log_metric("llm.tokens.prompt", usage["input_tokens"])
-        if "output_tokens" in usage:
-            log_metric("llm.tokens.completion", usage["output_tokens"])
-
-
-def asyncio_iscoroutinefunction(func: Callable[..., Any]) -> bool:
-    """Check if a function is an async coroutine function."""
-    import asyncio
-    import inspect
-
-    return asyncio.iscoroutinefunction(func) or inspect.iscoroutinefunction(func)
+        # Handle LangChain AIMessage with usage_metadata
+        if hasattr(result, "usage_metadata") and result.usage_metadata:
+            usage = result.usage_metadata
+            if "input_tokens" in usage:
+                log_metric("llm.tokens.prompt", usage["input_tokens"])
+            if "output_tokens" in usage:
+                log_metric("llm.tokens.completion", usage["output_tokens"])
+    except Exception:
+        pass
 
 
 def trace_with_uri(
@@ -433,27 +559,23 @@ def trace_with_uri(
     span_type: str = "UNKNOWN",
     attributes: dict[str, Any] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Trace a function after ensuring MLflow tracking URI is set.
-
-    This wraps mlflow.trace but ensures the tracking URI is configured
-    before the traced function executes (useful for CLI contexts).
+    """Trace a function - ensures MLflow is initialized first.
+    
+    This is a lightweight wrapper that ensures tracking URI is set.
+    If MLflow is unavailable, the function runs without tracing.
     """
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        traced = mlflow.trace(func, name=name, span_type=span_type, attributes=attributes)
-
-        if asyncio_iscoroutinefunction(func):
+        if _is_async(func):
             @functools.wraps(func)
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
-                mlflow.set_tracking_uri(get_settings().mlflow_tracking_uri)
-                return await traced(*args, **kwargs)  # type: ignore[misc]
-
+                _ensure_mlflow_initialized()
+                return await func(*args, **kwargs)  # type: ignore[misc]
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            mlflow.set_tracking_uri(get_settings().mlflow_tracking_uri)
-            return traced(*args, **kwargs)  # type: ignore[misc]
-
+            _ensure_mlflow_initialized()
+            return func(*args, **kwargs)
         return sync_wrapper
 
     return decorator
@@ -469,12 +591,6 @@ class AetherTracer:
 
     Provides a structured way to trace multi-step operations
     with nested runs and automatic cleanup.
-
-    Usage:
-        async with AetherTracer("discovery") as tracer:
-            tracer.log_param("domain_count", 5)
-            await discover_entities()
-            tracer.log_metric("entities_found", 42)
     """
 
     def __init__(
@@ -483,21 +599,13 @@ class AetherTracer:
         experiment_name: str | None = None,
         tags: dict[str, str] | None = None,
     ) -> None:
-        """Initialize the tracer.
-
-        Args:
-            name: Run name
-            experiment_name: Experiment to log to
-            tags: Additional tags
-        """
         self.name = name
         self.experiment_name = experiment_name
         self.tags = tags or {}
-        self.run: Run | None = None
+        self.run: Any = None
         self._start_time: float = 0
 
     async def __aenter__(self) -> "AetherTracer":
-        """Enter the tracing context."""
         self._start_time = time.perf_counter()
         self.run = start_run(
             run_name=self.name,
@@ -513,22 +621,23 @@ class AetherTracer:
         exc_val: BaseException | None,
         exc_tb: Any,
     ) -> None:
-        """Exit the tracing context."""
+        mlflow = _safe_import_mlflow()
         duration_ms = (time.perf_counter() - self._start_time) * 1000
         log_metric("workflow.duration_ms", duration_ms)
 
         if exc_type is not None:
-            mlflow.set_tag("workflow.status", "failed")
-            mlflow.set_tag("workflow.error", str(exc_val)[:250] if exc_val else "")
+            if mlflow and mlflow.active_run():
+                mlflow.set_tag("workflow.status", "failed")
+                mlflow.set_tag("workflow.error", str(exc_val)[:250] if exc_val else "")
             end_run(status="FAILED")
         else:
-            mlflow.set_tag("workflow.status", "completed")
+            if mlflow and mlflow.active_run():
+                mlflow.set_tag("workflow.status", "completed")
             end_run(status="FINISHED")
 
         _current_tracer.set(None)
 
     def __enter__(self) -> "AetherTracer":
-        """Sync enter for non-async contexts."""
         self._start_time = time.perf_counter()
         self.run = start_run(
             run_name=self.name,
@@ -544,53 +653,51 @@ class AetherTracer:
         exc_val: BaseException | None,
         exc_tb: Any,
     ) -> None:
-        """Sync exit for non-async contexts."""
+        mlflow = _safe_import_mlflow()
         duration_ms = (time.perf_counter() - self._start_time) * 1000
         log_metric("workflow.duration_ms", duration_ms)
 
         if exc_type is not None:
-            mlflow.set_tag("workflow.status", "failed")
-            mlflow.set_tag("workflow.error", str(exc_val)[:250] if exc_val else "")
+            if mlflow and mlflow.active_run():
+                mlflow.set_tag("workflow.status", "failed")
+                mlflow.set_tag("workflow.error", str(exc_val)[:250] if exc_val else "")
             end_run(status="FAILED")
         else:
-            mlflow.set_tag("workflow.status", "completed")
+            if mlflow and mlflow.active_run():
+                mlflow.set_tag("workflow.status", "completed")
             end_run(status="FINISHED")
 
         _current_tracer.set(None)
 
     @property
     def run_id(self) -> str | None:
-        """Get the current run ID."""
-        return self.run.info.run_id if self.run else None
+        if self.run and hasattr(self.run, "info"):
+            return self.run.info.run_id
+        return None
 
     def log_param(self, key: str, value: Any) -> None:
-        """Log a parameter."""
         log_param(key, value)
 
     def log_params(self, params: dict[str, Any]) -> None:
-        """Log multiple parameters."""
         log_params(params)
 
     def log_metric(self, key: str, value: float, step: int | None = None) -> None:
-        """Log a metric."""
         log_metric(key, value, step)
 
     def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
-        """Log multiple metrics."""
         log_metrics(metrics, step)
 
     def set_tag(self, key: str, value: str) -> None:
-        """Set a tag on the run."""
-        if mlflow.active_run():
-            mlflow.set_tag(key, value)
+        mlflow = _safe_import_mlflow()
+        if mlflow and mlflow.active_run():
+            try:
+                mlflow.set_tag(key, value)
+            except Exception:
+                pass
 
 
 def get_tracer() -> AetherTracer | None:
-    """Get the current active tracer.
-
-    Returns:
-        Active AetherTracer or None
-    """
+    """Get the current active tracer."""
     return _current_tracer.get()
 
 
@@ -599,6 +706,7 @@ __all__ = [
     "init_mlflow",
     "get_or_create_experiment",
     "start_run",
+    "start_experiment_run",
     "end_run",
     "get_active_run",
     "log_param",
@@ -610,6 +718,8 @@ __all__ = [
     "trace_agent",
     "trace_llm_call",
     "trace_with_uri",
+    "get_active_span",
+    "add_span_event",
     "AetherTracer",
     "get_tracer",
 ]

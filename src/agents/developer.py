@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-import mlflow
 import yaml
 
 from src.agents import BaseAgent
@@ -17,7 +16,6 @@ from src.graph.state import AgentRole, ConversationState, ConversationStatus
 from src.mcp import MCPClient, get_mcp_client
 from src.settings import get_settings
 from src.storage.entities import ProposalStatus
-from src.tracing import trace_with_uri
 
 
 class DeveloperAgent(BaseAgent):
@@ -52,7 +50,6 @@ class DeveloperAgent(BaseAgent):
             self._mcp = get_mcp_client()
         return self._mcp
 
-    @trace_with_uri(name="developer.invoke", span_type="CHAIN")
     async def invoke(
         self,
         state: ConversationState,
@@ -70,7 +67,6 @@ class DeveloperAgent(BaseAgent):
         async with self.trace_span("invoke", state) as span:
             session = kwargs.get("session")
             proposal_id = kwargs.get("proposal_id")
-            mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
 
             if not session or not proposal_id:
                 return {"error": "Session and proposal_id required for deployment"}
@@ -86,15 +82,7 @@ class DeveloperAgent(BaseAgent):
                 return {"error": f"Proposal must be approved before deployment (status: {proposal.status.value})"}
 
             try:
-                with mlflow.start_span(
-                    name="developer.deploy",
-                    span_type="CHAIN",
-                    attributes={"proposal_id": proposal_id},
-                ):
-                    span = mlflow.active_span()
-                    if span and hasattr(span, "add_event"):
-                        span.add_event("deploy_start", attributes={"proposal_id": proposal_id})
-                    result = await self.deploy_automation(proposal, session)
+                result = await self.deploy_automation(proposal, session)
                 span["deployment_success"] = True
                 span["ha_automation_id"] = result.get("ha_automation_id")
 
@@ -111,7 +99,6 @@ class DeveloperAgent(BaseAgent):
                     "error": f"Deployment failed: {e}",
                 }
 
-    @trace_with_uri(name="developer.deploy_automation", span_type="CHAIN")
     async def deploy_automation(
         self,
         proposal: Any,
@@ -129,14 +116,7 @@ class DeveloperAgent(BaseAgent):
             Deployment result dict
         """
         # Generate automation YAML
-        with mlflow.start_span(
-            name="developer.generate_yaml",
-            span_type="CHAIN",
-        ):
-            span = mlflow.active_span()
-            if span and hasattr(span, "add_event"):
-                span.add_event("generate_yaml_start")
-            automation_yaml = self._generate_automation_yaml(proposal)
+        automation_yaml = self._generate_automation_yaml(proposal)
 
         # Generate unique automation ID
         ha_automation_id = f"aether_{proposal.id.replace('-', '_')[:8]}"
@@ -144,15 +124,7 @@ class DeveloperAgent(BaseAgent):
         # Deploy via MCP
         # Note: Direct automation creation is a known MCP gap
         # Workaround: Generate YAML for manual import or use REST API
-        with mlflow.start_span(
-            name="developer.deploy_mcp",
-            span_type="TOOL",
-            attributes={"method": "manual"},
-        ):
-            span = mlflow.active_span()
-            if span and hasattr(span, "add_event"):
-                span.add_event("deploy_mcp_start", attributes={"automation_id": ha_automation_id})
-            result = await self._deploy_via_mcp(ha_automation_id, automation_yaml)
+        result = await self._deploy_via_mcp(ha_automation_id, automation_yaml)
 
         # Update proposal status
         repo = ProposalRepository(session)
@@ -187,7 +159,6 @@ class DeveloperAgent(BaseAgent):
 """
         return header + yaml_str
 
-    @trace_with_uri(name="developer.deploy_via_mcp", span_type="TOOL")
     async def _deploy_via_mcp(
         self,
         automation_id: str,

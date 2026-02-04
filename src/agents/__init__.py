@@ -9,16 +9,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, AsyncGenerator
 
-import mlflow
-
-try:  # MLflow version compatibility
-    from mlflow.tracing.constant import TRACE_SESSION
-except Exception:  # pragma: no cover - fallback for older MLflow
-    TRACE_SESSION = "mlflow.trace.session"
 from pydantic import BaseModel
 
 from src.graph.state import AgentRole, BaseState
 from src.settings import get_settings
+from src.tracing import add_span_event, get_active_span, log_param
 
 
 class AgentContext(BaseModel):
@@ -64,7 +59,10 @@ class BaseAgent(ABC):
         operation: str,
         state: BaseState | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """Create an MLflow span for tracing.
+        """Create a tracing span for an operation.
+
+        This is defensive - if MLflow is unavailable, the operation
+        continues without tracing.
 
         Args:
             operation: Name of the operation being traced
@@ -83,52 +81,66 @@ class BaseAgent(ABC):
         if state:
             span_metadata["run_id"] = state.run_id
 
-        mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
-        span_attrs = {
-            "agent": self.name,
-            "agent_role": self.role.value,
-            "operation": operation,
-        }
-        session_id = None
-        if state:
-            span_attrs["run_id"] = state.run_id
-            session_id = getattr(state, "conversation_id", None) or state.run_id
-        if session_id:
-            span_attrs[TRACE_SESSION] = session_id
+        # Try to create MLflow span, but don't fail if unavailable
+        span = None
+        mlflow_available = False
+        
+        try:
+            import mlflow
+            mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
+            mlflow_available = True
+        except Exception:
+            pass
 
-        with mlflow.start_span(name=span_name, span_type="CHAIN", attributes=span_attrs):
+        if mlflow_available:
             try:
-                span = mlflow.active_span()
-                if span and hasattr(span, "add_event"):
-                    span.add_event("start", attributes={"operation": operation})
-                # Log to MLflow if available
-                if mlflow.active_run():
-                    mlflow.log_param(f"{span_name}_started", datetime.utcnow().isoformat())
+                span_attrs = {
+                    "agent": self.name,
+                    "agent_role": self.role.value,
+                    "operation": operation,
+                }
+                if state:
+                    span_attrs["run_id"] = state.run_id
+                
+                # Try to create span
+                import mlflow
+                ctx = mlflow.start_span(name=span_name, span_type="CHAIN", attributes=span_attrs)
+                ctx.__enter__()
+                span = get_active_span()
+                add_span_event(span, "start", {"operation": operation})
+            except Exception:
+                # MLflow failed, continue without tracing
+                mlflow_available = False
+                span = None
 
-                yield span_metadata
+        try:
+            yield span_metadata
 
-                span_metadata["completed_at"] = datetime.utcnow().isoformat()
-                span_metadata["status"] = "success"
-                if span and hasattr(span, "add_event"):
-                    span.add_event("end", attributes={"status": "success"})
+            span_metadata["completed_at"] = datetime.utcnow().isoformat()
+            span_metadata["status"] = "success"
+            add_span_event(span, "end", {"status": "success"})
 
-                if mlflow.active_run():
-                    mlflow.log_param(f"{span_name}_status", "success")
-
-            except Exception as e:
-                span_metadata["completed_at"] = datetime.utcnow().isoformat()
-                span_metadata["status"] = "error"
-                span_metadata["error"] = str(e)
-                if span and hasattr(span, "set_status"):
+        except Exception as e:
+            span_metadata["completed_at"] = datetime.utcnow().isoformat()
+            span_metadata["status"] = "error"
+            span_metadata["error"] = str(e)
+            
+            if span and hasattr(span, "set_status"):
+                try:
                     span.set_status("ERROR")
-                if span and hasattr(span, "add_event"):
-                    span.add_event("error", attributes={"error": str(e)[:250]})
+                except Exception:
+                    pass
+            add_span_event(span, "error", {"error": str(e)[:250]})
+            raise
 
-                if mlflow.active_run():
-                    mlflow.log_param(f"{span_name}_status", "error")
-                    mlflow.log_param(f"{span_name}_error", str(e)[:500])
-
-                raise
+        finally:
+            # Clean up span context if we created one
+            if mlflow_available and span is not None:
+                try:
+                    import mlflow
+                    ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
 
     def log_metric(self, key: str, value: float, step: int | None = None) -> None:
         """Log a metric to MLflow.
@@ -138,8 +150,12 @@ class BaseAgent(ABC):
             value: Metric value
             step: Optional step number
         """
-        if mlflow.active_run():
-            mlflow.log_metric(f"{self.name}.{key}", value, step=step)
+        try:
+            import mlflow
+            if mlflow.active_run():
+                mlflow.log_metric(f"{self.name}.{key}", value, step=step)
+        except Exception:
+            pass
 
     def log_param(self, key: str, value: Any) -> None:
         """Log a parameter to MLflow.
@@ -148,8 +164,7 @@ class BaseAgent(ABC):
             key: Parameter name
             value: Parameter value
         """
-        if mlflow.active_run():
-            mlflow.log_param(f"{self.name}.{key}", str(value)[:500])
+        log_param(f"{self.name}.{key}", str(value)[:500])
 
     @abstractmethod
     async def invoke(

@@ -12,8 +12,10 @@ This module provides:
 
 from src.tracing.mlflow import (
     AetherTracer,
+    add_span_event,
     end_run,
     get_active_run,
+    get_active_span,
     get_or_create_experiment,
     get_tracer,
     init_mlflow,
@@ -50,6 +52,8 @@ __all__ = [
     "trace_agent",
     "trace_llm_call",
     "trace_with_uri",
+    "get_active_span",
+    "add_span_event",
     # Tracer class
     "AetherTracer",
     "get_tracer",

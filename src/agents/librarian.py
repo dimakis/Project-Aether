@@ -8,13 +8,11 @@ maintaining the entity database.
 from datetime import datetime
 from typing import Any
 
-import mlflow
-
 from src.dal import DiscoverySyncService
 from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
 from src.mcp import MCPClient
 from src.settings import get_settings
-from src.tracing import start_experiment_run, trace_with_uri
+from src.tracing import log_metric, log_param, start_experiment_run
 
 
 class LibrarianWorkflow:
@@ -48,7 +46,6 @@ class LibrarianWorkflow:
             self._mcp = get_mcp_client()
         return self._mcp
 
-    @trace_with_uri(name="librarian.run_discovery", span_type="CHAIN")
     async def run_discovery(
         self,
         triggered_by: str = "manual",
@@ -69,46 +66,38 @@ class LibrarianWorkflow:
             status=DiscoveryStatus.RUNNING,
         )
 
-        # Start MLflow run
-        mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
         with start_experiment_run("librarian_discovery") as run:
-            state.mlflow_run_id = run.info.run_id
-            mlflow.log_param("triggered_by", triggered_by)
-            mlflow.log_param("domain_filter", domain_filter or "all")
+            if run:
+                state.mlflow_run_id = run.info.run_id if hasattr(run, 'info') else None
+            
+            log_param("triggered_by", triggered_by)
+            log_param("domain_filter", domain_filter or "all")
 
             try:
-                with mlflow.start_span(
-                    name="librarian.discovery",
-                    span_type="CHAIN",
-                    attributes={"triggered_by": triggered_by},
-                ):
-                    # Execute discovery phases
-                    state = await self._fetch_entities(state, domain_filter)
-                    state = await self._sync_to_database(state, triggered_by)
-                    state = await self._report_results(state)
+                # Execute discovery phases
+                state = await self._fetch_entities(state, domain_filter)
+                state = await self._sync_to_database(state, triggered_by)
+                state = await self._report_results(state)
 
-                    state.status = DiscoveryStatus.COMPLETED
+                state.status = DiscoveryStatus.COMPLETED
 
             except Exception as e:
                 state.status = DiscoveryStatus.FAILED
                 state.errors.append(str(e))
-                mlflow.log_param("error", str(e)[:500])
+                log_param("error", str(e)[:500])
                 raise
 
             finally:
                 # Log final metrics
-                mlflow.log_metrics({
-                    "entities_found": len(state.entities_found),
-                    "entities_added": state.entities_added,
-                    "entities_updated": state.entities_updated,
-                    "entities_removed": state.entities_removed,
-                    "devices_found": state.devices_found,
-                    "areas_found": state.areas_found,
-                })
+                log_metric("entities_found", float(len(state.entities_found)))
+                log_metric("entities_added", float(state.entities_added))
+                log_metric("entities_updated", float(state.entities_updated))
+                log_metric("entities_removed", float(state.entities_removed))
+                log_metric("devices_found", float(state.devices_found))
+                log_metric("areas_found", float(state.areas_found))
 
         return state
 
-    @trace_with_uri(name="librarian.fetch_entities", span_type="TOOL")
     async def _fetch_entities(
         self,
         state: DiscoveryState,
@@ -125,22 +114,14 @@ class LibrarianWorkflow:
         """
         from src.mcp import parse_entity_list
 
-        with mlflow.start_span(
-            name="librarian.fetch_entities",
-            span_type="TOOL",
-            attributes={"domain_filter": domain_filter or "all"},
-        ):
-            span = mlflow.active_span()
-            if span and hasattr(span, "add_event"):
-                span.add_event("fetch_start")
-            # Fetch entities
-            raw_entities = await self.mcp.list_entities(
-                domain=domain_filter,
-                detailed=True,
-            )
+        # Fetch entities
+        raw_entities = await self.mcp.list_entities(
+            domain=domain_filter,
+            detailed=True,
+        )
 
-            # Parse into EntitySummary objects
-            entities = parse_entity_list(raw_entities)
+        # Parse into EntitySummary objects
+        entities = parse_entity_list(raw_entities)
 
         state.entities_found = [
             EntitySummary(
@@ -160,7 +141,6 @@ class LibrarianWorkflow:
 
         return state
 
-    @trace_with_uri(name="librarian.sync_database", span_type="CHAIN")
     async def _sync_to_database(
         self,
         state: DiscoveryState,
@@ -179,18 +159,10 @@ class LibrarianWorkflow:
 
         async with get_session() as session:
             sync_service = DiscoverySyncService(session, self.mcp)
-            with mlflow.start_span(
-                name="librarian.sync_database",
-                span_type="CHAIN",
-                attributes={"triggered_by": triggered_by},
-            ):
-                span = mlflow.active_span()
-                if span and hasattr(span, "add_event"):
-                    span.add_event("sync_start")
-                discovery = await sync_service.run_discovery(
-                    triggered_by=triggered_by,
-                    mlflow_run_id=state.mlflow_run_id,
-                )
+            discovery = await sync_service.run_discovery(
+                triggered_by=triggered_by,
+                mlflow_run_id=state.mlflow_run_id,
+            )
 
             # Update state with results
             state.entities_added = discovery.entities_added
@@ -201,7 +173,6 @@ class LibrarianWorkflow:
 
         return state
 
-    @trace_with_uri(name="librarian.report_results", span_type="CHAIN")
     async def _report_results(self, state: DiscoveryState) -> DiscoveryState:
         """Generate discovery report.
 
@@ -211,18 +182,7 @@ class LibrarianWorkflow:
         Returns:
             State unchanged (logging only)
         """
-        with mlflow.start_span(
-            name="librarian.report_results",
-            span_type="CHAIN",
-        ):
-            span = mlflow.active_span()
-            if span and hasattr(span, "add_event"):
-                span.add_event("report_start")
-            # Log summary
-            if mlflow.active_run():
-                mlflow.set_tag("status", state.status.value)
-                mlflow.set_tag("domains_count", len(state.domains_scanned))
-
+        # Just return the state - logging is handled elsewhere
         return state
 
 

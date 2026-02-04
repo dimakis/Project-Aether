@@ -6,26 +6,18 @@ structured automation proposals.
 """
 
 from datetime import datetime
-import time
 from typing import Any
 
-import mlflow
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.agents import BaseAgent
-from src.dal import (
-    AreaRepository,
-    DeviceRepository,
-    EntityRepository,
-    ProposalRepository,
-    ServiceRepository,
-)
+from src.dal import AreaRepository, DeviceRepository, EntityRepository, ProposalRepository, ServiceRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
 from src.llm import get_llm
 from src.settings import get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
-from src.tracing import start_experiment_run, start_run, trace_with_uri
+from src.tracing import log_dict, log_param, start_experiment_run, start_run
 
 # System prompt for the Architect agent
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect agent for Project Aether, a Home Assistant automation assistant.
@@ -108,7 +100,6 @@ class ArchitectAgent(BaseAgent):
             )
         return self._llm
 
-    @trace_with_uri(name="architect.invoke", span_type="CHAIN")
     async def invoke(
         self,
         state: ConversationState,
@@ -123,80 +114,54 @@ class ArchitectAgent(BaseAgent):
         Returns:
             State updates with response and any proposals
         """
-        """Process a user message and generate a response."""
         async with self.trace_span("invoke", state) as span:
             session = kwargs.get("session")
-            mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
 
-            with mlflow.start_span(
-                name="architect.invoke",
-                span_type="CHAIN",
-                attributes={
-                    "conversation_id": state.conversation_id,
-                    "agent": self.name,
-                },
-            ):
-                span = mlflow.active_span()
-                if span and hasattr(span, "add_event"):
-                    span.add_event("conversation_start", attributes={"message_count": len(state.messages)})
-                # Build messages for LLM
-                messages = self._build_messages(state)
-                message_payload = self._serialize_messages(messages)
-                if span and hasattr(span, "set_attribute"):
-                    span.set_attribute("message_count", len(messages))
-                if span and hasattr(span, "add_event"):
-                    span.add_event("messages_built", attributes={"messages": message_payload})
-                if mlflow.active_run():
-                    mlflow.log_dict(
-                        {
-                            "conversation_id": state.conversation_id,
-                            "messages": message_payload,
-                        },
-                        f"conversations/{state.conversation_id}_{int(time.time())}.json",
-                    )
+            # Log session and conversation context
+            log_param("conversation_id", state.conversation_id)
+            log_param("message_count", len(state.messages))
+            
+            # Log the latest user message
+            if state.messages:
+                latest_msg = state.messages[-1]
+                if hasattr(latest_msg, 'content'):
+                    log_param("user_message", str(latest_msg.content)[:500])
 
-                # Add entity context if session available
-                if session:
-                    entity_context = await self._get_entity_context(session, state)
-                    if entity_context:
-                        messages.insert(1, SystemMessage(content=entity_context))
+            # Build messages for LLM
+            messages = self._build_messages(state)
 
-                # Generate response (with HA tools available)
-                tools = self._get_ha_tools()
-                tool_llm = self.llm.bind_tools(tools) if tools else self.llm
-                with mlflow.start_span(
-                    name="architect.llm",
-                    span_type="LLM",
-                    attributes={
-                        "model": self.model_name or self._settings.llm_model,
-                        "provider": self._settings.llm_provider,
-                    },
-                ):
-                    llm_span = mlflow.active_span()
-                    if llm_span and hasattr(llm_span, "add_event"):
-                        llm_span.add_event("llm_request", attributes={"message_count": len(messages)})
-                    response = await tool_llm.ainvoke(messages)
+            # Add entity context if session available
+            if session:
+                entity_context = await self._get_entity_context(session, state)
+                if entity_context:
+                    messages.insert(1, SystemMessage(content=entity_context))
 
-                # Handle tool calls with strict approval for any HA-altering actions
-                if hasattr(response, "tool_calls") and response.tool_calls:
-                    tool_call_updates = await self._handle_tool_calls(
-                        response,
-                        messages,
-                        tools,
-                        state,
-                    )
-                    if tool_call_updates is not None:
-                        return tool_call_updates
+            # Generate response (with HA tools available)
+            tools = self._get_ha_tools()
+            tool_llm = self.llm.bind_tools(tools) if tools else self.llm
+            response = await tool_llm.ainvoke(messages)
 
-                response_text = response.content
-                if span and hasattr(span, "set_attribute"):
-                    span.set_attribute("response_preview", response_text[:500])
-                if span and hasattr(span, "add_event"):
-                    span.add_event("response", attributes={"response": response_text[:500]})
+            # Handle tool calls with strict approval for any HA-altering actions
+            if hasattr(response, "tool_calls") and response.tool_calls:
+                tool_call_updates = await self._handle_tool_calls(
+                    response,
+                    messages,
+                    tools,
+                    state,
+                )
+                if tool_call_updates is not None:
+                    return tool_call_updates
+
+            response_text = response.content
+
+            # Log response and conversation
+            log_param("response_preview", response_text[:500] if response_text else "")
+            self._log_conversation(state, response_text)
 
             # Track metrics
             span["response_length"] = len(response_text)
-            self.log_metric("response_tokens", response.response_metadata.get("token_usage", {}).get("total_tokens", 0))
+            token_usage = response.response_metadata.get("token_usage", {}) if hasattr(response, 'response_metadata') else {}
+            self.log_metric("response_tokens", token_usage.get("total_tokens", 0))
 
             # Parse for proposal
             proposal_data = self._extract_proposal(response_text)
@@ -264,6 +229,40 @@ class ArchitectAgent(BaseAgent):
             )
         return serialized
 
+    def _log_conversation(
+        self,
+        state: ConversationState,
+        response_text: str,
+    ) -> None:
+        """Log conversation to MLflow as an artifact.
+
+        Args:
+            state: Current conversation state
+            response_text: The AI response text
+        """
+        import time
+        
+        # Serialize all messages including the new response
+        all_messages = []
+        for msg in state.messages:
+            role = "user" if isinstance(msg, HumanMessage) else "assistant"
+            content = getattr(msg, "content", str(msg))
+            all_messages.append({"role": role, "content": content[:1000]})
+        
+        # Add the new response
+        all_messages.append({"role": "assistant", "content": response_text[:1000]})
+
+        # Log as artifact
+        log_dict(
+            {
+                "conversation_id": state.conversation_id,
+                "timestamp": datetime.utcnow().isoformat(),
+                "message_count": len(all_messages),
+                "messages": all_messages,
+            },
+            f"conversations/{state.conversation_id}_{int(time.time())}.json",
+        )
+
     def _get_ha_tools(self) -> list[Any]:
         """Get Home Assistant tools for the Architect agent."""
         try:
@@ -276,7 +275,6 @@ class ArchitectAgent(BaseAgent):
         """Check if a tool call can mutate Home Assistant state."""
         return tool_name in {"control_entity"}
 
-    @trace_with_uri(name="architect.handle_tool_calls", span_type="TOOL")
     async def _handle_tool_calls(
         self,
         response: AIMessage,
@@ -323,12 +321,7 @@ class ArchitectAgent(BaseAgent):
             tool = tool_lookup.get(call["name"])
             if not tool:
                 continue
-            with mlflow.start_span(
-                name=f"tool.{call['name']}",
-                span_type="TOOL",
-                attributes={"tool": call["name"]},
-            ):
-                result = await tool.ainvoke(call.get("args", {}))
+            result = await tool.ainvoke(call.get("args", {}))
             tool_messages.append(
                 ToolMessage(
                     content=str(result),
@@ -345,7 +338,6 @@ class ArchitectAgent(BaseAgent):
             "messages": [response, *tool_messages, AIMessage(content=follow_up.content)],
         }
 
-    @trace_with_uri(name="architect.get_entity_context", span_type="CHAIN")
     async def _get_entity_context(
         self,
         session: Any,
@@ -621,10 +613,11 @@ class ArchitectWorkflow:
         )
 
         with start_experiment_run("conversation_workflow") as run:
-            mlflow.set_tag("workflow", "conversation")
-            mlflow.set_tag("conversation_id", state.conversation_id)
-            mlflow.set_tag("user_id", user_id)
-
+            # Log session info
+            log_param("session.conversation_id", state.conversation_id)
+            log_param("session.user_id", user_id)
+            log_param("session.type", "new_conversation")
+            
             # Process with agent
             updates = await self.agent.invoke(state, session=session)
             state = state.model_copy(update=updates)
@@ -651,9 +644,11 @@ class ArchitectWorkflow:
         state.messages.append(HumanMessage(content=user_message))
 
         with start_experiment_run("conversation_workflow") as run:
-            mlflow.set_tag("workflow", "conversation")
-            mlflow.set_tag("conversation_id", state.conversation_id)
-
+            # Log session info
+            log_param("session.conversation_id", state.conversation_id)
+            log_param("session.type", "continue_conversation")
+            log_param("session.message_count", len(state.messages))
+            
             # Process with agent
             updates = await self.agent.invoke(state, session=session)
             state = state.model_copy(update=updates)
