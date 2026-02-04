@@ -1,16 +1,16 @@
 <!--
 Sync Impact Report:
-Version: 1.2.0 → 1.3.0 (MINOR: Added TDD workflow requirement with atomic test+implementation commits)
-Modified Principles: V. Reliability & Quality (expanded with TDD workflow)
-Added Sections: TDD Workflow subsection
+Version: 1.3.0 → 1.4.0 (MINOR: Expanded Observability with tracing architecture requirements)
+Modified Principles: III. Observability (expanded with tracing architecture)
+Added Sections: Tracing Architecture Requirements subsection
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ plan-template.md - Should verify test strategy section exists
-  ✅ tasks-template.md - Should include test tasks for each phase
+  ✅ plan-template.md - Should include tracing module structure
+  ✅ quickstart.md - Updated with trace viewing instructions
   ✅ spec-template.md - No updates needed
-  ✅ .cursor/commands/speckit.constitution.md - No updates needed
 Follow-up TODOs: 
-  - Ensure all future tasks follow TDD workflow
+  - Ensure all agents use trace_span for operations
+  - Verify session correlation in multi-agent workflows
 -->
 
 # Aether Home Architect Constitution
@@ -28,6 +28,27 @@ All generated analysis scripts MUST run in a gVisor (runsc) sandbox. This provid
 ### III. Observability
 
 Every agent negotiation and data science insight MUST be traced via MLflow. All agent interactions, decision points, and analytical outputs must be logged to MLflow for experiment tracking, reproducibility, and auditability. Rationale: Understanding agent behavior and data science workflows requires comprehensive observability. MLflow provides standardized tracking that enables debugging, performance analysis, and compliance verification.
+
+**Tracing Architecture Requirements**:
+
+1. **Session Correlation**: Multi-turn conversations MUST share the same `mlflow.trace.session` metadata, enabling grouping of related traces in the MLflow UI. Use `session_context()` at workflow entry points and propagate `conversation_id` as the session identifier.
+
+2. **Agent Trace Spans**: All agents extending `BaseAgent` MUST use the `trace_span()` context manager for operations. This ensures:
+   - Hierarchical trace visualization (parent/child spans)
+   - Input/output capture for debugging (`span.set_inputs()`, `span.set_outputs()`)
+   - Automatic session correlation via state's `conversation_id`
+
+3. **LLM Autologging**: Enable `mlflow.langchain.autolog(log_inputs=True, log_outputs=True)` to automatically capture all LangChain and OpenAI API calls with full message content.
+
+4. **Experiment Runs**: Long-running workflows (discovery, conversations) MUST use `start_experiment_run()` to create named MLflow runs with:
+   - `session.id` tag for correlation
+   - Relevant parameters (triggered_by, filters, etc.)
+   - Metrics (duration, counts, success/failure)
+
+5. **Tool Call Tracing**: MCP tool invocations MUST create child spans capturing:
+   - Tool name and arguments (inputs)
+   - Tool response (outputs)
+   - Error states if applicable
 
 ### IV. State
 
@@ -163,4 +184,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.3.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-03
+**Version**: 1.4.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-04

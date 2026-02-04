@@ -28,7 +28,7 @@ Project Aether is a LangGraph-based multi-agent system for intelligent home auto
 | HA Integration | hass-mcp (MCP) | Model Context Protocol for Home Assistant access |
 | Containerization | Podman | Rootless containers, systemd integration |
 | Script Sandbox | gVisor (runsc) | User-space kernel isolation for generated scripts |
-| Observability | MLflow | Experiment tracking, agent tracing, model registry |
+| Observability | MLflow | Experiment tracking, agent tracing, session correlation |
 | Database | PostgreSQL | ACID compliance, JSON support, LangGraph checkpoint storage |
 | API Framework | FastAPI | Async, OpenAPI generation, Pydantic validation |
 
@@ -92,8 +92,9 @@ src/
 │   ├── conversations.py  # Chat history storage
 │   └── models.py         # SQLAlchemy models
 ├── tracing/
-│   ├── __init__.py
-│   └── mlflow.py         # MLflow integration
+│   ├── __init__.py       # Public API: init_mlflow, log_*, start_experiment_run
+│   ├── context.py        # Session context: session_context, get/set_session_id
+│   └── mlflow.py         # MLflow integration, autolog, trace_span helpers
 ├── api/
 │   ├── __init__.py
 │   ├── main.py           # FastAPI application

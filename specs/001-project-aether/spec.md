@@ -89,7 +89,7 @@ As a homeowner, I want the system to generate custom dashboards based on my usag
 - **FR-003**: System MUST detect and reconcile entity changes (additions, removals, renames) within 5 minutes.
 - **FR-004**: System MUST provide a conversational interface with the Architect agent for design discussions.
 - **FR-005**: System MUST require explicit user approval (HITL) before executing any automation that modifies home state.
-- **FR-006**: System MUST trace all agent negotiations and data science insights for auditability.
+- **FR-006**: System MUST trace all agent negotiations and data science insights via MLflow, with session correlation for multi-turn conversations and hierarchical spans for tool calls.
 - **FR-007**: System MUST run all generated analysis scripts in an isolated sandbox environment.
 - **FR-008**: System MUST persist state checkpoints for recovery from failures.
 - **FR-009**: System MUST provide energy consumption analysis with actionable optimization suggestions.

@@ -202,12 +202,40 @@ uv run pre-commit run --all-files
 ### View MLflow Traces
 
 ```bash
-# Open MLflow UI
-open http://localhost:5000
+# Start MLflow UI (if using local SQLite)
+make mlflow-local
+# Or if using containerized MLflow:
+open http://localhost:5002
 
-# View specific experiment
+# View experiments
 mlflow experiments list
-mlflow runs list --experiment-id 1
+
+# View runs in an experiment
+mlflow runs list --experiment-name aether
+```
+
+**Understanding Traces in the UI**:
+
+1. **Experiment Runs**: Navigate to the "aether" experiment to see workflow runs (discovery, conversations)
+2. **Traces Tab**: Click on a run, then "Traces" to see detailed span hierarchies
+3. **Session Grouping**: Multi-turn conversations share the same session ID - filter by `mlflow.trace.session` to see all turns
+4. **Span Details**: Click any span to see:
+   - Inputs (user message, tool arguments)
+   - Outputs (agent response, tool results)
+   - Timing and status
+5. **LLM Calls**: Autologged LangChain spans show full message content and token usage
+
+**Querying Traces Programmatically**:
+
+```python
+import mlflow
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+
+# Search traces by session
+traces = mlflow.search_traces(
+    experiment_ids=[mlflow.get_experiment_by_name("aether").experiment_id],
+    filter_string="metadata.`mlflow.trace.session` = 'your-session-id'",
+)
 ```
 
 ---
