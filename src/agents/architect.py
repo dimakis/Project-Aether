@@ -17,7 +17,6 @@ from src.graph.state import AgentRole, ConversationState, ConversationStatus, HI
 from src.llm import get_llm
 from src.settings import get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
-from src.tracing import log_param, start_experiment_run, start_run
 
 # System prompt for the Architect agent
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect agent for Project Aether, a Home Assistant automation assistant.
@@ -628,17 +627,26 @@ class ArchitectWorkflow:
             messages=[HumanMessage(content=user_message)],
         )
 
-        with start_experiment_run("conversation_workflow") as run:
-            # Log session info
-            log_param("session.conversation_id", state.conversation_id)
-            log_param("session.user_id", user_id)
-            log_param("session.type", "new_conversation")
-            
-            # Process with agent
-            updates = await self.agent.invoke(state, session=session)
-            state = state.model_copy(update=updates)
+        # Set trace metadata for this new conversation
+        try:
+            import mlflow
 
-            return state
+            mlflow.update_current_trace(
+                metadata={
+                    "mlflow.trace.session": state.conversation_id,
+                    "conversation_id": state.conversation_id,
+                    "user_id": user_id,
+                    "type": "new_conversation",
+                }
+            )
+        except Exception:
+            pass  # Tracing is best-effort
+
+        # Process with agent - this creates the actual trace spans
+        updates = await self.agent.invoke(state, session=session)
+        state = state.model_copy(update=updates)
+
+        return state
 
     async def continue_conversation(
         self,
@@ -647,6 +655,9 @@ class ArchitectWorkflow:
         session: Any = None,
     ) -> ConversationState:
         """Continue an existing conversation.
+
+        Uses MLflow's trace session to group all turns of a conversation.
+        Each turn becomes a span within the session, not a separate run.
 
         Args:
             state: Current conversation state
@@ -659,17 +670,27 @@ class ArchitectWorkflow:
         # Add user message
         state.messages.append(HumanMessage(content=user_message))
 
-        with start_experiment_run("conversation_workflow") as run:
-            # Log session info
-            log_param("session.conversation_id", state.conversation_id)
-            log_param("session.type", "continue_conversation")
-            log_param("session.message_count", len(state.messages))
+        # Set trace metadata for this conversation turn
+        # The actual span creation happens in agent.invoke() via trace_span
+        try:
+            import mlflow
             
-            # Process with agent
-            updates = await self.agent.invoke(state, session=session)
-            state = state.model_copy(update=updates)
+            # Set session metadata so traces are grouped in MLflow UI
+            mlflow.update_current_trace(
+                metadata={
+                    "mlflow.trace.session": state.conversation_id,
+                    "conversation_id": state.conversation_id,
+                    "message_count": len(state.messages),
+                }
+            )
+        except Exception:
+            pass  # Tracing is best-effort
 
-            return state
+        # Process with agent - this creates the actual trace spans
+        updates = await self.agent.invoke(state, session=session)
+        state = state.model_copy(update=updates)
+
+        return state
 
 
 # Exports
