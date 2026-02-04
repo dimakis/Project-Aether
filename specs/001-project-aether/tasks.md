@@ -496,6 +496,32 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T130 Add background task for periodic entity sync (every 5 minutes) in src/api/main.py
 - [ ] T131 Performance optimization: add Redis caching layer for entity queries in src/dal/entities.py
 - [ ] T132 **Future**: Implement real-time sync via `subscribe_events` when MCP supports it
+- [ ] T170 [P] Implement _sync_automation_entities in src/dal/sync.py (currently stub) - track HA automations/scripts/scenes
+- [ ] T171 Add change detection events to DiscoverySyncService (emit events on entity add/update/remove)
+- [ ] T172 Create src/dal/automations.py with AutomationRepository for tracking HA automation changes
+
+### Multi-Agent Communication (Cross-Cutting)
+
+- [ ] T173 [P] Create src/agents/coordinator.py with AgentCoordinator for multi-agent handoffs
+- [ ] T174 Add handoff_to_architect() tool in Data Scientist for insight→automation requests
+- [ ] T175 Add query_data_scientist() tool in Architect for energy context during automation design
+- [ ] T176 Implement agent message queue (in-memory or Redis) for async agent communication
+- [ ] T177 Add inter-agent tracing: parent-child trace spans across agent handoffs
+
+### Sandbox Environment (US3)
+
+- [ ] T178 [P] Create infrastructure/podman/Containerfile.sandbox with data science stack:
+  - pandas, numpy, matplotlib, scipy, scikit-learn, statsmodels, seaborn
+- [ ] T179 Update SandboxRunner.DEFAULT_IMAGE to use custom data science image
+- [ ] T180 Add tests/unit/test_sandbox_packages.py to verify required packages available in sandbox
+
+### Additional Tests (Robust Coverage)
+
+- [ ] T181 [P] Create tests/unit/test_dal_insights.py - InsightRepository CRUD operations
+- [ ] T182 Create tests/unit/test_inter_agent_comm.py - Agent handoff and message passing
+- [ ] T183 Create tests/integration/test_librarian_sync.py - Full entity sync with change detection
+- [ ] T184 Create tests/integration/test_data_scientist_architect.py - Multi-agent insight→automation flow
+- [ ] T185 Create tests/e2e/test_sandbox_security.py - Verify network isolation, filesystem restrictions
 
 ### MCP Gap Summary Report
 
