@@ -348,8 +348,8 @@ These features would unlock additional capabilities. **Report back when these be
 ### Data Scientist Agent for User Story 3
 
 - [x] T096 [US3] Create src/agents/data_scientist.py with energy analysis and visualization generation (commit: 1ff949e)
-- [ ] T097 [US3] Add Data Scientist nodes to src/graph/nodes.py (collect_data, generate_script, execute_sandbox, extract_insights)
-- [ ] T098 [US3] Add analysis workflow to src/graph/workflows.py
+- [x] T097 [US3] Add Data Scientist nodes to src/graph/nodes.py (collect_data, generate_script, execute_sandbox, extract_insights) (commit: 0923353)
+- [x] T098 [US3] Add analysis workflow to src/graph/workflows.py (commit: 24a1340)
 - [x] T167 [US3] Export DataScientistAgent from src/agents/__init__.py (pattern: Librarian/Architect) (commit: 9be9609)
 - [x] T168 [US3] Add trace_span integration to Data Scientist agent (Constitution: Observability - use BaseAgent.trace_span()) (commit: 1ff949e)
 - [ ] T169 [US3] Add session_context to analysis workflow entry point (multi-agent trace correlation per T158-T165)
