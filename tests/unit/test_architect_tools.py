@@ -76,6 +76,12 @@ class TestArchitectToolCalls:
             tool_calls=[{"id": "1", "name": "get_entity_state", "args": {"entity_id": "light.test"}}],
         )
 
+        # Mock the LLM to avoid real API call for follow-up
+        mock_follow_up = MagicMock()
+        mock_follow_up.content = "The light is on."
+        architect._llm = MagicMock()
+        architect._llm.ainvoke = AsyncMock(return_value=mock_follow_up)
+
         updates = await architect._handle_tool_calls(
             response=response,
             messages=[],
