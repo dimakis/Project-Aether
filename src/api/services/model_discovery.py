@@ -51,34 +51,54 @@ class ModelDiscovery:
 
     # Curated model lists for providers without discovery APIs
     OPENROUTER_MODELS = [
-        # OpenAI
-        ("openai/gpt-4o", "GPT-4o - Latest flagship model"),
+        # OpenAI (via OpenRouter)
+        ("openai/gpt-5", "GPT-5 - Next generation flagship"),
+        ("openai/gpt-4.5-preview", "GPT-4.5 Preview - Latest preview"),
+        ("openai/gpt-4o", "GPT-4o - Flagship multimodal"),
         ("openai/gpt-4o-mini", "GPT-4o Mini - Fast and efficient"),
-        ("openai/gpt-4-turbo", "GPT-4 Turbo - High capability"),
+        ("openai/o1", "o1 - Advanced reasoning"),
+        ("openai/o1-mini", "o1 Mini - Fast reasoning"),
+        ("openai/o3-mini", "o3 Mini - Latest reasoning"),
         # Anthropic
-        ("anthropic/claude-sonnet-4", "Claude Sonnet 4 - Latest balanced model"),
-        ("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet - Previous best"),
+        ("anthropic/claude-sonnet-4", "Claude Sonnet 4 - Latest balanced"),
+        ("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet - Excellent balance"),
         ("anthropic/claude-3-haiku", "Claude 3 Haiku - Fast and cheap"),
         ("anthropic/claude-3-opus", "Claude 3 Opus - Most capable"),
-        # Meta
-        ("meta-llama/llama-3.3-70b-instruct", "Llama 3.3 70B - Open source champion"),
-        ("meta-llama/llama-3.1-8b-instruct", "Llama 3.1 8B - Fast open source"),
+        # Meta Llama
+        ("meta-llama/llama-3.3-70b-instruct", "Llama 3.3 70B - OSS champion"),
+        ("meta-llama/llama-3.2-90b-vision", "Llama 3.2 90B Vision - Multimodal"),
+        ("meta-llama/llama-3.1-8b-instruct", "Llama 3.1 8B - Fast OSS"),
         # Google
-        ("google/gemini-2.0-flash-001", "Gemini 2.0 Flash - Fast multimodal"),
-        ("google/gemini-pro-1.5", "Gemini Pro 1.5 - Long context"),
+        ("google/gemini-2.0-flash", "Gemini 2.0 Flash - Fast multimodal"),
+        ("google/gemini-1.5-pro", "Gemini 1.5 Pro - Long context"),
         # Mistral
         ("mistralai/mistral-large", "Mistral Large - High capability"),
-        ("mistralai/mixtral-8x7b-instruct", "Mixtral 8x7B - MoE model"),
+        ("mistralai/mistral-small", "Mistral Small - Efficient"),
         # DeepSeek
-        ("deepseek/deepseek-chat", "DeepSeek Chat - Reasoning specialist"),
+        ("deepseek/deepseek-r1", "DeepSeek R1 - Advanced reasoning"),
+        ("deepseek/deepseek-chat", "DeepSeek Chat - General"),
+        # Qwen
+        ("qwen/qwen-2.5-72b-instruct", "Qwen 2.5 72B - Alibaba flagship"),
     ]
 
     OPENAI_MODELS = [
-        ("gpt-4o", "GPT-4o - Latest flagship model"),
+        # GPT-5 family (if you have access)
+        ("gpt-5", "GPT-5 - Next generation flagship"),
+        ("gpt-5-mini", "GPT-5 Mini - Efficient next-gen"),
+        # GPT-4.5 family
+        ("gpt-4.5-preview", "GPT-4.5 Preview - Latest preview"),
+        # GPT-4o family
+        ("gpt-4o", "GPT-4o - Flagship multimodal"),
         ("gpt-4o-mini", "GPT-4o Mini - Fast and efficient"),
+        ("o1", "o1 - Advanced reasoning"),
+        ("o1-mini", "o1 Mini - Fast reasoning"),
+        ("o1-preview", "o1 Preview - Reasoning preview"),
+        ("o3-mini", "o3 Mini - Latest reasoning"),
+        # GPT-4 family
         ("gpt-4-turbo", "GPT-4 Turbo - High capability"),
         ("gpt-4", "GPT-4 - Original"),
-        ("gpt-3.5-turbo", "GPT-3.5 Turbo - Fast legacy model"),
+        # Legacy
+        ("gpt-3.5-turbo", "GPT-3.5 Turbo - Fast legacy"),
     ]
 
     GOOGLE_MODELS = [
