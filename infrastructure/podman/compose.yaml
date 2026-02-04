@@ -156,18 +156,50 @@ services:
     container_name: aether-webui
     restart: unless-stopped
     environment:
-      # Point to Aether's OpenAI-compatible API
-      # Override AETHER_API_URL for containerized mode: http://app:8000/api
+      # =======================================================================
+      # Aether Architect Agent
+      # =======================================================================
+      # Connects to Aether's OpenAI-compatible API. All chats go through
+      # the Architect agent (with Home Assistant tools), but you can
+      # select which LLM model powers it from the dropdown.
+      #
+      # Available models: gpt-4o, gpt-4o-mini, gpt-4-turbo, claude-3-*, etc.
+      # =======================================================================
       OPENAI_API_BASE_URL: ${AETHER_API_URL:-http://host.containers.internal:8000/api}/v1
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-aether-local}
+      ENABLE_OPENAI_API: "True"
+      
+      # Disable Ollama (using Aether API)
+      ENABLE_OLLAMA_API: "False"
+      
       # Disable authentication for local development
       WEBUI_AUTH: "False"
+      
       # Disable telemetry
       SCARF_NO_ANALYTICS: "true"
       DO_NOT_TRACK: "true"
       ANONYMIZED_TELEMETRY: "false"
-      # Default model
-      DEFAULT_MODELS: "architect"
+      
+      # Default to GPT-4o-mini for cost efficiency
+      DEFAULT_MODELS: "gpt-4o-mini"
+      
+      # =======================================================================
+      # Custom UI Configuration for Aether
+      # =======================================================================
+      # Landing page suggestions tailored for Home Assistant control
+      DEFAULT_PROMPT_SUGGESTIONS: >-
+        [
+          {"title": ["Turn on ", "living room lights"], "content": "Turn on the living room lights"},
+          {"title": ["What's the ", "temperature in the bedroom?"], "content": "What's the temperature in the bedroom?"},
+          {"title": ["Analyze my ", "energy usage this week"], "content": "Analyze my energy consumption over the past week and suggest optimizations"},
+          {"title": ["Show me ", "all devices that are on"], "content": "List all devices and lights that are currently on"},
+          {"title": ["Create an ", "automation for morning routine"], "content": "Help me create an automation for my morning routine that turns on lights and adjusts the thermostat"},
+          {"title": ["Which devices ", "use the most power?"], "content": "Which devices in my home use the most power? Show me the top energy consumers"}
+        ]
+      
+      # Branding
+      WEBUI_NAME: "Aether - Home Assistant AI"
+      TITLE_GENERATION_PROMPT_TEMPLATE: "Create a short, descriptive title for a Home Assistant conversation based on: {{prompt}}"
     ports:
       - "${WEBUI_PORT:-3000}:8080"
     volumes:
