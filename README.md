@@ -40,18 +40,45 @@ cp .env.example .env
 # Start infrastructure and run migrations
 make dev
 
-# Start PostgreSQL + MLflow containers (MLflow on http://localhost:5001)
-make mlflow-up
-
-# Or start a local MLflow server (defaults to http://localhost:5002)
-make mlflow
-
 # Discover entities from Home Assistant
 make discover
 
-# Start chatting with the Architect
+# Option 1: CLI chat
 make chat
+
+# Option 2: Start API + Open WebUI for chat interface
+make up-ui      # Start infra + chat UI
+make serve      # Start API on host (hot-reload)
+open http://localhost:3000
 ```
+
+## Deployment Modes
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| **Development** | `make up && make serve` | Infra in containers, API on host with hot-reload |
+| **Dev + UI** | `make up-ui && make serve` | Above + Open WebUI chat interface |
+| **Production** | `make up-all` | Everything containerized |
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Open WebUI (localhost:3000)                            │
+│  Beautiful chat interface with streaming                │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────┐
+│  Aether API (localhost:8000)                            │
+│  ├─ /v1/chat/completions  (OpenAI-compatible)           │
+│  └─ /api/conversations    (Native API)                  │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+   PostgreSQL      MLflow        Redis
+     :5432         :5002         :6379
+```
+
+See [Architecture Documentation](docs/architecture.md) for detailed diagrams.
 
 ## LLM Configuration
 
@@ -118,9 +145,10 @@ uv run mypy src
 
 ## Documentation
 
-- [Quickstart Guide](specs/001-project-aether/quickstart.md)
-- [Data Model](specs/001-project-aether/data-model.md)
-- [Technical Decisions](specs/001-project-aether/research.md)
+- [Architecture Overview](docs/architecture.md) - System design, deployment modes, data flows
+- [Quickstart Guide](specs/001-project-aether/quickstart.md) - Getting started
+- [Data Model](specs/001-project-aether/data-model.md) - Database schema
+- [Technical Decisions](specs/001-project-aether/research.md) - Research and rationale
 - [API Documentation](http://localhost:8000/docs) (when running)
 
 ## License
