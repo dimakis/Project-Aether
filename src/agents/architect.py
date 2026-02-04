@@ -270,10 +270,15 @@ class ArchitectAgent(BaseAgent):
         return serialized
 
     def _get_ha_tools(self) -> list[Any]:
-        """Get Home Assistant tools for the Architect agent."""
+        """Get all tools for the Architect agent.
+
+        Includes:
+        - HA tools: entity queries, control
+        - Agent tools: energy analysis, discovery (delegated to specialists)
+        """
         try:
-            from src.tools.ha_tools import get_ha_tools
-            return get_ha_tools()
+            from src.tools import get_all_tools
+            return get_all_tools()
         except Exception:
             return []
 
