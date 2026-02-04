@@ -78,6 +78,7 @@ class SandboxRunner:
         """
         self.image = image or self.DEFAULT_IMAGE
         self.podman_path = podman_path
+        self._gvisor_available: bool | None = None  # Cached check result
 
     async def run(
         self,
@@ -193,6 +194,47 @@ class SandboxRunner:
             # Cleanup temp file
             script_path.unlink(missing_ok=True)
 
+    async def _is_gvisor_available(self) -> bool:
+        """Check if gVisor (runsc) runtime is available.
+
+        Returns:
+            True if gVisor is available
+        """
+        if self._gvisor_available is not None:
+            return self._gvisor_available
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                self.podman_path,
+                "info",
+                "--format",
+                "{{.Host.OCIRuntime.Name}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await process.communicate()
+
+            # Check if runsc is configured
+            if b"runsc" in stdout:
+                self._gvisor_available = True
+            else:
+                # Also check runtimes list
+                proc2 = await asyncio.create_subprocess_exec(
+                    self.podman_path,
+                    "info",
+                    "--format",
+                    "json",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout2, _ = await proc2.communicate()
+                self._gvisor_available = b"runsc" in stdout2
+
+        except Exception:
+            self._gvisor_available = False
+
+        return self._gvisor_available
+
     async def _build_command(
         self,
         script_path: Path,
@@ -212,6 +254,20 @@ class SandboxRunner:
             Complete command as list of strings
         """
         cmd = [self.podman_path, "run", "--rm"]
+
+        # Check if gVisor is available when policy requires it
+        if policy.use_gvisor and not await self._is_gvisor_available():
+            # Create a copy of the policy with gVisor disabled
+            # Also disable seccomp as it may not be available on all platforms (e.g., macOS)
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "gVisor (runsc) not available - running with standard container isolation"
+            )
+            policy = policy.model_copy(update={
+                "use_gvisor": False,
+                "seccomp_profile": None,  # Disable seccomp on non-gVisor systems
+            })
 
         # Add policy args
         cmd.extend(policy.to_podman_args())
@@ -240,10 +296,43 @@ class SandboxRunner:
                 if key.replace("_", "").isalnum():
                     cmd.extend(["--env", f"{key}={value}"])
 
-        # Container image and command
-        cmd.extend([self.image, "python", "/workspace/script.py"])
+        # Container image (check availability)
+        image = await self._get_available_image()
+        cmd.extend([image, "python", "/workspace/script.py"])
 
         return cmd
+
+    async def _get_available_image(self) -> str:
+        """Get an available container image, falling back if necessary.
+
+        Returns:
+            Available container image name
+        """
+        # Check if preferred image exists
+        try:
+            process = await asyncio.create_subprocess_exec(
+                self.podman_path,
+                "image",
+                "exists",
+                self.image,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await process.communicate()
+
+            if process.returncode == 0:
+                return self.image
+
+        except Exception:
+            pass
+
+        # Fall back to basic Python image
+        import logging
+
+        logging.getLogger(__name__).warning(
+            f"Container image '{self.image}' not found, using fallback '{self.FALLBACK_IMAGE}'"
+        )
+        return self.FALLBACK_IMAGE
 
     async def _run_unsandboxed(
         self,
