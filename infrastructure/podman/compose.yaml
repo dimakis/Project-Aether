@@ -104,6 +104,49 @@ services:
   #     timeout: 10s
   #     retries: 3
 
+  # ===========================================================================
+  # Open WebUI - Chat Interface
+  # ===========================================================================
+  # Provides a beautiful chat UI that connects to Aether's OpenAI-compatible API.
+  # Access at http://localhost:3000 after starting.
+  #
+  # Configuration:
+  #   - OPENAI_API_BASE_URL points to Aether's /v1 endpoint
+  #   - OPENAI_API_KEY is required but not validated (use any value)
+  #   - WEBUI_AUTH=False disables auth for local development
+  #
+  # Note: Aether API must be running on host for Open WebUI to connect.
+  # Use `host.containers.internal` for container -> host networking.
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: aether-webui
+    restart: unless-stopped
+    environment:
+      # Point to Aether's OpenAI-compatible API
+      # Note: host.containers.internal resolves to host machine in Podman
+      OPENAI_API_BASE_URL: ${AETHER_API_URL:-http://host.containers.internal:8000/api}/v1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-aether-local}
+      # Disable authentication for local development
+      WEBUI_AUTH: "False"
+      # Disable telemetry
+      SCARF_NO_ANALYTICS: "true"
+      DO_NOT_TRACK: "true"
+      ANONYMIZED_TELEMETRY: "false"
+      # Default model
+      DEFAULT_MODELS: "architect"
+    ports:
+      - "${WEBUI_PORT:-3000}:8080"
+    volumes:
+      - open_webui_data:/app/backend/data
+    extra_hosts:
+      # Required for container to reach host on Linux
+      - "host.containers.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
     name: aether-postgres-data
@@ -113,6 +156,8 @@ volumes:
     name: aether-mlflow-artifacts
   redis_data:
     name: aether-redis-data
+  open_webui_data:
+    name: aether-webui-data
 
 networks:
   default:
