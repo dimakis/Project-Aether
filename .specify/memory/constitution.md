@@ -1,16 +1,14 @@
 <!--
 Sync Impact Report:
-Version: 1.3.0 → 1.4.0 (MINOR: Expanded Observability with tracing architecture requirements)
-Modified Principles: III. Observability (expanded with tracing architecture)
-Added Sections: Tracing Architecture Requirements subsection
+Version: 1.4.0 → 1.5.0 (MINOR: Added Incremental Commits development standard)
+Modified Principles: None
+Added Sections: Incremental Commits subsection under Development Standards
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ plan-template.md - Should include tracing module structure
-  ✅ quickstart.md - Updated with trace viewing instructions
-  ✅ spec-template.md - No updates needed
+  ✅ No template updates required
 Follow-up TODOs: 
-  - Ensure all agents use trace_span for operations
-  - Verify session correlation in multi-agent workflows
+  - Enforce incremental commits in all future development
+  - Review existing commit practices
 -->
 
 # Aether Home Architect Constitution
@@ -140,6 +138,62 @@ Rationale: Home automation systems control physical environments where reliabili
 
 ## Development Standards
 
+### Incremental Commits
+
+All work MUST be committed in small, focused, incremental commits. Each commit should represent ONE logical change that can be understood, reviewed, and reverted independently.
+
+**Required Commit Granularity**:
+
+1. **One Functional Piece Per Commit**: Each commit should contain exactly one of:
+   - A single new module/class with its tests
+   - A single bug fix with its regression test
+   - A single refactoring change
+   - Documentation updates for a specific feature
+
+2. **Maximum Commit Scope**: A commit should NOT combine:
+   - ❌ Multiple unrelated features
+   - ❌ Feature code + unrelated refactoring
+   - ❌ Changes to multiple independent modules
+   - ❌ Implementation + documentation for different features
+
+3. **Commit Immediately**: After completing each functional piece:
+   - Run tests to verify the piece works
+   - Commit immediately before starting the next piece
+   - Do NOT batch multiple pieces into a single commit
+
+4. **Commit Size Guidelines**:
+   - Ideal: 50-200 lines changed
+   - Maximum: 400 lines (except for generated code or large test fixtures)
+   - If a commit exceeds limits, split into smaller logical pieces
+
+**Examples**:
+
+✅ Good commit sequence:
+```
+feat(dal): add InsightRepository with CRUD operations
+feat(dal): add InsightRepository unit tests
+feat(sandbox): add Containerfile.sandbox for data science
+feat(sandbox): update SandboxRunner to use custom image
+test(sandbox): add sandbox runner unit tests
+```
+
+❌ Bad commit (too large, multiple pieces):
+```
+feat(us3): implement Data Scientist foundation
+- InsightRepository
+- Containerfile.sandbox  
+- Energy history module
+- API schemas
+- All tests
+```
+
+**Rationale**: Incremental commits enable:
+- Easier code review (smaller diffs)
+- Precise git bisect for debugging
+- Clean reverts without collateral damage
+- Better understanding of project history
+- Reduced merge conflicts
+
 ### Conventional Commits
 
 All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification. Commit messages MUST use the format:
@@ -184,4 +238,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.4.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-04
+**Version**: 1.5.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-04
