@@ -102,8 +102,8 @@ class EnergyHistoryClient:
     - Daily/hourly breakdowns
     """
 
-    # Energy-related device classes
-    ENERGY_DEVICE_CLASSES = {"energy", "power", "battery"}
+    # Energy-related device classes (excluding battery - those are percentages, not power)
+    ENERGY_DEVICE_CLASSES = {"energy", "power"}
     
     # Energy units and their conversions to kWh
     UNIT_CONVERSIONS = {
@@ -143,10 +143,13 @@ class EnergyHistoryClient:
         # Get raw history
         history = await self.mcp.get_history(entity_id, hours=hours)
         
+        # MCPClient uses "attributes" key for detailed entity info
+        attrs = entity_info.get("attributes", {})
+        
         # Parse into data points
         data_points = self._parse_history_to_datapoints(
             history.get("states", []),
-            entity_info.get("attr", {}).get("unit_of_measurement", "kWh"),
+            attrs.get("unit_of_measurement", "kWh"),
         )
         
         # Calculate statistics
@@ -157,9 +160,9 @@ class EnergyHistoryClient:
         
         return EnergyHistory(
             entity_id=entity_id,
-            friendly_name=entity_info.get("attr", {}).get("friendly_name"),
-            device_class=entity_info.get("attr", {}).get("device_class"),
-            unit=entity_info.get("attr", {}).get("unit_of_measurement", "kWh"),
+            friendly_name=attrs.get("friendly_name"),
+            device_class=attrs.get("device_class"),
+            unit=attrs.get("unit_of_measurement", "kWh"),
             data_points=data_points,
             stats=stats,
             start_time=start_time,
@@ -178,15 +181,14 @@ class EnergyHistoryClient:
         Returns:
             List of energy sensor entities
         """
-        # Get all sensors
-        result = await self.mcp.list_entities(domain=domain, detailed=True, limit=500)
-        
-        entities = result.get("entities", [])
+        # Get all sensors (list_entities returns a list directly)
+        entities = await self.mcp.list_entities(domain=domain, detailed=True, limit=500)
         
         # Filter for energy-related sensors
         energy_sensors = []
         for entity in entities:
-            attrs = entity.get("attr", {})
+            # MCPClient uses "attributes" key for detailed entity info
+            attrs = entity.get("attributes", {})
             device_class = attrs.get("device_class", "")
             unit = attrs.get("unit_of_measurement", "")
             
