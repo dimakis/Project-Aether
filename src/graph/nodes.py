@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from src.graph.state import (
     AgentRole,
+    AnalysisState,
     ConversationState,
     ConversationStatus,
     DiscoveryState,
@@ -546,6 +547,274 @@ async def conversation_error_node(
             AIMessage(
                 content=f"I encountered an error: {error_msg}. "
                 "Please try again or rephrase your request."
+            )
+        ],
+    }
+
+
+# =============================================================================
+# DATA SCIENTIST ANALYSIS NODES (User Story 3: Energy Optimization)
+# =============================================================================
+
+
+async def collect_energy_data_node(
+    state: AnalysisState,
+    mcp_client: Any = None,
+) -> dict[str, Any]:
+    """Collect energy data from Home Assistant.
+
+    Fetches energy sensor history and prepares data for analysis.
+
+    Args:
+        state: Current analysis state
+        mcp_client: MCP client for HA communication
+
+    Returns:
+        State updates with collected energy data
+    """
+    from src.graph.state import AnalysisState
+    from src.mcp import EnergyHistoryClient, get_mcp_client
+
+    mcp = mcp_client or get_mcp_client()
+    energy_client = EnergyHistoryClient(mcp)
+
+    # Discover energy sensors if not specified
+    entity_ids = state.entity_ids
+    if not entity_ids:
+        sensors = await energy_client.get_energy_sensors()
+        entity_ids = [s["entity_id"] for s in sensors[:20]]
+
+    # Get aggregated energy data
+    energy_data = await energy_client.get_aggregated_energy(
+        entity_ids,
+        hours=state.time_range_hours,
+    )
+
+    return {
+        "entity_ids": entity_ids,
+        "messages": [
+            AIMessage(
+                content=f"Collected data from {len(entity_ids)} energy sensors "
+                f"over {state.time_range_hours} hours. "
+                f"Total consumption: {energy_data.get('total_kwh', 0):.2f} kWh"
+            )
+        ],
+    }
+
+
+async def generate_script_node(
+    state: AnalysisState,
+    session: Any = None,
+) -> dict[str, Any]:
+    """Generate analysis script using Data Scientist agent.
+
+    Uses LLM to generate a Python script for energy analysis.
+
+    Args:
+        state: Current analysis state with energy data
+        session: Optional database session
+
+    Returns:
+        State updates with generated script
+    """
+    from src.agents import DataScientistAgent
+    from src.mcp import EnergyHistoryClient, get_mcp_client
+
+    agent = DataScientistAgent()
+
+    # Get energy data for script generation
+    mcp = get_mcp_client()
+    energy_client = EnergyHistoryClient(mcp)
+    energy_data = await energy_client.get_aggregated_energy(
+        state.entity_ids,
+        hours=state.time_range_hours,
+    )
+
+    # Generate script
+    script = await agent._generate_script(state, energy_data)
+
+    return {
+        "generated_script": script,
+        "messages": [
+            AIMessage(content=f"Generated analysis script ({script.count(chr(10)) + 1} lines)")
+        ],
+    }
+
+
+async def execute_sandbox_node(
+    state: AnalysisState,
+) -> dict[str, Any]:
+    """Execute analysis script in sandboxed environment.
+
+    Constitution: Isolation - runs in gVisor sandbox.
+
+    Args:
+        state: State with generated script
+
+    Returns:
+        State updates with execution results
+    """
+    from src.graph.state import ScriptExecution
+    from src.mcp import EnergyHistoryClient, get_mcp_client
+    from src.sandbox.runner import SandboxRunner
+
+    if not state.generated_script:
+        return {
+            "messages": [AIMessage(content="No script to execute")],
+        }
+
+    # Get fresh energy data for execution
+    mcp = get_mcp_client()
+    energy_client = EnergyHistoryClient(mcp)
+    energy_data = await energy_client.get_aggregated_energy(
+        state.entity_ids,
+        hours=state.time_range_hours,
+    )
+
+    # Execute in sandbox
+    import json
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(energy_data, f, default=str)
+        data_path = Path(f.name)
+
+    try:
+        sandbox = SandboxRunner()
+        result = await sandbox.run(state.generated_script, data_path=data_path)
+
+        execution = ScriptExecution(
+            script_hash=hash(state.generated_script) % (10**8),
+            stdout=result.stdout[:5000],
+            stderr=result.stderr[:2000],
+            exit_code=result.exit_code,
+            duration_seconds=result.duration_seconds,
+            timed_out=result.timed_out,
+        )
+
+        status_msg = "completed successfully" if result.success else f"failed (exit code {result.exit_code})"
+
+        return {
+            "script_executions": [execution],
+            "messages": [
+                AIMessage(
+                    content=f"Script execution {status_msg} in {result.duration_seconds:.2f}s"
+                )
+            ],
+        }
+
+    finally:
+        try:
+            data_path.unlink()
+        except Exception:
+            pass
+
+
+async def extract_insights_node(
+    state: AnalysisState,
+    session: Any = None,
+) -> dict[str, Any]:
+    """Extract insights from script execution output.
+
+    Parses JSON output and persists insights to database.
+
+    Args:
+        state: State with script execution results
+        session: Database session for persistence
+
+    Returns:
+        State updates with extracted insights
+    """
+    from src.agents import DataScientistAgent
+    from src.dal import InsightRepository
+    from src.sandbox.runner import SandboxResult
+    from src.storage.entities.insight import InsightStatus, InsightType
+
+    if not state.script_executions:
+        return {"messages": [AIMessage(content="No execution results to extract from")]}
+
+    # Get latest execution
+    execution = state.script_executions[-1]
+
+    # Create SandboxResult for insight extraction
+    result = SandboxResult(
+        success=execution.exit_code == 0,
+        exit_code=execution.exit_code,
+        stdout=execution.stdout,
+        stderr=execution.stderr,
+        duration_seconds=execution.duration_seconds,
+        policy_name="standard",
+        timed_out=execution.timed_out,
+    )
+
+    # Extract insights using agent
+    agent = DataScientistAgent()
+    insights = agent._extract_insights(result, state)
+    recommendations = agent._extract_recommendations(result)
+
+    # Persist if session available
+    if session and insights:
+        repo = InsightRepository(session)
+        for insight_data in insights:
+            try:
+                insight_type = InsightType(insight_data.get("type", "energy_optimization"))
+            except ValueError:
+                insight_type = InsightType.ENERGY_OPTIMIZATION
+
+            await repo.create(
+                type=insight_type,
+                title=insight_data.get("title", "Analysis Result"),
+                description=insight_data.get("description", ""),
+                evidence=insight_data.get("evidence", {}),
+                confidence=insight_data.get("confidence", 0.5),
+                impact=insight_data.get("impact", "medium"),
+                entities=insight_data.get("entities", state.entity_ids),
+                mlflow_run_id=state.mlflow_run_id,
+            )
+
+    return {
+        "insights": insights,
+        "recommendations": recommendations,
+        "messages": [
+            AIMessage(
+                content=f"Extracted {len(insights)} insights and {len(recommendations)} recommendations"
+            )
+        ],
+    }
+
+
+async def analysis_error_node(
+    state: AnalysisState,
+    error: Exception,
+) -> dict[str, Any]:
+    """Handle errors in analysis workflow.
+
+    Args:
+        state: Current state
+        error: The exception that occurred
+
+    Returns:
+        State updates with error info
+    """
+    error_msg = f"{type(error).__name__}: {error}"
+
+    return {
+        "insights": [
+            {
+                "type": "error",
+                "title": "Analysis Failed",
+                "description": error_msg,
+                "confidence": 0.0,
+                "impact": "low",
+                "evidence": {"error": str(error)},
+                "entities": state.entity_ids,
+            }
+        ],
+        "messages": [
+            AIMessage(
+                content=f"Analysis encountered an error: {error_msg}. "
+                "Please check your entity selection and try again."
             )
         ],
     }
