@@ -58,7 +58,12 @@ class SandboxRunner:
     """
 
     # Default container image for Python scripts
-    DEFAULT_IMAGE = "python:3.11-slim"
+    # Use custom data science image with pandas, numpy, matplotlib, etc.
+    # Build with: podman build -t aether-sandbox -f infrastructure/podman/Containerfile.sandbox .
+    DEFAULT_IMAGE = "aether-sandbox:latest"
+    
+    # Fallback image if custom image not available
+    FALLBACK_IMAGE = "python:3.11-slim"
 
     def __init__(
         self,
