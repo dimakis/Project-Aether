@@ -479,6 +479,13 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T156 [P] Add @trace_with_uri decorators to MCPClient methods (list_entities, get_entity, call_service, etc.)
 - [x] T157 Enhance BaseAgent.log_conversation() to capture tool_calls and token_usage
 - [x] T158 Add session.start() call at workflow entry points (run_discovery_workflow, run_conversation_workflow)
+- [x] T159 [P] Create src/logging_config.py with centralized logging and noisy logger suppression (commit: 9c9a7bc)
+- [x] T160 Add mlflow.trace.session metadata via update_current_trace() for multi-turn grouping (commit: 282e225)
+- [x] T161 Use conversation_id as session ID in trace_span for consistent correlation (commit: 282e225)
+- [x] T162 [P] Add span inputs/outputs capture (set_inputs, set_outputs) to BaseAgent.trace_span (commit: 282e225)
+- [x] T163 Update CLI chat command with session_context and conversation_id sync (commit: bee6a4e)
+- [x] T164 Add MLflow tracing to CLI discover command with librarian_discovery run (commit: b1a0124)
+- [x] T165 Document tracing architecture in constitution.md (v1.4.0) and spec docs (commit: d03a1f9)
 
 ### Entity Sync & Caching
 
