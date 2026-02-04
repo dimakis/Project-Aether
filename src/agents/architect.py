@@ -24,7 +24,7 @@ from src.graph.state import AgentRole, ConversationState, ConversationStatus, HI
 from src.llm import get_llm
 from src.settings import get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
-from src.tracing import start_run
+from src.tracing import start_experiment_run, start_run
 
 # System prompt for the Architect agent
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect agent for Project Aether, a Home Assistant automation assistant.
@@ -551,11 +551,16 @@ class ArchitectWorkflow:
             messages=[HumanMessage(content=user_message)],
         )
 
-        # Process with agent
-        updates = await self.agent.invoke(state, session=session)
-        state = state.model_copy(update=updates)
+        with start_experiment_run("conversation_workflow") as run:
+            mlflow.set_tag("workflow", "conversation")
+            mlflow.set_tag("conversation_id", state.conversation_id)
+            mlflow.set_tag("user_id", user_id)
 
-        return state
+            # Process with agent
+            updates = await self.agent.invoke(state, session=session)
+            state = state.model_copy(update=updates)
+
+            return state
 
     async def continue_conversation(
         self,
@@ -576,11 +581,15 @@ class ArchitectWorkflow:
         # Add user message
         state.messages.append(HumanMessage(content=user_message))
 
-        # Process with agent
-        updates = await self.agent.invoke(state, session=session)
-        state = state.model_copy(update=updates)
+        with start_experiment_run("conversation_workflow") as run:
+            mlflow.set_tag("workflow", "conversation")
+            mlflow.set_tag("conversation_id", state.conversation_id)
 
-        return state
+            # Process with agent
+            updates = await self.agent.invoke(state, session=session)
+            state = state.model_copy(update=updates)
+
+            return state
 
 
 # Exports
