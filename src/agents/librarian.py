@@ -12,7 +12,7 @@ from src.dal import DiscoverySyncService
 from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
 from src.mcp import MCPClient
 from src.settings import get_settings
-from src.tracing import log_metric, log_param, start_experiment_run
+from src.tracing import log_dict, log_metric, log_param, start_experiment_run
 
 
 class LibrarianWorkflow:
@@ -66,7 +66,7 @@ class LibrarianWorkflow:
             status=DiscoveryStatus.RUNNING,
         )
 
-        with start_experiment_run("librarian_discovery") as run:
+        with start_experiment_run(run_name="librarian_discovery") as run:
             if run:
                 state.mlflow_run_id = run.info.run_id if hasattr(run, 'info') else None
             
@@ -95,8 +95,54 @@ class LibrarianWorkflow:
                 log_metric("entities_removed", float(state.entities_removed))
                 log_metric("devices_found", float(state.devices_found))
                 log_metric("areas_found", float(state.areas_found))
+                
+                # Log discovery session as artifact
+                self._log_discovery_session(state, triggered_by, domain_filter)
 
         return state
+
+    def _log_discovery_session(
+        self,
+        state: DiscoveryState,
+        triggered_by: str,
+        domain_filter: str | None,
+    ) -> None:
+        """Log discovery session details as MLflow artifact.
+
+        Args:
+            state: Final discovery state
+            triggered_by: What triggered discovery
+            domain_filter: Domain filter used
+        """
+        import time
+
+        # Build summary of discovered entities by domain
+        domain_counts: dict[str, int] = {}
+        for entity in state.entities_found:
+            domain_counts[entity.domain] = domain_counts.get(entity.domain, 0) + 1
+
+        log_dict(
+            {
+                "agent": "Librarian",
+                "session_id": state.run_id,
+                "triggered_by": triggered_by,
+                "domain_filter": domain_filter,
+                "timestamp": datetime.utcnow().isoformat(),
+                "status": state.status.value,
+                "summary": {
+                    "entities_found": len(state.entities_found),
+                    "entities_added": state.entities_added,
+                    "entities_updated": state.entities_updated,
+                    "entities_removed": state.entities_removed,
+                    "devices_found": state.devices_found,
+                    "areas_found": state.areas_found,
+                    "domains_scanned": state.domains_scanned,
+                    "domain_counts": domain_counts,
+                },
+                "errors": state.errors,
+            },
+            f"discovery/Librarian_{state.run_id}_{int(time.time())}.json",
+        )
 
     async def _fetch_entities(
         self,

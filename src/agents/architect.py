@@ -17,7 +17,7 @@ from src.graph.state import AgentRole, ConversationState, ConversationStatus, HI
 from src.llm import get_llm
 from src.settings import get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
-from src.tracing import log_dict, log_param, start_experiment_run, start_run
+from src.tracing import log_param, start_experiment_run, start_run
 
 # System prompt for the Architect agent
 ARCHITECT_SYSTEM_PROMPT = """You are the Architect agent for Project Aether, a Home Assistant automation assistant.
@@ -114,20 +114,25 @@ class ArchitectAgent(BaseAgent):
         Returns:
             State updates with response and any proposals
         """
-        async with self.trace_span("invoke", state) as span:
+        # Get the latest user message for trace inputs
+        user_message = ""
+        if state.messages:
+            for msg in reversed(state.messages):
+                if hasattr(msg, "content") and type(msg).__name__ in ("HumanMessage", "UserMessage"):
+                    user_message = str(msg.content)[:1000]
+                    break
+
+        # Build inputs for tracing
+        trace_inputs = {
+            "user_message": user_message,
+            "conversation_id": state.conversation_id,
+            "message_count": len(state.messages),
+        }
+
+        async with self.trace_span("invoke", state, inputs=trace_inputs) as span:
             session = kwargs.get("session")
 
-            # Log session and conversation context
-            log_param("conversation_id", state.conversation_id)
-            log_param("message_count", len(state.messages))
-            
-            # Log the latest user message
-            if state.messages:
-                latest_msg = state.messages[-1]
-                if hasattr(latest_msg, 'content'):
-                    log_param("user_message", str(latest_msg.content)[:500])
-
-            # Build messages for LLM
+            # Build messages for LLM (state context logged by trace_span)
             messages = self._build_messages(state)
 
             # Add entity context if session available
@@ -150,18 +155,47 @@ class ArchitectAgent(BaseAgent):
                     state,
                 )
                 if tool_call_updates is not None:
+                    # Set outputs before returning for trace visualization
+                    tool_call_names = [tc.get("name", "") for tc in response.tool_calls]
+                    final_response = ""
+                    if tool_call_updates.get("messages"):
+                        # Get the last AI message as the final response
+                        for msg in reversed(tool_call_updates["messages"]):
+                            if hasattr(msg, "content") and type(msg).__name__ == "AIMessage":
+                                final_response = str(msg.content)[:2000]
+                                break
+                    span["outputs"] = {
+                        "response": final_response,
+                        "tool_calls": tool_call_names,
+                        "has_tool_calls": True,
+                        "requires_approval": "pending_approvals" in tool_call_updates,
+                    }
                     return tool_call_updates
 
             response_text = response.content
 
-            # Log response and conversation
-            log_param("response_preview", response_text[:500] if response_text else "")
-            self._log_conversation(state, response_text)
+            # Log conversation with response and tool calls
+            # Note: Token usage is captured automatically by MLflow autolog
+            tool_calls_data = None
+            if hasattr(response, "tool_calls") and response.tool_calls:
+                tool_calls_data = [
+                    {"name": tc.get("name", ""), "args": tc.get("args", {})}
+                    for tc in response.tool_calls
+                ]
 
-            # Track metrics
+            self.log_conversation(
+                conversation_id=state.conversation_id,
+                messages=state.messages,
+                response=response_text,
+                tool_calls=tool_calls_data,
+            )
+
+            # Track metrics and set outputs for trace visualization
             span["response_length"] = len(response_text)
-            token_usage = response.response_metadata.get("token_usage", {}) if hasattr(response, 'response_metadata') else {}
-            self.log_metric("response_tokens", token_usage.get("total_tokens", 0))
+            span["outputs"] = {
+                "response": response_text[:2000],
+                "has_tool_calls": bool(tool_calls_data),
+            }
 
             # Parse for proposal
             proposal_data = self._extract_proposal(response_text)
@@ -188,6 +222,7 @@ class ArchitectAgent(BaseAgent):
                 updates["architect_design"] = proposal_data
 
                 span["proposal_created"] = proposal.id
+                span["outputs"]["proposal_name"] = proposal.name
 
             return updates
 
@@ -228,40 +263,6 @@ class ArchitectAgent(BaseAgent):
                 }
             )
         return serialized
-
-    def _log_conversation(
-        self,
-        state: ConversationState,
-        response_text: str,
-    ) -> None:
-        """Log conversation to MLflow as an artifact.
-
-        Args:
-            state: Current conversation state
-            response_text: The AI response text
-        """
-        import time
-        
-        # Serialize all messages including the new response
-        all_messages = []
-        for msg in state.messages:
-            role = "user" if isinstance(msg, HumanMessage) else "assistant"
-            content = getattr(msg, "content", str(msg))
-            all_messages.append({"role": role, "content": content[:1000]})
-        
-        # Add the new response
-        all_messages.append({"role": "assistant", "content": response_text[:1000]})
-
-        # Log as artifact
-        log_dict(
-            {
-                "conversation_id": state.conversation_id,
-                "timestamp": datetime.utcnow().isoformat(),
-                "message_count": len(all_messages),
-                "messages": all_messages,
-            },
-            f"conversations/{state.conversation_id}_{int(time.time())}.json",
-        )
 
     def _get_ha_tools(self) -> list[Any]:
         """Get Home Assistant tools for the Architect agent."""
