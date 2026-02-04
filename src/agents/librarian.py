@@ -123,14 +123,19 @@ class LibrarianWorkflow:
         """
         from src.mcp import parse_entity_list
 
-        # Fetch entities
-        raw_entities = await self.mcp.list_entities(
-            domain=domain_filter,
-            detailed=True,
-        )
+        with mlflow.start_span(
+            name="librarian.fetch_entities",
+            span_type="TOOL",
+            attributes={"domain_filter": domain_filter or "all"},
+        ):
+            # Fetch entities
+            raw_entities = await self.mcp.list_entities(
+                domain=domain_filter,
+                detailed=True,
+            )
 
-        # Parse into EntitySummary objects
-        entities = parse_entity_list(raw_entities)
+            # Parse into EntitySummary objects
+            entities = parse_entity_list(raw_entities)
 
         state.entities_found = [
             EntitySummary(
@@ -168,10 +173,15 @@ class LibrarianWorkflow:
 
         async with get_session() as session:
             sync_service = DiscoverySyncService(session, self.mcp)
-            discovery = await sync_service.run_discovery(
-                triggered_by=triggered_by,
-                mlflow_run_id=state.mlflow_run_id,
-            )
+            with mlflow.start_span(
+                name="librarian.sync_database",
+                span_type="CHAIN",
+                attributes={"triggered_by": triggered_by},
+            ):
+                discovery = await sync_service.run_discovery(
+                    triggered_by=triggered_by,
+                    mlflow_run_id=state.mlflow_run_id,
+                )
 
             # Update state with results
             state.entities_added = discovery.entities_added
@@ -191,10 +201,14 @@ class LibrarianWorkflow:
         Returns:
             State unchanged (logging only)
         """
-        # Log summary
-        if mlflow.active_run():
-            mlflow.set_tag("status", state.status.value)
-            mlflow.set_tag("domains_count", len(state.domains_scanned))
+        with mlflow.start_span(
+            name="librarian.report_results",
+            span_type="CHAIN",
+        ):
+            # Log summary
+            if mlflow.active_run():
+                mlflow.set_tag("status", state.status.value)
+                mlflow.set_tag("domains_count", len(state.domains_scanned))
 
         return state
 

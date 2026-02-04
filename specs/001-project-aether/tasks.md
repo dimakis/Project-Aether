@@ -467,6 +467,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T128 [P] Add request/response logging middleware in src/api/main.py
 - [ ] T129 Add MLflow experiment dashboard configuration for agent tracing
 - [x] T146 Add MLflow GenAI spans across all agent invocations (BaseAgent + Librarian)
+- [x] T147 Add deep MLflow spans for Librarian and Developer steps (fetch, sync, deploy)
 
 ### Entity Sync & Caching
 

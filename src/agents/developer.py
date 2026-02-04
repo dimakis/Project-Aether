@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
+import mlflow
 import yaml
 
 from src.agents import BaseAgent
@@ -67,6 +68,7 @@ class DeveloperAgent(BaseAgent):
         async with self.trace_span("invoke", state) as span:
             session = kwargs.get("session")
             proposal_id = kwargs.get("proposal_id")
+            mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
 
             if not session or not proposal_id:
                 return {"error": "Session and proposal_id required for deployment"}
@@ -81,9 +83,13 @@ class DeveloperAgent(BaseAgent):
             if proposal.status != ProposalStatus.APPROVED:
                 return {"error": f"Proposal must be approved before deployment (status: {proposal.status.value})"}
 
-            # Deploy
             try:
-                result = await self.deploy_automation(proposal, session)
+                with mlflow.start_span(
+                    name="developer.deploy",
+                    span_type="CHAIN",
+                    attributes={"proposal_id": proposal_id},
+                ):
+                    result = await self.deploy_automation(proposal, session)
                 span["deployment_success"] = True
                 span["ha_automation_id"] = result.get("ha_automation_id")
 
@@ -117,7 +123,11 @@ class DeveloperAgent(BaseAgent):
             Deployment result dict
         """
         # Generate automation YAML
-        automation_yaml = self._generate_automation_yaml(proposal)
+        with mlflow.start_span(
+            name="developer.generate_yaml",
+            span_type="CHAIN",
+        ):
+            automation_yaml = self._generate_automation_yaml(proposal)
 
         # Generate unique automation ID
         ha_automation_id = f"aether_{proposal.id.replace('-', '_')[:8]}"
@@ -125,7 +135,12 @@ class DeveloperAgent(BaseAgent):
         # Deploy via MCP
         # Note: Direct automation creation is a known MCP gap
         # Workaround: Generate YAML for manual import or use REST API
-        result = await self._deploy_via_mcp(ha_automation_id, automation_yaml)
+        with mlflow.start_span(
+            name="developer.deploy_mcp",
+            span_type="TOOL",
+            attributes={"method": "manual"},
+        ):
+            result = await self._deploy_via_mcp(ha_automation_id, automation_yaml)
 
         # Update proposal status
         repo = ProposalRepository(session)
