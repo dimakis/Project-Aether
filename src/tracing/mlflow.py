@@ -7,9 +7,21 @@ All functions are defensive - they silently skip tracing if MLflow
 is unavailable or misconfigured, rather than crashing the application.
 """
 
+# IMPORTANT: Set MLflow environment variables BEFORE any imports that might
+# trigger MLflow initialization. This prevents trace logging from stalling
+# the CLI if the server is unreachable or returns errors.
+import os
+
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "3")
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
+# Disable async trace logging to get immediate feedback on failures
+os.environ.setdefault("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
 import functools
+import importlib.util
 import logging
 import time
+import warnings
 from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -28,6 +40,9 @@ _logger = logging.getLogger(__name__)
 # Flag to track if MLflow is available
 _mlflow_available: bool = True
 _mlflow_initialized: bool = False
+_autolog_enabled: bool = False
+_traces_available: bool = True
+_traces_checked: bool = False
 
 # Context variable for current tracer
 _current_tracer: ContextVar["AetherTracer | None"] = ContextVar(
@@ -41,7 +56,17 @@ def _safe_import_mlflow():
     if not _mlflow_available:
         return None
     try:
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Union type hint.*inferred as AnyType",
+            category=UserWarning,
+        )
         import mlflow
+
+        # Re-suppress noisy loggers after MLflow configures its own
+        from src.logging_config import suppress_noisy_loggers
+
+        suppress_noisy_loggers()
         return mlflow
     except ImportError:
         _mlflow_available = False
@@ -51,33 +76,34 @@ def _safe_import_mlflow():
 
 def _ensure_mlflow_initialized() -> bool:
     """Ensure MLflow is initialized with correct tracking URI.
-    
+
     Returns:
         True if MLflow is ready, False otherwise
     """
     global _mlflow_initialized, _mlflow_available
-    
+
     if not _mlflow_available:
         return False
-    
+
     if _mlflow_initialized:
         return True
-    
+
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return False
-    
+
     try:
         settings = get_settings()
         uri = settings.mlflow_tracking_uri
-        
+
         # Ensure URI is valid
         if not uri or uri.startswith("/mlflow"):
-            # Fall back to local directory
-            uri = "./mlruns"
+            # Fall back to SQLite database (recommended by MLflow)
+            uri = "sqlite:///mlflow.db"
             _logger.debug(f"Using fallback MLflow URI: {uri}")
-        
+
         mlflow.set_tracking_uri(uri)
+        _check_trace_backend(uri)
         _mlflow_initialized = True
         return True
     except Exception as e:
@@ -86,21 +112,164 @@ def _ensure_mlflow_initialized() -> bool:
         return False
 
 
+def _check_trace_backend(uri: str) -> None:
+    """Detect whether the MLflow backend supports trace ingestion.
+
+    We enable traces by default and rely on graceful degradation:
+    - If the server is unreachable, traces are disabled
+    - If trace calls fail at runtime, they're caught and traces are disabled
+    - Users can disable traces with MLFLOW_DISABLE_TRACES=true
+
+    Note: MLflow v3.9.0 has a known bug with PostgreSQL backends that causes
+    trace ingestion to fail. Use SQLite backend or set MLFLOW_DISABLE_TRACES=true.
+    """
+    global _traces_available, _traces_checked
+    if _traces_checked:
+        return
+    _traces_checked = True
+
+    # Allow users to explicitly disable traces
+    if os.environ.get("MLFLOW_DISABLE_TRACES", "").lower() in ("true", "1", "yes"):
+        _disable_traces("traces disabled via MLFLOW_DISABLE_TRACES")
+        return
+
+    # For local file-based backends (sqlite, file), traces work without HTTP
+    if not uri or not uri.startswith(("http://", "https://")):
+        _traces_available = True
+        _logger.debug("MLflow using local backend, traces enabled")
+        return
+
+    # For HTTP backends, verify the server is reachable
+    try:
+        import httpx
+
+        base_url = uri.rstrip("/")
+        try:
+            health_response = httpx.get(f"{base_url}/health", timeout=2.0)
+            if health_response.status_code >= 500:
+                _disable_traces(f"MLflow server unhealthy: status {health_response.status_code}")
+                return
+        except httpx.RequestError as e:
+            _disable_traces(f"MLflow server unreachable: {e}")
+            return
+
+        # Server is healthy, enable traces
+        _traces_available = True
+        _logger.debug("MLflow HTTP trace backend enabled")
+    except Exception as e:
+        _disable_traces(f"trace backend check failed: {e}")
+
+
+def _disable_traces(reason: str) -> None:
+    """Disable MLflow trace logging for this process.
+
+    Sets multiple environment variables to ensure traces are fully disabled
+    and won't cause further errors or retries.
+    """
+    global _traces_available
+    if not _traces_available:
+        return  # Already disabled
+
+    _traces_available = False
+    os.environ["MLFLOW_TRACE_SAMPLING_RATIO"] = "0"
+    os.environ["MLFLOW_ENABLE_ASYNC_TRACE_LOGGING"] = "false"
+    os.environ["MLFLOW_HTTP_REQUEST_MAX_RETRIES"] = "0"
+
+    # Also try to disable via MLflow's API if available
+    try:
+        mlflow = _safe_import_mlflow()
+        if mlflow and hasattr(mlflow, "tracing"):
+            tracing = mlflow.tracing
+            if hasattr(tracing, "disable"):
+                tracing.disable()
+    except Exception:
+        pass
+
+    _logger.debug("MLflow trace logging disabled: %s", reason)
+
+
+def enable_autolog() -> None:
+    """Enable MLflow auto-tracing for supported libraries.
+
+    Enables automatic tracing for:
+    - OpenAI API calls (via mlflow.openai.autolog)
+    - LangChain operations (via mlflow.langchain.autolog)
+
+    This is idempotent - calling multiple times has no effect.
+    """
+    global _autolog_enabled
+
+    if _autolog_enabled:
+        return
+
+    if not _ensure_mlflow_initialized():
+        return
+
+    mlflow = _safe_import_mlflow()
+    if mlflow is None:
+        return
+
+    trace_enabled = _traces_available
+
+    # Enable OpenAI autolog
+    try:
+        mlflow.openai.autolog(
+            disable=False,
+            exclusive=False,
+            disable_for_unsupported_versions=True,
+            silent=True,
+            log_traces=trace_enabled,
+        )
+        _logger.debug("MLflow OpenAI autolog enabled")
+    except AttributeError:
+        _logger.debug("MLflow OpenAI autolog not available (mlflow.openai missing)")
+    except Exception as e:
+        _logger.debug(f"Failed to enable OpenAI autolog: {e}")
+
+    # Enable LangChain autolog only when the optional dependency is installed
+    if importlib.util.find_spec("langchain") is not None:
+        try:
+            mlflow.langchain.autolog(
+                disable=False,
+                exclusive=False,
+                disable_for_unsupported_versions=True,
+                silent=True,
+                log_traces=trace_enabled,
+                log_input_examples=True,  # Capture input messages
+                log_model_signatures=True,  # Log model info
+            )
+            _logger.debug("MLflow LangChain autolog enabled with input logging")
+        except AttributeError:
+            _logger.debug("MLflow LangChain autolog not available (mlflow.langchain missing)")
+        except Exception as e:
+            _logger.debug(f"Failed to enable LangChain autolog: {e}")
+    else:
+        _logger.debug("LangChain not installed; skipping MLflow LangChain autolog")
+
+    _autolog_enabled = True
+
+
 def init_mlflow() -> Any:
     """Initialize MLflow with settings from environment.
+
+    Also enables autolog for supported libraries.
 
     Returns:
         Configured MlflowClient instance or None if unavailable
     """
     if not _ensure_mlflow_initialized():
         return None
-    
+
+    # Enable autolog when initializing
+    enable_autolog()
+
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return None
-    
+
     try:
         from mlflow.tracking import MlflowClient
+
         settings = get_settings()
         return MlflowClient(tracking_uri=settings.mlflow_tracking_uri)
     except Exception as e:
@@ -119,11 +288,11 @@ def get_or_create_experiment(name: str | None = None) -> str | None:
     """
     if not _ensure_mlflow_initialized():
         return None
-    
+
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return None
-    
+
     try:
         settings = get_settings()
         experiment_name = name or settings.mlflow_experiment_name
@@ -159,11 +328,11 @@ def start_run(
     """
     if not _ensure_mlflow_initialized():
         return None
-    
+
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return None
-    
+
     try:
         experiment_id = get_or_create_experiment(experiment_name)
         if experiment_id:
@@ -174,6 +343,13 @@ def start_run(
         # Log standard tags
         mlflow.set_tag("aether.version", "0.1.0")
         mlflow.set_tag("aether.started_at", datetime.utcnow().isoformat())
+
+        # Log session ID if available
+        from src.tracing.context import get_session_id
+
+        session_id = get_session_id()
+        if session_id:
+            mlflow.set_tag("session.id", session_id)
 
         return run
     except Exception as e:
@@ -190,7 +366,7 @@ def end_run(status: str = "FINISHED") -> None:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return
-    
+
     try:
         mlflow.end_run(status=status)
     except Exception as e:
@@ -234,7 +410,7 @@ def get_active_run() -> Any:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return None
-    
+
     try:
         return mlflow.active_run()
     except Exception:
@@ -251,7 +427,7 @@ def log_param(key: str, value: Any) -> None:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return
-    
+
     try:
         if mlflow.active_run():
             mlflow.log_param(key, value)
@@ -264,7 +440,7 @@ def log_params(params: dict[str, Any]) -> None:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return
-    
+
     try:
         if mlflow.active_run():
             mlflow.log_params(params)
@@ -277,7 +453,7 @@ def log_metric(key: str, value: float, step: int | None = None) -> None:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return
-    
+
     try:
         if mlflow.active_run():
             mlflow.log_metric(key, value, step=step)
@@ -290,7 +466,7 @@ def log_metrics(metrics: dict[str, float], step: int | None = None) -> None:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return
-    
+
     try:
         if mlflow.active_run():
             mlflow.log_metrics(metrics, step=step)
@@ -303,7 +479,7 @@ def log_dict(data: dict[str, Any], filename: str) -> None:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return
-    
+
     try:
         if mlflow.active_run():
             mlflow.log_dict(data, filename)
@@ -311,41 +487,6 @@ def log_dict(data: dict[str, Any], filename: str) -> None:
         _logger.debug(f"Failed to log dict to {filename}: {e}")
 
 
-def log_agent_action(
-    agent: str,
-    action: str,
-    input_data: dict[str, Any] | None = None,
-    output_data: dict[str, Any] | None = None,
-    duration_ms: float | None = None,
-    error: str | None = None,
-) -> None:
-    """Log an agent action with structured data."""
-    mlflow = _safe_import_mlflow()
-    if mlflow is None or not mlflow.active_run():
-        return
-    
-    try:
-        mlflow.set_tag(f"agent.{agent}.last_action", action)
-
-        if duration_ms is not None:
-            log_metric(f"agent.{agent}.{action}.duration_ms", duration_ms)
-
-        if error:
-            mlflow.set_tag(f"agent.{agent}.{action}.error", error[:250])
-
-        # Log detailed data as artifact
-        action_data = {
-            "agent": agent,
-            "action": action,
-            "timestamp": datetime.utcnow().isoformat(),
-            "input": input_data,
-            "output": output_data,
-            "duration_ms": duration_ms,
-            "error": error,
-        }
-        log_dict(action_data, f"actions/{agent}_{action}_{int(time.time())}.json")
-    except Exception as e:
-        _logger.debug(f"Failed to log agent action: {e}")
 
 
 # =============================================================================
@@ -358,7 +499,7 @@ def get_active_span() -> Any | None:
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return None
-    
+
     try:
         # MLflow 3.x uses get_current_active_span()
         get_span = getattr(mlflow, "get_current_active_span", None)
@@ -388,6 +529,7 @@ def add_span_event(
 
     try:
         from mlflow.entities import SpanEvent
+
         event = SpanEvent(name=name, attributes=attributes or {})
         span.add_event(event)
     except (ImportError, TypeError, Exception) as e:
@@ -403,155 +545,8 @@ def _is_async(func: Callable[..., Any]) -> bool:
     """Check if a function is async."""
     import asyncio
     import inspect
+
     return asyncio.iscoroutinefunction(func) or inspect.iscoroutinefunction(func)
-
-
-def trace_agent(agent_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator to trace agent function execution."""
-
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        @functools.wraps(func)
-        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            start_time = time.perf_counter()
-            mlflow = _safe_import_mlflow()
-
-            try:
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag(f"agent.{agent_name}.status", "running")
-                    log_param(f"agent.{agent_name}.function", func.__name__)
-
-                result = await func(*args, **kwargs)  # type: ignore[misc]
-
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag(f"agent.{agent_name}.status", "completed")
-                return result
-
-            except Exception as e:
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag(f"agent.{agent_name}.status", "failed")
-                    mlflow.set_tag(f"agent.{agent_name}.error", str(e)[:250])
-                raise
-
-            finally:
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                log_metric(f"agent.{agent_name}.duration_ms", duration_ms)
-
-        @functools.wraps(func)
-        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            start_time = time.perf_counter()
-            mlflow = _safe_import_mlflow()
-
-            try:
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag(f"agent.{agent_name}.status", "running")
-                    log_param(f"agent.{agent_name}.function", func.__name__)
-
-                result = func(*args, **kwargs)
-
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag(f"agent.{agent_name}.status", "completed")
-                return result
-
-            except Exception as e:
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag(f"agent.{agent_name}.status", "failed")
-                    mlflow.set_tag(f"agent.{agent_name}.error", str(e)[:250])
-                raise
-
-            finally:
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                log_metric(f"agent.{agent_name}.duration_ms", duration_ms)
-
-        if _is_async(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper
-
-    return decorator
-
-
-def trace_llm_call(
-    model: str | None = None,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator to trace LLM API calls."""
-
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        @functools.wraps(func)
-        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            start_time = time.perf_counter()
-            mlflow = _safe_import_mlflow()
-
-            try:
-                result = await func(*args, **kwargs)  # type: ignore[misc]
-
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                log_metric("llm.call.duration_ms", duration_ms)
-
-                if model and mlflow and mlflow.active_run():
-                    mlflow.set_tag("llm.model", model)
-
-                _log_token_usage(result)
-                return result
-
-            except Exception as e:
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag("llm.call.error", str(e)[:250])
-                raise
-
-        @functools.wraps(func)
-        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            start_time = time.perf_counter()
-            mlflow = _safe_import_mlflow()
-
-            try:
-                result = func(*args, **kwargs)
-
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                log_metric("llm.call.duration_ms", duration_ms)
-
-                if model and mlflow and mlflow.active_run():
-                    mlflow.set_tag("llm.model", model)
-
-                _log_token_usage(result)
-                return result
-
-            except Exception as e:
-                if mlflow and mlflow.active_run():
-                    mlflow.set_tag("llm.call.error", str(e)[:250])
-                raise
-
-        if _is_async(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper
-
-    return decorator
-
-
-def _log_token_usage(result: Any) -> None:
-    """Extract and log token usage from LLM response."""
-    mlflow = _safe_import_mlflow()
-    if mlflow is None or not mlflow.active_run():
-        return
-
-    try:
-        # Handle OpenAI-style responses
-        if hasattr(result, "usage") and result.usage:
-            usage = result.usage
-            if hasattr(usage, "prompt_tokens"):
-                log_metric("llm.tokens.prompt", usage.prompt_tokens)
-            if hasattr(usage, "completion_tokens"):
-                log_metric("llm.tokens.completion", usage.completion_tokens)
-            if hasattr(usage, "total_tokens"):
-                log_metric("llm.tokens.total", usage.total_tokens)
-
-        # Handle LangChain AIMessage with usage_metadata
-        if hasattr(result, "usage_metadata") and result.usage_metadata:
-            usage = result.usage_metadata
-            if "input_tokens" in usage:
-                log_metric("llm.tokens.prompt", usage["input_tokens"])
-            if "output_tokens" in usage:
-                log_metric("llm.tokens.completion", usage["output_tokens"])
-    except Exception:
-        pass
 
 
 def trace_with_uri(
@@ -559,23 +554,101 @@ def trace_with_uri(
     span_type: str = "UNKNOWN",
     attributes: dict[str, Any] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Trace a function - ensures MLflow is initialized first.
-    
-    This is a lightweight wrapper that ensures tracking URI is set.
-    If MLflow is unavailable, the function runs without tracing.
+    """Trace a function with an MLflow span.
+
+    Creates a proper MLflow span for the decorated function, capturing
+    timing, errors, and custom attributes. If MLflow is unavailable,
+    the function runs without tracing.
+
+    Args:
+        name: Span name (defaults to function name)
+        span_type: Type of span (CHAIN, TOOL, LLM, RETRIEVER, etc.)
+        attributes: Additional attributes to attach to the span
+
+    Returns:
+        Decorated function with tracing
     """
+
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        if _is_async(func):
-            @functools.wraps(func)
-            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
-                _ensure_mlflow_initialized()
+        span_name = name or func.__name__
+        traced_func: Callable[..., Any] | None = None
+
+        def _get_traced(mlflow: Any) -> Callable[..., Any] | None:
+            nonlocal traced_func
+            if traced_func is not None:
+                return traced_func
+            if hasattr(mlflow, "trace"):
+                traced_func = mlflow.trace(
+                    func,
+                    name=span_name,
+                    span_type=span_type,
+                    attributes=attributes,
+                )
+                return traced_func
+            return None
+
+        @functools.wraps(func)
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
+            global _traces_available
+            if not _ensure_mlflow_initialized():
                 return await func(*args, **kwargs)  # type: ignore[misc]
-            return async_wrapper  # type: ignore[return-value]
+
+            if not _traces_available:
+                return await func(*args, **kwargs)  # type: ignore[misc]
+
+            mlflow = _safe_import_mlflow()
+            if mlflow is None:
+                return await func(*args, **kwargs)  # type: ignore[misc]
+
+            try:
+                traced = _get_traced(mlflow)
+                if traced is not None:
+                    return await traced(*args, **kwargs)  # type: ignore[misc]
+
+                # Fallback for older MLflow versions without trace()
+                with mlflow.start_span(
+                    name=span_name,
+                    span_type=span_type,
+                    attributes=attributes,
+                ):
+                    return await func(*args, **kwargs)  # type: ignore[misc]
+            except Exception as e:
+                _disable_traces("span creation failed; backend rejected traces")
+                _logger.debug(f"Span creation failed, running without trace: {e}")
+                return await func(*args, **kwargs)  # type: ignore[misc]
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            _ensure_mlflow_initialized()
-            return func(*args, **kwargs)
+            global _traces_available
+            if not _ensure_mlflow_initialized():
+                return func(*args, **kwargs)
+
+            if not _traces_available:
+                return func(*args, **kwargs)
+
+            mlflow = _safe_import_mlflow()
+            if mlflow is None:
+                return func(*args, **kwargs)
+
+            try:
+                traced = _get_traced(mlflow)
+                if traced is not None:
+                    return traced(*args, **kwargs)
+
+                # Fallback for older MLflow versions without trace()
+                with mlflow.start_span(
+                    name=span_name,
+                    span_type=span_type,
+                    attributes=attributes,
+                ):
+                    return func(*args, **kwargs)
+            except Exception as e:
+                _disable_traces("span creation failed; backend rejected traces")
+                _logger.debug(f"Span creation failed, running without trace: {e}")
+                return func(*args, **kwargs)
+
+        if _is_async(func):
+            return async_wrapper  # type: ignore[return-value]
         return sync_wrapper
 
     return decorator
@@ -590,7 +663,8 @@ class AetherTracer:
     """Context manager for tracing complete workflows.
 
     Provides a structured way to trace multi-step operations
-    with nested runs and automatic cleanup.
+    with nested runs and automatic cleanup. Automatically captures
+    session ID for trace correlation.
     """
 
     def __init__(
@@ -598,19 +672,49 @@ class AetherTracer:
         name: str,
         experiment_name: str | None = None,
         tags: dict[str, str] | None = None,
+        session_id: str | None = None,
     ) -> None:
+        """Initialize tracer.
+
+        Args:
+            name: Name for the MLflow run
+            experiment_name: Experiment to log to
+            tags: Additional tags
+            session_id: Optional session ID (auto-captured if not provided)
+        """
         self.name = name
         self.experiment_name = experiment_name
         self.tags = tags or {}
+        self._session_id = session_id
         self.run: Any = None
         self._start_time: float = 0
 
+    @property
+    def session_id(self) -> str | None:
+        """Get the session ID for this tracer."""
+        if self._session_id:
+            return self._session_id
+
+        # Try to get from context
+        try:
+            from src.tracing.context import get_session_id
+
+            return get_session_id()
+        except Exception:
+            return None
+
     async def __aenter__(self) -> "AetherTracer":
         self._start_time = time.perf_counter()
+
+        # Add session ID to tags
+        tags = dict(self.tags)
+        if self.session_id:
+            tags["session.id"] = self.session_id
+
         self.run = start_run(
             run_name=self.name,
             experiment_name=self.experiment_name,
-            tags=self.tags,
+            tags=tags,
         )
         _current_tracer.set(self)
         return self
@@ -639,10 +743,16 @@ class AetherTracer:
 
     def __enter__(self) -> "AetherTracer":
         self._start_time = time.perf_counter()
+
+        # Add session ID to tags
+        tags = dict(self.tags)
+        if self.session_id:
+            tags["session.id"] = self.session_id
+
         self.run = start_run(
             run_name=self.name,
             experiment_name=self.experiment_name,
-            tags=self.tags,
+            tags=tags,
         )
         _current_tracer.set(self)
         return self
@@ -701,9 +811,22 @@ def get_tracer() -> AetherTracer | None:
     return _current_tracer.get()
 
 
+def get_tracing_status() -> dict[str, Any]:
+    """Return current MLflow tracing configuration and status."""
+    initialized = _ensure_mlflow_initialized()
+    settings = get_settings()
+    return {
+        "tracking_uri": settings.mlflow_tracking_uri,
+        "experiment_name": settings.mlflow_experiment_name,
+        "mlflow_initialized": initialized,
+        "traces_enabled": initialized and _traces_available,
+    }
+
+
 # Exports
 __all__ = [
     "init_mlflow",
+    "enable_autolog",
     "get_or_create_experiment",
     "start_run",
     "start_experiment_run",
@@ -714,12 +837,10 @@ __all__ = [
     "log_metric",
     "log_metrics",
     "log_dict",
-    "log_agent_action",
-    "trace_agent",
-    "trace_llm_call",
     "trace_with_uri",
     "get_active_span",
     "add_span_event",
     "AetherTracer",
     "get_tracer",
+    "get_tracing_status",
 ]
