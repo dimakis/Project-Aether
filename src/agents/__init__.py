@@ -459,6 +459,7 @@ class LibrarianAgent(BaseAgent):
 
 # Import other agents
 from src.agents.architect import ArchitectAgent, ArchitectWorkflow
+from src.agents.data_scientist import DataScientistAgent, DataScientistWorkflow
 from src.agents.developer import DeveloperAgent, DeveloperWorkflow
 
 # Exports
@@ -468,6 +469,8 @@ __all__ = [
     "LibrarianAgent",
     "ArchitectAgent",
     "ArchitectWorkflow",
+    "DataScientistAgent",
+    "DataScientistWorkflow",
     "DeveloperAgent",
     "DeveloperWorkflow",
 ]
