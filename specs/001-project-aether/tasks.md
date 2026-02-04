@@ -559,6 +559,16 @@ Phase 3    Phase 4     Phase 5     Phase 6
     └────┬────┴────────────┴────────────┘
          ▼
 Phase 7 (Polish)
+         │
+         ▼
+    ┌─────────────────────────────────┐
+    │  Phase 8 (Optimization)         │
+    │  ────────────────────────       │
+    │  Runs CONTINUOUSLY alongside    │
+    │  all phases after Phase 2       │
+    │  • Review every 2 weeks         │
+    │  • After major feature complete │
+    └─────────────────────────────────┘
 ```
 
 ### User Story Dependencies
@@ -641,9 +651,12 @@ Each user story follows TDD:
 | Phase 5: US3 | T101-T114 | 6 | US3 | get_history |
 | Phase 6: US4 | T115-T123 | 4 | US4 | list_entities, domain_summary_tool |
 | Phase 7: Polish | T124-T140 | 6 | — | — |
-| **Total** | **140 tasks** | **53 parallel** | — | — |
+| Phase 8: Optimization | T186-T210 | 12 | — | — |
+| **Total** | **165 tasks** | **65 parallel** | — | — |
 
 **MVP Scope**: Phases 1-3 (81 tasks) → Delivers queryable entity discovery with device/area inference + full test coverage
+
+**Optimization Scope**: Phase 8 runs continuously alongside feature work. Immediate tasks (T186-T189) should be completed before next major release.
 
 ---
 
@@ -685,3 +698,82 @@ Each user story follows TDD:
 | **P3** | `list_labels` | Custom tagging | Low - user organization |
 
 **Action**: When a workaround becomes a blocker, report with context and the specific MCP tool that would resolve it.
+
+---
+
+## Phase 8: Code Optimization & Architecture Health
+
+**Purpose**: Continuous improvement of codebase quality, performance, and maintainability. This phase runs in parallel with feature development and should be revisited regularly.
+
+**Review Cadence**: Architecture review every 2 weeks or after major feature completion.
+
+### Immediate Priority (Sprint 1)
+
+- [ ] T186 [P] Fix thread-safety in singleton patterns (src/storage/__init__.py, src/mcp/client.py) - add asyncio.Lock for concurrent initialization
+- [ ] T187 [P] Replace deprecated `datetime.utcnow()` with `datetime.now(timezone.utc)` across codebase (src/agents/, src/graph/state.py, src/storage/, src/tracing/)
+- [ ] T188 [P] Add rate limiting middleware to expensive API endpoints (discovery, chat, analyze) using slowapi or custom middleware in src/api/main.py
+- [ ] T189 [P] Escape special characters in DAL search queries (src/dal/entities.py search method) to prevent ILIKE wildcard injection
+
+### Short-term Priority (Sprint 2-3)
+
+- [ ] T190 Fix N+1 query pattern in Architect entity context building (src/agents/architect.py _get_entity_context) - batch domain queries
+- [ ] T191 [P] Add database indexes for frequently queried columns:
+  - Composite index on HAEntity(domain, state)
+  - Index on Message(conversation_id, created_at)
+  - Index on AutomationProposal(status, created_at)
+- [ ] T192 [P] Add pg_trgm extension and GIN index for full-text entity search in src/dal/entities.py
+- [ ] T193 Improve type annotations - replace `Any` with specific types for session parameters across DAL and agent modules
+- [ ] T194 [P] Optimize MessageRepository.get_last_n() - remove subquery, use simpler desc().limit().reverse() pattern
+- [ ] T195 Refactor duplicate workflow code in ArchitectWorkflow (start_conversation/continue_conversation) into shared helper
+
+### Medium-term Priority (Sprint 4+)
+
+- [ ] T196 Implement connection pooling strategy for SandboxRunner - consider warm container pool for frequent analysis
+- [ ] T197 Add streaming/pagination for MCP list_entities to reduce memory usage on large HA instances
+- [ ] T198 [P] Add request/response sanitization for MLflow logging - hash or redact sensitive message content
+- [ ] T199 Implement consistent LLM instance caching strategy across agents (get_llm vs get_default_llm)
+- [ ] T200 Add comprehensive edge case tests:
+  - Concurrent conversation updates
+  - MCP client connection failures and retry logic
+  - Sandbox timeout handling
+  - Large entity list pagination
+
+### Architecture Review Checklist (Recurring)
+
+**Run this checklist every 2 weeks or after completing a major feature:**
+
+- [ ] T201 [RECURRING] Review singleton patterns for thread-safety issues
+- [ ] T202 [RECURRING] Audit database queries for N+1 patterns (use SQLAlchemy echo=True in dev)
+- [ ] T203 [RECURRING] Check for new TODO/FIXME/HACK comments and create tasks
+- [ ] T204 [RECURRING] Review error handling - no bare `except Exception` without logging
+- [ ] T205 [RECURRING] Verify type annotations on new code - minimize `Any` usage
+- [ ] T206 [RECURRING] Run performance profiling on critical paths (discovery, chat, analyze)
+- [ ] T207 [RECURRING] Review MLflow tracing coverage - all agent operations should be traced
+- [ ] T208 [RECURRING] Check test coverage on new code - maintain 80%+ overall
+- [ ] T209 [RECURRING] Audit dependencies for security updates (uv audit or safety check)
+- [ ] T210 [RECURRING] Review API response times and add indexes if queries slow down
+
+### Technical Debt Tracking
+
+| ID | Issue | Location | Impact | Status |
+|----|-------|----------|--------|--------|
+| TD001 | Thread-unsafe singletons | storage/__init__.py, mcp/client.py | High | Open |
+| TD002 | Deprecated datetime.utcnow() | Multiple files | Medium | Open |
+| TD003 | N+1 queries in Architect | agents/architect.py | High | Open |
+| TD004 | Missing rate limiting | api/main.py | High | Open |
+| TD005 | Bare exception handling | agents/architect.py:282 | Low | Open |
+| TD006 | Incomplete TODO items | cli/main.py:653,691 | Medium | Open |
+| TD007 | Missing database indexes | dal/entities.py | Medium | Open |
+| TD008 | ILIKE wildcard injection | dal/entities.py:250 | Medium | Open |
+
+### Performance Benchmarks (Track Over Time)
+
+| Metric | Target | Current | Notes |
+|--------|--------|---------|-------|
+| Entity discovery (1000 entities) | <30s | TBD | Measure after T190 |
+| NL query response | <500ms | TBD | Requires indexes |
+| Chat response (first token) | <2s | TBD | LLM dependent |
+| Sandbox script execution | <30s | TBD | Policy enforced |
+| API cold start | <5s | TBD | DB connection time |
+
+---
