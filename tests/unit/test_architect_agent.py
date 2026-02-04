@@ -45,9 +45,15 @@ Would you like me to adjust anything?"""
         from src.agents.architect import ArchitectAgent
         from src.graph.state import ConversationState
 
-        with patch.object(ArchitectAgent, "llm", new_callable=lambda: MagicMock()) as mock_llm:
-            mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
+        # Create mock that handles bind_tools chain
+        mock_bound_llm = MagicMock()
+        mock_bound_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
 
+        mock_llm = MagicMock()
+        mock_llm.bind_tools = MagicMock(return_value=mock_bound_llm)
+        mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
+
+        with patch.object(ArchitectAgent, "llm", new=mock_llm):
             agent = ArchitectAgent()
             state = ConversationState(
                 messages=[HumanMessage(content="Turn on lights when I get home")]
