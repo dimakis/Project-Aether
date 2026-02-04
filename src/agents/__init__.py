@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, AsyncGenerator
 
 import mlflow
+from mlflow.tracing.constant import TRACE_SESSION
 from pydantic import BaseModel
 
 from src.graph.state import AgentRole, BaseState
@@ -84,11 +85,18 @@ class BaseAgent(ABC):
             "agent_role": self.role.value,
             "operation": operation,
         }
+        session_id = None
         if state:
             span_attrs["run_id"] = state.run_id
+            session_id = getattr(state, "conversation_id", None) or state.run_id
+        if session_id:
+            span_attrs[TRACE_SESSION] = session_id
 
         with mlflow.start_span(name=span_name, span_type="CHAIN", attributes=span_attrs):
             try:
+                span = mlflow.active_span()
+                if span and hasattr(span, "add_event"):
+                    span.add_event("start", attributes={"operation": operation})
                 # Log to MLflow if available
                 if mlflow.active_run():
                     mlflow.log_param(f"{span_name}_started", datetime.utcnow().isoformat())
@@ -97,6 +105,8 @@ class BaseAgent(ABC):
 
                 span_metadata["completed_at"] = datetime.utcnow().isoformat()
                 span_metadata["status"] = "success"
+                if span and hasattr(span, "add_event"):
+                    span.add_event("end", attributes={"status": "success"})
 
                 if mlflow.active_run():
                     mlflow.log_param(f"{span_name}_status", "success")
@@ -105,6 +115,10 @@ class BaseAgent(ABC):
                 span_metadata["completed_at"] = datetime.utcnow().isoformat()
                 span_metadata["status"] = "error"
                 span_metadata["error"] = str(e)
+                if span and hasattr(span, "set_status"):
+                    span.set_status("ERROR")
+                if span and hasattr(span, "add_event"):
+                    span.add_event("error", attributes={"error": str(e)[:250]})
 
                 if mlflow.active_run():
                     mlflow.log_param(f"{span_name}_status", "error")

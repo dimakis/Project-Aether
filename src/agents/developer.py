@@ -89,6 +89,9 @@ class DeveloperAgent(BaseAgent):
                     span_type="CHAIN",
                     attributes={"proposal_id": proposal_id},
                 ):
+                    span = mlflow.active_span()
+                    if span and hasattr(span, "add_event"):
+                        span.add_event("deploy_start", attributes={"proposal_id": proposal_id})
                     result = await self.deploy_automation(proposal, session)
                 span["deployment_success"] = True
                 span["ha_automation_id"] = result.get("ha_automation_id")
@@ -127,6 +130,9 @@ class DeveloperAgent(BaseAgent):
             name="developer.generate_yaml",
             span_type="CHAIN",
         ):
+            span = mlflow.active_span()
+            if span and hasattr(span, "add_event"):
+                span.add_event("generate_yaml_start")
             automation_yaml = self._generate_automation_yaml(proposal)
 
         # Generate unique automation ID
@@ -140,6 +146,9 @@ class DeveloperAgent(BaseAgent):
             span_type="TOOL",
             attributes={"method": "manual"},
         ):
+            span = mlflow.active_span()
+            if span and hasattr(span, "add_event"):
+                span.add_event("deploy_mcp_start", attributes={"automation_id": ha_automation_id})
             result = await self._deploy_via_mcp(ha_automation_id, automation_yaml)
 
         # Update proposal status

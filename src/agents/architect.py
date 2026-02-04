@@ -133,6 +133,9 @@ class ArchitectAgent(BaseAgent):
                     "agent": self.name,
                 },
             ):
+                span = mlflow.active_span()
+                if span and hasattr(span, "add_event"):
+                    span.add_event("conversation_start", attributes={"message_count": len(state.messages)})
                 # Build messages for LLM
                 messages = self._build_messages(state)
 
@@ -153,6 +156,9 @@ class ArchitectAgent(BaseAgent):
                         "provider": self._settings.llm_provider,
                     },
                 ):
+                    llm_span = mlflow.active_span()
+                    if llm_span and hasattr(llm_span, "add_event"):
+                        llm_span.add_event("llm_request", attributes={"message_count": len(messages)})
                     response = await tool_llm.ainvoke(messages)
 
                 # Handle tool calls with strict approval for any HA-altering actions

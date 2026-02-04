@@ -468,6 +468,7 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T129 Add MLflow experiment dashboard configuration for agent tracing
 - [x] T146 Add MLflow GenAI spans across all agent invocations (BaseAgent + Librarian)
 - [x] T147 Add deep MLflow spans for Librarian and Developer steps (fetch, sync, deploy)
+- [x] T148 Add trace sessions + span events for multi-agent workflows
 
 ### Entity Sync & Caching
 

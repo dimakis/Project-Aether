@@ -128,6 +128,9 @@ class LibrarianWorkflow:
             span_type="TOOL",
             attributes={"domain_filter": domain_filter or "all"},
         ):
+            span = mlflow.active_span()
+            if span and hasattr(span, "add_event"):
+                span.add_event("fetch_start")
             # Fetch entities
             raw_entities = await self.mcp.list_entities(
                 domain=domain_filter,
@@ -178,6 +181,9 @@ class LibrarianWorkflow:
                 span_type="CHAIN",
                 attributes={"triggered_by": triggered_by},
             ):
+                span = mlflow.active_span()
+                if span and hasattr(span, "add_event"):
+                    span.add_event("sync_start")
                 discovery = await sync_service.run_discovery(
                     triggered_by=triggered_by,
                     mlflow_run_id=state.mlflow_run_id,
@@ -205,6 +211,9 @@ class LibrarianWorkflow:
             name="librarian.report_results",
             span_type="CHAIN",
         ):
+            span = mlflow.active_span()
+            if span and hasattr(span, "add_event"):
+                span.add_event("report_start")
             # Log summary
             if mlflow.active_run():
                 mlflow.set_tag("status", state.status.value)
