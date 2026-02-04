@@ -92,7 +92,7 @@ class Settings(BaseSettings):
 
     # MLflow (Constitution: Observability)
     mlflow_tracking_uri: str = Field(
-        default="http://localhost:5000",
+        default="http://localhost:5002",
         description="MLflow tracking server URI",
     )
     mlflow_experiment_name: str = Field(

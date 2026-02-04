@@ -50,6 +50,9 @@ def get_or_create_experiment(name: str | None = None) -> str:
     settings = get_settings()
     experiment_name = name or settings.mlflow_experiment_name
 
+    # Ensure tracking URI is set for any caller (CLI, API, etc.)
+    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+
     experiment = mlflow.get_experiment_by_name(experiment_name)
     if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
