@@ -5,6 +5,7 @@
 .PHONY: help install dev up down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean
 
 # Default target
+MLFLOW_PORT ?= 5002
 help:
 	@echo "Project Aether - Available Commands"
 	@echo "===================================="
@@ -18,8 +19,8 @@ help:
 	@echo "  make down        - Stop all containers"
 	@echo "  make logs        - View container logs"
 	@echo "  make psql        - Connect to PostgreSQL"
-	@echo "  make mlflow      - Start local MLflow server (Postgres backend, port 5002)"
-	@echo "  make mlflow-up   - Start PostgreSQL + MLflow containers (MLflow on 5001)"
+	@echo "  make mlflow      - Start local MLflow server (SQLite backend, port $(MLFLOW_PORT))"
+	@echo "  make mlflow-up   - Start PostgreSQL + MLflow containers (MLflow on $(MLFLOW_PORT))"
 	@echo ""
 	@echo "Database:"
 	@echo "  make migrate     - Run Alembic migrations"
@@ -79,7 +80,7 @@ mlflow:
 
 mlflow-up:
 	podman-compose -f infrastructure/podman/compose.yaml up -d postgres mlflow
-	@echo "PostgreSQL and MLflow are running on localhost:5432 and :5001"
+	@echo "PostgreSQL and MLflow are running on localhost:5432 and :$(MLFLOW_PORT)"
 
 down:
 	podman-compose -f infrastructure/podman/compose.yaml down

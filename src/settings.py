@@ -92,8 +92,8 @@ class Settings(BaseSettings):
 
     # MLflow (Constitution: Observability)
     mlflow_tracking_uri: str = Field(
-        default="http://localhost:5002",
-        description="MLflow tracking server URI",
+        default="sqlite:///mlflow.db",
+        description="MLflow tracking server URI (use sqlite:///mlflow.db or http://localhost:5000)",
     )
     mlflow_experiment_name: str = Field(
         default="aether",

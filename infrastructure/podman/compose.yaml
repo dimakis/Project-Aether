@@ -33,27 +33,27 @@ services:
   # ===========================================================================
   # MLflow Tracking Server (Constitution: Principle III - Observability)
   # ===========================================================================
+  # NOTE: Using SQLite backend because MLflow v3.9.0 has a bug with PostgreSQL
+  # that causes trace ingestion to fail with 500 errors. Runs/experiments work
+  # fine with PostgreSQL, but traces require SQLite until MLflow fixes the bug.
+  # To use PostgreSQL (without traces), set MLFLOW_USE_POSTGRES=true
   mlflow:
     image: ghcr.io/mlflow/mlflow:v3.9.0
     container_name: aether-mlflow
     restart: unless-stopped
     environment:
-      MLFLOW_BACKEND_STORE_URI: postgresql://aether:aether@postgres:5432/aether_mlflow
       MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
     ports:
       - "${MLFLOW_PORT:-5002}:5000"
     volumes:
+      - mlflow_data:/mlflow/data
       - mlflow_artifacts:/mlflow/artifacts
-    depends_on:
-      postgres:
-        condition: service_healthy
     command: >
-      /bin/sh -c "pip install --no-cache-dir psycopg2-binary &&
       mlflow server
       --host 0.0.0.0
       --port 5000
-      --backend-store-uri postgresql://aether:aether@postgres:5432/aether_mlflow
-      --default-artifact-root /mlflow/artifacts"
+      --backend-store-uri sqlite:////mlflow/data/mlflow.db
+      --default-artifact-root /mlflow/artifacts
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -107,6 +107,8 @@ services:
 volumes:
   postgres_data:
     name: aether-postgres-data
+  mlflow_data:
+    name: aether-mlflow-data
   mlflow_artifacts:
     name: aether-mlflow-artifacts
   redis_data:
