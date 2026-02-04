@@ -58,15 +58,45 @@ LOG_LEVEL=INFO
 
 ### 3. Start Infrastructure
 
+Choose a deployment mode based on your needs:
+
+**Development Mode** (recommended for coding):
 ```bash
-# Start PostgreSQL and MLflow
-podman-compose -f infrastructure/podman/compose.yaml up -d
+# Start infrastructure only (API will run on host with hot-reload)
+make up
 
 # Run database migrations
-alembic upgrade head
+make migrate
 
-# Verify services
-curl http://localhost:5000/health  # MLflow
+# Start API with hot-reload
+make serve
+```
+
+**Development + Chat UI**:
+```bash
+# Start infra + Open WebUI
+make up-ui
+make migrate
+make serve
+
+# Open chat interface
+open http://localhost:3000
+```
+
+**Production Mode** (fully containerized):
+```bash
+# Start everything in containers
+make up-all
+make migrate
+
+# Access services
+open http://localhost:3000  # Chat UI
+open http://localhost:5002  # MLflow
+```
+
+Verify services:
+```bash
+curl http://localhost:5002/health  # MLflow
 psql $DATABASE_URL -c "SELECT 1"   # PostgreSQL
 ```
 
