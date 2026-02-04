@@ -337,13 +337,13 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T091 [P] [US3] Create Insight model in src/storage/entities/insight.py per data-model.md (id, type, title, description, evidence, confidence, impact, entities, script_path, script_output, status, mlflow_run_id)
 - [x] T092 [US3] Create Alembic migration for Insight table in alembic/versions/004_insights.py
 - [x] T145 [US3] Fix Insight migration schema to match data-model.md (drop/recreate insights table)
-- [ ] T166 [P] [US3] Create src/dal/insights.py with InsightRepository (CRUD operations for Insight model)
+- [x] T166 [P] [US3] Create src/dal/insights.py with InsightRepository (CRUD operations for Insight model) (commit: 1fa43ee)
 
 ### Data Collection via MCP for User Story 3
 
-- [ ] T093 [US3] Create src/mcp/history.py with energy-specific history aggregation (get_history exists in client.py; add filtering by device_class=energy, sum/average calculations)
-- [ ] T094 [US3] Create src/dal/energy.py with energy data aggregation from history
-- [ ] T095 [US3] Implement energy sensor discovery (device_class=energy, unit_of_measurement=kWh/W)
+- [x] T093 [US3] Create src/mcp/history.py with energy-specific history aggregation (get_history exists in client.py; add filtering by device_class=energy, sum/average calculations) (commit: 7168ae4)
+- [ ] T094 [US3] Create src/dal/energy.py with energy data aggregation from history (covered by T093 - EnergyHistoryClient)
+- [x] T095 [US3] Implement energy sensor discovery (device_class=energy, unit_of_measurement=kWh/W) (commit: 7168ae4)
 
 ### Data Scientist Agent for User Story 3
 
@@ -356,13 +356,13 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Sandbox Execution (Constitution: Isolation)
 
-- [ ] T099 [US3] Create sandbox container image with pandas, numpy, matplotlib, scipy in infrastructure/podman/Containerfile.sandbox and update SandboxRunner.DEFAULT_IMAGE
+- [x] T099 [US3] Create sandbox container image with pandas, numpy, matplotlib, scipy in infrastructure/podman/Containerfile.sandbox and update SandboxRunner.DEFAULT_IMAGE (commit: c0a8314)
 - [x] T100 [US3] Implement sandboxed script execution in src/sandbox/runner.py using Podman + runsc
 - [ ] T101 [US3] Add script output capture and insight extraction in src/agents/data_scientist.py
 
 ### API Endpoints for User Story 3
 
-- [ ] T102 [P] [US3] Create insight schemas in src/api/schemas/insights.py (Insight, InsightList, AnalysisRequest, AnalysisJob)
+- [x] T102 [P] [US3] Create insight schemas in src/api/schemas/insights.py (Insight, InsightList, AnalysisRequest, AnalysisJob) (commit: 10a9f7a)
 - [ ] T103 [US3] Create src/api/routes/insights.py with GET /insights, GET /insights/{id}, POST /insights/analyze
 
 ### CLI Commands for User Story 3
@@ -373,10 +373,10 @@ These features would unlock additional capabilities. **Report back when these be
 ### Tests for User Story 3 (Constitution: Reliability & Quality)
 
 **Unit Tests**:
-- [ ] T106 [P] [US3] Create tests/unit/test_mcp_history.py - History data parsing
-- [ ] T107 [P] [US3] Create tests/unit/test_dal_energy.py - Energy aggregation logic
+- [x] T106 [P] [US3] Create tests/unit/test_mcp_history.py - History data parsing (commit: 7168ae4)
+- [ ] T107 [P] [US3] Create tests/unit/test_dal_energy.py - Energy aggregation logic (covered by T106)
 - [ ] T108 [P] [US3] Create tests/unit/test_data_scientist.py - Script generation (mock LLM)
-- [ ] T109 [P] [US3] Create tests/unit/test_sandbox_runner.py - Sandbox execution logic (mock Podman)
+- [x] T109 [P] [US3] Create tests/unit/test_sandbox_runner.py - Sandbox execution logic (mock Podman) (commit: c0a8314)
 - [ ] T110 [P] [US3] Create tests/unit/test_insight_extraction.py - Output parsing
 
 **Integration Tests**:
@@ -510,14 +510,14 @@ These features would unlock additional capabilities. **Report back when these be
 
 ### Sandbox Environment (US3)
 
-- [ ] T178 [P] Create infrastructure/podman/Containerfile.sandbox with data science stack:
-  - pandas, numpy, matplotlib, scipy, scikit-learn, statsmodels, seaborn
-- [ ] T179 Update SandboxRunner.DEFAULT_IMAGE to use custom data science image
+- [x] T178 [P] Create infrastructure/podman/Containerfile.sandbox with data science stack:
+  - pandas, numpy, matplotlib, scipy, scikit-learn, statsmodels, seaborn (commit: c0a8314)
+- [x] T179 Update SandboxRunner.DEFAULT_IMAGE to use custom data science image (commit: c0a8314)
 - [ ] T180 Add tests/unit/test_sandbox_packages.py to verify required packages available in sandbox
 
 ### Additional Tests (Robust Coverage)
 
-- [ ] T181 [P] Create tests/unit/test_dal_insights.py - InsightRepository CRUD operations
+- [x] T181 [P] Create tests/unit/test_dal_insights.py - InsightRepository CRUD operations (commit: 1fa43ee)
 - [ ] T182 Create tests/unit/test_inter_agent_comm.py - Agent handoff and message passing
 - [ ] T183 Create tests/integration/test_librarian_sync.py - Full entity sync with change detection
 - [ ] T184 Create tests/integration/test_data_scientist_architect.py - Multi-agent insight→automation flow
