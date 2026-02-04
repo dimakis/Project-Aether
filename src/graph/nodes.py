@@ -682,14 +682,18 @@ async def execute_sandbox_node(
 
     try:
         sandbox = SandboxRunner()
+        started_at = datetime.utcnow()
         result = await sandbox.run(state.generated_script, data_path=data_path)
+        completed_at = datetime.utcnow()
 
         execution = ScriptExecution(
-            script_hash=hash(state.generated_script) % (10**8),
+            script_content=state.generated_script[:5000],
+            started_at=started_at,
+            completed_at=completed_at,
             stdout=result.stdout[:5000],
             stderr=result.stderr[:2000],
             exit_code=result.exit_code,
-            duration_seconds=result.duration_seconds,
+            sandbox_policy=result.policy_name,
             timed_out=result.timed_out,
         )
 
@@ -737,14 +741,19 @@ async def extract_insights_node(
     # Get latest execution
     execution = state.script_executions[-1]
 
+    # Calculate duration if timestamps available
+    duration = 0.0
+    if execution.completed_at and execution.started_at:
+        duration = (execution.completed_at - execution.started_at).total_seconds()
+
     # Create SandboxResult for insight extraction
     result = SandboxResult(
         success=execution.exit_code == 0,
-        exit_code=execution.exit_code,
-        stdout=execution.stdout,
-        stderr=execution.stderr,
-        duration_seconds=execution.duration_seconds,
-        policy_name="standard",
+        exit_code=execution.exit_code or 0,
+        stdout=execution.stdout or "",
+        stderr=execution.stderr or "",
+        duration_seconds=duration,
+        policy_name=execution.sandbox_policy,
         timed_out=execution.timed_out,
     )
 
