@@ -50,11 +50,16 @@ Verify compliance with Aether Home Architect Constitution principles:
 ### Documentation (this feature)
 
 ```text
+docs/
+└── architecture.md      # System architecture, deployment modes, data flows
+
 specs/001-project-aether/
 ├── plan.md              # This file
+├── spec.md              # Feature specification
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output
 ├── quickstart.md        # Phase 1 output
+├── tasks.md             # Implementation tasks
 ├── contracts/           # Phase 1 output (OpenAPI specs)
 │   ├── api.yaml         # Main API contract
 │   └── events.yaml      # Event schemas

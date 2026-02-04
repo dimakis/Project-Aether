@@ -2,8 +2,13 @@
 
 **Feature Branch**: `001-project-aether`  
 **Created**: 2026-02-02  
-**Status**: Draft  
+**Status**: In Progress  
 **Input**: User description: "Build an agentic home automation system called Project Aether. Architecture: A LangGraph multi-agent system with a Librarian (HA discovery), an R&D Loop (Categorizer, Architect, Developer), and a Data Scientist. Capabilities: Abstract HA entities into a dynamic DAL. Self-heal by detecting entity changes. Suggest energy optimizations and custom dashboards. Allow me to chat with the Architect to influence design. Tech: Podman, gVisor, MLflow, HA MCP, Responses API."
+
+**Related Documentation**:
+- [Architecture Overview](../../docs/architecture.md) - System design, deployment modes, data flows
+- [Quickstart Guide](quickstart.md) - Getting started
+- [Implementation Tasks](tasks.md) - Detailed task breakdown
 
 ## User Scenarios & Testing *(mandatory)*
 
