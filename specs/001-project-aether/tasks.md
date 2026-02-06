@@ -396,223 +396,6 @@ These features would unlock additional capabilities. **Report back when these be
 
 ---
 
-## Phase 6: User Story 4 - Custom Dashboard Generation (Priority: P4)
-
-**Goal**: Generate and deploy custom Home Assistant dashboards based on preferences and usage
-
-**Independent Test**: Request themed dashboard, receive Lovelace configuration, deploy to HA
-
-**MCP Tools Used**: `list_entities` (find entities for cards), `domain_summary_tool` (layout planning)
-
-### Models for User Story 4
-
-- [ ] T106 [P] [US4] Create Dashboard model in src/storage/models.py per data-model.md (id, conversation_id, name, description, theme, layout, entities, status, ha_dashboard_id, deployed_at)
-- [ ] T107 [US4] Create Alembic migration for Dashboard table in alembic/versions/005_dashboards.py
-
-### Dashboard Generation for User Story 4
-
-- [ ] T108 [US4] Create src/agents/dashboard.py with Lovelace YAML generation using entity context
-- [ ] T109 [US4] Create src/dal/dashboards.py with Dashboard CRUD and Lovelace validation
-- [ ] T110 [US4] **Workaround**: Generate dashboard YAML for manual import OR use HA storage API if available
-
-### Dashboard Deployment
-
-- [ ] T111 [US4] Create src/mcp/dashboard_deploy.py with deployment strategy selection
-- [ ] T112 [US4] Implement "export" mode: generate downloadable YAML for user import
-- [ ] T113 [US4] **Note**: Direct dashboard deployment requires HA Lovelace WebSocket API (not in current MCP)
-
-### API Endpoints for User Story 4
-
-- [ ] T114 [P] [US4] Create dashboard schemas in src/api/schemas/dashboards.py (Dashboard, DashboardList, DashboardExport)
-- [ ] T115 [US4] Create src/api/routes/dashboards.py with GET /dashboards, GET /dashboards/{id}, GET /dashboards/{id}/export, POST /dashboards/{id}/deploy
-
-### CLI Commands for User Story 4
-
-- [ ] T116 [US4] Add `aether dashboards list/show/export` commands in src/cli/main.py
-- [ ] T117 [US4] Add `aether dashboards generate` command with theme/area options
-
-### Tests for User Story 4 (Constitution: Reliability & Quality)
-
-**Unit Tests**:
-- [ ] T118 [P] [US4] Create tests/unit/test_dashboard_generator.py - Lovelace YAML generation
-- [ ] T119 [P] [US4] Create tests/unit/test_dal_dashboards.py - Dashboard CRUD
-- [ ] T120 [P] [US4] Create tests/unit/test_lovelace_validation.py - YAML schema validation
-
-**Integration Tests**:
-- [ ] T121 [US4] Create tests/integration/test_dashboard_workflow.py - Generation pipeline
-- [ ] T122 [US4] Create tests/integration/test_api_dashboards.py - Dashboard API
-
-**E2E Tests**:
-- [ ] T123 [US4] Create tests/e2e/test_dashboard_generation.py - Full generation and export
-
-**Checkpoint**: User Story 4 complete - dashboard generation and export working
-
-**MCP Gap Report (Expected)**:
-- ⚠️ Direct dashboard deployment requires `lovelace/config` WebSocket API
-- ⚠️ Dashboard preview requires HA frontend access
-- ✅ Export mode works without additional MCP features
-
----
-
-## Phase 6b: User Story 5 - Intelligent Optimization & Multi-Agent Collaboration (Priority: P3)
-
-**Goal**: Extend Data Scientist with behavioral analysis, automation gap detection, and agent-to-agent communication with Architect for intelligent automation suggestions.
-
-**Independent Test**: DS analyzes usage patterns, identifies automation opportunities, collaborates with Architect to propose optimized automations.
-
-**MCP Tools Used**: `get_history`, `/api/logbook` (new), `list_automations`, `list_entities`
-
-### New MCP Capabilities for User Story 5
-
-- [ ] T211 [US5] Add `get_logbook()` method to src/mcp/client.py - fetch logbook entries from `/api/logbook/{timestamp}` endpoint
-- [ ] T212 [US5] Create src/mcp/logbook.py with LogbookHistoryClient:
-  - Parse logbook entries (entity_id, state, context, timestamp, user)
-  - Filter by domain, entity, time range
-  - Aggregate by action type (button_press, automation_triggered, script_run, state_change)
-- [ ] T213 [P] [US5] Add logbook parsers to src/mcp/parsers.py (parse_logbook_entry, parse_logbook_list)
-
-### New Analysis Types for User Story 5
-
-- [ ] T214 [US5] Extend AnalysisType enum in src/graph/state.py with:
-  - BEHAVIOR_ANALYSIS - Usage patterns from logbook
-  - AUTOMATION_ANALYSIS - Automation effectiveness scoring
-  - AUTOMATION_GAP_DETECTION - Find manual patterns to automate
-  - CORRELATION_DISCOVERY - Find entity relationships
-  - DEVICE_HEALTH - Detect anomalies and potential issues
-  - COST_OPTIMIZATION - Energy cost projections with savings recommendations
-
-### Data Scientist Agent Extensions for User Story 5
-
-- [ ] T215 [US5] Create src/mcp/behavioral.py with BehavioralAnalysisClient:
-  - get_button_usage(hours) - Button/switch press frequency and timing
-  - get_automation_effectiveness() - Trigger counts, manual overrides, efficiency scores
-  - find_correlations(entity_ids) - Discover entity relationships from timing patterns
-  - detect_automation_gaps() - Find repeating manual patterns that could be automated
-  - get_device_health_report() - Identify devices with unusual/missing activity
-
-- [ ] T216 [US5] Extend DataScientistAgent._build_analysis_prompt() with prompts for new analysis types
-- [ ] T217 [US5] Add DATA_SCIENTIST_BEHAVIORAL_PROMPT in src/agents/data_scientist.py for behavioral insights
-- [ ] T218 [US5] Create _collect_behavioral_data() method in DataScientistAgent for logbook aggregation
-
-### Insight Types Extension for User Story 5
-
-- [ ] T219 [US5] Extend InsightType enum in src/storage/entities/insight.py with:
-  - AUTOMATION_GAP - "You do X manually, suggest automation"
-  - AUTOMATION_INEFFICIENCY - "Automation Y could be improved"
-  - CORRELATION - "Entity A and B are often used together"
-  - DEVICE_HEALTH - "Device may need attention"
-  - COST_SAVING - "This change would save $X/month"
-  - BEHAVIORAL_PATTERN - "Usage pattern detected"
-
-- [ ] T220 [US5] Create Alembic migration for InsightType enum extension in alembic/versions/006_insight_types.py
-
-### Agent-to-Agent Communication Framework for User Story 5
-
-- [ ] T221 [US5] Create src/agents/coordinator.py with AgentCoordinator:
-  - register_agent(agent) - Register agents for coordination
-  - request_analysis(from_agent, to_agent, query) - Inter-agent queries
-  - handoff(from_agent, to_agent, context) - Transfer conversation context
-  - broadcast_insight(insight) - Share insights across agents
-
-- [ ] T222 [US5] Create AgentMessage model in src/graph/state.py:
-  - from_agent: AgentRole
-  - to_agent: AgentRole
-  - message_type: "query" | "response" | "handoff" | "insight"
-  - content: dict
-  - context: dict (shared state)
-
-- [ ] T223 [US5] Add inter-agent tools to src/tools/agent_tools.py:
-  - request_data_analysis(query) - Architect asks DS for data
-  - propose_automation(insight, suggestion) - DS proposes automation to Architect
-  - query_entity_context(entity_ids) - Any agent queries Librarian
-  - validate_automation(proposal) - Architect validates DS suggestions
-
-### Data Scientist → Architect Integration for User Story 5
-
-- [ ] T224 [US5] Create src/agents/ds_architect_bridge.py with:
-  - AutomationSuggestion model (pattern, entities, proposed_trigger, proposed_action, confidence, evidence)
-  - suggest_automation_from_pattern(pattern) - Convert insight to automation proposal
-  - request_architect_review(suggestion) - Send to Architect for refinement
-  - receive_architect_feedback(proposal_id, feedback) - Handle Architect response
-
-- [ ] T225 [US5] Add "suggest automation" flow to DataScientistWorkflow:
-  - When automation gap detected → create AutomationSuggestion
-  - Send to Architect via coordinator
-  - Architect refines and creates full proposal
-  - Return combined insight + proposal to user
-
-- [ ] T226 [US5] Extend ArchitectAgent to handle DS suggestions:
-  - receive_suggestion(suggestion) - Accept DS automation suggestions
-  - refine_suggestion(suggestion) - Improve trigger/action design
-  - create_proposal_from_suggestion(suggestion) - Generate full proposal
-
-### Orchestrator Updates for User Story 5
-
-- [ ] T227 [US5] Update src/graph/workflows.py with multi-agent orchestration:
-  - Add optimization_workflow combining DS analysis → Architect proposals
-  - Add collaborative_analysis_workflow for complex queries
-  - Implement interrupt points for user confirmation between agents
-
-- [ ] T228 [US5] Create src/graph/nodes.py nodes for agent collaboration:
-  - analyze_and_suggest - DS analyzes, suggests optimizations
-  - architect_review - Architect reviews DS suggestions
-  - combine_insights - Merge DS + Architect outputs
-  - present_recommendations - Format final output for user
-
-### API Endpoints for User Story 5
-
-- [ ] T229 [P] [US5] Create optimization schemas in src/api/schemas/optimization.py:
-  - OptimizationRequest (analysis_types, time_range, focus_areas)
-  - OptimizationResult (insights, suggestions, proposals)
-  - AutomationSuggestion (pattern, confidence, proposed_automation)
-
-- [ ] T230 [US5] Create src/api/routes/optimization.py:
-  - POST /optimize - Run full optimization analysis
-  - GET /optimize/suggestions - List pending automation suggestions
-  - POST /optimize/suggestions/{id}/accept - Accept and create proposal
-  - POST /optimize/suggestions/{id}/reject - Reject suggestion
-
-### CLI Commands for User Story 5
-
-- [ ] T231 [US5] Add `aether optimize` command in src/cli/main.py:
-  - `aether optimize --type energy|behavior|all` - Run optimization analysis
-  - `aether optimize suggestions` - List automation suggestions
-  - `aether optimize accept <id>` - Accept suggestion, create proposal
-
-- [ ] T232 [US5] Add `aether analyze behavior` command:
-  - `aether analyze behavior --days 7` - Behavioral analysis
-  - `aether analyze automations` - Automation effectiveness report
-  - `aether analyze correlations` - Entity correlation discovery
-
-### Tests for User Story 5 (Constitution: Reliability & Quality)
-
-**Unit Tests**:
-- [ ] T233 [P] [US5] Create tests/unit/test_mcp_logbook.py - Logbook client and parsing
-- [ ] T234 [P] [US5] Create tests/unit/test_behavioral_analysis.py - Pattern detection
-- [ ] T235 [P] [US5] Create tests/unit/test_automation_gap_detection.py - Gap detection logic
-- [ ] T236 [P] [US5] Create tests/unit/test_agent_coordinator.py - Inter-agent messaging
-- [ ] T237 [P] [US5] Create tests/unit/test_ds_architect_bridge.py - Suggestion flow
-
-**Integration Tests**:
-- [ ] T238 [US5] Create tests/integration/test_behavioral_workflow.py - Full behavioral analysis
-- [ ] T239 [US5] Create tests/integration/test_agent_collaboration.py - DS → Architect flow
-- [ ] T240 [US5] Create tests/integration/test_optimization_api.py - Optimization endpoints
-
-**E2E Tests**:
-- [ ] T241 [US5] Create tests/e2e/test_optimization_flow.py - Full optimization: analyze → suggest → propose → approve
-- [ ] T242 [US5] Create tests/e2e/test_multi_agent_conversation.py - User query involving multiple agents
-
-**Checkpoint**: User Story 5 complete - Data Scientist provides intelligent optimization suggestions in collaboration with Architect
-
-**MCP Gap Report (Expected)**:
-- ✅ `/api/logbook` available via REST API
-- ✅ `get_history` sufficient for correlation analysis
-- ✅ `list_automations` provides automation metadata
-- ⚠️ Automation trigger counts may require recorder database for accuracy
-- ⚠️ Real-time pattern detection requires `subscribe_events` MCP tool
-
----
-
 ## Phase 7: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements that affect multiple user stories
@@ -703,135 +486,62 @@ These features would unlock additional capabilities. **Report back when these be
 ### Phase Dependencies
 
 ```
-Phase 1 (Setup) ──────────────────────────────────┐
-                                                  │
-Phase 2 (Foundational) ◄──────────────────────────┘
+Phase 1 (Setup) ✅ ────────────────────────────────┐
+                                                    │
+Phase 2 (Foundational) ✅ ◄────────────────────────┘
          │
          │ BLOCKS ALL USER STORIES
          ▼
-    ┌────┴────┬────────────┬────────────┐
-    ▼         ▼            ▼            ▼
-Phase 3    Phase 4     Phase 5     Phase 6
-  (US1)      (US2)       (US3)       (US4)
-   MVP    
-    │         │            │            │
-    │         │            └────────────┤
-    │         │                         │
-    │         └─────────┬───────────────┘
-    │                   ▼
-    │            Phase 6b (US5)
-    │         ┌─────────────────────────┐
-    │         │ Intelligent Optimization │
-    │         │ • Logbook analysis       │
-    │         │ • Behavioral patterns    │
-    │         │ • DS ↔ Architect collab  │
-    │         │ • Automation suggestions │
-    │         └─────────────────────────┘
-    │                   │
-    └────┬──────────────┘
-         ▼
-Phase 7 (Polish)
-         │
-         ▼
-    ┌─────────────────────────────────┐
-    │  Phase 8 (Optimization)         │
-    │  ────────────────────────       │
-    │  Runs CONTINUOUSLY alongside    │
-    │  all phases after Phase 2       │
-    │  • Review every 2 weeks         │
-    │  • After major feature complete │
-    └─────────────────────────────────┘
+    ┌────┴────┬────────────┐
+    ▼         ▼            ▼
+Phase 3    Phase 4     Phase 5
+  (US1)      (US2)       (US3)
+   MVP ✅     ✅           ✅
+    │         │            │
+    └────┬────┘            │
+         │                 │
+         └────┬────────────┘
+              ▼
+    ┌──────────────────────────────────┐
+    │  New features tracked in         │
+    │  features/<name>/ directories    │
+    │  (see Feature Implementation     │
+    │   Transition below)              │
+    └──────────────────────────────────┘
+              │
+              ▼
+Phase 7 (Polish) ──── Cross-cutting, stays here
+              │
+              ▼
+Phase 8 (Optimization) ──── Continuous, stays here
 ```
 
-### User Story Dependencies
+### Completed User Story Dependencies
 
-- **User Story 1 (P1)**: Can start after Phase 2 - No dependencies on other stories - **THIS IS THE MVP**
-- **User Story 2 (P2)**: Can start after Phase 2 - Benefits from US1 entities but independently testable
-- **User Story 3 (P3)**: Can start after Phase 2 - Benefits from US1 entities and US2 Architect
-- **User Story 4 (P4)**: Can start after Phase 2 - Benefits from US1/US2/US3 but independently testable
-- **User Story 5 (P3)**: Requires US2 (Architect) and US3 (Data Scientist) - Multi-agent collaboration and intelligent optimization
+- **User Story 1 (P1)**: ✅ Complete — Entity discovery with DAL
+- **User Story 2 (P2)**: ✅ Complete — Conversational Architect with HITL approval
+- **User Story 3 (P3)**: ✅ Complete — Energy analysis with sandboxed execution
 
 ### Within Each User Story
 
 - Models → Migrations → MCP Integration → DAL → Agents → Graph nodes → API routes → CLI commands
 - Each story independently completable and testable
 
-### Parallel Opportunities
-
-**Phase 1 (all [P] tasks):**
-```bash
-T003, T004, T005, T006, T007, T008  # All can run in parallel
-```
-
-**Phase 2:**
-```bash
-T011  # Alembic config (parallel with T016, T018, T023, T025)
-T016, T017  # MLflow (parallel)
-T020, T021  # API schemas (parallel)
-```
-
-**User Stories (after Phase 2):**
-```bash
-# Can start US1, US2, US3, US4 in parallel if team has capacity
-# Within each story, models are parallelizable
-T028-T035  # US1 models (parallel)
-T070-T072  # US2 models (parallel)
-```
-
 ---
 
-## Implementation Strategy
+## Summary (Completed Phases)
 
-### MVP First (User Story 1 Only)
+| Phase | Tasks | Story | Status |
+|-------|-------|-------|--------|
+| Phase 1: Setup | T001-T008 | — | ✅ Complete |
+| Phase 2: Foundational | T009-T035 | — | ✅ Complete |
+| Phase 3: US1 (MVP) | T036-T081 | US1 | ✅ Complete |
+| Phase 4: US2 | T082-T100 | US2 | ✅ Complete |
+| Phase 5: US3 | T101-T114 | US3 | ✅ Complete |
+| Phase 7: Polish | T124-T185 | — | Ongoing (cross-cutting) |
+| Phase 8: Optimization | T186-T210 | — | Ongoing (continuous) |
 
-1. Complete Phase 1: Setup (~4 hours)
-2. Complete Phase 2: Foundational + Test Infrastructure (~12 hours)
-3. Complete Phase 3: User Story 1 + Tests (~20 hours) - includes MCP integration layer
-4. **Quality Gate**: 80%+ coverage, all tests green, mypy clean
-5. **STOP and VALIDATE**: Test discovery and NL queries
-6. **Report MCP Gaps**: Document what additional MCP features would help
-7. Deploy/demo the MVP
-
-### Incremental Delivery
-
-1. **MVP**: Setup + Foundational + US1 + Tests → Queryable entity DAL with workarounds
-2. **+US2**: Conversational Architect with HITL + Tests → Automation design
-3. **+US3**: Data Scientist with sandbox + Tests → Energy insights
-4. **+US4**: Dashboard generation + Tests → Complete feature set
-5. **+US5**: Intelligent optimization with multi-agent collaboration → DS ↔ Architect automation suggestions
-6. **Polish**: Production hardening + MCP gap documentation + Final quality gates
-
-### Test-Driven Development
-
-Each user story follows TDD:
-1. Write unit tests for new models/DAL
-2. Implement models/DAL until tests pass
-3. Write integration tests for workflows
-4. Implement agents/workflows until tests pass
-5. Write E2E tests for critical paths
-6. Implement API/CLI until tests pass
-7. Verify coverage meets threshold before marking complete
-
----
-
-## Summary
-
-| Phase | Tasks | Parallel | Story | MCP Tools Used |
-|-------|-------|----------|-------|----------------|
-| Phase 1: Setup | T001-T008 | 6 | — | — |
-| Phase 2: Foundational | T009-T035 | 8 | — | — |
-| Phase 3: US1 (MVP) | T036-T081 | 16 | US1 | system_overview, list_entities, get_entity, list_automations |
-| Phase 4: US2 | T082-T100 | 7 | US2 | call_service_tool, entity_action |
-| Phase 5: US3 | T101-T114 | 6 | US3 | get_history |
-| Phase 6: US4 | T115-T123 | 4 | US4 | list_entities, domain_summary_tool |
-| Phase 6b: US5 | T211-T242 | 8 | US5 | get_history, logbook API, list_automations |
-| Phase 7: Polish | T124-T140 | 6 | — | — |
-| Phase 8: Optimization | T186-T210 | 12 | — | — |
-| **Total** | **197 tasks** | **73 parallel** | — | — |
-
-**MVP Scope**: Phases 1-3 (81 tasks) → Delivers queryable entity discovery with device/area inference + full test coverage
-
-**Optimization Scope**: Phase 8 runs continuously alongside feature work. Immediate tasks (T186-T189) should be completed before next major release.
+New features are tracked individually in `features/` — see transition note below.
 
 ---
 
@@ -952,3 +662,35 @@ Each user story follows TDD:
 | API cold start | <5s | TBD | DB connection time |
 
 ---
+
+## Feature Implementation Transition
+
+**Effective**: 2026-02-06 | **Constitution**: v1.6.0 (Feature Delivery Standards)
+
+Starting from this date, new features are no longer tracked as phases in this file. Instead, each feature has its own directory under `features/` with dedicated spec, plan, and tasks files. This enables:
+
+- Historical tracing of architecture evolution (each feature's build plan is preserved)
+- Independent feature tracking without monolithic task lists
+- Clearer ownership and scope boundaries
+
+### Migrated Features
+
+The following uncompleted features were migrated from this file:
+
+| Feature | Original Phase | New Location |
+|---------|---------------|--------------|
+| Custom Dashboard Generation (US4) | Phase 6 | [`features/dashboard-generation/`](./features/dashboard-generation/) |
+| Intelligent Optimization (US5) | Phase 6b | [`features/intelligent-optimization/`](./features/intelligent-optimization/) |
+
+### New Features
+
+| Feature | Location |
+|---------|----------|
+| Diagnostic Collaboration | [`features/diagnostic-collaboration/`](./features/diagnostic-collaboration/) |
+
+### What Stays in This File
+
+- **Phases 1-5**: Completed phases remain as historical record
+- **Phase 7 (Polish)**: Cross-cutting concerns that affect multiple features
+- **Phase 8 (Optimization)**: Continuous architecture health tasks
+- **MCP Gap Summary**: Shared reference for all features
