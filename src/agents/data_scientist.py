@@ -609,6 +609,7 @@ class DataScientistWorkflow:
         entity_ids: list[str] | None = None,
         hours: int = 24,
         custom_query: str | None = None,
+        diagnostic_context: str | None = None,
         session: Any = None,
     ) -> AnalysisState:
         """Execute an energy analysis.
@@ -618,6 +619,8 @@ class DataScientistWorkflow:
             entity_ids: Specific entities to analyze (None = all energy sensors)
             hours: Hours of history to analyze
             custom_query: Custom analysis request
+            diagnostic_context: Pre-collected diagnostic data from Architect
+                (logs, history observations, config issues) for DIAGNOSTIC mode
             session: Database session for persistence
 
         Returns:
@@ -630,6 +633,7 @@ class DataScientistWorkflow:
             entity_ids=entity_ids or [],
             time_range_hours=hours,
             custom_query=custom_query,
+            diagnostic_context=diagnostic_context,
         )
 
         with start_experiment_run(run_name="data_scientist_analysis") as run:

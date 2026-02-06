@@ -210,3 +210,140 @@ class TestGetEntityHistoryDetailed:
         assert "Last recorded" in result
         assert "08:00:00" in result
         assert "20:00:00" in result
+
+
+class TestDiagnoseIssueTool:
+    """Tests for diagnose_issue delegation tool."""
+
+    @pytest.mark.asyncio
+    async def test_diagnose_issue_delegates_to_ds(self):
+        """Test that diagnose_issue correctly delegates to DataScientistWorkflow."""
+        from unittest.mock import PropertyMock
+
+        from src.tools.agent_tools import diagnose_issue
+
+        # Mock AnalysisState returned by workflow
+        mock_state = MagicMock()
+        mock_state.insights = [
+            {
+                "title": "Data Gap Detected",
+                "description": "Sensor stopped reporting for 12 hours",
+                "impact": "high",
+                "confidence": 0.9,
+            }
+        ]
+        mock_state.recommendations = ["Check integration connection"]
+        mock_state.entity_ids = ["sensor.energy_charger"]
+
+        # Mock the workflow
+        mock_workflow = MagicMock()
+        mock_workflow.run_analysis = AsyncMock(return_value=mock_state)
+
+        # Mock session
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
+            patch("src.storage.get_session", return_value=mock_session),
+        ):
+            result = await diagnose_issue.ainvoke({
+                "entity_ids": ["sensor.energy_charger"],
+                "diagnostic_context": "HA logs show connection timeout errors",
+                "instructions": "Analyze data gaps and identify root cause",
+                "hours": 72,
+            })
+
+        assert "Data Gap Detected" in result
+        assert "Check integration connection" in result
+        mock_workflow.run_analysis.assert_called_once()
+
+        # Verify diagnostic parameters were passed
+        call_kwargs = mock_workflow.run_analysis.call_args[1]
+        assert call_kwargs["diagnostic_context"] == "HA logs show connection timeout errors"
+        assert call_kwargs["custom_query"] == "Analyze data gaps and identify root cause"
+
+    @pytest.mark.asyncio
+    async def test_diagnose_issue_no_findings(self):
+        """Test diagnose_issue when no issues found."""
+        from src.tools.agent_tools import diagnose_issue
+
+        mock_state = MagicMock()
+        mock_state.insights = []
+        mock_state.recommendations = []
+        mock_state.entity_ids = ["sensor.test"]
+
+        mock_workflow = MagicMock()
+        mock_workflow.run_analysis = AsyncMock(return_value=mock_state)
+
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
+            patch("src.storage.get_session", return_value=mock_session),
+        ):
+            result = await diagnose_issue.ainvoke({
+                "entity_ids": ["sensor.test"],
+                "diagnostic_context": "No errors in logs",
+                "instructions": "Check for anomalies",
+            })
+
+        assert "functioning normally" in result.lower() or "didn't identify" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_diagnose_issue_handles_error(self):
+        """Test diagnose_issue error handling."""
+        from src.tools.agent_tools import diagnose_issue
+
+        mock_workflow = MagicMock()
+        mock_workflow.run_analysis = AsyncMock(side_effect=Exception("DB connection failed"))
+
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
+            patch("src.storage.get_session", return_value=mock_session),
+        ):
+            result = await diagnose_issue.ainvoke({
+                "entity_ids": ["sensor.test"],
+                "diagnostic_context": "Some context",
+                "instructions": "Investigate",
+            })
+
+        assert "failed" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_diagnose_issue_caps_hours(self):
+        """Test that hours are capped at 168."""
+        from src.tools.agent_tools import diagnose_issue
+
+        mock_state = MagicMock()
+        mock_state.insights = []
+        mock_state.recommendations = []
+        mock_state.entity_ids = ["sensor.test"]
+
+        mock_workflow = MagicMock()
+        mock_workflow.run_analysis = AsyncMock(return_value=mock_state)
+
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
+            patch("src.storage.get_session", return_value=mock_session),
+        ):
+            await diagnose_issue.ainvoke({
+                "entity_ids": ["sensor.test"],
+                "diagnostic_context": "context",
+                "instructions": "investigate",
+                "hours": 500,
+            })
+
+        call_kwargs = mock_workflow.run_analysis.call_args[1]
+        assert call_kwargs["hours"] == 168

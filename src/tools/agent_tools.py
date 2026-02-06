@@ -382,12 +382,122 @@ def _detect_gaps(
     return gaps
 
 
+@tool("diagnose_issue")
+@trace_with_uri(name="agent.diagnose_issue", span_type="TOOL")
+async def diagnose_issue(
+    entity_ids: list[str],
+    diagnostic_context: str,
+    instructions: str,
+    hours: int = 72,
+) -> str:
+    """Delegate a diagnostic investigation to the Data Scientist.
+
+    Use this AFTER gathering evidence (logs, history, config checks) to have
+    the Data Scientist analyze the data and identify root causes.
+
+    Args:
+        entity_ids: Entities involved in the issue
+        diagnostic_context: Pre-collected evidence from the Architect:
+            error logs, entity history observations, config check results,
+            user-reported symptoms
+        instructions: Specific analysis instructions for the Data Scientist,
+            e.g. "Look for data gaps in the last week and identify what
+            integration might have failed"
+        hours: Hours of historical data to include (default: 72, max: 168)
+
+    Returns:
+        Diagnostic findings and recommendations from the Data Scientist
+    """
+    from src.agents import DataScientistWorkflow
+    from src.graph.state import AnalysisType
+    from src.storage import get_session
+
+    hours = min(hours, 168)
+
+    try:
+        workflow = DataScientistWorkflow()
+
+        async with get_session() as session:
+            state = await workflow.run_analysis(
+                analysis_type=AnalysisType.DIAGNOSTIC,
+                entity_ids=entity_ids,
+                hours=hours,
+                custom_query=instructions,
+                diagnostic_context=diagnostic_context,
+                session=session,
+            )
+            await session.commit()
+
+        return _format_diagnostic_results(state, entity_ids, hours)
+
+    except Exception as e:
+        return f"Diagnostic analysis failed: {e}"
+
+
+def _format_diagnostic_results(state: Any, entity_ids: list[str], hours: int) -> str:
+    """Format diagnostic analysis results as a conversational response."""
+    insights = state.insights or []
+    recommendations = state.recommendations or []
+
+    if not insights:
+        return (
+            f"I analyzed {hours} hours of data for {len(entity_ids)} entities "
+            f"but didn't identify any specific issues. The entities appear to be "
+            f"functioning normally."
+        )
+
+    parts = []
+
+    # Opening
+    critical = [i for i in insights if i.get("impact") in ("critical", "high")]
+    if critical:
+        parts.append(
+            f"**Diagnostic Analysis Complete** — found "
+            f"**{len(critical)} significant issue(s)** across "
+            f"{len(entity_ids)} entities:"
+        )
+    else:
+        parts.append(
+            f"**Diagnostic Analysis Complete** — analyzed {len(entity_ids)} "
+            f"entities over {hours} hours:"
+        )
+
+    # Findings
+    parts.append("\n**Findings:**")
+    for i, insight in enumerate(insights[:8], 1):
+        impact = insight.get("impact", "medium")
+        title = insight.get("title", "Finding")
+        description = insight.get("description", "")
+
+        indicator = {
+            "critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"
+        }.get(impact, "⚪")
+
+        parts.append(f"\n{i}. {indicator} **{title}**")
+        if description:
+            parts.append(f"   {description[:300]}")
+
+    # Recommendations
+    if recommendations:
+        parts.append("\n**Recommended Actions:**")
+        for rec in recommendations[:5]:
+            parts.append(f"• {rec}")
+
+    parts.append(
+        f"\n_Diagnostic covered {hours}h of data from "
+        f"{len(entity_ids)} entities._"
+    )
+
+    return "\n".join(parts)
+
+
 def get_agent_tools() -> list[Any]:
     """Return all agent delegation tools for the Architect."""
     return [
         analyze_energy,
         discover_entities,
         get_entity_history,
+        diagnose_issue,
     ]
 
 
@@ -395,5 +505,6 @@ __all__ = [
     "analyze_energy",
     "discover_entities",
     "get_entity_history",
+    "diagnose_issue",
     "get_agent_tools",
 ]
