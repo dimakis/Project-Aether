@@ -56,7 +56,35 @@ mqtt, webhook, event, homeassistant, tag, calendar, template.
 
 Available condition types: state, numeric_state, time, sun, zone, template, and, or, not.
 
-Always confirm your understanding before proposing an automation."""
+Always confirm your understanding before proposing an automation.
+
+## Diagnostic Capabilities
+
+You have tools for diagnosing Home Assistant issues:
+
+- **get_ha_logs**: Fetch HA error/warning logs. Use when users report issues with sensors,
+  integrations, or devices. Look for connection errors, timeout messages, integration failures.
+- **check_ha_config**: Validate HA configuration. Use when diagnosing config-related problems.
+- **get_entity_history** (with detailed=true): Get rich history with gap detection, statistics,
+  and state distribution. Use to identify missing data or connectivity problems.
+- **diagnose_issue**: Delegate analysis to the Data Scientist with your collected evidence.
+
+### Diagnostic Workflow
+
+When a user reports a system issue (missing data, broken sensor, unexpected behavior):
+
+1. **Gather Evidence**: Pull HA logs, check config, get detailed entity history for relevant
+   entities. Don't delegate immediately — collect data first.
+2. **Identify Candidates**: From the evidence, note error patterns, data gaps, and anomalies.
+3. **Delegate to Data Scientist**: Use diagnose_issue with:
+   - entity_ids: the affected entities
+   - diagnostic_context: your collected evidence (logs, history observations, config results)
+   - instructions: specific analysis you want the DS to perform
+4. **Synthesize**: Combine DS findings with your own observations into a clear diagnosis.
+5. **Iterate if Needed**: If the DS results suggest additional investigation, gather more data
+   and re-delegate with refined instructions.
+
+Present diagnostic findings clearly: what's wrong, what caused it, and what the user can do."""
 
 
 class ArchitectAgent(BaseAgent):
@@ -622,28 +650,33 @@ class ArchitectWorkflow:
         Returns:
             Initial conversation state
         """
+        import mlflow
+
         state = ConversationState(
             current_agent=AgentRole.ARCHITECT,
             messages=[HumanMessage(content=user_message)],
         )
 
-        # Set trace metadata for this new conversation
-        try:
-            import mlflow
-
+        # Create MLflow trace with proper span hierarchy
+        # This shows as a tree in MLflow UI with timing for each span
+        @mlflow.trace(
+            name="conversation_turn",
+            span_type="CHAIN",
+            attributes={
+                "conversation_id": state.conversation_id,
+                "user_id": user_id,
+                "turn": 1,
+                "type": "new_conversation",
+            },
+        )
+        async def _traced_invoke():
+            # Set session for grouping multiple turns
             mlflow.update_current_trace(
-                metadata={
-                    "mlflow.trace.session": state.conversation_id,
-                    "conversation_id": state.conversation_id,
-                    "user_id": user_id,
-                    "type": "new_conversation",
-                }
+                metadata={"mlflow.trace.session": state.conversation_id}
             )
-        except Exception:
-            pass  # Tracing is best-effort
+            return await self.agent.invoke(state, session=session)
 
-        # Process with agent - this creates the actual trace spans
-        updates = await self.agent.invoke(state, session=session)
+        updates = await _traced_invoke()
         state = state.model_copy(update=updates)
 
         return state
@@ -656,8 +689,8 @@ class ArchitectWorkflow:
     ) -> ConversationState:
         """Continue an existing conversation.
 
-        Uses MLflow's trace session to group all turns of a conversation.
-        Each turn becomes a span within the session, not a separate run.
+        Creates an MLflow trace with span hierarchy.
+        Shows as a tree in MLflow UI with timing visible.
 
         Args:
             state: Current conversation state
@@ -667,27 +700,31 @@ class ArchitectWorkflow:
         Returns:
             Updated conversation state
         """
+        import mlflow
+
         # Add user message
         state.messages.append(HumanMessage(content=user_message))
+        turn_number = (len(state.messages) + 1) // 2  # Count conversation turns
 
-        # Set trace metadata for this conversation turn
-        # The actual span creation happens in agent.invoke() via trace_span
-        try:
-            import mlflow
-            
-            # Set session metadata so traces are grouped in MLflow UI
+        # Create MLflow trace with proper span hierarchy
+        @mlflow.trace(
+            name="conversation_turn",
+            span_type="CHAIN",
+            attributes={
+                "conversation_id": state.conversation_id,
+                "turn": turn_number,
+                "message_count": len(state.messages),
+                "type": "continue_conversation",
+            },
+        )
+        async def _traced_invoke():
+            # Set session for grouping multiple turns
             mlflow.update_current_trace(
-                metadata={
-                    "mlflow.trace.session": state.conversation_id,
-                    "conversation_id": state.conversation_id,
-                    "message_count": len(state.messages),
-                }
+                metadata={"mlflow.trace.session": state.conversation_id}
             )
-        except Exception:
-            pass  # Tracing is best-effort
+            return await self.agent.invoke(state, session=session)
 
-        # Process with agent - this creates the actual trace spans
-        updates = await self.agent.invoke(state, session=session)
+        updates = await _traced_invoke()
         state = state.model_copy(update=updates)
 
         return state
