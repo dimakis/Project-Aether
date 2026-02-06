@@ -76,10 +76,43 @@ Project Aether is an agentic home automation system that provides conversational
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| **Architect** | Unified chat entry point, routes to specialists | analyze_energy, discover_entities, get_entity_history, HA tools |
-| **Data Scientist** | Energy analysis, pattern detection, insights | Sandbox execution, history aggregation |
+| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | analyze_energy, discover_entities, get_entity_history, diagnose_issue, get_ha_logs, check_ha_config, HA tools |
+| **Data Scientist** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode |
 | **Librarian** | Entity discovery, catalog maintenance | MCP list_entities, domain_summary |
 | **Developer** | Automation creation, YAML generation | deploy_automation (with HITL) |
+
+### Diagnostic Collaboration Flow
+
+The Architect and Data Scientist collaborate to diagnose Home Assistant issues (missing data, sensor failures, integration problems):
+
+```
+User → Architect: "My car charger energy data disappeared"
+         │
+         ├─→ get_ha_logs()                    # Check HA error logs
+         ├─→ check_ha_config()                # Validate HA configuration
+         ├─→ get_entity_history(detailed=true) # Identify data gaps
+         │
+         ├─→ diagnose_issue(                  # Delegate to Data Scientist
+         │     entity_ids=[...],
+         │     diagnostic_context="...",       # Collected evidence
+         │     instructions="...",             # What to investigate
+         │   )
+         │   └─→ Data Scientist:
+         │       ├─ Receives Architect's evidence
+         │       ├─ Analyzes entity data for gaps/anomalies
+         │       └─ Returns diagnostic findings
+         │
+         ├─→ (optional) Gather more data based on DS findings
+         ├─→ (optional) Re-delegate with refined instructions
+         │
+         └─→ User: "Here's what I found: [diagnosis + recommendations]"
+```
+
+**Key design decisions:**
+- No new workflow graph needed — uses Architect's existing tool-calling loop
+- Architect gathers evidence first, then delegates with context (not blind delegation)
+- Data Scientist has a dedicated DIAGNOSTIC analysis type with its own prompt
+- Architect can iterate: gather more data → re-delegate → synthesize
 
 ## Deployment Modes
 

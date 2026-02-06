@@ -5,7 +5,7 @@
 
 ## Summary
 
-Project Aether is a LangGraph-based multi-agent system for intelligent home automation. It features a Librarian agent for Home Assistant entity discovery, an R&D Loop (Categorizer, Architect, Developer) for automation design with human-in-the-loop approval, and a Data Scientist for energy optimization insights. The system abstracts HA entities into a dynamic Data Access Layer (DAL), supports conversational design via the Architect agent, and generates custom dashboards—all while maintaining full observability through MLflow and running generated scripts in gVisor sandboxes.
+Project Aether is a LangGraph-based multi-agent system for intelligent home automation. It features a Librarian agent for Home Assistant entity discovery, an R&D Loop (Categorizer, Architect, Developer) for automation design with human-in-the-loop approval, and a Data Scientist for energy optimization insights and system diagnostics. The Architect can diagnose HA issues by pulling error logs, checking configuration, and analyzing detailed entity history, then delegating to the Data Scientist with collected evidence and specific investigation instructions. The system abstracts HA entities into a dynamic Data Access Layer (DAL), supports conversational design via the Architect agent, and generates custom dashboards—all while maintaining full observability through MLflow and running generated scripts in gVisor sandboxes.
 
 ## Technical Context
 
@@ -58,7 +58,7 @@ specs/001-project-aether/
 ├── spec.md              # Feature specification
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
+├── quickstart.md        # Phaseimage.png 1 output
 ├── tasks.md             # Implementation tasks
 ├── contracts/           # Phase 1 output (OpenAPI specs)
 │   ├── api.yaml         # Main API contract
