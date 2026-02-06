@@ -51,11 +51,11 @@ def sample_history_states():
 
 @pytest.fixture
 def sample_entity_info():
-    """Create sample entity info."""
+    """Create sample entity info matching MCPClient.get_entity(detailed=True) format."""
     return {
         "entity_id": "sensor.grid_power",
         "state": "2.5",
-        "attr": {
+        "attributes": {
             "friendly_name": "Grid Power",
             "device_class": "energy",
             "unit_of_measurement": "kWh",
@@ -248,12 +248,11 @@ class TestEnergyHistoryClientDiscovery:
     @pytest.mark.asyncio
     async def test_get_energy_sensors(self, energy_client, mock_mcp_client):
         """Test discovering energy sensors."""
-        mock_mcp_client.list_entities.return_value = {
-            "entities": [
+        mock_mcp_client.list_entities.return_value = [
                 {
                     "entity_id": "sensor.grid_power",
                     "state": "1.5",
-                    "attr": {
+                    "attributes": {
                         "friendly_name": "Grid Power",
                         "device_class": "energy",
                         "unit_of_measurement": "kWh",
@@ -262,7 +261,7 @@ class TestEnergyHistoryClientDiscovery:
                 {
                     "entity_id": "sensor.temperature",
                     "state": "22",
-                    "attr": {
+                    "attributes": {
                         "friendly_name": "Temperature",
                         "device_class": "temperature",
                         "unit_of_measurement": "°C",
@@ -271,14 +270,13 @@ class TestEnergyHistoryClientDiscovery:
                 {
                     "entity_id": "sensor.solar_power",
                     "state": "0.5",
-                    "attr": {
+                    "attributes": {
                         "friendly_name": "Solar Power",
                         "device_class": "power",
                         "unit_of_measurement": "W",
                     },
                 },
             ]
-        }
 
         result = await energy_client.get_energy_sensors()
 
@@ -373,18 +371,16 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_discover_energy_sensors_function(self, mock_mcp_client):
         """Test discover_energy_sensors convenience function."""
-        mock_mcp_client.list_entities.return_value = {
-            "entities": [
+        mock_mcp_client.list_entities.return_value = [
                 {
                     "entity_id": "sensor.grid_power",
                     "state": "1.5",
-                    "attr": {
+                    "attributes": {
                         "device_class": "energy",
                         "unit_of_measurement": "kWh",
                     },
                 },
             ]
-        }
 
         result = await discover_energy_sensors(mock_mcp_client)
 
