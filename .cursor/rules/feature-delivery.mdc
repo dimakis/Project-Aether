@@ -1,0 +1,36 @@
+# Feature Delivery Standards
+
+When implementing any feature in this project, follow these requirements automatically. Do NOT wait for the user to remind you.
+
+## Feature Directory
+
+Every feature MUST have a directory at `specs/001-project-aether/features/<feature-name>/` containing:
+
+- `spec.md` — What the feature does and why
+- `plan.md` — The build plan used during implementation (saved for historical tracing)
+- `tasks.md` — Implementation tasks with completion status
+
+Create this directory BEFORE starting implementation. Save the build plan as `plan.md` when implementation is complete.
+
+## Delivery Checklist
+
+Before marking any feature as complete, verify ALL of the following:
+
+1. **Feature directory** exists with spec, plan, and tasks
+2. **All tests** are added/updated alongside implementation (TDD: test + code in same commit)
+3. **Documentation updated**:
+   - `docs/architecture.md` — if architecture, data flows, or agent capabilities changed
+   - `specs/001-project-aether/plan.md` — if project structure or capabilities changed
+   - Feature `tasks.md` — tasks marked complete with commit hashes
+4. **Commits are functional** — each commit is small, focused, self-contained (one logical change)
+5. **Build plan saved** as the feature's `plan.md`
+
+## Commit Pattern
+
+- Code + tests: single atomic commit per logical piece
+- Documentation: separate focused commit(s)
+- Never batch docs/tests as an afterthought after all code is written
+
+## Reference
+
+Full details in `.specify/memory/constitution.md` under "Feature Delivery Standards" and "Incremental Commits".

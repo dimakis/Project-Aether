@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report:
-Version: 1.4.0 → 1.5.0 (MINOR: Added Incremental Commits development standard)
+Version: 1.5.0 → 1.6.0 (MINOR: Added Feature Delivery Standards development standard)
 Modified Principles: None
-Added Sections: Incremental Commits subsection under Development Standards
+Added Sections: Feature Delivery Standards subsection under Development Standards
 Removed Sections: None
 Templates Requiring Updates:
   ✅ No template updates required
 Follow-up TODOs: 
-  - Enforce incremental commits in all future development
-  - Review existing commit practices
+  - Enforce feature delivery standards in all future development
+  - Migrate existing uncompleted features to features/ directory structure
 -->
 
 # Aether Home Architect Constitution
@@ -194,6 +194,40 @@ feat(us3): implement Data Scientist foundation
 - Better understanding of project history
 - Reduced merge conflicts
 
+### Feature Delivery Standards
+
+Every feature implementation MUST be tracked, documented, and delivered as a complete unit. Features are never "done" until all artifacts are in place.
+
+**Feature Directory Structure**:
+
+Every feature MUST have a directory under `specs/<project>/features/<feature-name>/` containing:
+
+```
+specs/<project>/features/<feature-name>/
+├── spec.md    # What the feature does and why
+├── plan.md    # Build plan used during implementation (saved for historical tracing)
+└── tasks.md   # Implementation tasks with status tracking
+```
+
+**Delivery Checklist (Required for Every Feature)**:
+
+1. **Feature Directory**: `features/<name>/` created with spec, plan, and tasks before implementation begins
+2. **Build Plan Saved**: The build plan used during implementation MUST be saved as the feature's `plan.md` for historical tracing of architecture evolution
+3. **Tests Updated**: All tests added/updated alongside implementation (per TDD workflow above) — never batched as an afterthought
+4. **Documentation Updated**: Every feature commit MUST update relevant documentation:
+   - `docs/architecture.md` — if the feature changes system architecture, data flows, or agent capabilities
+   - Project-level `plan.md` — if the feature changes project structure or capabilities
+   - Feature `tasks.md` — mark tasks complete with commit hashes
+5. **Functional Commits**: Each commit self-contained and independently verifiable (per Incremental Commits above)
+
+**Anti-patterns (Prohibited)**:
+- Writing all code first, then batching documentation updates
+- Committing a feature without updating architecture docs
+- Skipping the feature directory ("it's too small")
+- Leaving the build plan unsaved after implementation
+
+**Rationale**: Feature directories create a historical record of how the architecture evolved over time. Each feature's spec, plan, and tasks document the "why" and "how" decisions were made, enabling future developers (and AI agents) to understand context without re-deriving it. This is especially important for agentic systems where capabilities compound over time.
+
 ### Conventional Commits
 
 All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification. Commit messages MUST use the format:
@@ -238,4 +272,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.5.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-04
+**Version**: 1.6.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-06
