@@ -28,16 +28,23 @@ from src.tracing import log_metric, log_param, start_experiment_run
 
 
 # System prompt for the Data Scientist
-DATA_SCIENTIST_SYSTEM_PROMPT = """You are an expert data scientist specializing in home energy analysis.
+DATA_SCIENTIST_SYSTEM_PROMPT = """You are an expert data scientist specializing in home energy analysis and system diagnostics.
 
 Your role is to analyze energy sensor data from Home Assistant and generate insights
-that help users optimize their energy consumption.
+that help users optimize their energy consumption. You also perform diagnostic
+analysis when asked to troubleshoot issues with sensors, integrations, or data quality.
 
 When analyzing data, you should:
 1. Identify usage patterns (daily, weekly, seasonal)
 2. Detect anomalies or unusual consumption
 3. Find energy-saving opportunities
 4. Provide actionable recommendations
+
+When diagnosing issues, you should:
+1. Analyze data gaps, missing values, and connectivity patterns
+2. Correlate error logs with sensor behavior
+3. Identify integration failures or configuration problems
+4. Recommend specific remediation steps
 
 You can generate Python scripts for analysis. Scripts run in a sandboxed environment with:
 - pandas, numpy, matplotlib, scipy, scikit-learn, statsmodels, seaborn
@@ -182,6 +189,9 @@ class DataScientistAgent(BaseAgent):
         Uses local database for entity discovery (faster, no MCP overhead),
         then falls back to MCP only for historical data which isn't stored locally.
 
+        In diagnostic mode, entity_ids are expected to be pre-supplied by the
+        Architect, and diagnostic_context is included in the returned data.
+
         Args:
             state: Analysis state with entity IDs and time range
             session: Database session for entity lookups
@@ -214,6 +224,11 @@ class DataScientistAgent(BaseAgent):
         
         log_metric("energy.total_kwh", data.get("total_kwh", 0.0))
         log_metric("energy.sensor_count", float(len(entity_ids)))
+
+        # In diagnostic mode, include the Architect's evidence in the data
+        if state.analysis_type == AnalysisType.DIAGNOSTIC and state.diagnostic_context:
+            data["diagnostic_context"] = state.diagnostic_context
+            log_param("diagnostic_mode", True)
         
         return data
 
@@ -364,6 +379,37 @@ Please analyze this energy data and generate a Python script that:
 Output insights as JSON to stdout with type="usage_pattern".
 """
         
+        elif state.analysis_type == AnalysisType.DIAGNOSTIC:
+            instructions = state.custom_query or "Perform a general diagnostic analysis"
+            diagnostic_ctx = state.diagnostic_context or "No additional diagnostic context provided."
+
+            return base_context + f"""
+**DIAGNOSTIC MODE** — The Architect has gathered evidence about a system issue
+and needs your help analyzing it.
+
+**Architect's Collected Evidence:**
+{diagnostic_ctx}
+
+**Investigation Instructions:**
+{instructions}
+
+Please generate a Python script that:
+1. Analyzes the provided entity data for gaps, missing values, and anomalies
+2. Checks for periods with no data (connectivity issues)
+3. Identifies state transitions that suggest integration failures
+4. Correlates any patterns with the diagnostic context above
+5. Provides specific findings about root cause and affected time periods
+
+Output insights as JSON to stdout with type="diagnostic".
+Each insight should include:
+- title: Short description of the finding
+- description: Detailed explanation
+- impact: "critical", "high", "medium", or "low"
+- confidence: 0.0-1.0
+- evidence: Supporting data points
+- recommendation: What to do about it
+"""
+
         else:  # CUSTOM or other
             custom_query = state.custom_query or "Perform a general energy analysis"
             return base_context + f"""

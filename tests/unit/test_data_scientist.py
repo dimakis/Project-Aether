@@ -315,6 +315,123 @@ class TestDataScientistPromptBuilding:
         assert "efficient appliances" in prompt.lower()
 
 
+class TestDataScientistDiagnosticMode:
+    """Tests for diagnostic analysis mode."""
+
+    def test_diagnostic_prompt_includes_context(self, data_scientist, sample_energy_data):
+        """Test DIAGNOSTIC prompt includes Architect's evidence."""
+        state = AnalysisState(
+            current_agent=AgentRole.DATA_SCIENTIST,
+            analysis_type=AnalysisType.DIAGNOSTIC,
+            entity_ids=["sensor.charger_energy"],
+            time_range_hours=72,
+            custom_query="Look for data gaps and identify root cause",
+            diagnostic_context="HA log: ERROR sensor.charger_energy - Connection timeout",
+        )
+
+        prompt = data_scientist._build_analysis_prompt(state, sample_energy_data)
+
+        assert "DIAGNOSTIC MODE" in prompt
+        assert "Connection timeout" in prompt
+        assert "data gaps" in prompt.lower()
+        assert "root cause" in prompt.lower()
+
+    def test_diagnostic_prompt_without_context(self, data_scientist, sample_energy_data):
+        """Test DIAGNOSTIC prompt handles missing context gracefully."""
+        state = AnalysisState(
+            current_agent=AgentRole.DATA_SCIENTIST,
+            analysis_type=AnalysisType.DIAGNOSTIC,
+            entity_ids=["sensor.test"],
+            time_range_hours=24,
+            custom_query="Check for issues",
+            diagnostic_context=None,
+        )
+
+        prompt = data_scientist._build_analysis_prompt(state, sample_energy_data)
+
+        assert "DIAGNOSTIC MODE" in prompt
+        assert "No additional diagnostic context" in prompt
+
+    def test_diagnostic_prompt_includes_instructions(self, data_scientist, sample_energy_data):
+        """Test DIAGNOSTIC prompt includes investigation instructions."""
+        state = AnalysisState(
+            current_agent=AgentRole.DATA_SCIENTIST,
+            analysis_type=AnalysisType.DIAGNOSTIC,
+            entity_ids=["sensor.energy"],
+            time_range_hours=168,
+            custom_query="Analyze integration stability over the past week",
+            diagnostic_context="Config check: valid",
+        )
+
+        prompt = data_scientist._build_analysis_prompt(state, sample_energy_data)
+
+        assert "integration stability" in prompt.lower()
+        assert "Config check: valid" in prompt
+
+    def test_system_prompt_mentions_diagnostics(self):
+        """Test system prompt includes diagnostic capabilities."""
+        assert "diagnostic" in DATA_SCIENTIST_SYSTEM_PROMPT.lower()
+        assert "troubleshoot" in DATA_SCIENTIST_SYSTEM_PROMPT.lower()
+
+
+class TestDataScientistDiagnosticDataCollection:
+    """Tests for diagnostic data collection."""
+
+    @pytest.mark.asyncio
+    async def test_diagnostic_mode_includes_context_in_data(self, mock_mcp_client):
+        """Test that diagnostic context is added to energy data."""
+        agent = DataScientistAgent(mcp_client=mock_mcp_client)
+
+        state = AnalysisState(
+            current_agent=AgentRole.DATA_SCIENTIST,
+            analysis_type=AnalysisType.DIAGNOSTIC,
+            entity_ids=["sensor.charger"],
+            time_range_hours=72,
+            diagnostic_context="Logs show connection errors at 2am",
+        )
+
+        with patch("src.agents.data_scientist.EnergyHistoryClient") as MockEnergyClient:
+            mock_energy = AsyncMock()
+            mock_energy.get_aggregated_energy = AsyncMock(return_value={
+                "entities": [],
+                "total_kwh": 0.0,
+                "entity_count": 1,
+                "hours": 72,
+            })
+            MockEnergyClient.return_value = mock_energy
+
+            data = await agent._collect_energy_data(state)
+
+        assert "diagnostic_context" in data
+        assert "connection errors at 2am" in data["diagnostic_context"]
+
+    @pytest.mark.asyncio
+    async def test_non_diagnostic_mode_no_context_in_data(self, mock_mcp_client):
+        """Test that non-diagnostic mode doesn't add context to data."""
+        agent = DataScientistAgent(mcp_client=mock_mcp_client)
+
+        state = AnalysisState(
+            current_agent=AgentRole.DATA_SCIENTIST,
+            analysis_type=AnalysisType.ENERGY_OPTIMIZATION,
+            entity_ids=["sensor.grid"],
+            time_range_hours=24,
+        )
+
+        with patch("src.agents.data_scientist.EnergyHistoryClient") as MockEnergyClient:
+            mock_energy = AsyncMock()
+            mock_energy.get_aggregated_energy = AsyncMock(return_value={
+                "entities": [],
+                "total_kwh": 5.0,
+                "entity_count": 1,
+                "hours": 24,
+            })
+            MockEnergyClient.return_value = mock_energy
+
+            data = await agent._collect_energy_data(state)
+
+        assert "diagnostic_context" not in data
+
+
 class TestDataScientistWorkflow:
     """Tests for DataScientistWorkflow."""
 
