@@ -268,6 +268,7 @@ class AnalysisType(StrEnum):
     USAGE_PATTERNS = "usage_patterns"
     ANOMALY_DETECTION = "anomaly_detection"
     DASHBOARD_GENERATION = "dashboard_generation"
+    DIAGNOSTIC = "diagnostic"
     CUSTOM = "custom"
 
 
@@ -304,6 +305,10 @@ class AnalysisState(MessageState):
         description="Hours of history to analyze",
     )
     custom_query: str | None = None
+    diagnostic_context: str | None = Field(
+        default=None,
+        description="Pre-collected diagnostic data from Architect (logs, history, observations)",
+    )
 
     # Script execution (Constitution: Isolation - gVisor sandbox)
     generated_script: str | None = None
