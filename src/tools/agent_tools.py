@@ -227,17 +227,24 @@ def _format_discovery_results(state: Any, domain_filter: str | None) -> str:
 
 @tool("get_entity_history")
 @trace_with_uri(name="agent.get_entity_history", span_type="TOOL")
-async def get_entity_history(entity_id: str, hours: int = 24) -> str:
+async def get_entity_history(
+    entity_id: str,
+    hours: int = 24,
+    detailed: bool = False,
+) -> str:
     """Get historical state changes for an entity.
 
     Use this when the user asks about:
     - What happened to a specific device/sensor
     - History of state changes
     - When something turned on/off
+    - Diagnosing data gaps or missing data
 
     Args:
         entity_id: The entity to get history for
         hours: Hours of history to fetch (default: 24, max: 168)
+        detailed: If True, include gap detection, state distribution,
+            and up to 20 recent changes instead of 5
 
     Returns:
         A summary of the entity's recent history
@@ -256,7 +263,10 @@ async def get_entity_history(entity_id: str, hours: int = 24) -> str:
         states = history.get("states", [])
         count = history.get("count", len(states))
 
-        # Summarize
+        if detailed:
+            return _format_detailed_history(entity_id, hours, states, count)
+
+        # Basic summary (original behavior)
         parts = [f"**History for {entity_id}** (last {hours} hours):"]
         parts.append(f"• {count} state changes recorded")
 
@@ -272,6 +282,104 @@ async def get_entity_history(entity_id: str, hours: int = 24) -> str:
 
     except Exception as e:
         return f"Couldn't retrieve history for {entity_id}: {e}"
+
+
+def _format_detailed_history(
+    entity_id: str,
+    hours: int,
+    states: list[dict[str, Any]],
+    count: int,
+) -> str:
+    """Format detailed history with gap detection, statistics, and more entries."""
+    from datetime import datetime, timedelta, timezone
+
+    parts = [f"**Detailed History for {entity_id}** (last {hours} hours):"]
+    parts.append(f"• Total state changes: {count}")
+
+    # First/last timestamps
+    if states:
+        first_changed = states[0].get("last_changed", "unknown")
+        last_changed = states[-1].get("last_changed", "unknown")
+        parts.append(f"• First recorded: {first_changed}")
+        parts.append(f"• Last recorded: {last_changed}")
+
+    # State distribution
+    state_counts: dict[str, int] = {}
+    for s in states:
+        val = str(s.get("state", "unknown"))
+        state_counts[val] = state_counts.get(val, 0) + 1
+
+    if state_counts:
+        parts.append("\n**State Distribution:**")
+        for state_val, cnt in sorted(state_counts.items(), key=lambda x: -x[1]):
+            pct = (cnt / len(states) * 100) if states else 0
+            parts.append(f"• {state_val}: {cnt} ({pct:.1f}%)")
+
+    # Gap detection
+    gaps = _detect_gaps(states, hours)
+    if gaps:
+        parts.append(f"\n**Data Gaps Detected ({len(gaps)}):**")
+        for gap in gaps[:5]:  # Show up to 5 gaps
+            parts.append(
+                f"• {gap['start']} → {gap['end']} "
+                f"({gap['duration_hours']:.1f}h with no data)"
+            )
+    else:
+        parts.append("\n**Data Gaps:** None detected")
+
+    # Recent changes (up to 20)
+    display_states = states[-20:]
+    parts.append(f"\n**Recent Changes ({len(display_states)} of {count}):**")
+    for s in display_states:
+        time = s.get("last_changed", "unknown")
+        value = s.get("state", "unknown")
+        parts.append(f"• {time}: {value}")
+
+    return "\n".join(parts)
+
+
+def _detect_gaps(
+    states: list[dict[str, Any]],
+    hours: int,
+) -> list[dict[str, Any]]:
+    """Detect significant gaps in state history.
+
+    A gap is a period longer than expected_interval where no state
+    changes were recorded. For short time ranges, the threshold is
+    smaller; for longer ranges, we allow bigger gaps.
+    """
+    from datetime import datetime, timezone
+
+    if len(states) < 2:
+        return []
+
+    # Threshold: gaps longer than 10% of the total range, minimum 1 hour
+    threshold_hours = max(1.0, hours * 0.1)
+
+    gaps = []
+    for i in range(1, len(states)):
+        prev_time_str = states[i - 1].get("last_changed", "")
+        curr_time_str = states[i].get("last_changed", "")
+
+        if not prev_time_str or not curr_time_str:
+            continue
+
+        try:
+            # Parse ISO format timestamps
+            prev_time = datetime.fromisoformat(prev_time_str.replace("Z", "+00:00"))
+            curr_time = datetime.fromisoformat(curr_time_str.replace("Z", "+00:00"))
+            delta = (curr_time - prev_time).total_seconds() / 3600
+
+            if delta > threshold_hours:
+                gaps.append({
+                    "start": prev_time_str,
+                    "end": curr_time_str,
+                    "duration_hours": delta,
+                })
+        except (ValueError, TypeError):
+            continue
+
+    return gaps
 
 
 def get_agent_tools() -> list[Any]:
