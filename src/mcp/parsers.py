@@ -197,15 +197,71 @@ def parse_automation_list(data: list[dict[str, Any]]) -> list[ParsedAutomation]:
     return automations
 
 
+class ParsedLogbookEntry(BaseModel):
+    """Parsed logbook entry from HA REST API."""
+
+    entity_id: str | None = None
+    domain: str | None = None
+    name: str | None = None
+    message: str | None = None
+    state: str | None = None
+    when: str | None = None
+    context_user_id: str | None = None
+    context_id: str | None = None
+    icon: str | None = None
+    source: str | None = None
+
+
+def parse_logbook_entry(data: dict[str, Any]) -> ParsedLogbookEntry:
+    """Parse a single logbook entry.
+
+    Args:
+        data: Raw logbook entry dict from HA
+
+    Returns:
+        ParsedLogbookEntry model
+    """
+    entity_id = data.get("entity_id", "")
+    domain = entity_id.split(".")[0] if entity_id and "." in entity_id else None
+
+    return ParsedLogbookEntry(
+        entity_id=entity_id or None,
+        domain=domain,
+        name=data.get("name"),
+        message=data.get("message"),
+        state=data.get("state"),
+        when=data.get("when"),
+        context_user_id=data.get("context_user_id"),
+        context_id=data.get("context_id"),
+        icon=data.get("icon"),
+        source=data.get("source"),
+    )
+
+
+def parse_logbook_list(data: list[dict[str, Any]]) -> list[ParsedLogbookEntry]:
+    """Parse a list of logbook entries.
+
+    Args:
+        data: Raw logbook response from HA
+
+    Returns:
+        List of ParsedLogbookEntry models
+    """
+    return [parse_logbook_entry(item) for item in data]
+
+
 __all__ = [
     "SystemOverview",
     "DomainInfo",
     "ParsedEntity",
     "ParsedAutomation",
     "DomainSummary",
+    "ParsedLogbookEntry",
     "parse_system_overview",
     "parse_entity_list",
     "parse_entity",
     "parse_domain_summary",
     "parse_automation_list",
+    "parse_logbook_entry",
+    "parse_logbook_list",
 ]

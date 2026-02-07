@@ -23,11 +23,20 @@ from src.mcp.history import (
     discover_energy_sensors,
     get_energy_history,
 )
+from src.mcp.behavioral import BehavioralAnalysisClient
+from src.mcp.logbook import (
+    LogbookHistoryClient,
+    LogbookStats,
+    get_logbook_stats,
+)
 from src.mcp.parsers import (
+    ParsedLogbookEntry,
     parse_automation_list,
     parse_domain_summary,
     parse_entity,
     parse_entity_list,
+    parse_logbook_entry,
+    parse_logbook_list,
     parse_system_overview,
 )
 from src.mcp.workarounds import infer_areas_from_entities, infer_devices_from_entities
@@ -60,6 +69,15 @@ __all__ = [
     "EnergyStats",
     "get_energy_history",
     "discover_energy_sensors",
+    # Behavioral Analysis (US5 / Feature 03)
+    "BehavioralAnalysisClient",
+    # Logbook (US5 / Feature 03)
+    "LogbookHistoryClient",
+    "LogbookStats",
+    "ParsedLogbookEntry",
+    "parse_logbook_entry",
+    "parse_logbook_list",
+    "get_logbook_stats",
     # Constants
     "COMMON_SERVICES",
 ]

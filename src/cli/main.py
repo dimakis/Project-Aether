@@ -1291,7 +1291,10 @@ async def _rollback_proposal(proposal_id: str) -> None:
 def analyze(
     analysis_type: Annotated[
         str,
-        typer.Argument(help="Analysis type: energy, anomaly, pattern, custom"),
+        typer.Argument(
+            help="Analysis type: energy, anomaly, pattern, custom, "
+            "behavior, automations, gaps, correlations, health, cost"
+        ),
     ] = "energy",
     days: Annotated[
         int,
@@ -1306,14 +1309,20 @@ def analyze(
         typer.Option("--query", "-q", help="Custom analysis query"),
     ] = None,
 ) -> None:
-    """Run energy analysis with the Data Scientist agent.
+    """Run analysis with the Data Scientist agent.
 
-    Analyzes energy sensor data and generates insights.
+    Analyzes energy sensor data or behavioral patterns and generates insights.
 
     Examples:
         aether analyze energy --days 7
         aether analyze anomaly --entity sensor.grid_power
         aether analyze custom --query "Find peak usage times"
+        aether analyze behavior --days 7
+        aether analyze automations --days 14
+        aether analyze gaps --days 7
+        aether analyze correlations --days 7
+        aether analyze health --days 2
+        aether analyze cost --days 30
     """
     asyncio.run(_run_analysis(analysis_type, days, entity, query))
 
@@ -1342,6 +1351,13 @@ async def _run_analysis(
         "anomaly": AnalysisType.ANOMALY_DETECTION,
         "pattern": AnalysisType.USAGE_PATTERNS,
         "custom": AnalysisType.CUSTOM,
+        # Feature 03: Behavioral analysis types
+        "behavior": AnalysisType.BEHAVIOR_ANALYSIS,
+        "automations": AnalysisType.AUTOMATION_ANALYSIS,
+        "gaps": AnalysisType.AUTOMATION_GAP_DETECTION,
+        "correlations": AnalysisType.CORRELATION_DISCOVERY,
+        "health": AnalysisType.DEVICE_HEALTH,
+        "cost": AnalysisType.COST_OPTIMIZATION,
     }
     analysis_enum = type_map.get(analysis_type.lower(), AnalysisType.ENERGY_OPTIMIZATION)
 
@@ -1412,6 +1428,20 @@ async def _run_analysis(
                     border_style=impact_color,
                 )
             )
+
+    # Display automation suggestion (if any)
+    suggestion = getattr(state, "automation_suggestion", None)
+    if suggestion and hasattr(suggestion, "pattern"):
+        console.print()
+        console.print(
+            Panel(
+                f"[bold]Pattern:[/bold] {suggestion.pattern[:300]}\n"
+                f"[bold]Trigger:[/bold] {suggestion.proposed_trigger}\n"
+                f"[bold]Action:[/bold] {suggestion.proposed_action}",
+                title="🤖 Automation Suggestion",
+                border_style="yellow",
+            )
+        )
 
     # Display recommendations
     if state.recommendations:
@@ -1603,6 +1633,160 @@ async def _show_insight(insight_id: str) -> None:
         console.print("\n[bold]Evidence:[/bold]")
         import json
         console.print(f"[dim]{json.dumps(insight.evidence, indent=2)[:500]}[/dim]")
+
+
+@app.command()
+def optimize(
+    analysis_type: Annotated[
+        str,
+        typer.Argument(
+            help="Optimization type: behavior, automations, gaps, correlations, health, cost, all"
+        ),
+    ] = "all",
+    days: Annotated[
+        int,
+        typer.Option("--days", "-d", help="Days of history to analyze"),
+    ] = 7,
+    entity: Annotated[
+        Optional[str],  # noqa: UP007
+        typer.Option("--entity", "-e", help="Specific entity to focus on"),
+    ] = None,
+) -> None:
+    """Run intelligent optimization analysis.
+
+    Analyzes behavioral patterns, detects automation gaps, and
+    suggests automations. Combines Data Scientist insights with
+    Architect proposals.
+
+    Examples:
+        aether optimize --days 7
+        aether optimize gaps --days 14
+        aether optimize automations --days 30
+        aether optimize all --days 7
+    """
+    asyncio.run(_run_optimization(analysis_type, days, entity))
+
+
+async def _run_optimization(
+    analysis_type: str,
+    days: int,
+    entity: str | None,
+) -> None:
+    """Run optimization analysis."""
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+
+    from src.graph.state import AnalysisType
+    from src.graph.workflows import run_optimization_workflow
+    from src.storage import get_session
+    from src.tracing import init_mlflow
+
+    init_mlflow()
+
+    # Map types
+    type_map = {
+        "behavior": "behavior_analysis",
+        "automations": "automation_analysis",
+        "gaps": "automation_gap_detection",
+        "correlations": "correlation_discovery",
+        "health": "device_health",
+        "cost": "cost_optimization",
+    }
+
+    # If "all", run behavior analysis (the most comprehensive)
+    opt_type = type_map.get(analysis_type.lower(), "behavior_analysis")
+    entity_ids = [entity] if entity else None
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("[cyan]Running optimization...", total=None)
+
+        try:
+            async with get_session() as session:
+                progress.update(task, description="[cyan]Collecting behavioral data...")
+
+                state = await run_optimization_workflow(
+                    analysis_type=opt_type,
+                    entity_ids=entity_ids,
+                    hours=days * 24,
+                    session=session,
+                )
+                await session.commit()
+
+                progress.update(task, description="[green]Optimization complete!")
+
+        except Exception as e:
+            console.print(f"[red]Optimization failed: {e}[/red]")
+            return
+
+    # Display results
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]Optimization: {analysis_type.title()}[/bold]\n"
+            f"Period: {days} day(s)\n"
+            f"Insights found: {len(state.insights)}\n"
+            f"Automation suggestion: {'Yes' if state.automation_suggestion else 'No'}",
+            title="🔍 Optimization Results",
+            border_style="green",
+        )
+    )
+
+    # Display insights
+    if state.insights:
+        for i, insight in enumerate(state.insights, 1):
+            impact_color = {
+                "critical": "red",
+                "high": "yellow",
+                "medium": "cyan",
+                "low": "dim",
+            }.get(insight.get("impact", "medium"), "white")
+
+            confidence = insight.get("confidence", 0) * 100
+            insight_type = insight.get("type", "").replace("_", " ").title()
+
+            console.print()
+            console.print(
+                Panel(
+                    f"[bold]{insight.get('title', 'Untitled')}[/bold]\n"
+                    f"[dim]Type: {insight_type}[/dim]\n\n"
+                    f"{insight.get('description', 'No description')}\n\n"
+                    f"[dim]Confidence: {confidence:.0f}% | "
+                    f"Impact: [{impact_color}]{insight.get('impact', 'unknown')}[/{impact_color}][/dim]",
+                    title=f"💡 Insight {i}",
+                    border_style=impact_color,
+                )
+            )
+
+    # Display automation suggestion
+    if state.automation_suggestion:
+        s = state.automation_suggestion
+        console.print()
+        console.print(
+            Panel(
+                f"[bold]Pattern:[/bold] {s.pattern[:300]}\n\n"
+                f"[bold]Trigger:[/bold] {s.proposed_trigger}\n"
+                f"[bold]Action:[/bold] {s.proposed_action}\n"
+                f"[bold]Confidence:[/bold] {s.confidence:.0%}\n"
+                f"[bold]Entities:[/bold] {', '.join(s.entities[:5])}",
+                title="🤖 Automation Suggestion",
+                border_style="yellow",
+            )
+        )
+        console.print(
+            "[yellow]Run [bold]aether proposals[/bold] to view and approve this suggestion.[/yellow]"
+        )
+
+    # Display recommendations
+    if state.recommendations:
+        console.print()
+        console.print("[bold]📋 Recommendations:[/bold]")
+        for rec in state.recommendations:
+            console.print(f"  • {rec}")
+    else:
+        console.print("\n[dim]No specific recommendations generated.[/dim]")
 
 
 @app.command()

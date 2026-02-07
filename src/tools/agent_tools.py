@@ -9,11 +9,15 @@ with the Architect, who intelligently routes to specialists.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agents.model_context import get_model_context, model_context
 from src.tracing import trace_with_uri
+
+logger = logging.getLogger(__name__)
 
 
 @tool("analyze_energy")
@@ -62,16 +66,34 @@ async def analyze_energy(
     hours = min(hours, 168)  # Max 1 week
 
     try:
-        workflow = DataScientistWorkflow()
+        # Propagate model context to the Data Scientist.
+        # The contextvars already flow through async calls, but we also
+        # capture the parent span ID for inter-agent trace linking.
+        ctx = get_model_context()
+        parent_span_id = None
+        try:
+            from src.tracing import get_active_span
+            active_span = get_active_span()
+            if active_span and hasattr(active_span, "span_id"):
+                parent_span_id = active_span.span_id
+        except Exception:
+            pass
 
-        async with get_session() as session:
-            state = await workflow.run_analysis(
-                analysis_type=analysis_enum,
-                entity_ids=entity_ids,
-                hours=hours,
-                session=session,
-            )
-            await session.commit()
+        with model_context(
+            model_name=ctx.model_name if ctx else None,
+            temperature=ctx.temperature if ctx else None,
+            parent_span_id=parent_span_id,
+        ):
+            workflow = DataScientistWorkflow()
+
+            async with get_session() as session:
+                state = await workflow.run_analysis(
+                    analysis_type=analysis_enum,
+                    entity_ids=entity_ids,
+                    hours=hours,
+                    session=session,
+                )
+                await session.commit()
 
         # Generate conversational summary
         return _format_energy_analysis(state, analysis_type, hours)
@@ -132,6 +154,22 @@ def _format_energy_analysis(state: Any, analysis_type: str, hours: int) -> str:
     parts.append(
         f"\n_Analysis covered {hours} hours of data from {len(state.entity_ids)} sensors._"
     )
+
+    # Reverse communication: if the Data Scientist suggests an automation
+    suggestion = getattr(state, "automation_suggestion", None)
+    if suggestion:
+        # AutomationSuggestion is now a structured model
+        desc = getattr(suggestion, "pattern", str(suggestion))
+        entities = getattr(suggestion, "entities", [])
+        confidence = getattr(suggestion, "confidence", 0)
+        parts.append(
+            f"\n---\n💡 **Data Scientist Suggestion:** {desc}"
+        )
+        if entities:
+            parts.append(f"   Entities: {', '.join(entities[:5])}")
+        if confidence:
+            parts.append(f"   Confidence: {confidence:.0%}")
+        parts.append("Would you like me to design an automation for this?")
 
     return "\n".join(parts)
 
@@ -415,18 +453,34 @@ async def diagnose_issue(
     hours = min(hours, 168)
 
     try:
-        workflow = DataScientistWorkflow()
+        # Propagate model context + parent span for trace linking
+        ctx = get_model_context()
+        parent_span_id = None
+        try:
+            from src.tracing import get_active_span
+            active_span = get_active_span()
+            if active_span and hasattr(active_span, "span_id"):
+                parent_span_id = active_span.span_id
+        except Exception:
+            pass
 
-        async with get_session() as session:
-            state = await workflow.run_analysis(
-                analysis_type=AnalysisType.DIAGNOSTIC,
-                entity_ids=entity_ids,
-                hours=hours,
-                custom_query=instructions,
-                diagnostic_context=diagnostic_context,
-                session=session,
-            )
-            await session.commit()
+        with model_context(
+            model_name=ctx.model_name if ctx else None,
+            temperature=ctx.temperature if ctx else None,
+            parent_span_id=parent_span_id,
+        ):
+            workflow = DataScientistWorkflow()
+
+            async with get_session() as session:
+                state = await workflow.run_analysis(
+                    analysis_type=AnalysisType.DIAGNOSTIC,
+                    entity_ids=entity_ids,
+                    hours=hours,
+                    custom_query=instructions,
+                    diagnostic_context=diagnostic_context,
+                    session=session,
+                )
+                await session.commit()
 
         return _format_diagnostic_results(state, entity_ids, hours)
 
@@ -488,23 +542,266 @@ def _format_diagnostic_results(state: Any, entity_ids: list[str], hours: int) ->
         f"{len(entity_ids)} entities._"
     )
 
+    # Reverse communication: if the Data Scientist suggests an automation
+    suggestion = getattr(state, "automation_suggestion", None)
+    if suggestion:
+        desc = getattr(suggestion, "pattern", str(suggestion))
+        entities = getattr(suggestion, "entities", [])
+        confidence = getattr(suggestion, "confidence", 0)
+        parts.append(
+            f"\n---\n💡 **Data Scientist Suggestion:** {desc}"
+        )
+        if entities:
+            parts.append(f"   Entities: {', '.join(entities[:5])}")
+        if confidence:
+            parts.append(f"   Confidence: {confidence:.0%}")
+        parts.append("Would you like me to design an automation for this?")
+
     return "\n".join(parts)
+
+
+@tool("analyze_behavior")
+@trace_with_uri(name="agent.analyze_behavior", span_type="TOOL")
+async def analyze_behavior(
+    analysis_type: str = "behavior_analysis",
+    hours: int = 168,
+    entity_ids: list[str] | None = None,
+) -> str:
+    """Analyze behavioral patterns and find automation opportunities.
+
+    Use this tool when the user asks about:
+    - Usage patterns or behavioral analysis
+    - Automation gaps or opportunities
+    - Automation effectiveness
+    - Entity correlations (devices used together)
+    - Device health checks
+    - Cost optimization
+
+    Args:
+        analysis_type: Type of analysis:
+            - "behavior_analysis": Manual action patterns and timing
+            - "automation_analysis": Automation effectiveness scoring
+            - "automation_gap_detection": Find manual patterns to automate
+            - "correlation_discovery": Find entity relationships
+            - "device_health": Check device health and responsiveness
+            - "cost_optimization": Cost projections and savings
+        hours: Hours of historical data to analyze (default: 168 = 1 week, max: 720)
+        entity_ids: Specific entities to analyze (optional)
+
+    Returns:
+        A conversational summary of the behavioral analysis
+    """
+    from src.agents import DataScientistWorkflow
+    from src.graph.state import AnalysisType
+    from src.storage import get_session
+
+    # Map string to enum
+    type_map = {
+        "behavior_analysis": AnalysisType.BEHAVIOR_ANALYSIS,
+        "behavior": AnalysisType.BEHAVIOR_ANALYSIS,
+        "automation_analysis": AnalysisType.AUTOMATION_ANALYSIS,
+        "automations": AnalysisType.AUTOMATION_ANALYSIS,
+        "automation_gap_detection": AnalysisType.AUTOMATION_GAP_DETECTION,
+        "gaps": AnalysisType.AUTOMATION_GAP_DETECTION,
+        "correlation_discovery": AnalysisType.CORRELATION_DISCOVERY,
+        "correlations": AnalysisType.CORRELATION_DISCOVERY,
+        "device_health": AnalysisType.DEVICE_HEALTH,
+        "health": AnalysisType.DEVICE_HEALTH,
+        "cost_optimization": AnalysisType.COST_OPTIMIZATION,
+        "cost": AnalysisType.COST_OPTIMIZATION,
+    }
+    analysis_enum = type_map.get(analysis_type.lower(), AnalysisType.BEHAVIOR_ANALYSIS)
+
+    hours = min(hours, 720)  # Max 30 days
+
+    try:
+        ctx = get_model_context()
+        parent_span_id = None
+        try:
+            from src.tracing import get_active_span
+            active_span = get_active_span()
+            if active_span and hasattr(active_span, "span_id"):
+                parent_span_id = active_span.span_id
+        except Exception:
+            pass
+
+        with model_context(
+            model_name=ctx.model_name if ctx else None,
+            temperature=ctx.temperature if ctx else None,
+            parent_span_id=parent_span_id,
+        ):
+            workflow = DataScientistWorkflow()
+
+            async with get_session() as session:
+                state = await workflow.run_analysis(
+                    analysis_type=analysis_enum,
+                    entity_ids=entity_ids,
+                    hours=hours,
+                    session=session,
+                )
+                await session.commit()
+
+        return _format_behavioral_analysis(state, analysis_type, hours)
+
+    except Exception as e:
+        return f"I wasn't able to complete the behavioral analysis: {e}"
+
+
+def _format_behavioral_analysis(state: Any, analysis_type: str, hours: int) -> str:
+    """Format behavioral analysis results as conversational response."""
+    insights = state.insights or []
+    recommendations = state.recommendations or []
+
+    if not insights:
+        return (
+            f"I analyzed {hours} hours of behavioral data but didn't find any "
+            f"significant patterns. Your system appears to be operating normally."
+        )
+
+    parts = []
+    high_impact = [i for i in insights if i.get("impact") in ("high", "critical")]
+
+    if high_impact:
+        parts.append(
+            f"I analyzed {hours} hours of behavioral data and found "
+            f"**{len(high_impact)} important finding(s)**:"
+        )
+    else:
+        parts.append(
+            f"I analyzed {hours} hours of behavioral data. Here's what I found:"
+        )
+
+    parts.append("\n**Key Findings:**")
+    for i, insight in enumerate(insights[:5], 1):
+        confidence = insight.get("confidence", 0) * 100
+        impact = insight.get("impact", "medium")
+        title = insight.get("title", "Finding")
+        description = insight.get("description", "")
+        insight_type = insight.get("type", "")
+
+        impact_indicator = {
+            "critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"
+        }.get(impact, "⚪")
+
+        type_label = insight_type.replace("_", " ").title()
+        parts.append(
+            f"\n{i}. {impact_indicator} **{title}** "
+            f"[{type_label}] ({confidence:.0f}% confidence)"
+        )
+        if description:
+            parts.append(f"   {description[:200]}")
+
+    if recommendations:
+        parts.append("\n**Recommendations:**")
+        for rec in recommendations[:3]:
+            parts.append(f"• {rec}")
+
+    # Automation suggestion
+    suggestion = getattr(state, "automation_suggestion", None)
+    if suggestion:
+        desc = getattr(suggestion, "pattern", str(suggestion))
+        trigger = getattr(suggestion, "proposed_trigger", "")
+        action = getattr(suggestion, "proposed_action", "")
+        parts.append(
+            f"\n---\n💡 **Automation Suggestion:** {desc}"
+        )
+        if trigger:
+            parts.append(f"   Trigger: {trigger}")
+        if action:
+            parts.append(f"   Action: {action}")
+        parts.append("Would you like me to design an automation for this?")
+
+    return "\n".join(parts)
+
+
+@tool("propose_automation_from_insight")
+@trace_with_uri(name="agent.propose_automation", span_type="TOOL")
+async def propose_automation_from_insight(
+    pattern: str,
+    entities: list[str],
+    proposed_trigger: str,
+    proposed_action: str,
+    confidence: float = 0.8,
+    source_insight_type: str = "automation_gap",
+) -> str:
+    """Create an automation proposal from a Data Scientist insight.
+
+    Use this when the Data Scientist has identified a pattern that could
+    be automated and the user wants to proceed with creating it.
+
+    Args:
+        pattern: Description of the detected pattern
+        entities: Entity IDs involved
+        proposed_trigger: Suggested trigger for the automation
+        proposed_action: Suggested action
+        confidence: Confidence score 0.0-1.0
+        source_insight_type: Type of insight that generated this
+
+    Returns:
+        The Architect's refined proposal or confirmation
+    """
+    from src.agents import ArchitectAgent
+    from src.graph.state import AutomationSuggestion
+    from src.storage import get_session
+
+    suggestion = AutomationSuggestion(
+        pattern=pattern,
+        entities=entities,
+        proposed_trigger=proposed_trigger,
+        proposed_action=proposed_action,
+        confidence=confidence,
+        evidence={},
+        source_insight_type=source_insight_type,
+    )
+
+    try:
+        architect = ArchitectAgent()
+        async with get_session() as session:
+            result = await architect.receive_suggestion(suggestion, session)
+            await session.commit()
+
+        response_parts = []
+        response_text = result.get("response", "")
+        proposal_yaml = result.get("proposal_yaml")
+        proposal_name = result.get("proposal_name")
+
+        if proposal_name:
+            response_parts.append(
+                f"I've created an automation proposal: **{proposal_name}**"
+            )
+        if proposal_yaml:
+            response_parts.append(f"\n```yaml\n{proposal_yaml}```")
+        if response_text:
+            response_parts.append(f"\n{response_text[:500]}")
+
+        response_parts.append(
+            "\nThis proposal is pending your approval before deployment."
+        )
+
+        return "\n".join(response_parts)
+
+    except Exception as e:
+        return f"I wasn't able to create a proposal from this suggestion: {e}"
 
 
 def get_agent_tools() -> list[Any]:
     """Return all agent delegation tools for the Architect."""
     return [
         analyze_energy,
+        analyze_behavior,
         discover_entities,
         get_entity_history,
         diagnose_issue,
+        propose_automation_from_insight,
     ]
 
 
 __all__ = [
     "analyze_energy",
+    "analyze_behavior",
     "discover_entities",
     "get_entity_history",
     "diagnose_issue",
+    "propose_automation_from_insight",
     "get_agent_tools",
 ]

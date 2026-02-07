@@ -20,6 +20,12 @@ class InsightType(str, Enum):
     USAGE_PATTERN = "usage_pattern"
     COST_SAVING = "cost_saving"
     MAINTENANCE_PREDICTION = "maintenance_prediction"
+    # Feature 03: Intelligent Optimization
+    AUTOMATION_GAP = "automation_gap"
+    AUTOMATION_INEFFICIENCY = "automation_inefficiency"
+    CORRELATION = "correlation"
+    DEVICE_HEALTH = "device_health"
+    BEHAVIORAL_PATTERN = "behavioral_pattern"
 
 
 class InsightStatus(str, Enum):

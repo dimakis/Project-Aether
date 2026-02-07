@@ -270,6 +270,54 @@ class AnalysisType(StrEnum):
     DASHBOARD_GENERATION = "dashboard_generation"
     DIAGNOSTIC = "diagnostic"
     CUSTOM = "custom"
+    # Feature 03: Intelligent Optimization
+    BEHAVIOR_ANALYSIS = "behavior_analysis"
+    AUTOMATION_ANALYSIS = "automation_analysis"
+    AUTOMATION_GAP_DETECTION = "automation_gap_detection"
+    CORRELATION_DISCOVERY = "correlation_discovery"
+    DEVICE_HEALTH = "device_health"
+    COST_OPTIMIZATION = "cost_optimization"
+
+
+class AutomationSuggestion(BaseModel):
+    """Structured automation suggestion from the Data Scientist.
+
+    When the DS detects a high-confidence, high-impact pattern that could
+    be addressed by a Home Assistant automation, it creates this model
+    for the Architect to review and refine into a full proposal.
+
+    Feature 03: Intelligent Optimization — replaces plain string suggestion.
+    """
+
+    pattern: str = Field(
+        description="Description of the detected pattern or gap",
+    )
+    entities: list[str] = Field(
+        default_factory=list,
+        description="Entity IDs involved in the pattern",
+    )
+    proposed_trigger: str = Field(
+        default="",
+        description="Suggested trigger for the automation (e.g., 'time: 22:00')",
+    )
+    proposed_action: str = Field(
+        default="",
+        description="Suggested action (e.g., 'turn off lights in living room')",
+    )
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score 0.0-1.0",
+    )
+    evidence: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Supporting data from the analysis",
+    )
+    source_insight_type: str = Field(
+        default="",
+        description="InsightType that generated this suggestion",
+    )
 
 
 class ScriptExecution(BaseModel):
@@ -321,6 +369,16 @@ class AnalysisState(MessageState):
         description="Generated charts/graphs metadata",
     )
     recommendations: list[str] = Field(default_factory=list)
+
+    # Reverse communication: automation suggestion from Data Scientist
+    automation_suggestion: AutomationSuggestion | None = Field(
+        default=None,
+        description=(
+            "Structured automation suggestion from the Data Scientist when a "
+            "high-confidence, high-impact insight is detected. Contains pattern, "
+            "entities, proposed trigger/action, and evidence."
+        ),
+    )
 
     # Dashboard output (User Story 4)
     dashboard_yaml: str | None = None
@@ -376,6 +434,7 @@ __all__ = [
     "ApprovalState",
     "ConversationState",
     # Analysis
+    "AutomationSuggestion",
     "ScriptExecution",
     "AnalysisState",
     # Orchestrator

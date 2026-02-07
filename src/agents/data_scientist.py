@@ -1,26 +1,32 @@
 """Data Scientist agent for energy analysis and insights.
 
 User Story 3: Energy Optimization Suggestions.
+Feature 03: Intelligent Optimization & Multi-Agent Collaboration.
 
-The Data Scientist analyzes energy data from Home Assistant,
-generates Python scripts for analysis, executes them in a
-sandboxed environment, and extracts actionable insights.
+The Data Scientist analyzes energy data and behavioral patterns
+from Home Assistant, generates Python scripts for analysis,
+executes them in a sandboxed environment, and extracts actionable insights.
 
 Constitution: Isolation - All scripts run in gVisor sandbox.
 Constitution: Observability - All analysis traced in MLflow.
 """
 
+import logging
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+logger = logging.getLogger(__name__)
+
 from src.agents import BaseAgent
+from src.agents.model_context import get_model_context, resolve_model
 from src.dal import EntityRepository, InsightRepository
-from src.graph.state import AgentRole, AnalysisState, AnalysisType
+from src.graph.state import AgentRole, AnalysisState, AnalysisType, AutomationSuggestion
 from src.llm import get_llm
 from src.mcp import EnergyHistoryClient, MCPClient, get_mcp_client
+from src.mcp.behavioral import BehavioralAnalysisClient
 from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
 from src.storage.entities.insight import InsightStatus, InsightType
@@ -33,6 +39,19 @@ DATA_SCIENTIST_SYSTEM_PROMPT = """You are an expert data scientist specializing 
 Your role is to analyze energy sensor data from Home Assistant and generate insights
 that help users optimize their energy consumption. You also perform diagnostic
 analysis when asked to troubleshoot issues with sensors, integrations, or data quality.
+
+## Response Formatting
+
+Use rich markdown formatting to make analysis results clear and actionable:
+- Use **bold** for key findings and `code` for entity IDs and values
+- Use headings (##, ###) to organize analysis sections
+- Use tables to present comparisons, rankings, and data summaries
+- Use code blocks with ```python for scripts and ```json for data structures
+- Use emojis to improve scanability of results:
+  📊 for data/statistics, ⚡ for energy, 💰 for cost savings,
+  📈 for trends/increases, 📉 for decreases, ⚠️ for anomalies/warnings,
+  ✅ for healthy/good, ❌ for problems/errors, 🔍 for investigation,
+  💡 for recommendations, 🌡️ for temperature, 🔋 for battery/power
 
 When analyzing data, you should:
 1. Identify usage patterns (daily, weekly, seasonal)
@@ -76,6 +95,58 @@ Output JSON structure for insights:
 }
 """
 
+# Behavioral analysis system prompt (Feature 03)
+DATA_SCIENTIST_BEHAVIORAL_PROMPT = """You are an expert data scientist specializing in smart home behavioral analysis.
+
+Your role is to analyze logbook and usage data from Home Assistant to identify
+behavioral patterns, automation gaps, and optimization opportunities.
+
+When analyzing behavioral data, you should:
+1. Identify repeating manual actions that could be automated
+2. Score existing automation effectiveness (trigger frequency vs manual overrides)
+3. Discover entity correlations (devices used together)
+4. Detect device health issues (unresponsive, degraded, anomalous)
+5. Find cost-saving opportunities from usage patterns
+
+You can generate Python scripts for analysis. Scripts run in a sandboxed environment with:
+- pandas, numpy, matplotlib, scipy, scikit-learn, statsmodels, seaborn
+- Read-only access to data passed via /workspace/data.json
+- Output written to stdout/stderr
+- 30 second timeout, 512MB memory limit
+
+When generating scripts:
+1. Always read data from /workspace/data.json
+2. Print results as JSON to stdout for parsing
+3. Save any charts to /workspace/output/ directory
+4. Handle missing or invalid data gracefully
+
+Output JSON structure for behavioral insights:
+{
+  "insights": [
+    {
+      "type": "automation_gap|automation_inefficiency|correlation|device_health|behavioral_pattern|cost_saving",
+      "title": "Brief title",
+      "description": "Detailed explanation",
+      "confidence": 0.0-1.0,
+      "impact": "low|medium|high|critical",
+      "evidence": {"key": "value"},
+      "entities": ["entity_id1", "entity_id2"]
+    }
+  ],
+  "summary": "Overall analysis summary",
+  "recommendations": ["recommendation1", "recommendation2"]
+}
+"""
+
+# Analysis types that use behavioral (logbook) data vs energy (history) data
+BEHAVIORAL_ANALYSIS_TYPES = {
+    AnalysisType.BEHAVIOR_ANALYSIS,
+    AnalysisType.AUTOMATION_ANALYSIS,
+    AnalysisType.AUTOMATION_GAP_DETECTION,
+    AnalysisType.CORRELATION_DISCOVERY,
+    AnalysisType.DEVICE_HEALTH,
+}
+
 
 class DataScientistAgent(BaseAgent):
     """The Data Scientist agent for energy analysis.
@@ -114,9 +185,31 @@ class DataScientistAgent(BaseAgent):
 
     @property
     def llm(self):
-        """Get LLM, creating if needed."""
+        """Get LLM using the model context resolution chain.
+
+        Resolution order:
+            1. Active model context (user's UI selection, propagated via delegation)
+            2. Per-agent settings (DATA_SCIENTIST_MODEL from .env)
+            3. Global default (LLM_MODEL from .env)
+
+        The LLM is NOT cached when a model context is active, since different
+        requests may carry different model selections. When no context is
+        active, the instance is cached for reuse.
+        """
+        settings = get_settings()
+        model_name, temperature = resolve_model(
+            agent_model=settings.data_scientist_model,
+            agent_temperature=settings.data_scientist_temperature,
+        )
+
+        # If a model context is active, always create a fresh LLM
+        # (different requests may carry different models)
+        if get_model_context() is not None:
+            return get_llm(model=model_name, temperature=temperature)
+
+        # No context: use cached instance (falls back to global default)
         if self._llm is None:
-            self._llm = get_llm()
+            self._llm = get_llm(model=model_name, temperature=temperature)
         return self._llm
 
     async def invoke(
@@ -133,24 +226,34 @@ class DataScientistAgent(BaseAgent):
         Returns:
             State updates with analysis results
         """
+        # Include parent span ID from model context for inter-agent trace linking
+        ctx = get_model_context()
         trace_inputs = {
             "analysis_type": state.analysis_type.value,
             "entity_ids": state.entity_ids[:10] if state.entity_ids else [],
             "time_range_hours": state.time_range_hours,
         }
+        if ctx and ctx.parent_span_id:
+            trace_inputs["parent_span_id"] = ctx.parent_span_id
 
         async with self.trace_span("analyze", state, inputs=trace_inputs) as span:
+            # If we have a parent span ID, set it as an attribute for MLflow linking
+            if ctx and ctx.parent_span_id:
+                span["parent_agent_span_id"] = ctx.parent_span_id
             try:
-                # 1. Collect energy data (uses DB for discovery, MCP for history)
+                # 1. Collect data based on analysis type
                 session = kwargs.get("session")
-                energy_data = await self._collect_energy_data(state, session=session)
+                if state.analysis_type in BEHAVIORAL_ANALYSIS_TYPES:
+                    analysis_data = await self._collect_behavioral_data(state)
+                else:
+                    analysis_data = await self._collect_energy_data(state, session=session)
                 
                 # 2. Generate analysis script
-                script = await self._generate_script(state, energy_data)
+                script = await self._generate_script(state, analysis_data)
                 state.generated_script = script
                 
                 # 3. Execute in sandbox
-                result = await self._execute_script(script, energy_data)
+                result = await self._execute_script(script, analysis_data)
                 
                 # 4. Extract insights from output
                 insights = self._extract_insights(result, state)
@@ -160,11 +263,16 @@ class DataScientistAgent(BaseAgent):
                 if session and insights:
                     await self._persist_insights(insights, session, state)
                 
+                # Check for high-confidence, high-impact insights that
+                # could be addressed by an automation (reverse communication)
+                automation_suggestion = self._generate_automation_suggestion(insights)
+
                 # Update state
                 updates = {
                     "insights": insights,
                     "generated_script": script,
                     "recommendations": self._extract_recommendations(result),
+                    "automation_suggestion": automation_suggestion,
                 }
                 
                 span["outputs"] = {
@@ -286,6 +394,124 @@ class DataScientistAgent(BaseAgent):
             )
             return []
 
+    async def _collect_behavioral_data(
+        self,
+        state: AnalysisState,
+    ) -> dict[str, Any]:
+        """Collect behavioral data from logbook for analysis.
+
+        Uses the BehavioralAnalysisClient to gather button usage,
+        automation effectiveness, correlations, gaps, and device health.
+
+        Args:
+            state: Analysis state with type and time range
+
+        Returns:
+            Behavioral data for analysis
+        """
+        behavioral = BehavioralAnalysisClient(self.mcp)
+        hours = state.time_range_hours
+        data: dict[str, Any] = {
+            "analysis_type": state.analysis_type.value,
+            "hours": hours,
+        }
+
+        try:
+            if state.analysis_type == AnalysisType.BEHAVIOR_ANALYSIS:
+                button_usage = await behavioral.get_button_usage(hours=hours)
+                data["button_usage"] = [
+                    {
+                        "entity_id": r.entity_id,
+                        "total_presses": r.total_presses,
+                        "avg_daily": r.avg_daily_presses,
+                        "by_hour": dict(r.by_hour),
+                    }
+                    for r in button_usage[:30]
+                ]
+                data["entity_count"] = len(button_usage)
+
+            elif state.analysis_type == AnalysisType.AUTOMATION_ANALYSIS:
+                effectiveness = await behavioral.get_automation_effectiveness(hours=hours)
+                data["automation_effectiveness"] = [
+                    {
+                        "automation_id": r.automation_id,
+                        "alias": r.alias,
+                        "trigger_count": r.trigger_count,
+                        "manual_overrides": r.manual_override_count,
+                        "efficiency_score": r.efficiency_score,
+                    }
+                    for r in effectiveness
+                ]
+                data["entity_count"] = len(effectiveness)
+
+            elif state.analysis_type == AnalysisType.AUTOMATION_GAP_DETECTION:
+                gaps = await behavioral.detect_automation_gaps(hours=hours)
+                data["automation_gaps"] = [
+                    {
+                        "description": g.pattern_description,
+                        "entities": g.entities,
+                        "occurrences": g.occurrence_count,
+                        "typical_time": g.typical_time,
+                        "confidence": g.confidence,
+                    }
+                    for g in gaps
+                ]
+                data["entity_count"] = len(gaps)
+
+            elif state.analysis_type == AnalysisType.CORRELATION_DISCOVERY:
+                correlations = await behavioral.find_correlations(
+                    entity_ids=state.entity_ids or None,
+                    hours=hours,
+                )
+                data["correlations"] = [
+                    {
+                        "entity_a": c.entity_a,
+                        "entity_b": c.entity_b,
+                        "co_occurrences": c.co_occurrence_count,
+                        "avg_delta_seconds": c.avg_time_delta_seconds,
+                        "confidence": c.confidence,
+                    }
+                    for c in correlations
+                ]
+                data["entity_count"] = len(correlations)
+
+            elif state.analysis_type == AnalysisType.DEVICE_HEALTH:
+                health = await behavioral.get_device_health_report(hours=hours)
+                data["device_health"] = [
+                    {
+                        "entity_id": h.entity_id,
+                        "status": h.status,
+                        "last_seen": h.last_seen,
+                        "issue": h.issue,
+                        "state_changes": h.state_change_count,
+                    }
+                    for h in health
+                ]
+                data["entity_count"] = len(health)
+
+            else:
+                # Cost optimization or generic behavioral - gather everything
+                stats = await behavioral._logbook.get_stats(hours=hours)
+                data["logbook_stats"] = {
+                    "total_entries": stats.total_entries,
+                    "by_action_type": stats.by_action_type,
+                    "by_domain": stats.by_domain,
+                    "automation_triggers": stats.automation_triggers,
+                    "manual_actions": stats.manual_actions,
+                    "unique_entities": stats.unique_entities,
+                    "by_hour": dict(stats.by_hour),
+                }
+                data["entity_count"] = stats.unique_entities
+
+            log_metric("behavioral.entity_count", float(data.get("entity_count", 0)))
+            log_param("behavioral.analysis_type", state.analysis_type.value)
+
+        except Exception as e:
+            logger.warning(f"Error collecting behavioral data: {e}")
+            data["error"] = str(e)
+
+        return data
+
     async def _generate_script(
         self,
         state: AnalysisState,
@@ -303,8 +529,15 @@ class DataScientistAgent(BaseAgent):
         # Build prompt based on analysis type
         analysis_prompt = self._build_analysis_prompt(state, energy_data)
         
+        # Use behavioral prompt for behavioral analysis types
+        system_prompt = (
+            DATA_SCIENTIST_BEHAVIORAL_PROMPT
+            if state.analysis_type in BEHAVIORAL_ANALYSIS_TYPES
+            else DATA_SCIENTIST_SYSTEM_PROMPT
+        )
+        
         messages = [
-            SystemMessage(content=DATA_SCIENTIST_SYSTEM_PROMPT),
+            SystemMessage(content=system_prompt),
             HumanMessage(content=analysis_prompt),
         ]
         
@@ -408,6 +641,75 @@ Each insight should include:
 - confidence: 0.0-1.0
 - evidence: Supporting data points
 - recommendation: What to do about it
+"""
+
+        elif state.analysis_type == AnalysisType.BEHAVIOR_ANALYSIS:
+            return base_context + """
+Please analyze this behavioral data and generate a Python script that:
+1. Identifies the most frequently manually controlled entities
+2. Detects peak usage hours for manual interactions
+3. Finds patterns in button/switch press timing
+4. Suggests which manual actions could benefit from automation
+
+Output insights as JSON to stdout with type="behavioral_pattern".
+"""
+
+        elif state.analysis_type == AnalysisType.AUTOMATION_ANALYSIS:
+            return base_context + """
+Please analyze this automation effectiveness data and generate a Python script that:
+1. Ranks automations by effectiveness (trigger count vs manual overrides)
+2. Identifies automations with high manual override rates
+3. Suggests improvements for inefficient automations
+4. Calculates overall automation coverage
+
+Output insights as JSON to stdout with type="automation_inefficiency" for issues
+and type="behavioral_pattern" for positive findings.
+"""
+
+        elif state.analysis_type == AnalysisType.AUTOMATION_GAP_DETECTION:
+            return base_context + """
+Please analyze this automation gap data and generate a Python script that:
+1. Identifies the strongest repeating manual patterns
+2. Ranks gaps by frequency and confidence
+3. Generates specific automation trigger/action suggestions for each gap
+4. Estimates effort saved if each gap were automated
+
+Output insights as JSON to stdout with type="automation_gap".
+Include proposed_trigger and proposed_action in the evidence for each insight.
+"""
+
+        elif state.analysis_type == AnalysisType.CORRELATION_DISCOVERY:
+            return base_context + """
+Please analyze this entity correlation data and generate a Python script that:
+1. Identifies the strongest entity correlations (devices used together)
+2. Visualizes correlation patterns (timing, frequency)
+3. Suggests automation groups based on correlated entities
+4. Detects unexpected correlations that may indicate issues
+
+Output insights as JSON to stdout with type="correlation".
+"""
+
+        elif state.analysis_type == AnalysisType.DEVICE_HEALTH:
+            return base_context + """
+Please analyze this device health data and generate a Python script that:
+1. Identifies devices that appear unresponsive or degraded
+2. Detects devices with unusual state change patterns
+3. Flags devices with high unavailable/unknown state ratios
+4. Provides health scores and recommended actions per device
+
+Output insights as JSON to stdout with type="device_health".
+"""
+
+        elif state.analysis_type == AnalysisType.COST_OPTIMIZATION:
+            return base_context + """
+Please analyze this data and generate a Python script that:
+1. Identifies the highest energy consumers
+2. Calculates cost projections based on usage patterns
+3. Suggests schedule changes to reduce costs (off-peak shifting)
+4. Estimates monthly savings for each recommendation
+
+Output insights as JSON to stdout with type="cost_saving".
+Include estimated_monthly_savings in the evidence for each insight.
 """
 
         else:  # CUSTOM or other
@@ -580,6 +882,90 @@ Output insights as JSON to stdout.
         except (json.JSONDecodeError, KeyError):
             return []
 
+    def _generate_automation_suggestion(
+        self,
+        insights: list[dict[str, Any]],
+    ) -> AutomationSuggestion | None:
+        """Generate a structured automation suggestion from high-value insights.
+
+        Scans insights for high-confidence (>=0.7) and high/critical impact
+        findings that could be addressed by a Home Assistant automation.
+
+        Args:
+            insights: List of insight dictionaries
+
+        Returns:
+            An AutomationSuggestion model, or None if no suggestion.
+        """
+        for insight in insights:
+            confidence = insight.get("confidence", 0)
+            impact = insight.get("impact", "low")
+            insight_type = insight.get("type", "")
+
+            # Only suggest automations for actionable, high-confidence findings
+            if confidence >= 0.7 and impact in ("high", "critical"):
+                title = insight.get("title", "Untitled")
+                description = insight.get("description", "")
+                entities = insight.get("entities", [])
+                evidence = insight.get("evidence", {})
+
+                # Determine proposed trigger and action based on insight type
+                proposed_trigger = ""
+                proposed_action = ""
+
+                if insight_type in ("energy_optimization", "cost_saving"):
+                    proposed_trigger = "time: off-peak hours"
+                    proposed_action = (
+                        "Schedule energy-intensive devices during off-peak hours"
+                    )
+                elif insight_type == "automation_gap":
+                    proposed_trigger = evidence.get(
+                        "proposed_trigger",
+                        f"time: {evidence.get('typical_time', 'detected pattern time')}",
+                    )
+                    proposed_action = evidence.get(
+                        "proposed_action",
+                        f"Automate the manual pattern: {title}",
+                    )
+                elif insight_type == "automation_inefficiency":
+                    proposed_trigger = "existing automation trigger"
+                    proposed_action = f"Improve automation: {title}"
+                elif insight_type == "anomaly_detection":
+                    proposed_trigger = "state change pattern"
+                    proposed_action = (
+                        "Alert or take corrective action when anomaly recurs"
+                    )
+                elif insight_type in ("usage_pattern", "behavioral_pattern"):
+                    proposed_trigger = "detected usage schedule"
+                    proposed_action = (
+                        "Optimize device scheduling to match actual usage"
+                    )
+                elif insight_type == "correlation":
+                    proposed_trigger = "state change of correlated entity"
+                    proposed_action = (
+                        "Synchronize correlated entities automatically"
+                    )
+                elif insight_type == "device_health":
+                    proposed_trigger = "device unavailable for > threshold"
+                    proposed_action = "Send notification about device health issue"
+                else:
+                    proposed_trigger = "detected pattern"
+                    proposed_action = f"Address: {title}"
+
+                return AutomationSuggestion(
+                    pattern=(
+                        f"{title}: {description[:200]}"
+                    ),
+                    entities=entities[:10],
+                    proposed_trigger=proposed_trigger,
+                    proposed_action=proposed_action,
+                    confidence=confidence,
+                    evidence=evidence,
+                    source_insight_type=insight_type,
+                )
+
+        return None
+
     async def _persist_insights(
         self,
         insights: list[dict[str, Any]],
@@ -724,4 +1110,6 @@ __all__ = [
     "DataScientistAgent",
     "DataScientistWorkflow",
     "DATA_SCIENTIST_SYSTEM_PROMPT",
+    "DATA_SCIENTIST_BEHAVIORAL_PROMPT",
+    "BEHAVIORAL_ANALYSIS_TYPES",
 ]

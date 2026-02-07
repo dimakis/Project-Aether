@@ -84,6 +84,20 @@ class Settings(BaseSettings):
     # Groq: https://api.groq.com/openai/v1
     # Ollama: http://localhost:11434/v1
 
+    # Per-agent model overrides (optional)
+    # When set, the agent uses this model instead of the global default.
+    # Resolution: user UI selection > per-agent setting > global default.
+    data_scientist_model: str | None = Field(
+        default=None,
+        description="Override model for Data Scientist agent (e.g., gpt-4o-mini for cheaper script gen)",
+    )
+    data_scientist_temperature: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Override temperature for Data Scientist agent",
+    )
+
     # Google Gemini (separate SDK, not OpenAI-compatible)
     google_api_key: SecretStr = Field(
         default=SecretStr(""),

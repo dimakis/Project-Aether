@@ -5,6 +5,21 @@
 
 ---
 
+## Reconciliation with Feature 08-C (Model Routing & Multi-Agent)
+
+**Date**: 2026-02-07 | **Reference**: `features/08-C-model-routing-multi-agent/`
+
+Feature 08-C implemented a simpler tool-delegation pattern for multi-agent communication,
+which supersedes several tasks originally planned here. The decisions are:
+
+- **AgentCoordinator class** (T221): **Cancelled**. Tool-delegation via `agent_tools.py` + model context propagation handles coordination without a dedicated class. (per 08-C T173)
+- **AgentMessage model** (T222): **Cancelled**. Single-user system uses structured tool returns (e.g., `AnalysisState.automation_suggestion`) instead of async message queues. (per 08-C T176)
+- **Inter-agent tools** (T223): **Adapted**. `analyze_energy`/`diagnose_issue` tools already exist. Simplified to adding a `propose_automation` tool in `agent_tools.py`. (per 08-C T174)
+- **DS-Architect bridge module** (T224): **Simplified**. `AutomationSuggestion` Pydantic model added to `src/graph/state.py` instead of a separate `ds_architect_bridge.py` module. Existing `automation_suggestion` reverse-communication pattern on `AnalysisState` is reused. (per 08-C T174)
+- **T225-T228**: **Implemented with simplified approach** — no coordinator, no message queue; uses tool-delegation and structured state.
+
+---
+
 ## New MCP Capabilities
 
 - [ ] T211 [US5] Add `get_logbook()` method to src/mcp/client.py - fetch logbook entries from `/api/logbook/{timestamp}` endpoint
@@ -51,56 +66,43 @@
 
 ## Agent-to-Agent Communication Framework
 
-- [ ] T221 [US5] Create src/agents/coordinator.py with AgentCoordinator:
-  - register_agent(agent) - Register agents for coordination
-  - request_analysis(from_agent, to_agent, query) - Inter-agent queries
-  - handoff(from_agent, to_agent, context) - Transfer conversation context
-  - broadcast_insight(insight) - Share insights across agents
+- [x] T221 [US5] ~~Create src/agents/coordinator.py with AgentCoordinator~~ — **Cancelled**: Tool-delegation pattern via agent_tools.py handles coordination (per 08-C T173)
 
-- [ ] T222 [US5] Create AgentMessage model in src/graph/state.py:
-  - from_agent: AgentRole
-  - to_agent: AgentRole
-  - message_type: "query" | "response" | "handoff" | "insight"
-  - content: dict
-  - context: dict (shared state)
+- [x] T222 [US5] ~~Create AgentMessage model in src/graph/state.py~~ — **Cancelled**: Structured tool returns suffice for single-user system (per 08-C T176)
 
-- [ ] T223 [US5] Add inter-agent tools to src/tools/agent_tools.py:
-  - request_data_analysis(query) - Architect asks DS for data
-  - propose_automation(insight, suggestion) - DS proposes automation to Architect
-  - query_entity_context(entity_ids) - Any agent queries Librarian
-  - validate_automation(proposal) - Architect validates DS suggestions
+- [ ] T223 [US5] Add `propose_automation` tool to src/tools/agent_tools.py — **Adapted** from original scope (per 08-C T174):
+  - propose_automation(suggestion) - DS proposes automation to Architect via tool delegation
+  - ~~request_data_analysis, query_entity_context, validate_automation~~ — already covered by existing analyze_energy/diagnose_issue/discover_entities tools
 
 ## Data Scientist to Architect Integration
 
-- [ ] T224 [US5] Create src/agents/ds_architect_bridge.py with:
-  - AutomationSuggestion model (pattern, entities, proposed_trigger, proposed_action, confidence, evidence)
-  - suggest_automation_from_pattern(pattern) - Convert insight to automation proposal
-  - request_architect_review(suggestion) - Send to Architect for refinement
-  - receive_architect_feedback(proposal_id, feedback) - Handle Architect response
+- [ ] T224 [US5] Add AutomationSuggestion model to src/graph/state.py — **Simplified** from original ds_architect_bridge.py (per 08-C T174):
+  - AutomationSuggestion Pydantic model (pattern, entities, proposed_trigger, proposed_action, confidence, evidence, source_insight_type)
+  - Replaces plain `str | None` automation_suggestion field on AnalysisState
+  - ~~src/agents/ds_architect_bridge.py~~ — not needed; model lives in state.py, tool logic in agent_tools.py
 
 - [ ] T225 [US5] Add "suggest automation" flow to DataScientistWorkflow:
-  - When automation gap detected -> create AutomationSuggestion
-  - Send to Architect via coordinator
+  - When automation gap detected -> create AutomationSuggestion (structured model, not plain string)
+  - Architect receives suggestion via `propose_automation` tool delegation (no coordinator)
   - Architect refines and creates full proposal
   - Return combined insight + proposal to user
 
 - [ ] T226 [US5] Extend ArchitectAgent to handle DS suggestions:
-  - receive_suggestion(suggestion) - Accept DS automation suggestions
-  - refine_suggestion(suggestion) - Improve trigger/action design
-  - create_proposal_from_suggestion(suggestion) - Generate full proposal
+  - receive_suggestion(suggestion) - Accept AutomationSuggestion and generate proposal
+  - Uses existing LLM + proposal creation infrastructure
 
 ## Orchestrator Updates
 
-- [ ] T227 [US5] Update src/graph/workflows.py with multi-agent orchestration:
-  - Add optimization_workflow combining DS analysis -> Architect proposals
-  - Add collaborative_analysis_workflow for complex queries
-  - Implement interrupt points for user confirmation between agents
+- [ ] T227 [US5] Update src/graph/workflows.py with optimization workflow:
+  - Add build_optimization_graph() combining DS analysis -> Architect proposals
+  - Add run_optimization_workflow() execution function
+  - Register in WORKFLOW_REGISTRY
 
-- [ ] T228 [US5] Create src/graph/nodes.py nodes for agent collaboration:
-  - analyze_and_suggest - DS analyzes, suggests optimizations
-  - architect_review - Architect reviews DS suggestions
-  - combine_insights - Merge DS + Architect outputs
-  - present_recommendations - Format final output for user
+- [ ] T228 [US5] Create src/graph/nodes.py optimization nodes:
+  - collect_behavioral_data_node - Collect logbook/behavioral data
+  - analyze_and_suggest_node - DS analyzes, produces insights + suggestions
+  - architect_review_node - Architect reviews DS suggestions via tool delegation
+  - present_recommendations_node - Format final output for user
 
 ## API Endpoints
 
@@ -133,8 +135,8 @@
 - [ ] T233 [P] [US5] Create tests/unit/test_mcp_logbook.py - Logbook client and parsing
 - [ ] T234 [P] [US5] Create tests/unit/test_behavioral_analysis.py - Pattern detection
 - [ ] T235 [P] [US5] Create tests/unit/test_automation_gap_detection.py - Gap detection logic
-- [ ] T236 [P] [US5] Create tests/unit/test_agent_coordinator.py - Inter-agent messaging
-- [ ] T237 [P] [US5] Create tests/unit/test_ds_architect_bridge.py - Suggestion flow
+- [x] T236 [P] [US5] ~~Create tests/unit/test_agent_coordinator.py~~ — **Cancelled**: No AgentCoordinator class (per 08-C)
+- [ ] T237 [P] [US5] Create tests/unit/test_optimization_flow.py - Suggest-to-proposal tool flow (replaces ds_architect_bridge tests)
 
 **Integration Tests**:
 - [ ] T238 [US5] Create tests/integration/test_behavioral_workflow.py - Full behavioral analysis

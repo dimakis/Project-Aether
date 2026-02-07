@@ -525,6 +525,56 @@ class MCPClient:
             "last_changed": states[-1].get("last_changed") if states else None,
         }
 
+    @_trace_mcp_call("mcp.get_logbook")
+    async def get_logbook(
+        self,
+        hours: int = 24,
+        entity_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get logbook entries from Home Assistant.
+
+        Fetches logbook data for behavioral analysis, including
+        user actions, automation triggers, and state changes.
+
+        Args:
+            hours: Hours of history to fetch
+            entity_id: Optional entity to filter by
+
+        Returns:
+            List of logbook entry dicts
+        """
+        from datetime import datetime, timedelta, timezone
+
+        from src.tracing import log_param
+
+        log_param("mcp.get_logbook.hours", hours)
+        if entity_id:
+            log_param("mcp.get_logbook.entity_id", entity_id)
+
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - timedelta(hours=hours)
+
+        params: dict[str, Any] = {
+            "end_time": end_time.isoformat(),
+        }
+        if entity_id:
+            params["entity"] = entity_id
+
+        result = await self._request(
+            "GET",
+            f"/api/logbook/{start_time.isoformat()}",
+            params=params,
+        )
+
+        if not result:
+            return []
+
+        # HA logbook returns a flat list of entries
+        if isinstance(result, list):
+            return result
+
+        return []
+
     @_trace_mcp_call("mcp.search_entities")
     async def search_entities(
         self,

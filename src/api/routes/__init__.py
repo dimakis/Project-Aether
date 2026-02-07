@@ -13,6 +13,7 @@ from src.api.routes.entities import router as entities_router
 from src.api.routes.ha_registry import router as ha_registry_router
 from src.api.routes.insights import router as insights_router
 from src.api.routes.openai_compat import router as openai_router
+from src.api.routes.optimization import router as optimization_router
 from src.api.routes.proposals import router as proposals_router
 from src.api.routes.system import router as system_router
 
@@ -30,6 +31,8 @@ api_router.include_router(chat_router)
 api_router.include_router(proposals_router)
 # User Story 3: Insights and Analysis
 api_router.include_router(insights_router)
+# Feature 03: Intelligent Optimization
+api_router.include_router(optimization_router)
 # OpenAI-compatible API for Open WebUI
 api_router.include_router(openai_router)
 

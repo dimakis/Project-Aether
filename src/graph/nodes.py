@@ -12,6 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from src.graph.state import (
     AgentRole,
     AnalysisState,
+    AutomationSuggestion,
     ConversationState,
     ConversationStatus,
     DiscoveryState,
@@ -825,5 +826,193 @@ async def analysis_error_node(
                 content=f"Analysis encountered an error: {error_msg}. "
                 "Please check your entity selection and try again."
             )
+        ],
+    }
+
+
+# =============================================================================
+# OPTIMIZATION NODES (Feature 03: Intelligent Optimization)
+# =============================================================================
+
+
+async def collect_behavioral_data_node(
+    state: AnalysisState,
+    mcp_client: Any = None,
+) -> dict[str, Any]:
+    """Collect behavioral data from logbook for optimization analysis.
+
+    Uses BehavioralAnalysisClient to gather logbook-based data
+    for behavioral pattern detection.
+
+    Args:
+        state: Current analysis state
+        mcp_client: Optional MCP client
+
+    Returns:
+        State updates with collected data in messages
+    """
+    from src.mcp import get_mcp_client
+    from src.mcp.behavioral import BehavioralAnalysisClient
+    from src.mcp.logbook import LogbookHistoryClient
+
+    mcp = mcp_client or get_mcp_client()
+    logbook = LogbookHistoryClient(mcp)
+
+    try:
+        stats = await logbook.get_stats(hours=state.time_range_hours)
+
+        return {
+            "messages": [
+                AIMessage(
+                    content=(
+                        f"Collected behavioral data: {stats.total_entries} entries, "
+                        f"{stats.automation_triggers} automation triggers, "
+                        f"{stats.manual_actions} manual actions, "
+                        f"{stats.unique_entities} unique entities."
+                    )
+                )
+            ],
+        }
+    except Exception as e:
+        return {
+            "messages": [
+                AIMessage(content=f"Failed to collect behavioral data: {e}")
+            ],
+        }
+
+
+async def analyze_and_suggest_node(
+    state: AnalysisState,
+    session: Any = None,
+) -> dict[str, Any]:
+    """Run Data Scientist analysis and generate suggestions.
+
+    Delegates to DataScientistAgent.invoke() which handles
+    both energy and behavioral analysis based on analysis_type.
+
+    Args:
+        state: Current analysis state
+        session: Optional database session
+
+    Returns:
+        State updates with insights, recommendations, and automation suggestion
+    """
+    from src.agents import DataScientistAgent
+
+    agent = DataScientistAgent()
+
+    try:
+        updates = await agent.invoke(state, session=session)
+        return updates
+    except Exception as e:
+        return {
+            "insights": [{
+                "type": "error",
+                "title": "Analysis Failed",
+                "description": str(e),
+                "confidence": 0.0,
+                "impact": "low",
+                "evidence": {},
+                "entities": state.entity_ids,
+            }],
+        }
+
+
+async def architect_review_node(
+    state: AnalysisState,
+    session: Any = None,
+) -> dict[str, Any]:
+    """Have the Architect review DS suggestions and create proposals.
+
+    If the Data Scientist generated an AutomationSuggestion,
+    passes it to the Architect for refinement into a full proposal.
+
+    Args:
+        state: Current analysis state with automation_suggestion
+        session: Database session for proposal creation
+
+    Returns:
+        State updates with Architect's response
+    """
+    suggestion = state.automation_suggestion
+    if not suggestion:
+        return {
+            "messages": [
+                AIMessage(
+                    content="No automation suggestions to review."
+                )
+            ],
+        }
+
+    from src.agents import ArchitectAgent
+
+    architect = ArchitectAgent()
+
+    try:
+        result = await architect.receive_suggestion(suggestion, session)
+
+        response_text = result.get("response", "No response from Architect")
+        proposal_name = result.get("proposal_name")
+        proposal_yaml = result.get("proposal_yaml")
+
+        parts = []
+        if proposal_name:
+            parts.append(f"Architect created proposal: {proposal_name}")
+        if proposal_yaml:
+            parts.append(f"YAML:\n{proposal_yaml}")
+        parts.append(response_text[:500])
+
+        return {
+            "messages": [
+                AIMessage(content="\n".join(parts))
+            ],
+        }
+    except Exception as e:
+        return {
+            "messages": [
+                AIMessage(content=f"Architect review failed: {e}")
+            ],
+        }
+
+
+async def present_recommendations_node(
+    state: AnalysisState,
+) -> dict[str, Any]:
+    """Format final optimization output for the user.
+
+    Combines insights, recommendations, and automation suggestions
+    into a final summary message.
+
+    Args:
+        state: Final analysis state
+
+    Returns:
+        State updates with formatted summary
+    """
+    insights = state.insights or []
+    recommendations = state.recommendations or []
+
+    parts = [f"**Optimization Analysis Complete**"]
+    parts.append(f"Found {len(insights)} insight(s) and {len(recommendations)} recommendation(s).")
+
+    if insights:
+        parts.append("\n**Top Insights:**")
+        for i, insight in enumerate(insights[:5], 1):
+            title = insight.get("title", "Finding")
+            impact = insight.get("impact", "medium")
+            parts.append(f"{i}. [{impact.upper()}] {title}")
+
+    if recommendations:
+        parts.append("\n**Recommendations:**")
+        for rec in recommendations[:5]:
+            parts.append(f"• {rec}")
+
+    suggestion = state.automation_suggestion
+    if suggestion:
+        parts.append(f"\n**Automation Proposal:** {suggestion.pattern[:200]}")
+
+    return {
+        "messages": [
+            AIMessage(content="\n".join(parts))
         ],
     }

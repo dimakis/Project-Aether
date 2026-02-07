@@ -442,13 +442,15 @@ These features would unlock additional capabilities. **Report back when these be
 - [ ] T171 Add change detection events to DiscoverySyncService (emit events on entity add/update/remove)
 - [ ] T172 Create src/dal/automations.py with AutomationRepository for tracking HA automation changes
 
-### Multi-Agent Communication (Cross-Cutting)
+### Multi-Agent Communication (Cross-Cutting) — Rescoped
 
-- [ ] T173 [P] Create src/agents/coordinator.py with AgentCoordinator for multi-agent handoffs
-- [ ] T174 Add handoff_to_architect() tool in Data Scientist for insight→automation requests
-- [ ] T175 Add query_data_scientist() tool in Architect for energy context during automation design
-- [ ] T176 Implement agent message queue (in-memory or Redis) for async agent communication
-- [ ] T177 Add inter-agent tracing: parent-child trace spans across agent handoffs
+See [features/08-C-model-routing-multi-agent/](features/08-C-model-routing-multi-agent/) for full spec and implementation. (Feature complete: 2026-02-07)
+
+- [x] T173 ~~Create AgentCoordinator~~ → **Cancelled**: Tool-delegation pattern + model context handles coordination without a dedicated class
+- [x] T174 ~~handoff_to_architect() tool~~ → **Replaced**: Insight `automation_suggestion` pattern in DataScientistAgent + agent_tools.py formatters (lighter, no new agent)
+- [x] T175 ~~query_data_scientist() tool~~ → **Already done**: `analyze_energy`/`diagnose_issue` tools in agent_tools.py serve this purpose
+- [x] T176 ~~Agent message queue~~ → **Cancelled**: Single-user system doesn't need async messaging; structured tool returns suffice
+- [x] T177 Inter-agent tracing: parent_span_id propagation via ModelContext in src/agents/model_context.py
 
 ### Sandbox Environment (US3)
 

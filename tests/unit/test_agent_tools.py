@@ -234,6 +234,7 @@ class TestDiagnoseIssueTool:
         ]
         mock_state.recommendations = ["Check integration connection"]
         mock_state.entity_ids = ["sensor.energy_charger"]
+        mock_state.automation_suggestion = None
 
         # Mock the workflow
         mock_workflow = MagicMock()
@@ -273,6 +274,7 @@ class TestDiagnoseIssueTool:
         mock_state.insights = []
         mock_state.recommendations = []
         mock_state.entity_ids = ["sensor.test"]
+        mock_state.automation_suggestion = None
 
         mock_workflow = MagicMock()
         mock_workflow.run_analysis = AsyncMock(return_value=mock_state)
@@ -326,6 +328,7 @@ class TestDiagnoseIssueTool:
         mock_state.insights = []
         mock_state.recommendations = []
         mock_state.entity_ids = ["sensor.test"]
+        mock_state.automation_suggestion = None
 
         mock_workflow = MagicMock()
         mock_workflow.run_analysis = AsyncMock(return_value=mock_state)

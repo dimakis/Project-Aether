@@ -61,6 +61,16 @@ from src.api.schemas.insights import (
     InsightType,
     ReviewRequest,
 )
+from src.api.schemas.optimization import (
+    AutomationSuggestionResponse,
+    OptimizationAnalysisType,
+    OptimizationRequest,
+    OptimizationResult,
+    SuggestionAcceptRequest,
+    SuggestionListResponse,
+    SuggestionRejectRequest,
+    SuggestionStatus,
+)
 from src.api.schemas.proposals import (
     ApprovalRequest,
     DeploymentRequest,
@@ -254,6 +264,15 @@ __all__ = [
     "DeploymentResponse",
     "RollbackRequest",
     "RollbackResponse",
+    # Optimization (Feature 03)
+    "OptimizationAnalysisType",
+    "SuggestionStatus",
+    "OptimizationRequest",
+    "AutomationSuggestionResponse",
+    "OptimizationResult",
+    "SuggestionAcceptRequest",
+    "SuggestionRejectRequest",
+    "SuggestionListResponse",
     # Insights (US3)
     "InsightType",
     "InsightStatus",

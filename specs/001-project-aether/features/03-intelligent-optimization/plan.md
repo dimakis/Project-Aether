@@ -1,11 +1,25 @@
 # Implementation Plan: Intelligent Optimization & Multi-Agent Collaboration
 
 **Feature**: [spec.md](./spec.md)  
-**Date**: 2026-02-06 (migrated from project tasks.md)
+**Date**: 2026-02-06 (migrated from project tasks.md)  
+**Updated**: 2026-02-07 (reconciled with feature 08-C decisions)
 
 ## Summary
 
-Extend the Data Scientist agent with behavioral analysis capabilities and create a multi-agent collaboration framework that enables the DS to propose automation suggestions to the Architect.
+Extend the Data Scientist agent with behavioral analysis capabilities and enable DS-to-Architect automation suggestions via tool-delegation.
+
+## Reconciliation with Feature 08-C
+
+Feature 08-C (Model Routing & Multi-Agent, completed 2026-02-07) implemented a simpler
+tool-delegation pattern for multi-agent communication. This supersedes the originally
+planned AgentCoordinator, AgentMessage, and ds_architect_bridge module:
+
+- **AgentCoordinator** → Cancelled. Tool-delegation via `agent_tools.py` handles coordination.
+- **AgentMessage model** → Cancelled. Structured tool returns suffice.
+- **ds_architect_bridge.py** → Simplified. `AutomationSuggestion` model lives in `state.py`.
+- **Inter-agent tools** → Adapted. Add `propose_automation` to existing `agent_tools.py`.
+
+See [spec.md Design Decisions](./spec.md) for full rationale.
 
 ## Technical Approach
 
@@ -27,19 +41,20 @@ Extend `AnalysisType` enum with: BEHAVIOR_ANALYSIS, AUTOMATION_ANALYSIS, AUTOMAT
 
 ### Insight Types Extension
 
-New InsightType values: AUTOMATION_GAP, AUTOMATION_INEFFICIENCY, CORRELATION, DEVICE_HEALTH, COST_SAVING, BEHAVIORAL_PATTERN
+New InsightType values: AUTOMATION_GAP, AUTOMATION_INEFFICIENCY, CORRELATION, DEVICE_HEALTH, BEHAVIORAL_PATTERN (COST_SAVING already exists)
 
-### Agent-to-Agent Communication
+### Agent-to-Agent Communication (Simplified per 08-C)
 
-- `src/agents/coordinator.py` — AgentCoordinator for registration, queries, handoffs, insight broadcasting
-- `AgentMessage` model in state.py
-- Inter-agent tools in `src/tools/agent_tools.py`
+- `propose_automation` tool in `src/tools/agent_tools.py` — DS proposes automation to Architect via tool delegation
+- `AutomationSuggestion` Pydantic model in `src/graph/state.py` — structured suggestion with pattern, entities, trigger, action, confidence, evidence
+- Existing `analyze_energy`/`diagnose_issue` tools already handle Architect→DS delegation
 
-### DS-Architect Integration
+### DS-Architect Integration (Simplified per 08-C)
 
-- `src/agents/ds_architect_bridge.py` — AutomationSuggestion model, suggestion-to-proposal flow
-- Extended ArchitectAgent to handle DS suggestions
-- Combined DS analysis → Architect proposal workflow
+- `AutomationSuggestion` model in `src/graph/state.py` replaces separate bridge module
+- `ArchitectAgent.receive_suggestion()` method accepts structured suggestions
+- `propose_automation` tool in `agent_tools.py` drives the suggestion-to-proposal flow
+- Combined DS analysis → Architect proposal via optimization workflow graph
 
 ### API & CLI
 
