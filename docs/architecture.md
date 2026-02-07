@@ -76,7 +76,7 @@ Project Aether is an agentic home automation system that provides conversational
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | analyze_energy, discover_entities, get_entity_history, diagnose_issue, get_ha_logs, check_ha_config, HA tools |
+| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | analyze_energy, discover_entities, get_entity_history, diagnose_issue, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, HA tools |
 | **Data Scientist** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode |
 | **Librarian** | Entity discovery, catalog maintenance | MCP list_entities, domain_summary |
 | **Developer** | Automation creation, YAML generation | deploy_automation (with HITL) |
@@ -88,9 +88,11 @@ The Architect and Data Scientist collaborate to diagnose Home Assistant issues (
 ```
 User → Architect: "My car charger energy data disappeared"
          │
-         ├─→ get_ha_logs()                    # Check HA error logs
-         ├─→ check_ha_config()                # Validate HA configuration
-         ├─→ get_entity_history(detailed=true) # Identify data gaps
+         ├─→ analyze_error_log()              # Structured log analysis with pattern matching
+         ├─→ find_unavailable_entities()      # Broad entity health scan
+         ├─→ diagnose_entity(entity_id)       # Deep-dive on specific entity
+         ├─→ check_integration_health()       # Integration-level diagnosis
+         ├─→ validate_config()                # Structured config check
          │
          ├─→ diagnose_issue(                  # Delegate to Data Scientist
          │     entity_ids=[...],
@@ -113,6 +115,18 @@ User → Architect: "My car charger energy data disappeared"
 - Architect gathers evidence first, then delegates with context (not blind delegation)
 - Data Scientist has a dedicated DIAGNOSTIC analysis type with its own prompt
 - Architect can iterate: gather more data → re-delegate → synthesize
+
+### Diagnostics Module (`src/diagnostics/`)
+
+Provides structured analysis of HA system health, used by agent diagnostic tools:
+
+| Module | Purpose |
+|--------|---------|
+| `log_parser.py` | Parse raw HA error log into `ErrorLogEntry` objects, categorize by integration, detect recurring patterns |
+| `error_patterns.py` | Match entries against `KNOWN_ERROR_PATTERNS` (connection, auth, device, config, setup, database) with fix suggestions |
+| `entity_health.py` | Find unavailable/stale entities, correlate by integration to detect common root causes |
+| `integration_health.py` | Check all integration config entry health, find unhealthy integrations, deep-dive diagnosis |
+| `config_validator.py` | Structured config check with parsed errors/warnings, local automation YAML validation |
 
 ## Deployment Modes
 

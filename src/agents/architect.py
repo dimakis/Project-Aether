@@ -62,26 +62,44 @@ Always confirm your understanding before proposing an automation.
 
 You have tools for diagnosing Home Assistant issues:
 
-- **get_ha_logs**: Fetch HA error/warning logs. Use when users report issues with sensors,
-  integrations, or devices. Look for connection errors, timeout messages, integration failures.
-- **check_ha_config**: Validate HA configuration. Use when diagnosing config-related problems.
+### Basic Tools
+- **get_ha_logs**: Fetch raw HA error/warning logs.
+- **check_ha_config**: Run basic HA config validation.
 - **get_entity_history** (with detailed=true): Get rich history with gap detection, statistics,
   and state distribution. Use to identify missing data or connectivity problems.
 - **diagnose_issue**: Delegate analysis to the Data Scientist with your collected evidence.
+
+### Advanced Diagnostic Tools
+- **analyze_error_log**: Fetch AND analyze the HA error log — parses entries, groups by
+  integration, matches against known error patterns, and provides actionable recommendations.
+  Prefer this over raw get_ha_logs for structured diagnosis.
+- **find_unavailable_entities**: Find all entities in 'unavailable' or 'unknown' state,
+  grouped by integration with common-cause detection. Use as a first step when users
+  report device or sensor problems.
+- **diagnose_entity**: Deep-dive into a single entity — current state, 24h history,
+  state transitions, and related error log entries. Use after find_unavailable_entities
+  to investigate specific problematic entities.
+- **check_integration_health**: Check the health of all HA integrations (config entries).
+  Finds integrations in setup_error, not_loaded, or other unhealthy states. Use when
+  users report broad integration problems.
+- **validate_config**: Run a structured HA configuration check with parsed errors and
+  warnings. Prefer this over raw check_ha_config for structured results.
 
 ### Diagnostic Workflow
 
 When a user reports a system issue (missing data, broken sensor, unexpected behavior):
 
-1. **Gather Evidence**: Pull HA logs, check config, get detailed entity history for relevant
-   entities. Don't delegate immediately — collect data first.
-2. **Identify Candidates**: From the evidence, note error patterns, data gaps, and anomalies.
-3. **Delegate to Data Scientist**: Use diagnose_issue with:
+1. **Triage**: Start with `analyze_error_log` and `find_unavailable_entities` to get a
+   broad picture of system health.
+2. **Deep-dive**: For specific entities, use `diagnose_entity`. For integration issues,
+   use `check_integration_health`.
+3. **Validate**: If config issues are suspected, use `validate_config`.
+4. **Delegate to Data Scientist**: Use `diagnose_issue` with:
    - entity_ids: the affected entities
    - diagnostic_context: your collected evidence (logs, history observations, config results)
    - instructions: specific analysis you want the DS to perform
-4. **Synthesize**: Combine DS findings with your own observations into a clear diagnosis.
-5. **Iterate if Needed**: If the DS results suggest additional investigation, gather more data
+5. **Synthesize**: Combine DS findings with your own observations into a clear diagnosis.
+6. **Iterate if Needed**: If the DS results suggest additional investigation, gather more data
    and re-delegate with refined instructions.
 
 Present diagnostic findings clearly: what's wrong, what caused it, and what the user can do."""
@@ -406,10 +424,18 @@ class ArchitectAgent(BaseAgent):
             # Key domains to list in detail (most useful for automations)
             detailed_domains = ["light", "switch", "climate", "cover", "fan", "lock", "alarm_control_panel"]
 
+            # Batch-fetch entities for all detailed domains in a single query (T190)
+            domains_to_detail = [
+                d for d, c in counts.items()
+                if d in detailed_domains and c <= 50
+            ]
+            entities_by_domain = await repo.list_by_domains(
+                domains_to_detail, limit_per_domain=50,
+            )
+
             for domain, count in sorted(counts.items()):
-                if domain in detailed_domains and count <= 50:
-                    # List actual entities for key domains
-                    entities = await repo.list_all(domain=domain, limit=50)
+                if domain in entities_by_domain:
+                    entities = entities_by_domain[domain]
                     entity_list = []
                     for e in entities:
                         name = e.name or e.entity_id.split(".")[-1].replace("_", " ").title()
