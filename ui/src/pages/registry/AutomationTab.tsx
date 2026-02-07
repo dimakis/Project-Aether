@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ToggleLeft, ToggleRight, ChevronRight, Clock, Code } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -171,9 +172,20 @@ export function AutomationTab({
               </div>
 
               {/* Expanded detail */}
-              {expandedId === auto.id && (
-                <AutomationDetail automation={auto} />
-              )}
+              <AnimatePresence>
+                {expandedId === auto.id && (
+                  <motion.div
+                    data-testid="expand-motion"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <AutomationDetail automation={auto} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </CardContent>
           </Card>
         ))}

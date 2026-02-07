@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { FileText, ChevronRight, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -114,53 +115,64 @@ export function ScriptTab({
               </div>
             </div>
 
-            {expandedId === script.id && (
-              <div
-                className="mt-4 space-y-3 border-t border-border/50 pt-4"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {script.description && (
-                  <p className="text-xs text-muted-foreground">
-                    {script.description}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {script.last_triggered && (
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Clock className="h-2.5 w-2.5" />
-                      Last: {formatRelativeTime(script.last_triggered)}
-                    </span>
-                  )}
-                </div>
-                {script.sequence && script.sequence.length > 0 && (
-                  <div>
-                    <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                      Sequence
-                    </h4>
-                    <DataViewer
-                      data={script.sequence}
-                      defaultMode="yaml"
-                      collapsible
-                      maxHeight={300}
-                    />
-                  </div>
-                )}
-                {script.fields &&
-                  Object.keys(script.fields).length > 0 && (
-                    <div>
-                      <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                        Fields
-                      </h4>
-                      <DataViewer
-                        data={script.fields}
-                        defaultMode="yaml"
-                        collapsible
-                        maxHeight={200}
-                      />
+            <AnimatePresence>
+              {expandedId === script.id && (
+                <motion.div
+                  data-testid="expand-motion"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div
+                    className="mt-4 space-y-3 border-t border-border/50 pt-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {script.description && (
+                      <p className="text-xs text-muted-foreground">
+                        {script.description}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {script.last_triggered && (
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Clock className="h-2.5 w-2.5" />
+                          Last: {formatRelativeTime(script.last_triggered)}
+                        </span>
+                      )}
                     </div>
-                  )}
-              </div>
-            )}
+                    {script.sequence && script.sequence.length > 0 && (
+                      <div>
+                        <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+                          Sequence
+                        </h4>
+                        <DataViewer
+                          data={script.sequence}
+                          defaultMode="yaml"
+                          collapsible
+                          maxHeight={300}
+                        />
+                      </div>
+                    )}
+                    {script.fields &&
+                      Object.keys(script.fields).length > 0 && (
+                        <div>
+                          <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+                            Fields
+                          </h4>
+                          <DataViewer
+                            data={script.fields}
+                            defaultMode="yaml"
+                            collapsible
+                            maxHeight={200}
+                          />
+                        </div>
+                      )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
       ))}

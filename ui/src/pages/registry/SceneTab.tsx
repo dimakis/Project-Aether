@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Clapperboard, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -86,31 +87,42 @@ export function SceneTab({
               />
             </div>
 
-            {expandedId === scene.id && (
-              <div
-                className="mt-4 space-y-3 border-t border-border/50 pt-4"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {scene.entity_states &&
-                Object.keys(scene.entity_states).length > 0 ? (
-                  <div>
-                    <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                      Entity States
-                    </h4>
-                    <DataViewer
-                      data={scene.entity_states}
-                      defaultMode="yaml"
-                      collapsible
-                      maxHeight={300}
-                    />
+            <AnimatePresence>
+              {expandedId === scene.id && (
+                <motion.div
+                  data-testid="expand-motion"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div
+                    className="mt-4 space-y-3 border-t border-border/50 pt-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {scene.entity_states &&
+                    Object.keys(scene.entity_states).length > 0 ? (
+                      <div>
+                        <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+                          Entity States
+                        </h4>
+                        <DataViewer
+                          data={scene.entity_states}
+                          defaultMode="yaml"
+                          collapsible
+                          maxHeight={300}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground">
+                        Entity states not available (MCP gap)
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground">
-                    Entity states not available (MCP gap)
-                  </p>
-                )}
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
       ))}

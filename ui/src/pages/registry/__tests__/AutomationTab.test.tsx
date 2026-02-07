@@ -1,7 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AutomationTab } from "../AutomationTab";
 import type { Automation } from "@/lib/types";
+
+// Mock framer-motion so AnimatePresence removes children synchronously
+vi.mock("framer-motion", () => ({
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  motion: {
+    div: ({
+      children,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & { [key: string]: unknown }) => {
+      // Strip framer-motion-specific props and pass through
+      const { initial, animate, exit, transition, ...rest } = props as Record<string, unknown>;
+      return <div {...(rest as React.HTMLAttributes<HTMLDivElement>)}>{children}</div>;
+    },
+  },
+}));
 
 // Mock hooks and heavy components
 vi.mock("@/api/hooks", () => ({
@@ -72,6 +88,63 @@ describe("AutomationTab", () => {
         />,
       );
       expect(screen.queryByText(/showing/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("expand/collapse animation", () => {
+    it("expands card detail on click and collapses on second click", async () => {
+      const user = userEvent.setup();
+      const automations = [
+        makeAutomation({
+          id: "a1",
+          alias: "Kitchen lights",
+          description: "Turn on kitchen lights at sunset",
+        }),
+      ];
+      render(
+        <AutomationTab
+          automations={automations}
+          isLoading={false}
+          searchQuery=""
+          enabledCount={1}
+          disabledCount={0}
+        />,
+      );
+      // Click to expand
+      await user.click(screen.getByText("Kitchen lights"));
+      expect(
+        screen.getByText("Turn on kitchen lights at sunset"),
+      ).toBeInTheDocument();
+      // Click again to collapse
+      await user.click(screen.getByText("Kitchen lights"));
+      expect(
+        screen.queryByText("Turn on kitchen lights at sunset"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("wraps expanded content in a motion container", async () => {
+      const user = userEvent.setup();
+      const automations = [
+        makeAutomation({
+          id: "a1",
+          alias: "Kitchen lights",
+          description: "Turn on kitchen lights at sunset",
+        }),
+      ];
+      const { container } = render(
+        <AutomationTab
+          automations={automations}
+          isLoading={false}
+          searchQuery=""
+          enabledCount={1}
+          disabledCount={0}
+        />,
+      );
+      await user.click(screen.getByText("Kitchen lights"));
+      // Framer motion.div renders with data-framer-* attributes or style containing transform
+      // Check that the expanded detail has a motion wrapper via data-testid
+      const motionWrapper = container.querySelector("[data-testid='expand-motion']");
+      expect(motionWrapper).toBeInTheDocument();
     });
   });
 });

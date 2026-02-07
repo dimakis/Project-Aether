@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Wrench, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -133,45 +134,56 @@ export function ServiceTab({
                   </div>
                 </div>
 
-                {expandedId === svc.id && (
-                  <div
-                    className="mt-4 space-y-3 border-t border-border/50 pt-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {svc.description && (
-                      <p className="text-xs text-muted-foreground">
-                        {svc.description}
-                      </p>
-                    )}
-                    {svc.target &&
-                      Object.keys(svc.target).length > 0 && (
-                        <div>
-                          <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                            Target
-                          </h4>
-                          <DataViewer
-                            data={svc.target}
-                            defaultMode="yaml"
-                            maxHeight={200}
-                          />
-                        </div>
-                      )}
-                    {svc.fields &&
-                      Object.keys(svc.fields).length > 0 && (
-                        <div>
-                          <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                            Fields
-                          </h4>
-                          <DataViewer
-                            data={svc.fields}
-                            defaultMode="yaml"
-                            collapsible
-                            maxHeight={300}
-                          />
-                        </div>
-                      )}
-                  </div>
-                )}
+                <AnimatePresence>
+                  {expandedId === svc.id && (
+                    <motion.div
+                      data-testid="expand-motion"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div
+                        className="mt-4 space-y-3 border-t border-border/50 pt-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {svc.description && (
+                          <p className="text-xs text-muted-foreground">
+                            {svc.description}
+                          </p>
+                        )}
+                        {svc.target &&
+                          Object.keys(svc.target).length > 0 && (
+                            <div>
+                              <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+                                Target
+                              </h4>
+                              <DataViewer
+                                data={svc.target}
+                                defaultMode="yaml"
+                                maxHeight={200}
+                              />
+                            </div>
+                          )}
+                        {svc.fields &&
+                          Object.keys(svc.fields).length > 0 && (
+                            <div>
+                              <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+                                Fields
+                              </h4>
+                              <DataViewer
+                                data={svc.fields}
+                                defaultMode="yaml"
+                                collapsible
+                                maxHeight={300}
+                              />
+                            </div>
+                          )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </CardContent>
             </Card>
           ))}
