@@ -105,6 +105,7 @@ class SuggestionAcceptRequest(BaseModel):
 
     comment: str | None = Field(
         default=None,
+        max_length=2000,
         description="Optional comment",
     )
 
@@ -114,6 +115,7 @@ class SuggestionRejectRequest(BaseModel):
 
     reason: str | None = Field(
         default=None,
+        max_length=2000,
         description="Reason for rejection",
     )
 

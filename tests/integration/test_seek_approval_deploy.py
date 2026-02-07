@@ -63,7 +63,7 @@ class TestEntityCommandDeploy:
         with (
             patch("src.api.routes.proposals.get_session") as mock_gs,
             patch("src.api.routes.proposals.ProposalRepository", return_value=mock_repo),
-            patch("src.api.routes.proposals.get_mcp_client", return_value=mock_mcp),
+            patch("src.api.routes.proposals.get_ha_client", return_value=mock_mcp),
         ):
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -100,7 +100,7 @@ class TestEntityCommandDeploy:
         mock_mcp.call_service.return_value = {}
 
         with (
-            patch("src.api.routes.proposals.get_mcp_client", return_value=mock_mcp),
+            patch("src.api.routes.proposals.get_ha_client", return_value=mock_mcp),
         ):
             from src.api.routes.proposals import _deploy_entity_command
 

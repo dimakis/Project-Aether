@@ -143,7 +143,7 @@ class HAEntity(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
         doc="What hid the entity",
     )
 
-    # Labels (MCP gap - stored as JSON array for future use)
+    # Labels (HA gap - stored as JSON array for future use)
     labels: Mapped[list[str] | None] = mapped_column(
         JSONB,
         nullable=True,

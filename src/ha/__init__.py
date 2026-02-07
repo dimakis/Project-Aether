@@ -1,10 +1,10 @@
-"""MCP client wrapper for Home Assistant integration.
+"""HA client wrapper for Home Assistant integration.
 
-Provides a typed interface to the hass-mcp tools with
-parsing, error handling, and workarounds for MCP gaps.
+Provides a typed interface to the hass-ha tools with
+parsing, error handling, and workarounds for HA gaps.
 """
 
-from src.mcp.automation_deploy import (
+from src.ha.automation_deploy import (
     AutomationDeployer,
     build_condition,
     build_delay_action,
@@ -13,9 +13,9 @@ from src.mcp.automation_deploy import (
     build_sun_trigger,
     build_time_trigger,
 )
-from src.mcp.client import MCPClient, get_mcp_client
-from src.mcp.constants import COMMON_SERVICES
-from src.mcp.history import (
+from src.ha.client import HAClient, get_ha_client
+from src.ha.constants import COMMON_SERVICES
+from src.ha.history import (
     EnergyDataPoint,
     EnergyHistory,
     EnergyHistoryClient,
@@ -23,13 +23,13 @@ from src.mcp.history import (
     discover_energy_sensors,
     get_energy_history,
 )
-from src.mcp.behavioral import BehavioralAnalysisClient
-from src.mcp.logbook import (
+from src.ha.behavioral import BehavioralAnalysisClient
+from src.ha.logbook import (
     LogbookHistoryClient,
     LogbookStats,
     get_logbook_stats,
 )
-from src.mcp.parsers import (
+from src.ha.parsers import (
     ParsedLogbookEntry,
     parse_automation_list,
     parse_domain_summary,
@@ -39,12 +39,12 @@ from src.mcp.parsers import (
     parse_logbook_list,
     parse_system_overview,
 )
-from src.mcp.workarounds import infer_areas_from_entities, infer_devices_from_entities
+from src.ha.workarounds import infer_areas_from_entities, infer_devices_from_entities
 
 __all__ = [
     # Client
-    "MCPClient",
-    "get_mcp_client",
+    "HAClient",
+    "get_ha_client",
     # Parsers
     "parse_system_overview",
     "parse_entity_list",

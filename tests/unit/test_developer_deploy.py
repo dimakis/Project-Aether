@@ -1,6 +1,6 @@
 """Unit tests for DeveloperAgent deployment via AutomationDeployer.
 
-Tests that _deploy_via_mcp correctly delegates to AutomationDeployer
+Tests that _deploy_via_ha correctly delegates to AutomationDeployer
 for real HA REST API deployment instead of returning manual instructions.
 """
 
@@ -12,12 +12,12 @@ from src.agents.developer import DeveloperAgent
 
 @pytest.mark.asyncio
 class TestDeveloperDeployViaMCP:
-    """Tests for DeveloperAgent._deploy_via_mcp using AutomationDeployer."""
+    """Tests for DeveloperAgent._deploy_via_ha using AutomationDeployer."""
 
     async def test_deploy_calls_automation_deployer(self):
-        """_deploy_via_mcp should delegate to AutomationDeployer.deploy_automation."""
+        """_deploy_via_ha should delegate to AutomationDeployer.deploy_automation."""
         mock_mcp = MagicMock()
-        agent = DeveloperAgent(mcp_client=mock_mcp)
+        agent = DeveloperAgent(ha_client=mock_mcp)
 
         expected_result = {
             "success": True,
@@ -36,7 +36,7 @@ class TestDeveloperDeployViaMCP:
             )
             MockDeployer.return_value = mock_deployer_instance
 
-            result = await agent._deploy_via_mcp("aether_test", "alias: Test\ntrigger: []\naction: []")
+            result = await agent._deploy_via_ha("aether_test", "alias: Test\ntrigger: []\naction: []")
 
             MockDeployer.assert_called_once_with(mock_mcp)
             mock_deployer_instance.deploy_automation.assert_called_once_with(
@@ -49,7 +49,7 @@ class TestDeveloperDeployViaMCP:
     async def test_deploy_returns_manual_on_failure(self):
         """When AutomationDeployer fails REST API, it falls back to manual."""
         mock_mcp = MagicMock()
-        agent = DeveloperAgent(mcp_client=mock_mcp)
+        agent = DeveloperAgent(ha_client=mock_mcp)
 
         fallback_result = {
             "success": False,
@@ -67,7 +67,7 @@ class TestDeveloperDeployViaMCP:
             )
             MockDeployer.return_value = mock_deployer_instance
 
-            result = await agent._deploy_via_mcp("aether_test", "alias: Test\ntrigger: []\naction: []")
+            result = await agent._deploy_via_ha("aether_test", "alias: Test\ntrigger: []\naction: []")
 
             assert result["success"] is False
             assert result["method"] == "manual"
@@ -76,7 +76,7 @@ class TestDeveloperDeployViaMCP:
     async def test_deploy_passes_correct_arguments(self):
         """Verify correct yaml_content and automation_id are passed."""
         mock_mcp = MagicMock()
-        agent = DeveloperAgent(mcp_client=mock_mcp)
+        agent = DeveloperAgent(ha_client=mock_mcp)
 
         yaml_content = """alias: Sunset lights
 trigger:
@@ -97,7 +97,7 @@ action:
             )
             MockDeployer.return_value = mock_deployer_instance
 
-            await agent._deploy_via_mcp("aether_sunset_12345678", yaml_content)
+            await agent._deploy_via_ha("aether_sunset_12345678", yaml_content)
 
             call_args = mock_deployer_instance.deploy_automation.call_args
             assert call_args[0][0] == yaml_content
@@ -106,7 +106,7 @@ action:
     async def test_deploy_no_longer_returns_manual_stub(self):
         """Ensure the old stub behavior (always manual) is gone."""
         mock_mcp = MagicMock()
-        agent = DeveloperAgent(mcp_client=mock_mcp)
+        agent = DeveloperAgent(ha_client=mock_mcp)
 
         with patch(
             "src.agents.developer.AutomationDeployer"
@@ -117,7 +117,7 @@ action:
             )
             MockDeployer.return_value = mock_deployer_instance
 
-            result = await agent._deploy_via_mcp("test_id", "alias: Test\ntrigger: []\naction: []")
+            result = await agent._deploy_via_ha("test_id", "alias: Test\ntrigger: []\naction: []")
 
             # Should NOT be the old hardcoded manual response
             assert result.get("method") != "manual" or result.get("success") is not None

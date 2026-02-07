@@ -1,6 +1,6 @@
 """Unit tests for MCP energy history module.
 
-Tests EnergyHistoryClient with mocked MCP client.
+Tests EnergyHistoryClient with mocked HA client.
 Constitution: Reliability & Quality - comprehensive testing.
 
 TDD: T106 - History data parsing tests.
@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.mcp.history import (
+from src.ha.history import (
     EnergyDataPoint,
     EnergyHistory,
     EnergyHistoryClient,
@@ -22,8 +22,8 @@ from src.mcp.history import (
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client."""
+def mock_ha_client():
+    """Create a mock HA client."""
     client = AsyncMock()
     client.get_history = AsyncMock()
     client.get_entity = AsyncMock()
@@ -32,9 +32,9 @@ def mock_mcp_client():
 
 
 @pytest.fixture
-def energy_client(mock_mcp_client):
-    """Create EnergyHistoryClient with mock MCP client."""
-    return EnergyHistoryClient(mock_mcp_client)
+def energy_client(mock_ha_client):
+    """Create EnergyHistoryClient with mock HA client."""
+    return EnergyHistoryClient(mock_ha_client)
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def sample_history_states():
 
 @pytest.fixture
 def sample_entity_info():
-    """Create sample entity info matching MCPClient.get_entity(detailed=True) format."""
+    """Create sample entity info matching HAClient.get_entity(detailed=True) format."""
     return {
         "entity_id": "sensor.grid_power",
         "state": "2.5",
@@ -222,11 +222,11 @@ class TestEnergyHistoryClientGetHistory:
 
     @pytest.mark.asyncio
     async def test_get_energy_history(
-        self, energy_client, mock_mcp_client, sample_history_states, sample_entity_info
+        self, energy_client, mock_ha_client, sample_history_states, sample_entity_info
     ):
         """Test getting energy history for an entity."""
-        mock_mcp_client.get_entity.return_value = sample_entity_info
-        mock_mcp_client.get_history.return_value = {
+        mock_ha_client.get_entity.return_value = sample_entity_info
+        mock_ha_client.get_history.return_value = {
             "entity_id": "sensor.grid_power",
             "states": sample_history_states,
             "count": 4,
@@ -246,9 +246,9 @@ class TestEnergyHistoryClientDiscovery:
     """Tests for energy sensor discovery."""
 
     @pytest.mark.asyncio
-    async def test_get_energy_sensors(self, energy_client, mock_mcp_client):
+    async def test_get_energy_sensors(self, energy_client, mock_ha_client):
         """Test discovering energy sensors."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
                 {
                     "entity_id": "sensor.grid_power",
                     "state": "1.5",
@@ -293,11 +293,11 @@ class TestEnergyHistoryClientAggregation:
 
     @pytest.mark.asyncio
     async def test_get_aggregated_energy(
-        self, energy_client, mock_mcp_client, sample_history_states, sample_entity_info
+        self, energy_client, mock_ha_client, sample_history_states, sample_entity_info
     ):
         """Test aggregating energy across multiple entities."""
-        mock_mcp_client.get_entity.return_value = sample_entity_info
-        mock_mcp_client.get_history.return_value = {
+        mock_ha_client.get_entity.return_value = sample_entity_info
+        mock_ha_client.get_history.return_value = {
             "entity_id": "sensor.grid_power",
             "states": sample_history_states,
             "count": 4,
@@ -314,11 +314,11 @@ class TestEnergyHistoryClientAggregation:
 
     @pytest.mark.asyncio
     async def test_get_daily_breakdown(
-        self, energy_client, mock_mcp_client, sample_history_states, sample_entity_info
+        self, energy_client, mock_ha_client, sample_history_states, sample_entity_info
     ):
         """Test getting daily breakdown."""
-        mock_mcp_client.get_entity.return_value = sample_entity_info
-        mock_mcp_client.get_history.return_value = {
+        mock_ha_client.get_entity.return_value = sample_entity_info
+        mock_ha_client.get_history.return_value = {
             "entity_id": "sensor.grid_power",
             "states": sample_history_states,
             "count": 4,
@@ -332,11 +332,11 @@ class TestEnergyHistoryClientAggregation:
 
     @pytest.mark.asyncio
     async def test_get_peak_usage(
-        self, energy_client, mock_mcp_client, sample_history_states, sample_entity_info
+        self, energy_client, mock_ha_client, sample_history_states, sample_entity_info
     ):
         """Test getting peak usage information."""
-        mock_mcp_client.get_entity.return_value = sample_entity_info
-        mock_mcp_client.get_history.return_value = {
+        mock_ha_client.get_entity.return_value = sample_entity_info
+        mock_ha_client.get_history.return_value = {
             "entity_id": "sensor.grid_power",
             "states": sample_history_states,
             "count": 4,
@@ -354,24 +354,24 @@ class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
     @pytest.mark.asyncio
-    async def test_get_energy_history_function(self, mock_mcp_client, sample_history_states, sample_entity_info):
+    async def test_get_energy_history_function(self, mock_ha_client, sample_history_states, sample_entity_info):
         """Test get_energy_history convenience function."""
-        mock_mcp_client.get_entity.return_value = sample_entity_info
-        mock_mcp_client.get_history.return_value = {
+        mock_ha_client.get_entity.return_value = sample_entity_info
+        mock_ha_client.get_history.return_value = {
             "entity_id": "sensor.grid_power",
             "states": sample_history_states,
             "count": 4,
         }
 
-        result = await get_energy_history(mock_mcp_client, "sensor.grid_power", hours=24)
+        result = await get_energy_history(mock_ha_client, "sensor.grid_power", hours=24)
 
         assert isinstance(result, EnergyHistory)
         assert result.entity_id == "sensor.grid_power"
 
     @pytest.mark.asyncio
-    async def test_discover_energy_sensors_function(self, mock_mcp_client):
+    async def test_discover_energy_sensors_function(self, mock_ha_client):
         """Test discover_energy_sensors convenience function."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
                 {
                     "entity_id": "sensor.grid_power",
                     "state": "1.5",
@@ -382,7 +382,7 @@ class TestConvenienceFunctions:
                 },
             ]
 
-        result = await discover_energy_sensors(mock_mcp_client)
+        result = await discover_energy_sensors(mock_ha_client)
 
         assert len(result) == 1
         assert result[0]["entity_id"] == "sensor.grid_power"

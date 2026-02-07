@@ -18,7 +18,7 @@ from src.graph.state import (
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-    from src.mcp.client import MCPClient
+    from src.ha.client import HAClient
 
 
 async def initialize_discovery_node(state: DiscoveryState) -> dict[str, object]:
@@ -40,23 +40,23 @@ async def initialize_discovery_node(state: DiscoveryState) -> dict[str, object]:
 
 async def fetch_entities_node(
     state: DiscoveryState,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, object]:
     """Fetch entities from Home Assistant via MCP.
 
     Args:
         state: Current discovery state
-        mcp_client: MCP client for HA communication
+        ha_client: HA client for HA communication
 
     Returns:
         State updates with fetched entities
     """
-    from src.mcp import MCPClient, get_mcp_client, parse_entity_list
+    from src.ha import HAClient, get_ha_client, parse_entity_list
 
-    mcp: MCPClient = mcp_client or get_mcp_client()
+    ha: HAClient = ha_client or get_ha_client()
 
     # Fetch all entities
-    raw_entities = await mcp.list_entities(detailed=True)
+    raw_entities = await ha.list_entities(detailed=True)
     entities = parse_entity_list(raw_entities)
 
     # Convert to EntitySummary
@@ -83,7 +83,7 @@ async def fetch_entities_node(
 
 async def infer_devices_node(
     state: DiscoveryState,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, object]:
     """Infer devices from entity attributes.
 
@@ -91,7 +91,7 @@ async def infer_devices_node(
 
     Args:
         state: State with fetched entities
-        mcp_client: MCP client (unused, but kept for consistency)
+        ha_client: HA client (unused, but kept for consistency)
 
     Returns:
         State updates with device count
@@ -109,7 +109,7 @@ async def infer_devices_node(
 
 async def infer_areas_node(
     state: DiscoveryState,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, object]:
     """Infer areas from entity attributes.
 
@@ -117,7 +117,7 @@ async def infer_areas_node(
 
     Args:
         state: State with fetched entities
-        mcp_client: MCP client (unused, but kept for consistency)
+        ha_client: HA client (unused, but kept for consistency)
 
     Returns:
         State updates with area count
@@ -135,7 +135,7 @@ async def infer_areas_node(
 
 async def sync_automations_node(
     state: DiscoveryState,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, object]:
     """Sync automations from Home Assistant.
 
@@ -143,18 +143,18 @@ async def sync_automations_node(
 
     Args:
         state: Current state
-        mcp_client: MCP client
+        ha_client: HA client
 
     Returns:
         State updates with automation info
     """
-    from src.mcp import get_mcp_client
+    from src.ha import get_ha_client
 
-    mcp = mcp_client or get_mcp_client()
+    ha = ha_client or get_ha_client()
 
     try:
         # Fetch automations
-        automations = await mcp.list_automations()
+        automations = await ha.list_automations()
         automation_count = len(automations) if automations else 0
 
         # Count scripts and scenes from already-fetched entities
@@ -175,34 +175,34 @@ async def sync_automations_node(
 async def persist_entities_node(
     state: DiscoveryState,
     session: AsyncSession | None = None,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, object]:
     """Persist entities to database.
 
     Args:
         state: State with entities to persist
         session: Database session
-        mcp_client: MCP client for sync service
+        ha_client: HA client for sync service
 
     Returns:
         State updates with sync statistics
     """
     from src.dal import DiscoverySyncService
-    from src.mcp import get_mcp_client
+    from src.ha import get_ha_client
     from src.storage import get_session
 
-    mcp = mcp_client or get_mcp_client()
+    ha = ha_client or get_ha_client()
 
     # Use provided session or create new one
     if session:
-        sync_service = DiscoverySyncService(session, mcp)
+        sync_service = DiscoverySyncService(session, ha)
         discovery = await sync_service.run_discovery(
             triggered_by="graph",
             mlflow_run_id=state.mlflow_run_id,
         )
     else:
         async with get_session() as new_session:
-            sync_service = DiscoverySyncService(new_session, mcp)
+            sync_service = DiscoverySyncService(new_session, ha)
             discovery = await sync_service.run_discovery(
                 triggered_by="graph",
                 mlflow_run_id=state.mlflow_run_id,
@@ -290,11 +290,11 @@ async def run_discovery_node(
     """
     from src.graph.workflows import run_discovery_workflow
 
-    mcp_client = kwargs.get("mcp_client")
+    ha_client = kwargs.get("ha_client")
     session = kwargs.get("session")
 
     result_state = await run_discovery_workflow(
-        mcp_client=mcp_client,
+        ha_client=ha_client,
         session=session,
     )
 

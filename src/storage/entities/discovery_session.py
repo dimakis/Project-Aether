@@ -150,7 +150,7 @@ class DiscoverySession(Base, UUIDMixin, TimestampMixin):
         doc="List of non-fatal errors encountered",
     )
 
-    # MCP gap tracking
+    # HA gap tracking
     mcp_gaps_encountered: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,

@@ -116,7 +116,7 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         doc="FK to currently active prompt version",
     )
 
-    # Relationships
+    # Relationships — collection (one-to-many via agent_id FK on child)
     conversations: Mapped[list["Conversation"]] = relationship(
         "Conversation",
         back_populates="agent",
@@ -135,6 +135,23 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         foreign_keys="[AgentPromptVersion.agent_id]",
         lazy="selectin",
         order_by="AgentPromptVersion.version_number.desc()",
+    )
+
+    # Relationships — active version pointers (many-to-one via FK on Agent)
+    # These use post_update=True to handle the circular dependency:
+    # Agent -> AgentConfigVersion (active_config_version_id)
+    # AgentConfigVersion -> Agent (agent_id)
+    active_config_version: Mapped["AgentConfigVersion | None"] = relationship(
+        "AgentConfigVersion",
+        foreign_keys=[active_config_version_id],
+        post_update=True,
+        lazy="selectin",
+    )
+    active_prompt_version: Mapped["AgentPromptVersion | None"] = relationship(
+        "AgentPromptVersion",
+        foreign_keys=[active_prompt_version_id],
+        post_update=True,
+        lazy="selectin",
     )
 
     @property

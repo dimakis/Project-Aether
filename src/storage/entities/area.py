@@ -35,7 +35,7 @@ class Area(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
         doc="Area display name",
     )
 
-    # Floor (nullable - MCP gap)
+    # Floor (nullable - HA gap)
     floor_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,

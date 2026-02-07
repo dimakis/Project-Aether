@@ -119,7 +119,7 @@ class TestHAHealth:
                 "src.api.routes.diagnostics.find_unhealthy_integrations",
                 AsyncMock(return_value=mock_unhealthy),
             ),
-            patch("src.api.routes.diagnostics.get_mcp_client"),
+            patch("src.api.routes.diagnostics.get_ha_client"),
         ):
             response = await client.get(
                 "/api/v1/diagnostics/ha-health",
@@ -182,7 +182,7 @@ class TestErrorLog:
 
         with (
             patch(
-                "src.api.routes.diagnostics.get_mcp_client",
+                "src.api.routes.diagnostics.get_ha_client",
                 return_value=mock_mcp,
             ),
             patch(
@@ -237,7 +237,7 @@ class TestConfigCheck:
         mock_mcp = MagicMock()
         with (
             patch(
-                "src.api.routes.diagnostics.get_mcp_client",
+                "src.api.routes.diagnostics.get_ha_client",
                 return_value=mock_mcp,
             ),
             patch(

@@ -1,4 +1,4 @@
-"""Unit tests for MCP client diagnostic methods.
+"""Unit tests for HA client diagnostic methods.
 
 TDD: Tests written FIRST to define the API contract for diagnostic
 MCP methods (list_config_entries, get_config_entry_diagnostics,
@@ -9,19 +9,19 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.mcp.client import MCPClient, MCPClientConfig, MCPError
+from src.ha.client import HAClient, HAClientConfig, HAClientError
 
 
-def _make_client() -> MCPClient:
-    """Create an MCPClient with test config."""
-    return MCPClient(MCPClientConfig(
+def _make_client() -> HAClient:
+    """Create an HAClient with test config."""
+    return HAClient(HAClientConfig(
         ha_url="http://localhost:8123",
         ha_token="test-token",
     ))
 
 
 class TestListConfigEntries:
-    """Tests for MCPClient.list_config_entries."""
+    """Tests for HAClient.list_config_entries."""
 
     @pytest.mark.asyncio
     async def test_returns_integration_list(self):
@@ -78,7 +78,7 @@ class TestListConfigEntries:
 
 
 class TestGetConfigEntryDiagnostics:
-    """Tests for MCPClient.get_config_entry_diagnostics."""
+    """Tests for HAClient.get_config_entry_diagnostics."""
 
     @pytest.mark.asyncio
     async def test_returns_diagnostics(self):
@@ -109,7 +109,7 @@ class TestGetConfigEntryDiagnostics:
 
 
 class TestReloadConfigEntry:
-    """Tests for MCPClient.reload_config_entry."""
+    """Tests for HAClient.reload_config_entry."""
 
     @pytest.mark.asyncio
     async def test_reload_success(self):
@@ -128,18 +128,18 @@ class TestReloadConfigEntry:
 
     @pytest.mark.asyncio
     async def test_reload_failure_raises(self):
-        """Test reload failure raises MCPError."""
+        """Test reload failure raises HAClientError."""
         client = _make_client()
-        client._request = AsyncMock(side_effect=MCPError(
+        client._request = AsyncMock(side_effect=HAClientError(
             "All connection attempts failed", "request"
         ))
 
-        with pytest.raises(MCPError):
+        with pytest.raises(HAClientError):
             await client.reload_config_entry("bad_entry")
 
 
 class TestListServices:
-    """Tests for MCPClient.list_services."""
+    """Tests for HAClient.list_services."""
 
     @pytest.mark.asyncio
     async def test_returns_service_list(self):
@@ -180,7 +180,7 @@ class TestListServices:
 
 
 class TestListEventTypes:
-    """Tests for MCPClient.list_event_types."""
+    """Tests for HAClient.list_event_types."""
 
     @pytest.mark.asyncio
     async def test_returns_event_types(self):

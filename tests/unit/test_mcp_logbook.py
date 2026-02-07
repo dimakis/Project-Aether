@@ -1,6 +1,6 @@
 """Unit tests for MCP logbook module.
 
-Tests LogbookHistoryClient and logbook parsers with mocked MCP client.
+Tests LogbookHistoryClient and logbook parsers with mocked HA client.
 Constitution: Reliability & Quality.
 
 TDD: T233 - Logbook client and parsing.
@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.mcp.logbook import (
+from src.ha.logbook import (
     ACTION_TYPE_AUTOMATION,
     ACTION_TYPE_BUTTON,
     ACTION_TYPE_STATE_CHANGE,
@@ -19,7 +19,7 @@ from src.mcp.logbook import (
     LogbookStats,
     classify_action,
 )
-from src.mcp.parsers import (
+from src.ha.parsers import (
     ParsedLogbookEntry,
     parse_logbook_entry,
     parse_logbook_list,
@@ -27,17 +27,17 @@ from src.mcp.parsers import (
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client."""
+def mock_ha_client():
+    """Create a mock HA client."""
     client = AsyncMock()
     client.get_logbook = AsyncMock()
     return client
 
 
 @pytest.fixture
-def logbook_client(mock_mcp_client):
-    """Create LogbookHistoryClient with mock MCP client."""
-    return LogbookHistoryClient(mock_mcp_client)
+def logbook_client(mock_ha_client):
+    """Create LogbookHistoryClient with mock HA client."""
+    return LogbookHistoryClient(mock_ha_client)
 
 
 @pytest.fixture
@@ -153,24 +153,24 @@ class TestClassifyAction:
 
 class TestLogbookHistoryClient:
     @pytest.mark.asyncio
-    async def test_get_entries(self, logbook_client, mock_mcp_client, sample_logbook_entries):
-        mock_mcp_client.get_logbook.return_value = sample_logbook_entries
+    async def test_get_entries(self, logbook_client, mock_ha_client, sample_logbook_entries):
+        mock_ha_client.get_logbook.return_value = sample_logbook_entries
 
         entries = await logbook_client.get_entries(hours=24)
         assert len(entries) == 3
-        mock_mcp_client.get_logbook.assert_called_once_with(hours=24, entity_id=None)
+        mock_ha_client.get_logbook.assert_called_once_with(hours=24, entity_id=None)
 
     @pytest.mark.asyncio
-    async def test_get_entries_by_domain(self, logbook_client, mock_mcp_client, sample_logbook_entries):
-        mock_mcp_client.get_logbook.return_value = sample_logbook_entries
+    async def test_get_entries_by_domain(self, logbook_client, mock_ha_client, sample_logbook_entries):
+        mock_ha_client.get_logbook.return_value = sample_logbook_entries
 
         entries = await logbook_client.get_entries_by_domain("automation", hours=24)
         assert len(entries) == 1
         assert entries[0].domain == "automation"
 
     @pytest.mark.asyncio
-    async def test_get_stats(self, logbook_client, mock_mcp_client, sample_logbook_entries):
-        mock_mcp_client.get_logbook.return_value = sample_logbook_entries
+    async def test_get_stats(self, logbook_client, mock_ha_client, sample_logbook_entries):
+        mock_ha_client.get_logbook.return_value = sample_logbook_entries
 
         stats = await logbook_client.get_stats(hours=24)
         assert isinstance(stats, LogbookStats)
@@ -180,23 +180,23 @@ class TestLogbookHistoryClient:
         assert stats.unique_entities == 3
 
     @pytest.mark.asyncio
-    async def test_get_manual_actions(self, logbook_client, mock_mcp_client, sample_logbook_entries):
-        mock_mcp_client.get_logbook.return_value = sample_logbook_entries
+    async def test_get_manual_actions(self, logbook_client, mock_ha_client, sample_logbook_entries):
+        mock_ha_client.get_logbook.return_value = sample_logbook_entries
 
         manual = await logbook_client.get_manual_actions(hours=24)
         # light and switch with context_user_id should be manual
         assert len(manual) >= 1
 
     @pytest.mark.asyncio
-    async def test_empty_logbook(self, logbook_client, mock_mcp_client):
-        mock_mcp_client.get_logbook.return_value = []
+    async def test_empty_logbook(self, logbook_client, mock_ha_client):
+        mock_ha_client.get_logbook.return_value = []
 
         stats = await logbook_client.get_stats(hours=24)
         assert stats.total_entries == 0
 
     @pytest.mark.asyncio
-    async def test_aggregate_by_action_type(self, logbook_client, mock_mcp_client, sample_logbook_entries):
-        mock_mcp_client.get_logbook.return_value = sample_logbook_entries
+    async def test_aggregate_by_action_type(self, logbook_client, mock_ha_client, sample_logbook_entries):
+        mock_ha_client.get_logbook.return_value = sample_logbook_entries
         entries = await logbook_client.get_entries(hours=24)
 
         grouped = logbook_client.aggregate_by_action_type(entries)

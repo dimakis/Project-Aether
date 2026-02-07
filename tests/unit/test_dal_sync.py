@@ -28,17 +28,17 @@ def mock_session():
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create mock MCP client."""
+def mock_ha_client():
+    """Create mock HA client."""
     client = MagicMock()
     client.list_entities = AsyncMock()
     return client
 
 
 @pytest.fixture
-def sync_service(mock_session, mock_mcp_client):
+def sync_service(mock_session, mock_ha_client):
     """Create DiscoverySyncService with mocked dependencies."""
-    service = DiscoverySyncService(mock_session, mock_mcp_client)
+    service = DiscoverySyncService(mock_session, mock_ha_client)
     # Mock registry repos so run_discovery tests don't hit real DB
     service.automation_repo = MagicMock()
     service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
@@ -58,7 +58,7 @@ def sync_service(mock_session, mock_mcp_client):
 @pytest.fixture
 def sample_entities():
     """Create sample parsed entities for testing."""
-    from src.mcp.parsers import ParsedEntity
+    from src.ha.parsers import ParsedEntity
 
     return [
         ParsedEntity(
@@ -150,12 +150,12 @@ class TestDiscoverySyncServiceInit:
     """Tests for DiscoverySyncService initialization."""
 
     @pytest.mark.unit
-    def test_init(self, mock_session, mock_mcp_client):
+    def test_init(self, mock_session, mock_ha_client):
         """Test service initialization."""
-        service = DiscoverySyncService(mock_session, mock_mcp_client)
+        service = DiscoverySyncService(mock_session, mock_ha_client)
 
         assert service.session == mock_session
-        assert service.mcp == mock_mcp_client
+        assert service.ha == mock_ha_client
         assert service.entity_repo is not None
         assert service.device_repo is not None
         assert service.area_repo is not None
@@ -167,10 +167,10 @@ class TestRunDiscoveryFullSync:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_successful_full_sync(
-        self, sync_service, mock_session, mock_mcp_client, sample_entities
+        self, sync_service, mock_session, mock_ha_client, sample_entities
     ):
         """Test successful full sync with entities, areas, and devices."""
-        # Setup MCP client response
+        # Setup HA client response
         raw_entities = [
             {
                 "entity_id": "light.living_room",
@@ -189,7 +189,7 @@ class TestRunDiscoveryFullSync:
                 "attributes": {"unit_of_measurement": "°C", "device_class": "temperature"},
             },
         ]
-        mock_mcp_client.list_entities.return_value = raw_entities
+        mock_ha_client.list_entities.return_value = raw_entities
 
         # Mock repositories
         mock_area = MagicMock()
@@ -238,7 +238,7 @@ class TestRunDiscoveryFullSync:
             assert result.domain_counts == {"light": 1, "sensor": 1}
 
             # Verify MCP was called
-            mock_mcp_client.list_entities.assert_called_once_with(detailed=True)
+            mock_ha_client.list_entities.assert_called_once_with(detailed=True)
 
             # Verify repositories were called
             assert sync_service.area_repo.upsert.call_count == 1
@@ -251,10 +251,10 @@ class TestRunDiscoveryFullSync:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_with_mlflow_run_id(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test discovery with MLflow run ID."""
-        mock_mcp_client.list_entities.return_value = []
+        mock_ha_client.list_entities.return_value = []
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -276,10 +276,10 @@ class TestRunDiscoveryEmptyData:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_empty_ha_response(
-        self, sync_service, mock_mcp_client
+        self, sync_service, mock_ha_client
     ):
         """Test sync when HA returns no entities."""
-        mock_mcp_client.list_entities.return_value = []
+        mock_ha_client.list_entities.return_value = []
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -299,7 +299,7 @@ class TestRunDiscoveryEmptyData:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_partial_data_missing_fields(
-        self, sync_service, mock_mcp_client
+        self, sync_service, mock_ha_client
     ):
         """Test sync with entities missing some fields."""
         raw_entities = [
@@ -310,9 +310,9 @@ class TestRunDiscoveryEmptyData:
                 "attributes": {},
             }
         ]
-        mock_mcp_client.list_entities.return_value = raw_entities
+        mock_ha_client.list_entities.return_value = raw_entities
 
-        from src.mcp.parsers import ParsedEntity
+        from src.ha.parsers import ParsedEntity
 
         parsed_entities = [
             ParsedEntity(
@@ -350,10 +350,10 @@ class TestRunDiscoveryUpsertBehavior:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_creates_new_entities(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that new entities are created."""
-        mock_mcp_client.list_entities.return_value = [{"entity_id": "light.new"}]
+        mock_ha_client.list_entities.return_value = [{"entity_id": "light.new"}]
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -372,10 +372,10 @@ class TestRunDiscoveryUpsertBehavior:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_updates_existing_entities(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that existing entities are updated."""
-        mock_mcp_client.list_entities.return_value = [{"entity_id": "light.living_room"}]
+        mock_ha_client.list_entities.return_value = [{"entity_id": "light.living_room"}]
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -396,10 +396,10 @@ class TestRunDiscoveryUpsertBehavior:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_mixed_create_and_update(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test sync with mix of new and existing entities."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
             {"entity_id": "light.existing"},
             {"entity_id": "light.new"},
         ]
@@ -436,10 +436,10 @@ class TestRunDiscoveryStaleEntityRemoval:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_removes_stale_entities(
-        self, sync_service, mock_mcp_client
+        self, sync_service, mock_ha_client
     ):
         """Test that entities no longer in HA are removed from DB."""
-        mock_mcp_client.list_entities.return_value = []
+        mock_ha_client.list_entities.return_value = []
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -461,10 +461,10 @@ class TestRunDiscoveryStaleEntityRemoval:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_no_stale_entities(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test sync when no stale entities exist."""
-        mock_mcp_client.list_entities.return_value = [{"entity_id": "light.living_room"}]
+        mock_ha_client.list_entities.return_value = [{"entity_id": "light.living_room"}]
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -488,11 +488,11 @@ class TestRunDiscoveryErrorHandling:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_run_discovery_mcp_client_failure(
-        self, sync_service, mock_mcp_client
+    async def test_run_discovery_ha_client_failure(
+        self, sync_service, mock_ha_client
     ):
-        """Test handling of MCP client failure."""
-        mock_mcp_client.list_entities.side_effect = Exception("MCP connection failed")
+        """Test handling of HA client failure."""
+        mock_ha_client.list_entities.side_effect = Exception("MCP connection failed")
 
         with pytest.raises(Exception, match="MCP connection failed"):
             await sync_service.run_discovery()
@@ -506,10 +506,10 @@ class TestRunDiscoveryErrorHandling:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_repository_failure(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test handling of repository operation failure."""
-        mock_mcp_client.list_entities.return_value = [{"entity_id": "light.test"}]
+        mock_ha_client.list_entities.return_value = [{"entity_id": "light.test"}]
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -527,10 +527,10 @@ class TestRunDiscoveryAreaInference:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_infers_areas_from_entities(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that areas are inferred from entity area_id attributes."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
             {"entity_id": "light.living_room", "area_id": "living_room"},
             {"entity_id": "light.bedroom", "area_id": "bedroom"},
         ]
@@ -572,10 +572,10 @@ class TestRunDiscoveryAreaInference:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_areas_with_mapping(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that area_id mapping is used for entity area_id."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
             {"entity_id": "light.living_room", "area_id": "living_room"}
         ]
 
@@ -609,10 +609,10 @@ class TestRunDiscoveryDeviceInference:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_infers_devices_from_entities(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that devices are inferred from entity device_id attributes."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
             {"entity_id": "light.device1_light", "device_id": "device_1"},
             {"entity_id": "sensor.device1_temp", "device_id": "device_1"},
         ]
@@ -650,10 +650,10 @@ class TestRunDiscoveryDeviceInference:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_devices_with_area_mapping(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that device area_id is mapped using area_id_mapping."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
             {"entity_id": "light.test", "device_id": "device_1", "area_id": "living_room"}
         ]
 
@@ -699,10 +699,10 @@ class TestRunDiscoveryAutomationScriptScene:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_counts_automations(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that automation entities are counted."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
             {"entity_id": "automation.test1"},
             {"entity_id": "automation.test2"},
         ]
@@ -723,10 +723,10 @@ class TestRunDiscoveryAutomationScriptScene:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_counts_scripts(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that script entities are counted."""
-        mock_mcp_client.list_entities.return_value = [{"entity_id": "script.test"}]
+        mock_ha_client.list_entities.return_value = [{"entity_id": "script.test"}]
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -742,10 +742,10 @@ class TestRunDiscoveryAutomationScriptScene:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_counts_scenes(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that scene entities are counted."""
-        mock_mcp_client.list_entities.return_value = [{"entity_id": "scene.test"}]
+        mock_ha_client.list_entities.return_value = [{"entity_id": "scene.test"}]
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -765,10 +765,10 @@ class TestRunDiscoveryStatistics:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_tracks_all_statistics(
-        self, sync_service, mock_mcp_client, sample_entities
+        self, sync_service, mock_ha_client, sample_entities
     ):
         """Test that all statistics are tracked correctly."""
-        mock_mcp_client.list_entities.return_value = [
+        mock_ha_client.list_entities.return_value = [
             {"entity_id": "light.new"},
             {"entity_id": "light.existing"},
         ]
@@ -820,10 +820,10 @@ class TestRunDiscoveryStatistics:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_records_mcp_gaps(
-        self, sync_service, mock_mcp_client
+        self, sync_service, mock_ha_client
     ):
         """Test that MCP gaps are recorded in discovery session."""
-        mock_mcp_client.list_entities.return_value = []
+        mock_ha_client.list_entities.return_value = []
 
         with patch("src.dal.sync.infer_areas_from_entities", return_value={}), patch(
             "src.dal.sync.infer_devices_from_entities", return_value={}
@@ -845,19 +845,19 @@ class TestRunDiscoveryConvenienceFunction:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_discovery_convenience_function_with_client(
-        self, mock_session, mock_mcp_client
+        self, mock_session, mock_ha_client
     ):
-        """Test convenience function with provided MCP client."""
+        """Test convenience function with provided HA client."""
         with patch("src.dal.sync.DiscoverySyncService") as mock_service_class:
             mock_service = MagicMock()
             mock_discovery = MagicMock()
             mock_service.run_discovery = AsyncMock(return_value=mock_discovery)
             mock_service_class.return_value = mock_service
 
-            result = await run_discovery(mock_session, mock_mcp_client, triggered_by="test")
+            result = await run_discovery(mock_session, mock_ha_client, triggered_by="test")
 
             assert result == mock_discovery
-            mock_service_class.assert_called_once_with(mock_session, mock_mcp_client)
+            mock_service_class.assert_called_once_with(mock_session, mock_ha_client)
             mock_service.run_discovery.assert_called_once_with(triggered_by="test")
 
     @pytest.mark.unit
@@ -865,9 +865,9 @@ class TestRunDiscoveryConvenienceFunction:
     async def test_run_discovery_convenience_function_without_client(
         self, mock_session
     ):
-        """Test convenience function creates MCP client if not provided."""
-        mock_mcp_client = MagicMock()
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp_client), patch(
+        """Test convenience function creates HA client if not provided."""
+        mock_ha_client = MagicMock()
+        with patch("src.ha.get_ha_client", return_value=mock_ha_client), patch(
             "src.dal.sync.DiscoverySyncService"
         ) as mock_service_class:
             mock_service = MagicMock()
@@ -878,7 +878,7 @@ class TestRunDiscoveryConvenienceFunction:
             result = await run_discovery(mock_session, triggered_by="test")
 
             assert result == mock_discovery
-            mock_service_class.assert_called_once_with(mock_session, mock_mcp_client)
+            mock_service_class.assert_called_once_with(mock_session, mock_ha_client)
 
 
 class TestSyncAreas:
@@ -924,7 +924,7 @@ class TestSyncAreas:
     @pytest.mark.asyncio
     async def test_fetch_areas_uses_ha_registry_api(self, sync_service):
         """Test that _fetch_areas tries the direct HA REST API first."""
-        sync_service.mcp.get_area_registry = AsyncMock(return_value=[
+        sync_service.ha.get_area_registry = AsyncMock(return_value=[
             {
                 "area_id": "living_room",
                 "name": "Living Room",
@@ -946,10 +946,10 @@ class TestSyncAreas:
     @pytest.mark.asyncio
     async def test_fetch_areas_falls_back_to_inference(self, sync_service):
         """Test that _fetch_areas falls back to entity inference when HA API fails."""
-        sync_service.mcp.get_area_registry = AsyncMock(return_value=[])
+        sync_service.ha.get_area_registry = AsyncMock(return_value=[])
 
         # Pass entities with area_id attributes
-        from src.mcp.workarounds import ParsedEntity
+        from src.ha.workarounds import ParsedEntity
 
         entities = [
             ParsedEntity(
@@ -1078,7 +1078,7 @@ class TestSyncEntities:
         self, sync_service, sample_entities
     ):
         """Test entity sync when area_id or device_id are missing."""
-        from src.mcp.parsers import ParsedEntity
+        from src.ha.parsers import ParsedEntity
 
         entity_no_fks = ParsedEntity(
             entity_id="light.standalone",
@@ -1109,7 +1109,7 @@ class TestSyncAutomationEntities:
     @pytest.fixture
     def registry_entities(self):
         """Create sample entities with realistic attributes for registry sync."""
-        from src.mcp.parsers import ParsedEntity
+        from src.ha.parsers import ParsedEntity
 
         return [
             ParsedEntity(
@@ -1420,7 +1420,7 @@ class TestRunRegistrySync:
                 "scenes_synced": 0,
             }
 
-            result = await run_registry_sync(session=mock_session, mcp_client=mock_mcp)
+            result = await run_registry_sync(session=mock_session, ha_client=mock_mcp)
 
         assert result["automations_synced"] == 1
         assert result["scripts_synced"] == 1
@@ -1430,8 +1430,8 @@ class TestRunRegistrySync:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_creates_mcp_client_if_none(self):
-        """Test that run_registry_sync creates MCP client when not provided."""
+    async def test_creates_ha_client_if_none(self):
+        """Test that run_registry_sync creates HA client when not provided."""
         from src.dal.sync import run_registry_sync
 
         mock_session = AsyncMock()
@@ -1442,7 +1442,7 @@ class TestRunRegistrySync:
         mock_mcp = MagicMock()
         mock_mcp.list_entities = AsyncMock(return_value=[])
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp) as mock_get_mcp, \
+        with patch("src.ha.get_ha_client", return_value=mock_mcp) as mock_get_mcp, \
              patch("src.dal.sync.parse_entity_list", return_value=[]), \
              patch.object(DiscoverySyncService, "_sync_automation_entities", new_callable=AsyncMock) as mock_sync:
             mock_sync.return_value = {
@@ -1470,7 +1470,7 @@ class TestRunRegistrySync:
         mock_mcp.list_entities = AsyncMock(side_effect=Exception("MCP connection failed"))
 
         with pytest.raises(Exception, match="MCP connection failed"):
-            await run_registry_sync(session=mock_session, mcp_client=mock_mcp)
+            await run_registry_sync(session=mock_session, ha_client=mock_mcp)
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -1494,6 +1494,6 @@ class TestRunRegistrySync:
                 "scenes_synced": 0,
             }
 
-            result = await run_registry_sync(session=mock_session, mcp_client=mock_mcp)
+            result = await run_registry_sync(session=mock_session, ha_client=mock_mcp)
 
         assert result["duration_seconds"] >= 0

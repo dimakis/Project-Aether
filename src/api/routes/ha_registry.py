@@ -167,7 +167,7 @@ async def get_automation_config(
     Returns:
         Automation config dict from HA
     """
-    from src.mcp import get_mcp_client
+    from src.ha import get_ha_client
     import yaml as pyyaml
 
     # Resolve to HA automation ID
@@ -191,8 +191,8 @@ async def get_automation_config(
     )
 
     try:
-        mcp = get_mcp_client()
-        config = await mcp.get_automation_config(ha_id)
+        ha = get_ha_client()
+        config = await ha.get_automation_config(ha_id)
 
         if not config:
             # Fallback: check if config is stored in the DB entity
@@ -462,7 +462,7 @@ async def call_service(
         Service call result
     """
     from src.api.utils import sanitize_error
-    from src.mcp import get_mcp_client
+    from src.ha import get_ha_client
 
     # Block dangerous domains that must go through HITL approval
     BLOCKED_DOMAINS = frozenset({
@@ -481,8 +481,8 @@ async def call_service(
         )
 
     try:
-        mcp = get_mcp_client()
-        await mcp.call_service(
+        ha = get_ha_client()
+        await ha.call_service(
             domain=request.domain,
             service=request.service,
             data=request.data or {},
@@ -545,7 +545,7 @@ async def get_registry_summary(
         session: Database session
 
     Returns:
-        Registry summary with MCP gaps
+        Registry summary with HA gaps
     """
     automation_repo = AutomationRepository(session)
     script_repo = ScriptRepository(session)
@@ -562,7 +562,7 @@ async def get_registry_summary(
     services = await service_repo.list_all()
     seeded_count = sum(1 for s in services if s.is_seeded)
 
-    # Known MCP gaps
+    # Known HA gaps
     mcp_gaps = [
         "list_devices: No device registry access",
         "list_areas: No area registry access",

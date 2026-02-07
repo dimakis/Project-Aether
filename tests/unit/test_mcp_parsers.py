@@ -6,7 +6,7 @@ Constitution: Reliability & Quality - comprehensive parsing tests.
 
 import pytest
 
-from src.mcp.parsers import (
+from src.ha.parsers import (
     parse_entity_list,
     parse_entity,
     ParsedEntity,

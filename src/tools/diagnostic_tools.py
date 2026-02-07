@@ -21,7 +21,7 @@ from src.diagnostics.integration_health import (
     find_unhealthy_integrations,
 )
 from src.diagnostics.log_parser import parse_error_log, get_error_summary
-from src.mcp import get_mcp_client
+from src.ha import get_ha_client
 
 
 @tool("analyze_error_log")
@@ -32,8 +32,8 @@ async def analyze_error_log() -> str:
     error patterns to provide actionable recommendations.
     """
     try:
-        mcp = get_mcp_client()
-        raw_log = await mcp.get_error_log()
+        ha = get_ha_client()
+        raw_log = await ha.get_error_log()
 
         if not raw_log or not raw_log.strip():
             return "Error log is clean -- no errors found."
@@ -86,8 +86,8 @@ async def analyze_error_log() -> str:
 async def find_unavailable_entities_tool() -> str:
     """Find all entities that are unavailable or unknown, grouped by integration."""
     try:
-        mcp = get_mcp_client()
-        diagnostics = await _find_unavailable(mcp)
+        ha = get_ha_client()
+        diagnostics = await _find_unavailable(ha)
 
         if not diagnostics:
             return "All entities are healthy -- no unavailable entities found."
@@ -116,8 +116,8 @@ async def find_unavailable_entities_tool() -> str:
 async def diagnose_entity(entity_id: str) -> str:
     """Deep-dive diagnosis of a single entity, including history and related errors."""
     try:
-        mcp = get_mcp_client()
-        entity = await mcp.get_entity(entity_id)
+        ha = get_ha_client()
+        entity = await ha.get_entity(entity_id)
 
         if not entity:
             return f"Entity '{entity_id}' not found."
@@ -140,7 +140,7 @@ async def diagnose_entity(entity_id: str) -> str:
 
         # History
         try:
-            history = await mcp.get_history(entity_id, hours=24)
+            history = await ha.get_history(entity_id, hours=24)
             states = history.get("states", []) if isinstance(history, dict) else []
             if states:
                 lines.append(f"\n  History (last 24h): {len(states)} state changes")
@@ -157,7 +157,7 @@ async def diagnose_entity(entity_id: str) -> str:
 
         # Related errors
         try:
-            raw_log = await mcp.get_error_log()
+            raw_log = await ha.get_error_log()
             if raw_log:
                 domain = entity_id.split(".")[0]
                 related = [line for line in raw_log.splitlines()
@@ -185,8 +185,8 @@ async def diagnose_entity(entity_id: str) -> str:
 async def check_integration_health() -> str:
     """Check the health of all Home Assistant integrations."""
     try:
-        mcp = get_mcp_client()
-        unhealthy = await find_unhealthy_integrations(mcp)
+        ha = get_ha_client()
+        unhealthy = await find_unhealthy_integrations(ha)
 
         if not unhealthy:
             return "All integrations are healthy -- no issues found."
@@ -208,8 +208,8 @@ async def check_integration_health() -> str:
 async def validate_config() -> str:
     """Run a Home Assistant configuration validation check."""
     try:
-        mcp = get_mcp_client()
-        result = await run_config_check(mcp)
+        ha = get_ha_client()
+        result = await run_config_check(ha)
 
         if result.result == "valid":
             msg = "Configuration is valid."

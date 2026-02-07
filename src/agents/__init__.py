@@ -449,7 +449,7 @@ class LibrarianAgent(BaseAgent):
 
         Args:
             state: Current discovery state
-            **kwargs: Additional arguments (mcp_client, session)
+            **kwargs: Additional arguments (ha_client, session)
 
         Returns:
             State updates with discovery results

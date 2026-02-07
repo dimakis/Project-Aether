@@ -140,7 +140,12 @@ async def accept_suggestion(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create proposal: {e}")
+        from src.api.utils import sanitize_error
+
+        raise HTTPException(
+            status_code=500,
+            detail=sanitize_error(e, context="Create proposal from suggestion"),
+        )
 
 
 @router.post("/suggestions/{suggestion_id}/reject")

@@ -23,7 +23,7 @@ from src.api.schemas import (
     RollbackResponse,
 )
 from src.dal import ProposalRepository
-from src.mcp import get_mcp_client
+from src.ha import get_ha_client
 from src.storage import get_session
 from src.storage.entities import ProposalStatus, ProposalType
 
@@ -446,8 +446,8 @@ async def _deploy_entity_command(proposal, repo: ProposalRepository) -> dict:
     if entity_id:
         data["entity_id"] = entity_id
 
-    mcp = get_mcp_client()
-    await mcp.call_service(domain=domain, service=service, data=data)
+    ha = get_ha_client()
+    await ha.call_service(domain=domain, service=service, data=data)
 
     # Mark as deployed (use a descriptive ID since there's no HA automation)
     command_id = f"cmd_{proposal.id[:8]}_{domain}_{service}"

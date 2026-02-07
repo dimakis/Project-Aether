@@ -391,7 +391,52 @@ async def stream_conversation(
     """WebSocket endpoint for streaming conversation responses.
 
     T087: WebSocket endpoint for streaming at /conversations/{id}/stream
+
+    Authentication: Requires a valid JWT token or API key passed as a
+    query parameter (?token=...) or via the session cookie. WebSocket
+    does not support custom headers, so Bearer tokens must use query params.
     """
+    # --- WebSocket Authentication ---
+    # WebSocket doesn't support custom headers, so check query params and cookies
+    import src.settings as _settings_mod
+    from src.api.auth import JWT_COOKIE_NAME, decode_jwt_token
+
+    settings = _settings_mod.get_settings()
+
+    # Check if auth is configured
+    has_password = bool(settings.auth_password.get_secret_value())
+    has_api_key = bool(settings.api_key.get_secret_value())
+    auth_configured = has_password or has_api_key
+
+    if auth_configured:
+        authenticated = False
+
+        # 1. Check token query parameter (JWT or API key)
+        token = websocket.query_params.get("token")
+        if token:
+            # Try as JWT first
+            payload = decode_jwt_token(token, settings)
+            if payload and "sub" in payload:
+                authenticated = True
+            # Try as API key
+            elif has_api_key:
+                import secrets as _secrets
+                configured_key = settings.api_key.get_secret_value()
+                if _secrets.compare_digest(token, configured_key):
+                    authenticated = True
+
+        # 2. Check session cookie
+        if not authenticated:
+            cookie_token = websocket.cookies.get(JWT_COOKIE_NAME)
+            if cookie_token:
+                payload = decode_jwt_token(cookie_token, settings)
+                if payload and "sub" in payload:
+                    authenticated = True
+
+        if not authenticated:
+            await websocket.close(code=4001, reason="Authentication required")
+            return
+
     await websocket.accept()
 
     try:
@@ -470,9 +515,15 @@ async def stream_conversation(
 
     except WebSocketDisconnect:
         pass
-    except Exception as e:
-        await websocket.send_json({"error": str(e)})
-        await websocket.close()
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception("WebSocket error in conversation %s", conversation_id)
+        try:
+            await websocket.send_json({"error": "An internal error occurred."})
+            await websocket.close()
+        except Exception:
+            pass  # Client already disconnected
 
 
 @router.delete(

@@ -18,8 +18,8 @@ class TestGenerateAutomationSuggestion:
     """Tests for DataScientistAgent._generate_automation_suggestion."""
 
     def _make_agent(self):
-        """Create a DataScientistAgent with mock MCP."""
-        return DataScientistAgent(mcp_client=MagicMock())
+        """Create a DataScientistAgent with mock HA."""
+        return DataScientistAgent(ha_client=MagicMock())
 
     def test_no_insights_returns_none(self):
         """No insights should produce no suggestion."""

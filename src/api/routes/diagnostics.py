@@ -28,7 +28,7 @@ from src.diagnostics.log_parser import (
     get_error_summary,
     parse_error_log,
 )
-from src.mcp import get_mcp_client
+from src.ha import get_ha_client
 from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -45,16 +45,16 @@ router = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
 async def ha_health() -> dict[str, Any]:
     """Home Assistant health: unavailable/stale entities & unhealthy integrations."""
     try:
-        mcp = get_mcp_client()
+        ha = get_ha_client()
     except Exception as e:
         raise HTTPException(
             status_code=503,
             detail="Unable to connect to Home Assistant",
         ) from e
 
-    unavailable = await find_unavailable_entities(mcp)
-    stale = await find_stale_entities(mcp)
-    unhealthy = await find_unhealthy_integrations(mcp)
+    unavailable = await find_unavailable_entities(ha)
+    stale = await find_stale_entities(ha)
+    unhealthy = await find_unhealthy_integrations(ha)
 
     return {
         "unavailable_entities": [asdict(e) for e in unavailable],
@@ -77,8 +77,8 @@ async def ha_health() -> dict[str, Any]:
 async def error_log() -> dict[str, Any]:
     """Parsed HA error log with summary and known pattern matching."""
     try:
-        mcp = get_mcp_client()
-        raw_log = await mcp.get_error_log()
+        ha = get_ha_client()
+        raw_log = await ha.get_error_log()
     except Exception as e:
         raise HTTPException(
             status_code=503,
@@ -112,14 +112,14 @@ async def error_log() -> dict[str, Any]:
 async def config_check() -> dict[str, Any]:
     """Run HA config validation."""
     try:
-        mcp = get_mcp_client()
+        ha = get_ha_client()
     except Exception as e:
         raise HTTPException(
             status_code=503,
             detail="Unable to connect to Home Assistant",
         ) from e
 
-    result = await run_config_check(mcp)
+    result = await run_config_check(ha)
 
     return {
         "valid": result.result == "valid",

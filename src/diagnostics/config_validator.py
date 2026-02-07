@@ -19,18 +19,18 @@ class ConfigCheckResult:
     warnings: list[str] = field(default_factory=list)
 
 
-async def run_config_check(mcp: Any) -> ConfigCheckResult:
+async def run_config_check(ha: Any) -> ConfigCheckResult:
     """Run a HA configuration check via the API.
 
-    Wraps MCPClient.check_config() with structured parsing.
+    Wraps HAClient.check_config() with structured parsing.
 
     Args:
-        mcp: MCPClient instance
+        ha: HAClient instance
 
     Returns:
         ConfigCheckResult with parsed errors and warnings
     """
-    raw = await mcp.check_config()
+    raw = await ha.check_config()
     return parse_config_errors(raw)
 
 

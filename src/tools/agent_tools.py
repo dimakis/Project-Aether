@@ -287,13 +287,13 @@ async def get_entity_history(
     Returns:
         A summary of the entity's recent history
     """
-    from src.mcp import get_mcp_client
+    from src.ha import get_ha_client
 
     hours = min(hours, 168)
 
     try:
-        mcp = get_mcp_client()
-        history = await mcp.get_history(entity_id=entity_id, hours=hours)
+        ha = get_ha_client()
+        history = await ha.get_history(entity_id=entity_id, hours=hours)
 
         if not history or not history.get("states"):
             return f"No history found for {entity_id} in the last {hours} hours."

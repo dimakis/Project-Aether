@@ -1,9 +1,9 @@
-"""Automation deployment via MCP.
+"""Automation deployment via HA.
 
 Handles generation of Home Assistant automation YAML and deployment
-through available MCP tools and workarounds.
+through available HA tools and workarounds.
 
-MCP Gap: Direct automation creation requires REST API or file access.
+HA Gap: Direct automation creation requires REST API or file access.
 Workaround: Generate YAML for manual import, use automation.reload after.
 """
 
@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-from src.mcp.client import MCPClient, get_mcp_client
+from src.ha.client import HAClient, get_ha_client
 from src.settings import get_settings
 
 
@@ -22,24 +22,24 @@ class AutomationDeployer:
     """Handles automation deployment to Home Assistant.
 
     Provides YAML generation and deployment methods, handling
-    known MCP gaps with appropriate workarounds.
+    known HA gaps with appropriate workarounds.
     """
 
-    def __init__(self, mcp_client: MCPClient | None = None):
+    def __init__(self, ha_client: HAClient | None = None):
         """Initialize deployer.
 
         Args:
-            mcp_client: Optional MCP client
+            ha_client: Optional HA client
         """
-        self._mcp = mcp_client
+        self._ha_client = ha_client
         self._settings = get_settings()
 
     @property
-    def mcp(self) -> MCPClient:
-        """Get MCP client."""
-        if self._mcp is None:
-            self._mcp = get_mcp_client()
-        return self._mcp
+    def ha(self) -> HAClient:
+        """Get HA client."""
+        if self._ha_client is None:
+            self._ha_client = get_ha_client()
+        return self._ha_client
 
     def generate_automation_yaml(
         self,
@@ -222,9 +222,9 @@ class AutomationDeployer:
             yaml_file.write_text(yaml_content)
             result["yaml_file"] = str(yaml_file)
 
-        # Deploy via REST API (the real deal - no MCP gap!)
+        # Deploy via REST API (the real deal - no HA gap!)
         try:
-            deploy_result = await self.mcp.create_automation(
+            deploy_result = await self.ha.create_automation(
                 automation_id=automation_id,
                 alias=config.get("alias", automation_id),
                 trigger=config.get("trigger", []),
@@ -289,7 +289,7 @@ The automation will have the ID: automation.{automation_id}
         Returns:
             Result dict
         """
-        await self.mcp.call_service(
+        await self.ha.call_service(
             domain="automation",
             service="turn_on",
             data={"entity_id": entity_id},
@@ -305,7 +305,7 @@ The automation will have the ID: automation.{automation_id}
         Returns:
             Result dict
         """
-        await self.mcp.call_service(
+        await self.ha.call_service(
             domain="automation",
             service="turn_off",
             data={"entity_id": entity_id},
@@ -321,7 +321,7 @@ The automation will have the ID: automation.{automation_id}
         Returns:
             Result dict
         """
-        await self.mcp.call_service(
+        await self.ha.call_service(
             domain="automation",
             service="trigger",
             data={"entity_id": entity_id},
@@ -334,7 +334,7 @@ The automation will have the ID: automation.{automation_id}
         Returns:
             Result dict
         """
-        await self.mcp.call_service(
+        await self.ha.call_service(
             domain="automation",
             service="reload",
         )

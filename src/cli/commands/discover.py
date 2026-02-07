@@ -42,7 +42,7 @@ def discover(
 async def _run_discovery(domain: str | None, force: bool) -> None:
     """Execute the discovery workflow."""
     from src.dal.sync import run_discovery
-    from src.mcp import get_mcp_client
+    from src.ha import get_ha_client
     from src.storage import get_session
     from src.tracing import init_mlflow, start_experiment_run, log_param, log_metric
     from src.tracing.context import session_context
@@ -58,8 +58,8 @@ async def _run_discovery(domain: str | None, force: bool) -> None:
         task = progress.add_task("Connecting to Home Assistant...", total=None)
 
         try:
-            # Get MCP client and verify connection
-            mcp = get_mcp_client()
+            # Get HA client and verify connection
+            ha = get_ha_client()
             progress.update(task, description="Fetching entities from Home Assistant...")
 
             # Run discovery with session context and MLflow tracking
@@ -72,7 +72,7 @@ async def _run_discovery(domain: str | None, force: bool) -> None:
                     async with get_session() as session:
                         discovery = await run_discovery(
                             session=session,
-                            mcp_client=mcp,
+                            ha_client=ha,
                             triggered_by="cli",
                         )
 

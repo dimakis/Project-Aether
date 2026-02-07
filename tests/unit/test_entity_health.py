@@ -18,10 +18,10 @@ from src.diagnostics.entity_health import (
 
 
 def _mock_mcp_with_entities(entities: list[dict]) -> MagicMock:
-    """Create a mock MCP client that returns given entities."""
-    mcp = MagicMock()
-    mcp.list_entities = AsyncMock(return_value=entities)
-    return mcp
+    """Create a mock HA client that returns given entities."""
+    ha = MagicMock()
+    ha.list_entities = AsyncMock(return_value=entities)
+    return ha
 
 
 class TestFindUnavailableEntities:
@@ -30,7 +30,7 @@ class TestFindUnavailableEntities:
     @pytest.mark.asyncio
     async def test_finds_unavailable_entities(self):
         """Test filtering entities with 'unavailable' state."""
-        mcp = _mock_mcp_with_entities([
+        ha = _mock_mcp_with_entities([
             {"entity_id": "sensor.temp", "state": "22.5", "last_changed": "2026-02-06T10:00:00Z",
              "attributes": {"device_class": "temperature"}},
             {"entity_id": "sensor.motion", "state": "unavailable", "last_changed": "2026-02-06T08:00:00Z",
@@ -41,7 +41,7 @@ class TestFindUnavailableEntities:
              "attributes": {}},
         ])
 
-        result = await find_unavailable_entities(mcp)
+        result = await find_unavailable_entities(ha)
 
         assert len(result) == 2
         assert all(isinstance(r, EntityDiagnostic) for r in result)
@@ -52,33 +52,33 @@ class TestFindUnavailableEntities:
     @pytest.mark.asyncio
     async def test_returns_empty_when_all_healthy(self):
         """Test returns empty list when no entities are unavailable."""
-        mcp = _mock_mcp_with_entities([
+        ha = _mock_mcp_with_entities([
             {"entity_id": "light.test", "state": "on", "last_changed": "2026-02-06T10:00:00Z",
              "attributes": {}},
         ])
 
-        result = await find_unavailable_entities(mcp)
+        result = await find_unavailable_entities(ha)
 
         assert result == []
 
     @pytest.mark.asyncio
     async def test_returns_empty_for_no_entities(self):
         """Test returns empty list when no entities exist."""
-        mcp = _mock_mcp_with_entities([])
+        ha = _mock_mcp_with_entities([])
 
-        result = await find_unavailable_entities(mcp)
+        result = await find_unavailable_entities(ha)
 
         assert result == []
 
     @pytest.mark.asyncio
     async def test_diagnostic_has_required_fields(self):
         """Test EntityDiagnostic has all expected fields."""
-        mcp = _mock_mcp_with_entities([
+        ha = _mock_mcp_with_entities([
             {"entity_id": "sensor.broken", "state": "unavailable",
              "last_changed": "2026-02-06T08:00:00Z", "attributes": {}},
         ])
 
-        result = await find_unavailable_entities(mcp)
+        result = await find_unavailable_entities(ha)
 
         diag = result[0]
         assert diag.entity_id == "sensor.broken"
@@ -93,7 +93,7 @@ class TestFindStaleEntities:
     @pytest.mark.asyncio
     async def test_finds_entities_not_updated_recently(self):
         """Test identifying entities that haven't been updated in N hours."""
-        mcp = _mock_mcp_with_entities([
+        ha = _mock_mcp_with_entities([
             {"entity_id": "sensor.temp", "state": "22.5",
              "last_changed": "2026-02-01T10:00:00Z",  # 5+ days ago
              "attributes": {}},
@@ -102,7 +102,7 @@ class TestFindStaleEntities:
              "attributes": {}},
         ])
 
-        result = await find_stale_entities(mcp, hours=24)
+        result = await find_stale_entities(ha, hours=24)
 
         assert len(result) == 1
         assert result[0].entity_id == "sensor.temp"
@@ -110,13 +110,13 @@ class TestFindStaleEntities:
     @pytest.mark.asyncio
     async def test_returns_empty_when_all_recent(self):
         """Test returns empty when all entities updated recently."""
-        mcp = _mock_mcp_with_entities([
+        ha = _mock_mcp_with_entities([
             {"entity_id": "sensor.a", "state": "on",
              "last_changed": "2099-12-31T23:59:59Z",
              "attributes": {}},
         ])
 
-        result = await find_stale_entities(mcp, hours=24)
+        result = await find_stale_entities(ha, hours=24)
 
         assert result == []
 

@@ -52,7 +52,7 @@ class Device(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
         back_populates="devices",
     )
 
-    # Manufacturer info (nullable - MCP gap)
+    # Manufacturer info (nullable - HA gap)
     manufacturer: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,

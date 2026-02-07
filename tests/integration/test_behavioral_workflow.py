@@ -1,6 +1,6 @@
 """Integration tests for the behavioral analysis workflow.
 
-Tests the full optimization workflow with mocked MCP client.
+Tests the full optimization workflow with mocked HA client.
 Constitution: Reliability & Quality.
 
 TDD: T238 - Full behavioral analysis workflow.
@@ -15,8 +15,8 @@ from src.graph.state import AnalysisState, AnalysisType
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client with behavioral data."""
+def mock_ha_client():
+    """Create a mock HA client with behavioral data."""
     client = AsyncMock()
 
     now = datetime.now(timezone.utc)
@@ -49,11 +49,11 @@ def mock_mcp_client():
 
 
 class TestOptimizationWorkflowBuild:
-    def test_build_optimization_graph(self, mock_mcp_client):
+    def test_build_optimization_graph(self, mock_ha_client):
         """Optimization graph should build without errors."""
         from src.graph.workflows import build_optimization_graph
 
-        graph = build_optimization_graph(mcp_client=mock_mcp_client)
+        graph = build_optimization_graph(ha_client=mock_ha_client)
         assert graph is not None
 
     def test_optimization_in_registry(self):
@@ -65,7 +65,7 @@ class TestOptimizationWorkflowBuild:
 
 class TestOptimizationNodes:
     @pytest.mark.asyncio
-    async def test_collect_behavioral_data_node(self, mock_mcp_client):
+    async def test_collect_behavioral_data_node(self, mock_ha_client):
         """Behavioral data collection node should return stats."""
         from src.graph.nodes import collect_behavioral_data_node
 
@@ -74,7 +74,7 @@ class TestOptimizationNodes:
             time_range_hours=168,
         )
 
-        result = await collect_behavioral_data_node(state, mcp_client=mock_mcp_client)
+        result = await collect_behavioral_data_node(state, ha_client=mock_ha_client)
         assert "messages" in result
 
     @pytest.mark.asyncio

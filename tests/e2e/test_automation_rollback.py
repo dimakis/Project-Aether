@@ -42,7 +42,7 @@ class TestAutomationDeployment:
     @pytest.mark.asyncio
     async def test_deployment_yaml_generation(self):
         """Test YAML generation for deployment."""
-        from src.mcp.automation_deploy import AutomationDeployer
+        from src.ha.automation_deploy import AutomationDeployer
 
         deployer = AutomationDeployer()
         yaml_content = deployer.generate_automation_yaml(
@@ -139,8 +139,8 @@ class TestDeploymentAgent:
 
         mock_mcp = MagicMock()
 
-        with patch("src.agents.developer.get_mcp_client", return_value=mock_mcp):
-            agent = DeveloperAgent(mcp_client=mock_mcp)
+        with patch("src.agents.developer.get_ha_client", return_value=mock_mcp):
+            agent = DeveloperAgent(ha_client=mock_mcp)
             assert agent is not None
 
     @pytest.mark.asyncio
@@ -151,8 +151,8 @@ class TestDeploymentAgent:
         mock_mcp = MagicMock()
         mock_mcp.call_service = AsyncMock(return_value={"success": True})
 
-        with patch("src.agents.developer.get_mcp_client", return_value=mock_mcp):
-            agent = DeveloperAgent(mcp_client=mock_mcp)
+        with patch("src.agents.developer.get_ha_client", return_value=mock_mcp):
+            agent = DeveloperAgent(ha_client=mock_mcp)
 
             # Enable
             await agent.enable_automation("automation.test")

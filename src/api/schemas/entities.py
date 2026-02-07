@@ -43,7 +43,7 @@ class EntityListResponse(BaseModel):
 class EntityQueryRequest(BaseModel):
     """Request for natural language entity query."""
 
-    query: str = Field(..., description="Natural language query")
+    query: str = Field(..., max_length=2000, description="Natural language query")
     limit: int = Field(20, ge=1, le=100)
 
 

@@ -1,4 +1,4 @@
-"""Unit tests for MCP client automation methods.
+"""Unit tests for HA client automation methods.
 
 Tests the new REST API-based automation CRUD operations.
 """
@@ -9,14 +9,14 @@ import pytest
 
 
 class TestCreateAutomation:
-    """Tests for MCPClient.create_automation."""
+    """Tests for HAClient.create_automation."""
 
     @pytest.mark.asyncio
     async def test_create_automation_success(self):
         """Test successful automation creation."""
-        from src.mcp.client import MCPClient, MCPClientConfig
+        from src.ha.client import HAClient, HAClientConfig
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
@@ -47,9 +47,9 @@ class TestCreateAutomation:
     @pytest.mark.asyncio
     async def test_create_automation_with_conditions(self):
         """Test automation creation with conditions."""
-        from src.mcp.client import MCPClient, MCPClientConfig
+        from src.ha.client import HAClient, HAClientConfig
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
@@ -75,14 +75,14 @@ class TestCreateAutomation:
     @pytest.mark.asyncio
     async def test_create_automation_failure(self):
         """Test automation creation failure handling."""
-        from src.mcp.client import MCPClient, MCPClientConfig, MCPError
+        from src.ha.client import HAClient, HAClientConfig, HAClientError
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
 
-        client._request = AsyncMock(side_effect=MCPError("Connection failed", "create_automation"))
+        client._request = AsyncMock(side_effect=HAClientError("Connection failed", "create_automation"))
 
         result = await client.create_automation(
             automation_id="test_automation",
@@ -97,14 +97,14 @@ class TestCreateAutomation:
 
 
 class TestDeleteAutomation:
-    """Tests for MCPClient.delete_automation."""
+    """Tests for HAClient.delete_automation."""
 
     @pytest.mark.asyncio
     async def test_delete_automation_success(self):
         """Test successful automation deletion."""
-        from src.mcp.client import MCPClient, MCPClientConfig
+        from src.ha.client import HAClient, HAClientConfig
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
@@ -123,14 +123,14 @@ class TestDeleteAutomation:
     @pytest.mark.asyncio
     async def test_delete_automation_not_found(self):
         """Test deleting non-existent automation."""
-        from src.mcp.client import MCPClient, MCPClientConfig, MCPError
+        from src.ha.client import HAClient, HAClientConfig, HAClientError
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
 
-        client._request = AsyncMock(side_effect=MCPError("Not found", "delete_automation"))
+        client._request = AsyncMock(side_effect=HAClientError("Not found", "delete_automation"))
 
         result = await client.delete_automation("nonexistent")
 
@@ -138,14 +138,14 @@ class TestDeleteAutomation:
 
 
 class TestGetAutomationConfig:
-    """Tests for MCPClient.get_automation_config."""
+    """Tests for HAClient.get_automation_config."""
 
     @pytest.mark.asyncio
     async def test_get_automation_config_found(self):
         """Test getting existing automation config."""
-        from src.mcp.client import MCPClient, MCPClientConfig
+        from src.ha.client import HAClient, HAClientConfig
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
@@ -166,9 +166,9 @@ class TestGetAutomationConfig:
     @pytest.mark.asyncio
     async def test_get_automation_config_not_found(self):
         """Test getting non-existent automation config."""
-        from src.mcp.client import MCPClient, MCPClientConfig
+        from src.ha.client import HAClient, HAClientConfig
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
@@ -181,14 +181,14 @@ class TestGetAutomationConfig:
 
 
 class TestListAutomationConfigs:
-    """Tests for MCPClient.list_automation_configs."""
+    """Tests for HAClient.list_automation_configs."""
 
     @pytest.mark.asyncio
     async def test_list_automation_configs(self):
         """Test listing all automation configs."""
-        from src.mcp.client import MCPClient, MCPClientConfig
+        from src.ha.client import HAClient, HAClientConfig
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))
@@ -207,9 +207,9 @@ class TestListAutomationConfigs:
     @pytest.mark.asyncio
     async def test_list_automation_configs_empty(self):
         """Test listing when no automations exist."""
-        from src.mcp.client import MCPClient, MCPClientConfig
+        from src.ha.client import HAClient, HAClientConfig
 
-        client = MCPClient(MCPClientConfig(
+        client = HAClient(HAClientConfig(
             ha_url="http://localhost:8123",
             ha_token="test-token",
         ))

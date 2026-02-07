@@ -16,8 +16,8 @@ import yaml
 from src.agents import BaseAgent
 from src.dal import ProposalRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus
-from src.mcp import MCPClient, get_mcp_client
-from src.mcp.automation_deploy import AutomationDeployer
+from src.ha import HAClient, get_ha_client
+from src.ha.automation_deploy import AutomationDeployer
 from src.storage.entities import AutomationProposal, ProposalStatus
 
 if TYPE_CHECKING:
@@ -31,32 +31,32 @@ class DeveloperAgent(BaseAgent):
 
     Responsibilities:
     - Convert approved proposals to HA automation format
-    - Deploy automations via MCP (call_service)
+    - Deploy automations via HA REST API (call_service)
     - Handle rollbacks when requested
     - Track deployment status
     """
 
     def __init__(
         self,
-        mcp_client: MCPClient | None = None,
+        ha_client: HAClient | None = None,
     ):
         """Initialize Developer agent.
 
         Args:
-            mcp_client: Optional MCP client (creates one if not provided)
+            ha_client: Optional HA client (creates one if not provided)
         """
         super().__init__(
             role=AgentRole.DEVELOPER,
             name="Developer",
         )
-        self._mcp = mcp_client
+        self._ha_client = ha_client
 
     @property
-    def mcp(self) -> MCPClient:
-        """Get MCP client, creating if needed."""
-        if self._mcp is None:
-            self._mcp = get_mcp_client()
-        return self._mcp
+    def ha(self) -> HAClient:
+        """Get HA client, creating if needed."""
+        if self._ha_client is None:
+            self._ha_client = get_ha_client()
+        return self._ha_client
 
     async def invoke(
         self,
@@ -130,7 +130,7 @@ class DeveloperAgent(BaseAgent):
         ha_automation_id = f"aether_{proposal.id.replace('-', '_')[:8]}"
 
         # Deploy via HA REST API (with fallback to manual instructions)
-        result = await self._deploy_via_mcp(ha_automation_id, automation_yaml)
+        result = await self._deploy_via_ha(ha_automation_id, automation_yaml)
 
         # Only mark as deployed if the REST API call succeeded
         if result.get("success"):
@@ -176,7 +176,7 @@ class DeveloperAgent(BaseAgent):
 """
         return header + yaml_str
 
-    async def _deploy_via_mcp(
+    async def _deploy_via_ha(
         self,
         automation_id: str,
         yaml_content: str,
@@ -195,7 +195,7 @@ class DeveloperAgent(BaseAgent):
         Returns:
             Deployment result
         """
-        deployer = AutomationDeployer(self.mcp)
+        deployer = AutomationDeployer(self.ha)
         return await deployer.deploy_automation(yaml_content, automation_id)
 
     async def rollback_automation(
@@ -229,11 +229,11 @@ class DeveloperAgent(BaseAgent):
         ha_disabled = False
         ha_error: str | None = None
 
-        # Attempt to disable via MCP
+        # Attempt to disable via HA REST API
         if ha_automation_id:
             entity_id = f"automation.{ha_automation_id}"
             try:
-                await self.mcp.call_service(
+                await self.ha.call_service(
                     domain="automation",
                     service="turn_off",
                     data={"entity_id": entity_id},
@@ -276,7 +276,7 @@ class DeveloperAgent(BaseAgent):
         Returns:
             Result dict
         """
-        await self.mcp.call_service(
+        await self.ha.call_service(
             domain="automation",
             service="turn_on",
             data={"entity_id": ha_automation_id},
@@ -292,7 +292,7 @@ class DeveloperAgent(BaseAgent):
         Returns:
             Result dict
         """
-        await self.mcp.call_service(
+        await self.ha.call_service(
             domain="automation",
             service="turn_off",
             data={"entity_id": ha_automation_id},
@@ -308,7 +308,7 @@ class DeveloperAgent(BaseAgent):
         Returns:
             Result dict
         """
-        await self.mcp.call_service(
+        await self.ha.call_service(
             domain="automation",
             service="trigger",
             data={"entity_id": ha_automation_id},
@@ -326,13 +326,13 @@ class DeveloperWorkflow:
     4. Handle rollbacks
     """
 
-    def __init__(self, mcp_client: MCPClient | None = None):
+    def __init__(self, ha_client: HAClient | None = None):
         """Initialize the Developer workflow.
 
         Args:
-            mcp_client: Optional MCP client
+            ha_client: Optional HA client
         """
-        self.agent = DeveloperAgent(mcp_client)
+        self.agent = DeveloperAgent(ha_client)
 
     async def deploy(
         self,

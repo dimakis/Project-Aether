@@ -15,12 +15,12 @@ from src.graph.state import AnalysisState, ScriptExecution
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-    from src.mcp.client import MCPClient
+    from src.ha.client import HAClient
 
 
 async def collect_energy_data_node(
     state: AnalysisState,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, object]:
     """Collect energy data from Home Assistant.
 
@@ -28,16 +28,16 @@ async def collect_energy_data_node(
 
     Args:
         state: Current analysis state
-        mcp_client: MCP client for HA communication
+        ha_client: HA client for HA communication
 
     Returns:
         State updates with collected energy data
     """
     from src.graph.state import AnalysisState
-    from src.mcp import EnergyHistoryClient, get_mcp_client
+    from src.ha import EnergyHistoryClient, get_ha_client
 
-    mcp = mcp_client or get_mcp_client()
-    energy_client = EnergyHistoryClient(mcp)
+    ha = ha_client or get_ha_client()
+    energy_client = EnergyHistoryClient(ha)
 
     # Discover energy sensors if not specified
     entity_ids = state.entity_ids
@@ -79,13 +79,13 @@ async def generate_script_node(
         State updates with generated script
     """
     from src.agents import DataScientistAgent
-    from src.mcp import EnergyHistoryClient, get_mcp_client
+    from src.ha import EnergyHistoryClient, get_ha_client
 
     agent = DataScientistAgent()
 
     # Get energy data for script generation
-    mcp = get_mcp_client()
-    energy_client = EnergyHistoryClient(mcp)
+    ha = get_ha_client()
+    energy_client = EnergyHistoryClient(ha)
     energy_data = await energy_client.get_aggregated_energy(
         state.entity_ids,
         hours=state.time_range_hours,
@@ -116,7 +116,7 @@ async def execute_sandbox_node(
         State updates with execution results
     """
     from src.graph.state import ScriptExecution
-    from src.mcp import EnergyHistoryClient, get_mcp_client
+    from src.ha import EnergyHistoryClient, get_ha_client
     from src.sandbox.runner import SandboxRunner
 
     if not state.generated_script:
@@ -125,8 +125,8 @@ async def execute_sandbox_node(
         }
 
     # Get fresh energy data for execution
-    mcp = get_mcp_client()
-    energy_client = EnergyHistoryClient(mcp)
+    ha = get_ha_client()
+    energy_client = EnergyHistoryClient(ha)
     energy_data = await energy_client.get_aggregated_energy(
         state.entity_ids,
         hours=state.time_range_hours,
@@ -297,7 +297,7 @@ async def analysis_error_node(
 
 async def collect_behavioral_data_node(
     state: AnalysisState,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, object]:
     """Collect behavioral data from logbook for optimization analysis.
 
@@ -306,15 +306,15 @@ async def collect_behavioral_data_node(
 
     Args:
         state: Current analysis state
-        mcp_client: Optional MCP client
+        ha_client: Optional HA client
 
     Returns:
         State updates with collected data in messages
     """
-    from src.mcp import BehavioralAnalysisClient, LogbookHistoryClient, get_mcp_client
+    from src.ha import BehavioralAnalysisClient, LogbookHistoryClient, get_ha_client
 
-    mcp = mcp_client or get_mcp_client()
-    logbook = LogbookHistoryClient(mcp)
+    ha = ha_client or get_ha_client()
+    logbook = LogbookHistoryClient(ha)
 
     try:
         stats = await logbook.get_stats(hours=state.time_range_hours)

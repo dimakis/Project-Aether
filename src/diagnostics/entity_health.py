@@ -47,16 +47,16 @@ def _extract_integration(entity_id: str) -> str:
     return entity_id.split(".", 1)[0] if "." in entity_id else "unknown"
 
 
-async def find_unavailable_entities(mcp: Any) -> list[EntityDiagnostic]:
+async def find_unavailable_entities(ha: Any) -> list[EntityDiagnostic]:
     """Find all entities in 'unavailable' or 'unknown' state.
 
     Args:
-        mcp: MCPClient instance
+        ha: HAClient instance
 
     Returns:
         List of EntityDiagnostic for unhealthy entities
     """
-    raw = await mcp.list_entities()
+    raw = await ha.list_entities()
     entities = _entities_from_response(raw)
 
     diagnostics = []
@@ -76,19 +76,19 @@ async def find_unavailable_entities(mcp: Any) -> list[EntityDiagnostic]:
 
 
 async def find_stale_entities(
-    mcp: Any,
+    ha: Any,
     hours: int = 24,
 ) -> list[EntityDiagnostic]:
     """Find entities that haven't been updated within the threshold.
 
     Args:
-        mcp: MCPClient instance
+        ha: HAClient instance
         hours: Hours threshold -- entities not updated since are "stale"
 
     Returns:
         List of EntityDiagnostic for stale entities
     """
-    raw = await mcp.list_entities()
+    raw = await ha.list_entities()
     entities = _entities_from_response(raw)
 
     now = datetime.now(timezone.utc)

@@ -6,14 +6,14 @@ service/event listing, and template rendering.
 
 from typing import Any
 
-from src.mcp.base import MCPError, _trace_mcp_call
+from src.ha.base import HAClientError, _trace_ha_call
 from src.tracing import log_param
 
 
 class DiagnosticMixin:
     """Mixin providing diagnostic and utility operations."""
 
-    @_trace_mcp_call("mcp.get_error_log")
+    @_trace_ha_call("ha.get_error_log")
     async def get_error_log(self) -> str:
         """Get Home Assistant error log.
 
@@ -25,10 +25,10 @@ class DiagnosticMixin:
         try:
             result = await self._request("GET", "/api/error_log")
             return result if isinstance(result, str) else ""
-        except MCPError:
+        except HAClientError:
             return ""
 
-    @_trace_mcp_call("mcp.check_config")
+    @_trace_ha_call("ha.check_config")
     async def check_config(self) -> dict[str, Any]:
         """Check Home Assistant configuration validity.
 
@@ -38,10 +38,10 @@ class DiagnosticMixin:
         try:
             result = await self._request("POST", "/api/config/core/check_config")
             return result or {"result": "unknown"}
-        except MCPError as e:
+        except HAClientError as e:
             return {"result": "error", "error": str(e)}
 
-    @_trace_mcp_call("mcp.list_config_entries")
+    @_trace_ha_call("ha.list_config_entries")
     async def list_config_entries(
         self,
         domain: str | None = None,
@@ -60,7 +60,7 @@ class DiagnosticMixin:
             entries = [e for e in entries if e.get("domain") == domain]
         return entries
 
-    @_trace_mcp_call("mcp.get_config_entry_diagnostics")
+    @_trace_ha_call("ha.get_config_entry_diagnostics")
     async def get_config_entry_diagnostics(
         self,
         entry_id: str,
@@ -80,7 +80,7 @@ class DiagnosticMixin:
             "GET", f"/api/config/config_entries/{entry_id}/diagnostics"
         )
 
-    @_trace_mcp_call("mcp.reload_config_entry")
+    @_trace_ha_call("ha.reload_config_entry")
     async def reload_config_entry(self, entry_id: str) -> dict[str, Any]:
         """Reload a specific integration config entry.
 
@@ -97,7 +97,7 @@ class DiagnosticMixin:
         )
         return result or {}
 
-    @_trace_mcp_call("mcp.list_services")
+    @_trace_ha_call("ha.list_services")
     async def list_services(self) -> list[dict[str, Any]]:
         """List all available Home Assistant services.
 
@@ -108,7 +108,7 @@ class DiagnosticMixin:
         result = await self._request("GET", "/api/services")
         return result if isinstance(result, list) else []
 
-    @_trace_mcp_call("mcp.list_event_types")
+    @_trace_ha_call("ha.list_event_types")
     async def list_event_types(self) -> list[dict[str, Any]]:
         """List all available event types in Home Assistant.
 
@@ -118,7 +118,7 @@ class DiagnosticMixin:
         result = await self._request("GET", "/api/events")
         return result if isinstance(result, list) else []
 
-    @_trace_mcp_call("mcp.render_template")
+    @_trace_ha_call("ha.render_template")
     async def render_template(self, template: str) -> str | None:
         """Render a Jinja2 template using HA's template engine.
 
@@ -137,10 +137,10 @@ class DiagnosticMixin:
                 json={"template": template},
             )
             return result if isinstance(result, str) else str(result)
-        except MCPError:
+        except HAClientError:
             return None
 
-    @_trace_mcp_call("mcp.fire_event")
+    @_trace_ha_call("ha.fire_event")
     async def fire_event(
         self,
         event_type: str,
@@ -157,7 +157,7 @@ class DiagnosticMixin:
         Returns:
             Result dict
         """
-        log_param("mcp.fire_event.type", event_type)
+        log_param("ha.fire_event.type", event_type)
 
         try:
             await self._request(
@@ -166,5 +166,5 @@ class DiagnosticMixin:
                 json=event_data or {},
             )
             return {"success": True, "event_type": event_type}
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "event_type": event_type, "error": str(e)}

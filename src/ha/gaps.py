@@ -1,12 +1,12 @@
-"""MCP capability gap tracking.
+"""HA capability gap tracking.
 
-Tracks known gaps in MCP functionality and provides
+Tracks known gaps in HA functionality and provides
 a registry for reporting and prioritization.
 """
 
 from typing import Any
 
-# Registry of known MCP capability gaps
+# Registry of known HA capability gaps
 MCP_GAPS: list[dict[str, Any]] = [
     {
         "tool": "list_devices",
@@ -108,7 +108,7 @@ MCP_GAPS: list[dict[str, Any]] = [
 
 
 def get_all_gaps() -> list[dict[str, Any]]:
-    """Get all known MCP capability gaps.
+    """Get all known HA capability gaps.
 
     Returns:
         List of gap dictionaries
@@ -144,7 +144,7 @@ def get_gap_by_tool(tool: str) -> dict[str, Any] | None:
 
 
 def get_gaps_report() -> dict[str, Any]:
-    """Generate a summary report of MCP gaps.
+    """Generate a summary report of HA gaps.
 
     Returns:
         Report dictionary with counts and categorization

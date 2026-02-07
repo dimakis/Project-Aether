@@ -176,10 +176,10 @@ async def setup(body: SetupRequest, response: Response) -> SetupResponse:
     token = create_jwt_token(username, settings)
     _set_jwt_cookie(response, token, settings)
 
-    # Reset MCP client so it picks up DB config
+    # Reset HA client so it picks up DB config
     try:
-        from src.mcp.client import reset_mcp_client
-        reset_mcp_client()
+        from src.ha.client import reset_ha_client
+        reset_ha_client()
     except ImportError:
         pass
 

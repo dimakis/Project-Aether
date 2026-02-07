@@ -25,16 +25,16 @@ class IntegrationHealth:
     disabled_by: str | None = None
 
 
-async def get_integration_statuses(mcp: Any) -> list[IntegrationHealth]:
+async def get_integration_statuses(ha: Any) -> list[IntegrationHealth]:
     """Get health status for all integrations.
 
     Args:
-        mcp: MCPClient instance
+        ha: HAClient instance
 
     Returns:
         List of IntegrationHealth for all config entries
     """
-    entries = await mcp.list_config_entries()
+    entries = await ha.list_config_entries()
     if not entries:
         return []
 
@@ -51,24 +51,24 @@ async def get_integration_statuses(mcp: Any) -> list[IntegrationHealth]:
     ]
 
 
-async def find_unhealthy_integrations(mcp: Any) -> list[IntegrationHealth]:
+async def find_unhealthy_integrations(ha: Any) -> list[IntegrationHealth]:
     """Find integrations that are not in a healthy state.
 
     Healthy = 'loaded'. Everything else (setup_error, not_loaded,
     failed_unload, etc.) is considered unhealthy.
 
     Args:
-        mcp: MCPClient instance
+        ha: HAClient instance
 
     Returns:
         List of IntegrationHealth for unhealthy integrations
     """
-    statuses = await get_integration_statuses(mcp)
+    statuses = await get_integration_statuses(ha)
     return [s for s in statuses if s.state not in _HEALTHY_STATES]
 
 
 async def diagnose_integration(
-    mcp: Any,
+    ha: Any,
     entry_id: str,
 ) -> dict[str, Any] | None:
     """Run a full diagnosis on a specific integration.
@@ -77,14 +77,14 @@ async def diagnose_integration(
     and entity health into a comprehensive report.
 
     Args:
-        mcp: MCPClient instance
+        ha: HAClient instance
         entry_id: The config entry ID to diagnose
 
     Returns:
         Diagnosis dict, or None if entry not found
     """
     # Find the config entry
-    entries = await mcp.list_config_entries()
+    entries = await ha.list_config_entries()
     entry = next((e for e in entries if e.get("entry_id") == entry_id), None)
 
     if entry is None:
@@ -93,7 +93,7 @@ async def diagnose_integration(
     domain = entry.get("domain", "unknown")
 
     # Get integration-specific diagnostics (may be None)
-    diagnostics = await mcp.get_config_entry_diagnostics(entry_id)
+    diagnostics = await ha.get_config_entry_diagnostics(entry_id)
 
     # Find unavailable entities for this integration's domain
     from src.diagnostics.entity_health import (
@@ -101,7 +101,7 @@ async def diagnose_integration(
         _UNHEALTHY_STATES,
     )
 
-    all_entities = await mcp.list_entities()
+    all_entities = await ha.list_entities()
     entities = _entities_from_response(all_entities)
     unavailable = [
         e.get("entity_id")

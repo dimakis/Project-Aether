@@ -16,11 +16,11 @@ from src.agents.model_context import clear_model_context, model_context
 class TestDataScientistModelResolution:
     """Tests for DataScientistAgent.llm model resolution."""
 
-    def _make_agent(self, mcp_client=None):
-        """Create a DataScientistAgent with mock MCP."""
+    def _make_agent(self, ha_client=None):
+        """Create a DataScientistAgent with mock HA."""
         from src.agents.data_scientist import DataScientistAgent
 
-        return DataScientistAgent(mcp_client=mcp_client or MagicMock())
+        return DataScientistAgent(ha_client=ha_client or MagicMock())
 
     @patch("src.agents.data_scientist.get_llm")
     @patch("src.agents.data_scientist.get_settings")

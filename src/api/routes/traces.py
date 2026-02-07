@@ -68,18 +68,20 @@ async def get_trace_spans(trace_id: str) -> TraceResponse:
         settings = get_settings()
         client = MlflowClient(tracking_uri=settings.mlflow_tracking_uri)
     except Exception as e:
+        from src.api.utils import sanitize_error
+
         raise HTTPException(
             status_code=503,
-            detail=f"MLflow not available: {e}",
+            detail=sanitize_error(e, context="MLflow connection"),
         ) from e
 
     try:
         trace = client.get_trace(trace_id)
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=404,
-            detail=f"Trace not found: {e}",
-        ) from e
+            detail="Trace not found",
+        )
 
     if not trace:
         raise HTTPException(status_code=404, detail="Trace not found")

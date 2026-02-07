@@ -1,12 +1,12 @@
-"""Workarounds for MCP capability gaps.
+"""Workarounds for HA capability gaps.
 
 These functions infer missing data from available entity attributes.
-Each workaround is documented with the MCP feature that would make it unnecessary.
+Each workaround is documented with the HA feature that would make it unnecessary.
 """
 
 from typing import Any
 
-from src.mcp.parsers import ParsedEntity
+from src.ha.parsers import ParsedEntity
 
 
 def infer_devices_from_entities(
@@ -14,7 +14,7 @@ def infer_devices_from_entities(
 ) -> dict[str, dict[str, Any]]:
     """Infer device information from entity attributes.
 
-    MCP Gap: No `list_devices` tool available.
+    HA Gap: No `list_devices` tool available.
     Workaround: Extract device_id from entity attributes and group entities.
 
     Args:
@@ -40,7 +40,7 @@ def infer_devices_from_entities(
                 "name": _infer_device_name(entity),
                 "entities": [],
                 "area_id": entity.area_id,
-                # These would come from list_devices - MCP gap
+                # These would come from list_devices - HA gap
                 "manufacturer": None,
                 "model": None,
                 "sw_version": None,
@@ -99,7 +99,7 @@ def infer_areas_from_entities(
 ) -> dict[str, dict[str, Any]]:
     """Infer area information from entity attributes.
 
-    MCP Gap: Areas come from entity attributes, not a dedicated tool.
+    HA Gap: Areas come from entity attributes, not a dedicated tool.
     The area registry details (floor, icon) are not available.
 
     Args:
@@ -123,7 +123,7 @@ def infer_areas_from_entities(
                 "ha_area_id": area_id,
                 "name": _area_id_to_name(area_id),
                 "entities": [],
-                # MCP gap - floor not available
+                # HA gap - floor not available
                 "floor_id": None,
                 "icon": None,
             }

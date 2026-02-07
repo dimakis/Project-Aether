@@ -41,8 +41,8 @@ class InsightCreate(BaseModel):
     """Schema for creating an insight directly."""
 
     type: InsightType = Field(description="Insight category")
-    title: str = Field(description="Brief summary")
-    description: str = Field(description="Detailed explanation (markdown supported)")
+    title: str = Field(max_length=500, description="Brief summary")
+    description: str = Field(max_length=10_000, description="Detailed explanation (markdown supported)")
     evidence: dict[str, Any] = Field(
         description="Supporting data (charts, statistics, queries)"
     )
@@ -52,14 +52,17 @@ class InsightCreate(BaseModel):
         description="Confidence score 0.0-1.0",
     )
     impact: str = Field(
+        max_length=20,
         description="Potential impact: low, medium, high, critical",
     )
     entities: list[str] = Field(
         default_factory=list,
+        max_length=100,
         description="Related entity IDs",
     )
     script_path: str | None = Field(
         default=None,
+        max_length=500,
         description="Path to analysis script",
     )
     script_output: dict[str, Any] | None = Field(
@@ -68,6 +71,7 @@ class InsightCreate(BaseModel):
     )
     mlflow_run_id: str | None = Field(
         default=None,
+        max_length=100,
         description="MLflow run ID for traceability",
     )
 
@@ -118,6 +122,7 @@ class AnalysisRequest(BaseModel):
 
     analysis_type: str = Field(
         default="energy",
+        max_length=50,
         description="Type of analysis: energy, anomaly, pattern",
     )
     entity_ids: list[str] | None = Field(
@@ -177,10 +182,12 @@ class ReviewRequest(BaseModel):
 
     reviewed_by: str = Field(
         default="user",
+        max_length=100,
         description="Who reviewed",
     )
     comment: str | None = Field(
         default=None,
+        max_length=2000,
         description="Review comment",
     )
 
@@ -190,10 +197,12 @@ class ActionRequest(BaseModel):
 
     actioned_by: str = Field(
         default="user",
+        max_length=100,
         description="Who took action",
     )
     action_taken: str | None = Field(
         default=None,
+        max_length=2000,
         description="What action was taken",
     )
     create_automation: bool = Field(
@@ -207,6 +216,7 @@ class DismissRequest(BaseModel):
 
     reason: str | None = Field(
         default=None,
+        max_length=2000,
         description="Why dismissed",
     )
 

@@ -27,7 +27,7 @@ class TestGetEntityHistoryBasic:
             "count": 3,
         })
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             result = await get_entity_history.ainvoke({
                 "entity_id": "sensor.temperature",
                 "hours": 24,
@@ -45,7 +45,7 @@ class TestGetEntityHistoryBasic:
         mock_mcp = MagicMock()
         mock_mcp.get_history = AsyncMock(return_value={"states": [], "count": 0})
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             result = await get_entity_history.ainvoke({
                 "entity_id": "sensor.missing",
                 "hours": 24,
@@ -64,7 +64,7 @@ class TestGetEntityHistoryBasic:
             "count": 1,
         })
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             await get_entity_history.ainvoke({
                 "entity_id": "light.test",
                 "hours": 500,
@@ -93,7 +93,7 @@ class TestGetEntityHistoryDetailed:
             "count": 4,
         })
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             result = await get_entity_history.ainvoke({
                 "entity_id": "light.living_room",
                 "hours": 24,
@@ -120,7 +120,7 @@ class TestGetEntityHistoryDetailed:
             "count": 25,
         })
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             result = await get_entity_history.ainvoke({
                 "entity_id": "sensor.test",
                 "hours": 48,
@@ -151,7 +151,7 @@ class TestGetEntityHistoryDetailed:
             "count": 4,
         })
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             result = await get_entity_history.ainvoke({
                 "entity_id": "sensor.energy",
                 "hours": 72,
@@ -176,7 +176,7 @@ class TestGetEntityHistoryDetailed:
             "count": 3,
         })
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             result = await get_entity_history.ainvoke({
                 "entity_id": "light.test",
                 "hours": 24,
@@ -199,7 +199,7 @@ class TestGetEntityHistoryDetailed:
             "count": 2,
         })
 
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client", return_value=mock_mcp):
             result = await get_entity_history.ainvoke({
                 "entity_id": "switch.pump",
                 "hours": 24,

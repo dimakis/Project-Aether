@@ -73,8 +73,8 @@ def mock_ha_entities():
 
 
 @pytest.fixture
-def mock_mcp_client(mock_ha_entities):
-    """Create mock MCP client with realistic responses."""
+def mock_ha_client(mock_ha_entities):
+    """Create mock HA client with realistic responses."""
     client = MagicMock()
 
     client.list_entities = AsyncMock(return_value=mock_ha_entities)
@@ -105,9 +105,9 @@ def mock_mcp_client(mock_ha_entities):
 class TestDiscoveryE2E:
     """End-to-end tests for discovery flow."""
 
-    async def test_discovery_finds_all_entities(self, mock_mcp_client, mock_ha_entities):
+    async def test_discovery_finds_all_entities(self, mock_ha_client, mock_ha_entities):
         """Test that discovery finds all entities from HA."""
-        from src.mcp.parsers import parse_entity_list
+        from src.ha.parsers import parse_entity_list
 
         # Parse entities like discovery would
         entities = parse_entity_list(mock_ha_entities)
@@ -116,10 +116,10 @@ class TestDiscoveryE2E:
         assert any(e.entity_id == "light.living_room_main" for e in entities)
         assert any(e.domain == "sensor" for e in entities)
 
-    async def test_discovery_extracts_areas(self, mock_mcp_client, mock_ha_entities):
+    async def test_discovery_extracts_areas(self, mock_ha_client, mock_ha_entities):
         """Test that discovery extracts unique areas."""
-        from src.mcp.parsers import parse_entity_list
-        from src.mcp.workarounds import infer_areas_from_entities
+        from src.ha.parsers import parse_entity_list
+        from src.ha.workarounds import infer_areas_from_entities
 
         entities = parse_entity_list(mock_ha_entities)
         areas = infer_areas_from_entities(entities)
@@ -129,10 +129,10 @@ class TestDiscoveryE2E:
         assert "kitchen" in areas
         assert "entrance" in areas
 
-    async def test_discovery_extracts_devices(self, mock_mcp_client, mock_ha_entities):
+    async def test_discovery_extracts_devices(self, mock_ha_client, mock_ha_entities):
         """Test that discovery extracts unique devices."""
-        from src.mcp.parsers import parse_entity_list
-        from src.mcp.workarounds import infer_devices_from_entities
+        from src.ha.parsers import parse_entity_list
+        from src.ha.workarounds import infer_devices_from_entities
 
         entities = parse_entity_list(mock_ha_entities)
         devices = infer_devices_from_entities(entities)
@@ -142,10 +142,10 @@ class TestDiscoveryE2E:
         assert "device_temp_001" in devices
 
     async def test_discovery_associates_entities_with_areas(
-        self, mock_mcp_client, mock_ha_entities
+        self, mock_ha_client, mock_ha_entities
     ):
         """Test that entities are associated with correct areas."""
-        from src.mcp.parsers import parse_entity_list
+        from src.ha.parsers import parse_entity_list
 
         entities = parse_entity_list(mock_ha_entities)
 
@@ -155,10 +155,10 @@ class TestDiscoveryE2E:
         assert len(living_room_entities) == 3  # 2 lights + 1 sensor
         assert len(kitchen_entities) == 1  # 1 switch
 
-    async def test_discovery_extracts_metadata(self, mock_mcp_client, mock_ha_entities):
+    async def test_discovery_extracts_metadata(self, mock_ha_client, mock_ha_entities):
         """Test that discovery extracts entity metadata."""
-        from src.mcp.parsers import parse_entity_list
-        from src.mcp.workarounds import extract_entity_metadata
+        from src.ha.parsers import parse_entity_list
+        from src.ha.workarounds import extract_entity_metadata
 
         entities = parse_entity_list(mock_ha_entities)
 
@@ -179,7 +179,7 @@ class TestDiscoveryWithDatabase:
     """E2E tests that would use a real database (skipped without testcontainers)."""
 
     @pytest.mark.skip(reason="Requires testcontainers setup")
-    async def test_full_discovery_workflow(self, mock_mcp_client):
+    async def test_full_discovery_workflow(self, mock_ha_client):
         """Test complete discovery workflow with database."""
         # This test would:
         # 1. Start with empty database
@@ -190,7 +190,7 @@ class TestDiscoveryWithDatabase:
         pass
 
     @pytest.mark.skip(reason="Requires testcontainers setup")
-    async def test_discovery_handles_removed_entities(self, mock_mcp_client):
+    async def test_discovery_handles_removed_entities(self, mock_ha_client):
         """Test that discovery removes entities no longer in HA."""
         pass
 
@@ -201,7 +201,7 @@ class TestDiscoveryStatistics:
 
     def test_discovery_counts_domains(self, mock_ha_entities):
         """Test that discovery correctly counts entities per domain."""
-        from src.mcp.parsers import parse_entity_list
+        from src.ha.parsers import parse_entity_list
 
         entities = parse_entity_list(mock_ha_entities)
         domain_counts = {}
@@ -216,7 +216,7 @@ class TestDiscoveryStatistics:
 
     def test_discovery_state_distribution(self, mock_ha_entities):
         """Test state distribution statistics."""
-        from src.mcp.parsers import parse_entity_list
+        from src.ha.parsers import parse_entity_list
 
         entities = parse_entity_list(mock_ha_entities)
         state_counts = {}

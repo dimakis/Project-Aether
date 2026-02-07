@@ -1,6 +1,6 @@
-"""Response parsers for MCP tool outputs.
+"""Response parsers for HA tool outputs.
 
-Transforms raw MCP responses into typed Pydantic models
+Transforms raw HA responses into typed Pydantic models
 for use in the application.
 """
 
@@ -27,7 +27,7 @@ class SystemOverview(BaseModel):
 
 
 class ParsedEntity(BaseModel):
-    """Parsed entity from MCP response."""
+    """Parsed entity from HA response."""
 
     entity_id: str
     domain: str
@@ -44,7 +44,7 @@ class ParsedEntity(BaseModel):
 
 
 class ParsedAutomation(BaseModel):
-    """Parsed automation from MCP response."""
+    """Parsed automation from HA response."""
 
     id: str
     entity_id: str

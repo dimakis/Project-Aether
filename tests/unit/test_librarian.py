@@ -1,6 +1,6 @@
 """Unit tests for Librarian agent.
 
-Tests Librarian agent logic with mocked MCP client.
+Tests Librarian agent logic with mocked HA client.
 Constitution: Reliability & Quality - agent logic validation.
 """
 
@@ -14,8 +14,8 @@ from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create mock MCP client."""
+def mock_ha_client():
+    """Create mock HA client."""
     client = MagicMock()
 
     # Mock list_entities
@@ -100,27 +100,27 @@ class TestLibrarianWorkflow:
     """Tests for LibrarianWorkflow class."""
 
     @pytest.fixture
-    def workflow(self, mock_mcp_client):
+    def workflow(self, mock_ha_client):
         """Create workflow with mock client."""
-        return LibrarianWorkflow(mcp_client=mock_mcp_client)
+        return LibrarianWorkflow(ha_client=mock_ha_client)
 
-    def test_workflow_initialization(self, mock_mcp_client):
+    def test_workflow_initialization(self, mock_ha_client):
         """Test workflow initialization."""
-        workflow = LibrarianWorkflow(mcp_client=mock_mcp_client)
+        workflow = LibrarianWorkflow(ha_client=mock_ha_client)
 
-        assert workflow._mcp == mock_mcp_client
+        assert workflow._ha_client == mock_ha_client
 
     def test_workflow_creates_mcp_if_needed(self):
-        """Test workflow creates MCP client if not provided."""
+        """Test workflow creates HA client if not provided."""
         workflow = LibrarianWorkflow()
 
-        assert workflow._mcp is None
+        assert workflow._ha_client is None
 
-        with patch("src.mcp.get_mcp_client") as mock_get_client:
+        with patch("src.ha.get_ha_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
 
-            _ = workflow.mcp
+            _ = workflow.ha
 
             mock_get_client.assert_called_once()
 

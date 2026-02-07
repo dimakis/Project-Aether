@@ -8,7 +8,7 @@ Tests the complete flow from user request to insights:
 5. Extracts and saves insights
 
 Requires:
-- Mock MCP client (or real HA connection)
+- Mock HA client (or real HA connection)
 - Sandbox environment (Podman + gVisor or unsandboxed mode)
 - Database for insight storage
 """
@@ -84,8 +84,8 @@ def mock_energy_entities():
 
 
 @pytest.fixture
-def mock_mcp_client(mock_energy_history, mock_energy_entities):
-    """Create mock MCP client with energy data."""
+def mock_ha_client(mock_energy_history, mock_energy_entities):
+    """Create mock HA client with energy data."""
     client = MagicMock()
     client.list_entities = AsyncMock(return_value={"results": mock_energy_entities})
     client.get_history = AsyncMock(return_value=mock_energy_history)

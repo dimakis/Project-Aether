@@ -4,7 +4,7 @@ Provides a baseline set of common HA services that are seeded
 into the database before discovery. This ensures agents know
 about standard services even if discovery hasn't run.
 
-MCP Gap: No `list_services` tool available.
+HA Gap: No `list_services` tool available.
 Workaround: Seed common services from this constant data.
 """
 

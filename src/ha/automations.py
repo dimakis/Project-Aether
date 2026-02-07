@@ -6,14 +6,14 @@ scripts, scenes, and input helpers.
 
 from typing import Any
 
-from src.mcp.base import MCPError, _trace_mcp_call
+from src.ha.base import HAClientError, _trace_ha_call
 from src.tracing import log_param
 
 
 class AutomationMixin:
     """Mixin providing automation, script, scene, and input helper operations."""
 
-    @_trace_mcp_call("mcp.list_automations")
+    @_trace_ha_call("ha.list_automations")
     async def list_automations(self) -> list[dict[str, Any]]:
         """List all automations.
 
@@ -38,7 +38,7 @@ class AutomationMixin:
 
         return automations
 
-    @_trace_mcp_call("mcp.create_automation")
+    @_trace_ha_call("ha.create_automation")
     async def create_automation(
         self,
         automation_id: str,
@@ -51,7 +51,7 @@ class AutomationMixin:
     ) -> dict[str, Any]:
         """Create or update an automation via HA REST API.
 
-        This bypasses the MCP gap by using HA's config API directly.
+        This bypasses the HA gap by using HA's config API directly.
 
         Args:
             automation_id: Unique automation ID (e.g., "aether_motion_lights")
@@ -65,8 +65,8 @@ class AutomationMixin:
         Returns:
             Result dict with success status
         """
-        log_param("mcp.create_automation.id", automation_id)
-        log_param("mcp.create_automation.alias", alias)
+        log_param("ha.create_automation.id", automation_id)
+        log_param("ha.create_automation.alias", alias)
 
         # Build automation config
         config: dict[str, Any] = {
@@ -97,7 +97,7 @@ class AutomationMixin:
                 "method": "rest_api",
                 "config": config,
             }
-        except MCPError as e:
+        except HAClientError as e:
             return {
                 "success": False,
                 "automation_id": automation_id,
@@ -105,7 +105,7 @@ class AutomationMixin:
                 "method": "rest_api",
             }
 
-    @_trace_mcp_call("mcp.get_automation_config")
+    @_trace_ha_call("ha.get_automation_config")
     async def get_automation_config(
         self,
         automation_id: str,
@@ -123,7 +123,7 @@ class AutomationMixin:
             f"/api/config/automation/config/{automation_id}",
         )
 
-    @_trace_mcp_call("mcp.delete_automation")
+    @_trace_ha_call("ha.delete_automation")
     async def delete_automation(
         self,
         automation_id: str,
@@ -136,7 +136,7 @@ class AutomationMixin:
         Returns:
             Result dict
         """
-        log_param("mcp.delete_automation.id", automation_id)
+        log_param("ha.delete_automation.id", automation_id)
 
         try:
             await self._request(
@@ -144,10 +144,10 @@ class AutomationMixin:
                 f"/api/config/automation/config/{automation_id}",
             )
             return {"success": True, "automation_id": automation_id}
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "automation_id": automation_id, "error": str(e)}
 
-    @_trace_mcp_call("mcp.list_automation_configs")
+    @_trace_ha_call("ha.list_automation_configs")
     async def list_automation_configs(self) -> list[dict[str, Any]]:
         """List all automation configurations.
 
@@ -157,7 +157,7 @@ class AutomationMixin:
         result = await self._request("GET", "/api/config/automation/config")
         return result if result else []
 
-    @_trace_mcp_call("mcp.create_script")
+    @_trace_ha_call("ha.create_script")
     async def create_script(
         self,
         script_id: str,
@@ -183,7 +183,7 @@ class AutomationMixin:
         Returns:
             Result dict with success status
         """
-        log_param("mcp.create_script.id", script_id)
+        log_param("ha.create_script.id", script_id)
 
         config: dict[str, Any] = {
             "alias": alias,
@@ -207,19 +207,19 @@ class AutomationMixin:
                 "script_id": script_id,
                 "entity_id": f"script.{script_id}",
             }
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "script_id": script_id, "error": str(e)}
 
-    @_trace_mcp_call("mcp.delete_script")
+    @_trace_ha_call("ha.delete_script")
     async def delete_script(self, script_id: str) -> dict[str, Any]:
         """Delete a script."""
         try:
             await self._request("DELETE", f"/api/config/script/config/{script_id}")
             return {"success": True, "script_id": script_id}
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "script_id": script_id, "error": str(e)}
 
-    @_trace_mcp_call("mcp.create_scene")
+    @_trace_ha_call("ha.create_scene")
     async def create_scene(
         self,
         scene_id: str,
@@ -240,7 +240,7 @@ class AutomationMixin:
         Returns:
             Result dict
         """
-        log_param("mcp.create_scene.id", scene_id)
+        log_param("ha.create_scene.id", scene_id)
 
         config: dict[str, Any] = {
             "id": scene_id,
@@ -262,19 +262,19 @@ class AutomationMixin:
                 "scene_id": scene_id,
                 "entity_id": f"scene.{scene_id}",
             }
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "scene_id": scene_id, "error": str(e)}
 
-    @_trace_mcp_call("mcp.delete_scene")
+    @_trace_ha_call("ha.delete_scene")
     async def delete_scene(self, scene_id: str) -> dict[str, Any]:
         """Delete a scene."""
         try:
             await self._request("DELETE", f"/api/config/scene/config/{scene_id}")
             return {"success": True, "scene_id": scene_id}
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "scene_id": scene_id, "error": str(e)}
 
-    @_trace_mcp_call("mcp.create_input_boolean")
+    @_trace_ha_call("ha.create_input_boolean")
     async def create_input_boolean(
         self,
         input_id: str,
@@ -310,10 +310,10 @@ class AutomationMixin:
                 "input_id": input_id,
                 "entity_id": f"input_boolean.{input_id}",
             }
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
 
-    @_trace_mcp_call("mcp.create_input_number")
+    @_trace_ha_call("ha.create_input_number")
     async def create_input_number(
         self,
         input_id: str,
@@ -369,5 +369,5 @@ class AutomationMixin:
                 "input_id": input_id,
                 "entity_id": f"input_number.{input_id}",
             }
-        except MCPError as e:
+        except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}

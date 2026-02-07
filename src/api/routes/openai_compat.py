@@ -173,9 +173,11 @@ async def submit_feedback(body: FeedbackRequest):
             client = mlflow.MlflowClient()
             client.set_trace_tag(body.trace_id, "user_sentiment", body.sentiment)
         except Exception as e:
+            from src.api.utils import sanitize_error
+
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to log feedback: {e}",
+                detail=sanitize_error(e, context="Log feedback"),
             ) from e
 
     return {"status": "ok"}

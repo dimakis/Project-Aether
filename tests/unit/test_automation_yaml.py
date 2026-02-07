@@ -15,7 +15,7 @@ class TestAutomationDeployer:
     @pytest.fixture
     def deployer(self):
         """Create deployer instance."""
-        from src.mcp.automation_deploy import AutomationDeployer
+        from src.ha.automation_deploy import AutomationDeployer
 
         return AutomationDeployer()
 
@@ -97,7 +97,7 @@ class TestYAMLValidation:
     @pytest.fixture
     def deployer(self):
         """Create deployer instance."""
-        from src.mcp.automation_deploy import AutomationDeployer
+        from src.ha.automation_deploy import AutomationDeployer
 
         return AutomationDeployer()
 
@@ -167,7 +167,7 @@ class TestYAMLHelpers:
 
     def test_build_state_trigger(self):
         """Test state trigger builder."""
-        from src.mcp.automation_deploy import build_state_trigger
+        from src.ha.automation_deploy import build_state_trigger
 
         trigger = build_state_trigger(
             entity_id="light.living_room",
@@ -184,7 +184,7 @@ class TestYAMLHelpers:
 
     def test_build_time_trigger(self):
         """Test time trigger builder."""
-        from src.mcp.automation_deploy import build_time_trigger
+        from src.ha.automation_deploy import build_time_trigger
 
         trigger = build_time_trigger("08:00:00")
 
@@ -193,7 +193,7 @@ class TestYAMLHelpers:
 
     def test_build_sun_trigger(self):
         """Test sun trigger builder."""
-        from src.mcp.automation_deploy import build_sun_trigger
+        from src.ha.automation_deploy import build_sun_trigger
 
         trigger = build_sun_trigger(event="sunset", offset="-00:30:00")
 
@@ -203,7 +203,7 @@ class TestYAMLHelpers:
 
     def test_build_service_action(self):
         """Test service action builder."""
-        from src.mcp.automation_deploy import build_service_action
+        from src.ha.automation_deploy import build_service_action
 
         action = build_service_action(
             domain="light",
@@ -218,14 +218,14 @@ class TestYAMLHelpers:
 
     def test_build_delay_action(self):
         """Test delay action builder."""
-        from src.mcp.automation_deploy import build_delay_action
+        from src.ha.automation_deploy import build_delay_action
 
         action = build_delay_action("00:00:30")
         assert action["delay"] == "00:00:30"
 
     def test_build_condition(self):
         """Test condition builder."""
-        from src.mcp.automation_deploy import build_condition
+        from src.ha.automation_deploy import build_condition
 
         condition = build_condition(
             "time",
@@ -243,18 +243,18 @@ class TestAutomationDeployerRestAPI:
 
     @pytest.fixture
     def deployer_with_mock_mcp(self):
-        """Create deployer with mocked MCP client."""
-        from src.mcp.automation_deploy import AutomationDeployer
+        """Create deployer with mocked HA client."""
+        from src.ha.automation_deploy import AutomationDeployer
 
         deployer = AutomationDeployer()
-        deployer._mcp = MagicMock()
+        deployer._ha_client = MagicMock()
         return deployer
 
     @pytest.mark.asyncio
     async def test_deploy_via_rest_api_success(self, deployer_with_mock_mcp):
         """Test successful deployment via REST API."""
         deployer = deployer_with_mock_mcp
-        deployer._mcp.create_automation = AsyncMock(return_value={
+        deployer._ha_client.create_automation = AsyncMock(return_value={
             "success": True,
             "automation_id": "test_automation",
             "entity_id": "automation.test_automation",
@@ -276,13 +276,13 @@ mode: single
         assert result["success"] is True
         assert result["method"] == "rest_api"
         assert result["entity_id"] == "automation.test_automation"
-        deployer._mcp.create_automation.assert_called_once()
+        deployer._ha_client.create_automation.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_deploy_falls_back_to_manual_on_failure(self, deployer_with_mock_mcp):
         """Test fallback to manual instructions when REST API fails."""
         deployer = deployer_with_mock_mcp
-        deployer._mcp.create_automation = AsyncMock(return_value={
+        deployer._ha_client.create_automation = AsyncMock(return_value={
             "success": False,
             "error": "Connection refused",
         })
@@ -315,13 +315,13 @@ alias: Test
         assert result["success"] is False
         assert result["method"] == "validation_failed"
         # Should not have called MCP at all
-        deployer._mcp.create_automation.assert_not_called()
+        deployer._ha_client.create_automation.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_deploy_saves_yaml_backup(self, deployer_with_mock_mcp, tmp_path):
         """Test that YAML is saved as backup when output_dir provided."""
         deployer = deployer_with_mock_mcp
-        deployer._mcp.create_automation = AsyncMock(return_value={
+        deployer._ha_client.create_automation = AsyncMock(return_value={
             "success": True,
             "automation_id": "backup_test",
             "entity_id": "automation.backup_test",

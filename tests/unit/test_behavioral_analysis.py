@@ -1,6 +1,6 @@
 """Unit tests for behavioral analysis client.
 
-Tests BehavioralAnalysisClient with mocked MCP client.
+Tests BehavioralAnalysisClient with mocked HA client.
 Constitution: Reliability & Quality.
 
 TDD: T234 - Pattern detection tests.
@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.mcp.behavioral import (
+from src.ha.behavioral import (
     AutomationEffectivenessReport,
     AutomationGap,
     BehavioralAnalysisClient,
@@ -22,8 +22,8 @@ from src.mcp.behavioral import (
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client with logbook and automation support."""
+def mock_ha_client():
+    """Create a mock HA client with logbook and automation support."""
     client = AsyncMock()
 
     now = datetime.now(timezone.utc)
@@ -99,9 +99,9 @@ def mock_mcp_client():
 
 
 @pytest.fixture
-def behavioral_client(mock_mcp_client):
+def behavioral_client(mock_ha_client):
     """Create BehavioralAnalysisClient with mock."""
-    return BehavioralAnalysisClient(mock_mcp_client)
+    return BehavioralAnalysisClient(mock_ha_client)
 
 
 class TestGetButtonUsage:

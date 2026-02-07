@@ -21,7 +21,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from webauthn import (
     generate_authentication_options,
     generate_registration_options,
@@ -50,58 +50,132 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # In-memory challenge store (short-lived, keyed by username)
-# In production with multiple workers, use Redis or DB-backed store.
+# Challenges are ephemeral (60s TTL) so in-memory is acceptable even
+# with multiple workers -- worst case, user retries the challenge step.
 _challenge_store: dict[str, bytes] = {}
 
 
 # =============================================================================
-# Credential storage helpers (DB-backed in production, in-memory for now)
+# Credential storage helpers (DB-backed via PasskeyCredential model)
 # =============================================================================
-
-# These will be replaced with actual DB queries once integrated with
-# the PasskeyCredential model and DAL. For now, they use in-memory storage
-# to enable the WebAuthn flow to work end-to-end.
-
-_credential_store: list[dict] = []
 
 
 async def get_credentials_for_user(username: str) -> list[dict]:
-    """Get all stored credentials for a user.
+    """Get all stored credentials for a user from the database.
 
     Returns list of dicts with keys: id, credential_id, public_key,
-    sign_count, transports, device_name, last_used_at.
+    sign_count, transports, device_name, last_used_at, username.
     """
-    return [c for c in _credential_store if c["username"] == username]
+    from sqlalchemy import select
+
+    from src.storage import get_session
+    from src.storage.entities.passkey_credential import PasskeyCredential
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(PasskeyCredential).where(PasskeyCredential.username == username)
+        )
+        credentials = result.scalars().all()
+        return [
+            {
+                "id": str(c.id),
+                "credential_id": c.credential_id,
+                "public_key": c.public_key,
+                "sign_count": c.sign_count,
+                "transports": c.transports,
+                "device_name": c.device_name,
+                "username": c.username,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+                "last_used_at": c.last_used_at.isoformat() if c.last_used_at else None,
+            }
+            for c in credentials
+        ]
 
 
 async def store_credential(credential: dict) -> None:
-    """Store a new credential."""
-    _credential_store.append(credential)
+    """Store a new credential in the database."""
+    from src.storage import get_session
+    from src.storage.entities.passkey_credential import PasskeyCredential
+
+    async with get_session() as session:
+        db_credential = PasskeyCredential(
+            credential_id=credential["credential_id"],
+            public_key=credential["public_key"],
+            sign_count=credential["sign_count"],
+            transports=credential.get("transports"),
+            device_name=credential.get("device_name"),
+            username=credential["username"],
+        )
+        session.add(db_credential)
+        await session.commit()
 
 
 async def get_credential_by_id(credential_id: bytes) -> dict | None:
-    """Look up a credential by its WebAuthn credential ID."""
-    for c in _credential_store:
-        if c["credential_id"] == credential_id:
-            return c
-    return None
+    """Look up a credential by its WebAuthn credential ID from the database."""
+    from sqlalchemy import select
+
+    from src.storage import get_session
+    from src.storage.entities.passkey_credential import PasskeyCredential
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(PasskeyCredential).where(
+                PasskeyCredential.credential_id == credential_id
+            )
+        )
+        c = result.scalar_one_or_none()
+        if not c:
+            return None
+        return {
+            "id": str(c.id),
+            "credential_id": c.credential_id,
+            "public_key": c.public_key,
+            "sign_count": c.sign_count,
+            "transports": c.transports,
+            "device_name": c.device_name,
+            "username": c.username,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "last_used_at": c.last_used_at.isoformat() if c.last_used_at else None,
+        }
 
 
 async def update_credential_sign_count(credential_id: bytes, new_count: int) -> None:
-    """Update the sign count for replay protection."""
-    for c in _credential_store:
-        if c["credential_id"] == credential_id:
-            c["sign_count"] = new_count
-            c["last_used_at"] = datetime.now(timezone.utc).isoformat()
-            break
+    """Update the sign count for replay protection in the database."""
+    from sqlalchemy import select
+
+    from src.storage import get_session
+    from src.storage.entities.passkey_credential import PasskeyCredential
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(PasskeyCredential).where(
+                PasskeyCredential.credential_id == credential_id
+            )
+        )
+        credential = result.scalar_one_or_none()
+        if credential:
+            credential.sign_count = new_count
+            credential.last_used_at = datetime.now(timezone.utc)
+            await session.commit()
 
 
-async def delete_credential_by_uuid(uuid: str) -> bool:
+async def delete_credential_by_uuid(uuid_str: str) -> bool:
     """Delete a credential by its UUID. Returns True if found and deleted."""
-    global _credential_store
-    original_len = len(_credential_store)
-    _credential_store = [c for c in _credential_store if c.get("id") != uuid]
-    return len(_credential_store) < original_len
+    from sqlalchemy import select
+
+    from src.storage import get_session
+    from src.storage.entities.passkey_credential import PasskeyCredential
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(PasskeyCredential).where(PasskeyCredential.id == uuid_str)
+        )
+        credential = result.scalar_one_or_none()
+        if not credential:
+            return False
+        await session.delete(credential)
+        await session.commit()
+        return True
 
 
 # =============================================================================
@@ -113,7 +187,7 @@ class RegisterVerifyRequest(BaseModel):
     """WebAuthn registration response from the browser."""
 
     credential: dict
-    device_name: str | None = None
+    device_name: str | None = Field(default=None, max_length=100)
 
 
 class AuthenticateVerifyRequest(BaseModel):
@@ -235,8 +309,8 @@ async def passkey_register_verify(body: RegisterVerifyRequest, request: Request)
             require_user_verification=False,
         )
     except Exception as e:
-        logger.warning(f"Passkey registration verification failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Registration failed: {e}")
+        logger.warning("Passkey registration verification failed: %s", e)
+        raise HTTPException(status_code=400, detail="Registration failed. Please try again.")
 
     # Store credential
     import uuid
@@ -332,8 +406,8 @@ async def passkey_authenticate_verify(
             require_user_verification=False,
         )
     except Exception as e:
-        logger.warning(f"Passkey authentication failed: {e}")
-        raise HTTPException(status_code=401, detail=f"Authentication failed: {e}")
+        logger.warning("Passkey authentication failed: %s", e)
+        raise HTTPException(status_code=401, detail="Authentication failed. Please try again.")
 
     # Update sign count
     await update_credential_sign_count(

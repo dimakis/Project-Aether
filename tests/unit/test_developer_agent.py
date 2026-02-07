@@ -13,8 +13,8 @@ class TestDeveloperAgent:
     """Test DeveloperAgent functionality."""
 
     @pytest.fixture
-    def mock_mcp_client(self):
-        """Create mock MCP client."""
+    def mock_ha_client(self):
+        """Create mock HA client."""
         client = MagicMock()
         client.call_service = AsyncMock(return_value={})
         return client
@@ -57,12 +57,12 @@ class TestDeveloperAgent:
         assert "alias: Test Automation" in yaml_content
 
     @pytest.mark.asyncio
-    async def test_deploy_automation(self, mock_mcp_client, mock_proposal):
+    async def test_deploy_automation(self, mock_ha_client, mock_proposal):
         """Test automation deployment."""
         from src.agents.developer import DeveloperAgent
 
-        with patch.object(DeveloperAgent, "mcp", mock_mcp_client):
-            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+        with patch.object(DeveloperAgent, "ha", mock_ha_client):
+            agent = DeveloperAgent(ha_client=mock_ha_client)
 
             # Mock session and repo
             mock_session = MagicMock()
@@ -78,52 +78,52 @@ class TestDeveloperAgent:
             assert "yaml_content" in result
 
     @pytest.mark.asyncio
-    async def test_enable_automation(self, mock_mcp_client):
+    async def test_enable_automation(self, mock_ha_client):
         """Test enabling an automation."""
         from src.agents.developer import DeveloperAgent
 
-        agent = DeveloperAgent(mcp_client=mock_mcp_client)
+        agent = DeveloperAgent(ha_client=mock_ha_client)
         result = await agent.enable_automation("automation.test_auto")
 
         assert result["enabled"] is True
-        mock_mcp_client.call_service.assert_called_once_with(
+        mock_ha_client.call_service.assert_called_once_with(
             domain="automation",
             service="turn_on",
             data={"entity_id": "automation.test_auto"},
         )
 
     @pytest.mark.asyncio
-    async def test_disable_automation(self, mock_mcp_client):
+    async def test_disable_automation(self, mock_ha_client):
         """Test disabling an automation."""
         from src.agents.developer import DeveloperAgent
 
-        agent = DeveloperAgent(mcp_client=mock_mcp_client)
+        agent = DeveloperAgent(ha_client=mock_ha_client)
         result = await agent.disable_automation("automation.test_auto")
 
         assert result["disabled"] is True
-        mock_mcp_client.call_service.assert_called_once_with(
+        mock_ha_client.call_service.assert_called_once_with(
             domain="automation",
             service="turn_off",
             data={"entity_id": "automation.test_auto"},
         )
 
     @pytest.mark.asyncio
-    async def test_trigger_automation(self, mock_mcp_client):
+    async def test_trigger_automation(self, mock_ha_client):
         """Test triggering an automation."""
         from src.agents.developer import DeveloperAgent
 
-        agent = DeveloperAgent(mcp_client=mock_mcp_client)
+        agent = DeveloperAgent(ha_client=mock_ha_client)
         result = await agent.trigger_automation("automation.test_auto")
 
         assert result["triggered"] is True
-        mock_mcp_client.call_service.assert_called_once_with(
+        mock_ha_client.call_service.assert_called_once_with(
             domain="automation",
             service="trigger",
             data={"entity_id": "automation.test_auto"},
         )
 
     @pytest.mark.asyncio
-    async def test_rollback_automation(self, mock_mcp_client):
+    async def test_rollback_automation(self, mock_ha_client):
         """Test rolling back an automation."""
         from src.agents.developer import DeveloperAgent
         from src.storage.entities import ProposalStatus
@@ -139,7 +139,7 @@ class TestDeveloperAgent:
         mock_repo.rollback = AsyncMock()
 
         with patch("src.agents.developer.ProposalRepository", return_value=mock_repo):
-            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+            agent = DeveloperAgent(ha_client=mock_ha_client)
             result = await agent.rollback_automation("test-id", mock_session)
 
         assert result["rolled_back"] is True
@@ -147,12 +147,12 @@ class TestDeveloperAgent:
         mock_repo.rollback.assert_called_once_with("test-id")
 
     @pytest.mark.asyncio
-    async def test_rollback_reports_ha_disable_failure(self, mock_mcp_client):
+    async def test_rollback_reports_ha_disable_failure(self, mock_ha_client):
         """Test that rollback reports when HA disable fails instead of silently swallowing."""
         from src.agents.developer import DeveloperAgent
         from src.storage.entities import ProposalStatus
 
-        mock_mcp_client.call_service = AsyncMock(side_effect=Exception("HA connection refused"))
+        mock_ha_client.call_service = AsyncMock(side_effect=Exception("HA connection refused"))
 
         mock_proposal = MagicMock()
         mock_proposal.id = "test-id"
@@ -165,7 +165,7 @@ class TestDeveloperAgent:
         mock_repo.rollback = AsyncMock()
 
         with patch("src.agents.developer.ProposalRepository", return_value=mock_repo):
-            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+            agent = DeveloperAgent(ha_client=mock_ha_client)
             result = await agent.rollback_automation("test-id", mock_session)
 
         # Should still mark as rolled back in DB but report HA failure
@@ -176,7 +176,7 @@ class TestDeveloperAgent:
         mock_repo.rollback.assert_called_once_with("test-id")
 
     @pytest.mark.asyncio
-    async def test_rollback_uses_correct_entity_id_format(self, mock_mcp_client):
+    async def test_rollback_uses_correct_entity_id_format(self, mock_ha_client):
         """Test that rollback uses automation.{id} entity_id format correctly."""
         from src.agents.developer import DeveloperAgent
         from src.storage.entities import ProposalStatus
@@ -192,18 +192,18 @@ class TestDeveloperAgent:
         mock_repo.rollback = AsyncMock()
 
         with patch("src.agents.developer.ProposalRepository", return_value=mock_repo):
-            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+            agent = DeveloperAgent(ha_client=mock_ha_client)
             await agent.rollback_automation("test-id", mock_session)
 
         # Should call with automation.{ha_automation_id}
-        mock_mcp_client.call_service.assert_called_once_with(
+        mock_ha_client.call_service.assert_called_once_with(
             domain="automation",
             service="turn_off",
             data={"entity_id": "automation.aether_abc12345"},
         )
 
     @pytest.mark.asyncio
-    async def test_rollback_without_ha_automation_id(self, mock_mcp_client):
+    async def test_rollback_without_ha_automation_id(self, mock_ha_client):
         """Test rollback when no HA automation ID exists (never deployed to HA)."""
         from src.agents.developer import DeveloperAgent
         from src.storage.entities import ProposalStatus
@@ -219,14 +219,14 @@ class TestDeveloperAgent:
         mock_repo.rollback = AsyncMock()
 
         with patch("src.agents.developer.ProposalRepository", return_value=mock_repo):
-            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+            agent = DeveloperAgent(ha_client=mock_ha_client)
             result = await agent.rollback_automation("test-id", mock_session)
 
         assert result["rolled_back"] is True
         assert result["ha_disabled"] is False
         assert "ha_error" not in result
         # Should NOT have called HA
-        mock_mcp_client.call_service.assert_not_called()
+        mock_ha_client.call_service.assert_not_called()
 
 
 class TestDeveloperWorkflow:

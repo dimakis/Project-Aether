@@ -25,8 +25,8 @@ from src.sandbox.runner import SandboxResult
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client."""
+def mock_ha_client():
+    """Create a mock HA client."""
     client = AsyncMock()
     return client
 
@@ -48,9 +48,9 @@ def mock_sandbox():
 
 
 @pytest.fixture
-def data_scientist(mock_mcp_client):
-    """Create DataScientistAgent with mock MCP client."""
-    agent = DataScientistAgent(mcp_client=mock_mcp_client)
+def data_scientist(mock_ha_client):
+    """Create DataScientistAgent with mock HA client."""
+    agent = DataScientistAgent(ha_client=mock_ha_client)
     return agent
 
 
@@ -117,11 +117,11 @@ class TestDataScientistAgentInit:
         assert agent.role == AgentRole.DATA_SCIENTIST
         assert agent.name == "DataScientist"
 
-    def test_init_with_mcp(self, mock_mcp_client):
-        """Test initialization with MCP client."""
-        agent = DataScientistAgent(mcp_client=mock_mcp_client)
+    def test_init_with_mcp(self, mock_ha_client):
+        """Test initialization with HA client."""
+        agent = DataScientistAgent(ha_client=mock_ha_client)
 
-        assert agent._mcp == mock_mcp_client
+        assert agent._ha_client == mock_ha_client
 
 
 class TestDataScientistPrompt:
@@ -380,9 +380,9 @@ class TestDataScientistDiagnosticDataCollection:
     """Tests for diagnostic data collection."""
 
     @pytest.mark.asyncio
-    async def test_diagnostic_mode_includes_context_in_data(self, mock_mcp_client):
+    async def test_diagnostic_mode_includes_context_in_data(self, mock_ha_client):
         """Test that diagnostic context is added to energy data."""
-        agent = DataScientistAgent(mcp_client=mock_mcp_client)
+        agent = DataScientistAgent(ha_client=mock_ha_client)
 
         state = AnalysisState(
             current_agent=AgentRole.DATA_SCIENTIST,
@@ -408,9 +408,9 @@ class TestDataScientistDiagnosticDataCollection:
         assert "connection errors at 2am" in data["diagnostic_context"]
 
     @pytest.mark.asyncio
-    async def test_non_diagnostic_mode_no_context_in_data(self, mock_mcp_client):
+    async def test_non_diagnostic_mode_no_context_in_data(self, mock_ha_client):
         """Test that non-diagnostic mode doesn't add context to data."""
-        agent = DataScientistAgent(mcp_client=mock_mcp_client)
+        agent = DataScientistAgent(ha_client=mock_ha_client)
 
         state = AnalysisState(
             current_agent=AgentRole.DATA_SCIENTIST,
@@ -444,16 +444,16 @@ class TestDataScientistWorkflow:
         assert workflow.agent is not None
         assert isinstance(workflow.agent, DataScientistAgent)
 
-    def test_workflow_init_with_mcp(self, mock_mcp_client):
-        """Test workflow initialization with MCP client."""
-        workflow = DataScientistWorkflow(mcp_client=mock_mcp_client)
+    def test_workflow_init_with_mcp(self, mock_ha_client):
+        """Test workflow initialization with HA client."""
+        workflow = DataScientistWorkflow(ha_client=mock_ha_client)
 
-        assert workflow.agent._mcp == mock_mcp_client
+        assert workflow.agent._ha_client == mock_ha_client
 
     @pytest.mark.asyncio
-    async def test_run_analysis_creates_state(self, mock_mcp_client):
+    async def test_run_analysis_creates_state(self, mock_ha_client):
         """Test that run_analysis creates proper state."""
-        workflow = DataScientistWorkflow(mcp_client=mock_mcp_client)
+        workflow = DataScientistWorkflow(ha_client=mock_ha_client)
 
         # Mock the agent invoke to avoid actual execution
         with patch.object(workflow.agent, "invoke", new_callable=AsyncMock) as mock_invoke:
@@ -480,7 +480,7 @@ class TestDataScientistIntegration:
     async def test_invoke_full_flow(
         self,
         data_scientist,
-        mock_mcp_client,
+        mock_ha_client,
         sample_analysis_state,
         sample_energy_data,
         sample_sandbox_result,

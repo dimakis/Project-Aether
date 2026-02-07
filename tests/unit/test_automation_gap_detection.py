@@ -11,24 +11,24 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.mcp.behavioral import AutomationGap, BehavioralAnalysisClient
+from src.ha.behavioral import AutomationGap, BehavioralAnalysisClient
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client."""
+def mock_ha_client():
+    """Create a mock HA client."""
     return AsyncMock()
 
 
 @pytest.fixture
-def behavioral_client(mock_mcp_client):
+def behavioral_client(mock_ha_client):
     """Create BehavioralAnalysisClient."""
-    return BehavioralAnalysisClient(mock_mcp_client)
+    return BehavioralAnalysisClient(mock_ha_client)
 
 
 class TestDetectAutomationGaps:
     @pytest.mark.asyncio
-    async def test_detects_recurring_pattern(self, behavioral_client, mock_mcp_client):
+    async def test_detects_recurring_pattern(self, behavioral_client, mock_ha_client):
         """A light turned off at 22:00 every night should be detected as a gap."""
         now = datetime.now(timezone.utc)
         entries = []
@@ -47,7 +47,7 @@ class TestDetectAutomationGaps:
                 "context_user_id": "user1",
             })
 
-        mock_mcp_client.get_logbook = AsyncMock(return_value=entries)
+        mock_ha_client.get_logbook = AsyncMock(return_value=entries)
 
         gaps = await behavioral_client.detect_automation_gaps(
             hours=168, min_occurrences=3
@@ -60,7 +60,7 @@ class TestDetectAutomationGaps:
         assert bedroom_gaps[0].typical_time == "22:00"
 
     @pytest.mark.asyncio
-    async def test_ignores_infrequent_actions(self, behavioral_client, mock_mcp_client):
+    async def test_ignores_infrequent_actions(self, behavioral_client, mock_ha_client):
         """Actions that happen less than min_occurrences should not be gaps."""
         now = datetime.now(timezone.utc)
         entries = [
@@ -74,7 +74,7 @@ class TestDetectAutomationGaps:
             },
         ]
 
-        mock_mcp_client.get_logbook = AsyncMock(return_value=entries)
+        mock_ha_client.get_logbook = AsyncMock(return_value=entries)
 
         gaps = await behavioral_client.detect_automation_gaps(
             hours=168, min_occurrences=3
@@ -84,15 +84,15 @@ class TestDetectAutomationGaps:
         assert len(kitchen_gaps) == 0
 
     @pytest.mark.asyncio
-    async def test_empty_logbook_returns_no_gaps(self, behavioral_client, mock_mcp_client):
+    async def test_empty_logbook_returns_no_gaps(self, behavioral_client, mock_ha_client):
         """Empty logbook should return no gaps."""
-        mock_mcp_client.get_logbook = AsyncMock(return_value=[])
+        mock_ha_client.get_logbook = AsyncMock(return_value=[])
 
         gaps = await behavioral_client.detect_automation_gaps(hours=168)
         assert gaps == []
 
     @pytest.mark.asyncio
-    async def test_gap_confidence_increases_with_frequency(self, behavioral_client, mock_mcp_client):
+    async def test_gap_confidence_increases_with_frequency(self, behavioral_client, mock_ha_client):
         """More occurrences should result in higher confidence."""
         now = datetime.now(timezone.utc)
         entries = []
@@ -111,7 +111,7 @@ class TestDetectAutomationGaps:
                 "context_user_id": "user1",
             })
 
-        mock_mcp_client.get_logbook = AsyncMock(return_value=entries)
+        mock_ha_client.get_logbook = AsyncMock(return_value=entries)
 
         gaps = await behavioral_client.detect_automation_gaps(
             hours=240, min_occurrences=3

@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field
 class MessageBase(BaseModel):
     """Base schema for messages."""
 
-    role: str = Field(description="Message role: user, assistant, system")
-    content: str = Field(description="Message content")
+    role: str = Field(max_length=20, description="Message role: user, assistant, system")
+    content: str = Field(max_length=50_000, description="Message content")
 
 
 class MessageCreate(MessageBase):
@@ -53,9 +53,11 @@ class ConversationCreate(BaseModel):
 
     title: str | None = Field(
         default=None,
+        max_length=255,
         description="Optional conversation title",
     )
     initial_message: str = Field(
+        max_length=50_000,
         description="Initial user message to start conversation",
     )
     context: dict | None = Field(
@@ -104,7 +106,7 @@ class ConversationListResponse(BaseModel):
 class ChatRequest(BaseModel):
     """Schema for sending a chat message."""
 
-    message: str = Field(description="User message content")
+    message: str = Field(max_length=50_000, description="User message content")
     context: dict | None = Field(
         default=None,
         description="Additional context for this message",

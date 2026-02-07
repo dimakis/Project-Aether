@@ -2,7 +2,7 @@
 
 User Story 3: Energy Optimization Suggestions.
 
-Wraps the base MCP get_history with energy-specific filtering,
+Wraps the base HA get_history with energy-specific filtering,
 aggregation, and statistical calculations.
 """
 
@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from src.mcp.client import MCPClient
+from src.ha.client import HAClient
 
 
 @dataclass
@@ -95,7 +95,7 @@ class EnergyHistory:
 class EnergyHistoryClient:
     """Client for fetching and aggregating energy sensor history.
 
-    Wraps MCPClient.get_history with energy-specific functionality:
+    Wraps HAClient.get_history with energy-specific functionality:
     - Filtering by device_class (energy, power)
     - Unit conversion (W, kW, Wh, kWh)
     - Statistical aggregation (sum, average, peak)
@@ -115,13 +115,13 @@ class EnergyHistoryClient:
         "MW": None,
     }
 
-    def __init__(self, mcp_client: MCPClient):
-        """Initialize with MCP client.
+    def __init__(self, ha_client: HAClient):
+        """Initialize with HA client.
 
         Args:
-            mcp_client: MCP client for HA communication
+            ha_client: HA client for HA communication
         """
-        self.mcp = mcp_client
+        self.ha = ha_client
 
     async def get_energy_history(
         self,
@@ -138,12 +138,12 @@ class EnergyHistoryClient:
             EnergyHistory with data points and statistics
         """
         # Get entity details for metadata
-        entity_info = await self.mcp.get_entity(entity_id, detailed=True)
+        entity_info = await self.ha.get_entity(entity_id, detailed=True)
         
         # Get raw history
-        history = await self.mcp.get_history(entity_id, hours=hours)
+        history = await self.ha.get_history(entity_id, hours=hours)
         
-        # MCPClient uses "attributes" key for detailed entity info
+        # HAClient uses "attributes" key for detailed entity info
         attrs = entity_info.get("attributes", {})
         
         # Parse into data points
@@ -182,12 +182,12 @@ class EnergyHistoryClient:
             List of energy sensor entities
         """
         # Get all sensors (list_entities returns a list directly)
-        entities = await self.mcp.list_entities(domain=domain, detailed=True, limit=500)
+        entities = await self.ha.list_entities(domain=domain, detailed=True, limit=500)
         
         # Filter for energy-related sensors
         energy_sensors = []
         for entity in entities:
-            # MCPClient uses "attributes" key for detailed entity info
+            # HAClient uses "attributes" key for detailed entity info
             attrs = entity.get("attributes", {})
             device_class = attrs.get("device_class", "")
             unit = attrs.get("unit_of_measurement", "")
@@ -408,34 +408,34 @@ class EnergyHistoryClient:
 
 # Convenience function for quick access
 async def get_energy_history(
-    mcp_client: MCPClient,
+    ha_client: HAClient,
     entity_id: str,
     hours: int = 24,
 ) -> EnergyHistory:
     """Get energy history for an entity.
 
     Args:
-        mcp_client: MCP client instance
+        ha_client: HA client instance
         entity_id: Energy sensor entity ID
         hours: Hours of history
 
     Returns:
         EnergyHistory with data and statistics
     """
-    client = EnergyHistoryClient(mcp_client)
+    client = EnergyHistoryClient(ha_client)
     return await client.get_energy_history(entity_id, hours)
 
 
 async def discover_energy_sensors(
-    mcp_client: MCPClient,
+    ha_client: HAClient,
 ) -> list[dict[str, Any]]:
     """Discover all energy sensors.
 
     Args:
-        mcp_client: MCP client instance
+        ha_client: HA client instance
 
     Returns:
         List of energy sensor details
     """
-    client = EnergyHistoryClient(mcp_client)
+    client = EnergyHistoryClient(ha_client)
     return await client.get_energy_sensors()

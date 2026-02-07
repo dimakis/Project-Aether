@@ -8,8 +8,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from src.api.rate_limit import limiter
 
 from src.dal.insight_schedules import InsightScheduleRepository
 from src.storage import get_session
@@ -28,10 +30,12 @@ class InsightScheduleCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     analysis_type: str = Field(
         ...,
+        max_length=50,
         description="energy, behavioral, anomaly, device_health, etc.",
     )
     trigger_type: str = Field(
         ...,
+        max_length=20,
         description="'cron' or 'webhook'",
         pattern="^(cron|webhook)$",
     )
@@ -45,12 +49,14 @@ class InsightScheduleCreate(BaseModel):
     # Cron trigger
     cron_expression: str | None = Field(
         default=None,
+        max_length=100,
         description="Cron expression, e.g. '0 2 * * *'. Required for cron triggers.",
     )
 
     # Webhook trigger
     webhook_event: str | None = Field(
         default=None,
+        max_length=255,
         description="Event label for matching, e.g. 'device_offline'. Required for webhook triggers.",
     )
     webhook_filter: dict[str, Any] | None = Field(
@@ -62,14 +68,14 @@ class InsightScheduleCreate(BaseModel):
 class InsightScheduleUpdate(BaseModel):
     """Request body for updating an insight schedule (partial)."""
 
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=255)
     enabled: bool | None = None
-    analysis_type: str | None = None
+    analysis_type: str | None = Field(default=None, max_length=50)
     entity_ids: list[str] | None = None
     hours: int | None = Field(default=None, ge=1, le=8760)
     options: dict[str, Any] | None = None
-    cron_expression: str | None = None
-    webhook_event: str | None = None
+    cron_expression: str | None = Field(default=None, max_length=100)
+    webhook_event: str | None = Field(default=None, max_length=255)
     webhook_filter: dict[str, Any] | None = None
 
 
@@ -242,7 +248,9 @@ async def delete_schedule(schedule_id: str) -> None:
 
 
 @router.post("/{schedule_id}/run", response_model=dict)
+@limiter.limit("5/minute")
 async def run_schedule_now(
+    request: Request,
     schedule_id: str,
     background_tasks: BackgroundTasks,
 ) -> dict:

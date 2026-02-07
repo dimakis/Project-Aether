@@ -3,7 +3,7 @@
 Base exceptions for all application layers with correlation ID support.
 
 Usage:
-    from src.exceptions import AgentError, DALError, MCPError
+    from src.exceptions import AgentError, DALError, HAClientError
 
     try:
         await agent.invoke(state)
@@ -39,11 +39,11 @@ class DALError(AetherError):
     pass
 
 
-class MCPError(AetherError):
-    """Errors from MCP/Home Assistant client operations.
+class HAClientError(AetherError):
+    """Errors from Home Assistant client operations.
     
-    Maintains backward compatibility with existing code that uses
-    tool and details parameters.
+    Raised when HA REST API calls fail, with optional tool name
+    and detail context for diagnostics.
     """
     
     def __init__(

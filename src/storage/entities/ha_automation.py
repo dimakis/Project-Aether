@@ -151,7 +151,7 @@ class Script(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
         doc="MDI icon",
     )
 
-    # Config (MCP gap)
+    # Config (HA gap)
     sequence: Mapped[list[Any] | None] = mapped_column(
         JSONB,
         nullable=True,
@@ -207,7 +207,7 @@ class Scene(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
         doc="MDI icon",
     )
 
-    # Config (MCP gap)
+    # Config (HA gap)
     entity_states: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,

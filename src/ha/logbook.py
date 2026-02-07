@@ -1,6 +1,6 @@
 """Logbook history client for behavioral analysis.
 
-Wraps the MCPClient.get_logbook() method with parsing,
+Wraps the HAClient.get_logbook() method with parsing,
 filtering, and aggregation for behavioral pattern detection.
 
 Feature 03: Intelligent Optimization & Multi-Agent Collaboration.
@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from src.mcp.parsers import ParsedLogbookEntry, parse_logbook_list
+from src.ha.parsers import ParsedLogbookEntry, parse_logbook_list
 
 
 # Action type classification
@@ -72,17 +72,17 @@ class LogbookStats:
 class LogbookHistoryClient:
     """Client for logbook-based behavioral analysis.
 
-    Wraps MCPClient.get_logbook() with parsing, filtering,
+    Wraps HAClient.get_logbook() with parsing, filtering,
     and aggregation capabilities for behavioral pattern detection.
     """
 
-    def __init__(self, mcp_client: Any) -> None:
-        """Initialize with an MCP client.
+    def __init__(self, ha_client: Any) -> None:
+        """Initialize with an HA client.
 
         Args:
-            mcp_client: MCPClient instance
+            ha_client: HAClient instance
         """
-        self._mcp = mcp_client
+        self._ha_client = ha_client
 
     async def get_entries(
         self,
@@ -98,7 +98,7 @@ class LogbookHistoryClient:
         Returns:
             List of parsed logbook entries
         """
-        raw = await self._mcp.get_logbook(hours=hours, entity_id=entity_id)
+        raw = await self._ha_client.get_logbook(hours=hours, entity_id=entity_id)
         return parse_logbook_list(raw)
 
     async def get_entries_by_domain(
@@ -238,19 +238,19 @@ class LogbookHistoryClient:
 
 # Convenience functions
 async def get_logbook_stats(
-    mcp_client: Any,
+    ha_client: Any,
     hours: int = 24,
 ) -> LogbookStats:
     """Quick access to logbook statistics.
 
     Args:
-        mcp_client: MCPClient instance
+        ha_client: HAClient instance
         hours: Hours of history
 
     Returns:
         Aggregated statistics
     """
-    client = LogbookHistoryClient(mcp_client)
+    client = LogbookHistoryClient(ha_client)
     return await client.get_stats(hours=hours)
 
 

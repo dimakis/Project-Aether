@@ -11,8 +11,8 @@ from src.dal.areas import AreaRepository
 from src.dal.automations import AutomationRepository, SceneRepository, ScriptRepository
 from src.dal.devices import DeviceRepository
 from src.dal.entities import EntityRepository
-from src.mcp import MCPClient, parse_entity_list
-from src.mcp.workarounds import (
+from src.ha import HAClient, parse_entity_list
+from src.ha.workarounds import (
     extract_entity_metadata,
     infer_areas_from_entities,
     infer_devices_from_entities,
@@ -33,16 +33,16 @@ class DiscoverySyncService:
     def __init__(
         self,
         session: AsyncSession,
-        mcp_client: MCPClient,
+        ha_client: HAClient,
     ):
         """Initialize sync service.
 
         Args:
             session: Database session
-            mcp_client: MCP client for HA communication
+            ha_client: HA client for HA communication
         """
         self.session = session
-        self.mcp = mcp_client
+        self.ha = ha_client
         self.entity_repo = EntityRepository(session)
         self.device_repo = DeviceRepository(session)
         self.area_repo = AreaRepository(session)
@@ -77,7 +77,7 @@ class DiscoverySyncService:
 
         try:
             # 1. Fetch all entities from HA
-            raw_entities = await self.mcp.list_entities(detailed=True)
+            raw_entities = await self.ha.list_entities(detailed=True)
             entities = parse_entity_list(raw_entities)
             discovery.entities_found = len(entities)
 
@@ -116,9 +116,9 @@ class DiscoverySyncService:
             discovery.status = DiscoveryStatus.COMPLETED
             discovery.completed_at = datetime.now(timezone.utc)
 
-            # Record MCP gaps encountered
+            # Record HA gaps encountered
             # areas_via_inference is True only if the HA API returned nothing
-            areas_via_api = bool(await self.mcp.get_area_registry())
+            areas_via_api = bool(await self.ha.get_area_registry())
             discovery.mcp_gaps_encountered = {
                 "areas_via_inference": not areas_via_api,
                 "floors_not_available": True,
@@ -159,7 +159,7 @@ class DiscoverySyncService:
         logger = logging.getLogger(__name__)
 
         # Try direct HA REST API first
-        ha_areas = await self.mcp.get_area_registry()
+        ha_areas = await self.ha.get_area_registry()
         if ha_areas:
             logger.info("Fetched %d areas from HA area registry API", len(ha_areas))
             areas = {}
@@ -391,30 +391,30 @@ class DiscoverySyncService:
 
 async def run_discovery(
     session: AsyncSession,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
     triggered_by: str = "manual",
 ) -> DiscoverySession:
     """Convenience function to run discovery.
 
     Args:
         session: Database session
-        mcp_client: Optional MCP client (creates one if not provided)
+        ha_client: Optional HA client (creates one if not provided)
         triggered_by: What triggered discovery
 
     Returns:
         DiscoverySession with results
     """
-    if mcp_client is None:
-        from src.mcp import get_mcp_client
-        mcp_client = get_mcp_client()
+    if ha_client is None:
+        from src.ha import get_ha_client
+        ha_client = get_ha_client()
 
-    service = DiscoverySyncService(session, mcp_client)
+    service = DiscoverySyncService(session, ha_client)
     return await service.run_discovery(triggered_by=triggered_by)
 
 
 async def run_registry_sync(
     session: AsyncSession,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> dict[str, Any]:
     """Sync only registry items (automations, scripts, scenes).
 
@@ -423,22 +423,22 @@ async def run_registry_sync(
 
     Args:
         session: Database session
-        mcp_client: Optional MCP client (creates one if not provided)
+        ha_client: Optional HA client (creates one if not provided)
 
     Returns:
         Dict with automations_synced, scripts_synced, scenes_synced,
         and duration_seconds.
     """
-    if mcp_client is None:
-        from src.mcp import get_mcp_client
-        mcp_client = get_mcp_client()
+    if ha_client is None:
+        from src.ha import get_ha_client
+        ha_client = get_ha_client()
 
     start = time.monotonic()
 
-    service = DiscoverySyncService(session, mcp_client)
+    service = DiscoverySyncService(session, ha_client)
 
     # Fetch entities from HA and parse
-    raw_entities = await mcp_client.list_entities(detailed=True)
+    raw_entities = await ha_client.list_entities(detailed=True)
     entities = parse_entity_list(raw_entities)
 
     # Sync only registry tables

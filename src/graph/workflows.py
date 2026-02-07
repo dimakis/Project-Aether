@@ -12,7 +12,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-    from src.mcp.client import MCPClient
+    from src.ha.client import HAClient
 
 from src.graph import END, START, StateGraph, create_graph
 from src.graph.nodes import (
@@ -51,7 +51,7 @@ from src.tracing import start_experiment_run, trace_with_uri
 
 
 def build_discovery_graph(
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
     session: AsyncSession | None = None,
 ) -> StateGraph:
     """Build the entity discovery workflow graph.
@@ -85,7 +85,7 @@ def build_discovery_graph(
     ```
 
     Args:
-        mcp_client: Optional MCP client to inject
+        ha_client: Optional HA client to inject
         session: Optional database session to inject
 
     Returns:
@@ -98,20 +98,20 @@ def build_discovery_graph(
         return await initialize_discovery_node(state)
 
     async def _fetch_entities(state: DiscoveryState) -> dict[str, object]:
-        return await fetch_entities_node(state, mcp_client=mcp_client)
+        return await fetch_entities_node(state, ha_client=ha_client)
 
     async def _infer_devices(state: DiscoveryState) -> dict[str, object]:
-        return await infer_devices_node(state, mcp_client=mcp_client)
+        return await infer_devices_node(state, ha_client=ha_client)
 
     async def _infer_areas(state: DiscoveryState) -> dict[str, object]:
-        return await infer_areas_node(state, mcp_client=mcp_client)
+        return await infer_areas_node(state, ha_client=ha_client)
 
     async def _sync_automations(state: DiscoveryState) -> dict[str, object]:
-        return await sync_automations_node(state, mcp_client=mcp_client)
+        return await sync_automations_node(state, ha_client=ha_client)
 
     async def _persist_entities(state: DiscoveryState) -> dict[str, object]:
         return await persist_entities_node(
-            state, session=session, mcp_client=mcp_client
+            state, session=session, ha_client=ha_client
         )
 
     async def _finalize(state: DiscoveryState) -> dict[str, object]:
@@ -145,7 +145,7 @@ def build_discovery_graph(
 
 @trace_with_uri(name="workflow.run_discovery", span_type="CHAIN")
 async def run_discovery_workflow(
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
     session: AsyncSession | None = None,
     initial_state: DiscoveryState | None = None,
 ) -> DiscoveryState:
@@ -154,7 +154,7 @@ async def run_discovery_workflow(
     Starts a trace session for correlation across all operations.
 
     Args:
-        mcp_client: Optional MCP client
+        ha_client: Optional HA client
         session: Optional database session
         initial_state: Optional initial state
 
@@ -165,7 +165,7 @@ async def run_discovery_workflow(
     from src.tracing.context import session_context
 
     # Build the graph with injected dependencies
-    graph = build_discovery_graph(mcp_client=mcp_client, session=session)
+    graph = build_discovery_graph(ha_client=ha_client, session=session)
 
     # Compile the graph
     compiled = graph.compile()
@@ -517,7 +517,7 @@ async def resume_after_approval(
 
 
 def build_analysis_graph(
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
     session: AsyncSession | None = None,
 ) -> StateGraph:
     """Build the energy analysis workflow graph.
@@ -545,7 +545,7 @@ def build_analysis_graph(
     Constitution: Isolation - scripts run in gVisor sandbox.
 
     Args:
-        mcp_client: Optional MCP client to inject
+        ha_client: Optional HA client to inject
         session: Optional database session for insight persistence
 
     Returns:
@@ -555,7 +555,7 @@ def build_analysis_graph(
 
     # Define node wrappers with dependency injection
     async def _collect_data(state: AnalysisState) -> dict[str, object]:
-        return await collect_energy_data_node(state, mcp_client=mcp_client)
+        return await collect_energy_data_node(state, ha_client=ha_client)
 
     async def _generate_script(state: AnalysisState) -> dict[str, object]:
         return await generate_script_node(state, session=session)
@@ -594,7 +594,7 @@ async def run_analysis_workflow(
     entity_ids: list[str] | None = None,
     hours: int = 24,
     custom_query: str | None = None,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
     session: AsyncSession | None = None,
 ) -> AnalysisState:
     """Run an energy analysis workflow.
@@ -607,7 +607,7 @@ async def run_analysis_workflow(
         entity_ids: Specific entities to analyze (None = auto-discover)
         hours: Hours of history to analyze
         custom_query: Custom analysis query
-        mcp_client: Optional MCP client
+        ha_client: Optional HA client
         session: Database session for persistence
 
     Returns:
@@ -633,7 +633,7 @@ async def run_analysis_workflow(
     )
 
     # Build and compile graph
-    graph = build_analysis_graph(mcp_client=mcp_client, session=session)
+    graph = build_analysis_graph(ha_client=ha_client, session=session)
     compiled = graph.compile()
 
     # Run with tracing
@@ -659,7 +659,7 @@ async def run_analysis_workflow(
 
 
 def build_optimization_graph(
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
     session: AsyncSession | None = None,
 ) -> StateGraph:
     """Build the optimization workflow graph.
@@ -690,7 +690,7 @@ def build_optimization_graph(
     Feature 03: Intelligent Optimization & Multi-Agent Collaboration.
 
     Args:
-        mcp_client: Optional MCP client to inject
+        ha_client: Optional HA client to inject
         session: Optional database session
 
     Returns:
@@ -707,7 +707,7 @@ def build_optimization_graph(
 
     # Node wrappers with dependency injection
     async def _collect_behavioral(state: AnalysisState) -> dict[str, object]:
-        return await collect_behavioral_data_node(state, mcp_client=mcp_client)
+        return await collect_behavioral_data_node(state, ha_client=ha_client)
 
     async def _analyze_and_suggest(state: AnalysisState) -> dict[str, object]:
         return await analyze_and_suggest_node(state, session=session)
@@ -753,7 +753,7 @@ async def run_optimization_workflow(
     entity_ids: list[str] | None = None,
     hours: int = 168,
     custom_query: str | None = None,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
     session: AsyncSession | None = None,
 ) -> AnalysisState:
     """Run an optimization analysis workflow.
@@ -768,7 +768,7 @@ async def run_optimization_workflow(
         entity_ids: Specific entities (None = auto-discover)
         hours: Hours of history (default: 1 week)
         custom_query: Optional custom analysis query
-        mcp_client: Optional MCP client
+        ha_client: Optional HA client
         session: Optional database session
 
     Returns:
@@ -794,7 +794,7 @@ async def run_optimization_workflow(
         log_param("hours", hours)
 
         # Build and compile graph
-        graph = build_optimization_graph(mcp_client=mcp_client, session=session)
+        graph = build_optimization_graph(ha_client=ha_client, session=session)
         compiled = graph.compile()
 
         # Initialize state

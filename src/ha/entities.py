@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from src.mcp.base import BaseMCPClient, MCPError, _trace_mcp_call
+from src.ha.base import BaseHAClient, HAClientError, _trace_ha_call
 from src.tracing import log_param
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class EntityMixin:
     async def get_area_registry(self) -> list[dict[str, Any]]:
         """Fetch areas directly from the HA area registry REST API.
 
-        Bypasses the MCP tool limitation that can only infer areas from
+        Bypasses the HA tool limitation that can only infer areas from
         entity attributes. Returns the full area registry including
         floor_id, icon, picture, and aliases.
 
@@ -60,7 +60,7 @@ class EntityMixin:
             logger.warning("Failed to fetch area registry from HA: %s", e)
             return []
 
-    @_trace_mcp_call("mcp.list_entities")
+    @_trace_ha_call("ha.list_entities")
     async def list_entities(
         self,
         domain: str | None = None,
@@ -84,13 +84,13 @@ class EntityMixin:
         """
         # Log query parameters
         if domain:
-            log_param("mcp.list_entities.domain", domain)
+            log_param("ha.list_entities.domain", domain)
         if search_query:
-            log_param("mcp.list_entities.search_query", search_query)
+            log_param("ha.list_entities.search_query", search_query)
 
         states = await self._request("GET", "/api/states")
         if not states:
-            raise MCPError("Failed to list entities", "list_entities")
+            raise HAClientError("Failed to list entities", "list_entities")
 
         # Fetch entity registry for area_id and other metadata
         registry = await self._fetch_entity_registry()
@@ -148,7 +148,7 @@ class EntityMixin:
 
         return entities
 
-    @_trace_mcp_call("mcp.get_entity")
+    @_trace_ha_call("ha.get_entity")
     async def get_entity(
         self,
         entity_id: str,
@@ -163,7 +163,7 @@ class EntityMixin:
         Returns:
             Entity dictionary or None if not found
         """
-        log_param("mcp.get_entity.entity_id", entity_id)
+        log_param("ha.get_entity.entity_id", entity_id)
 
         state = await self._request("GET", f"/api/states/{entity_id}")
         if not state:
@@ -185,7 +185,7 @@ class EntityMixin:
 
         return entity
 
-    @_trace_mcp_call("mcp.domain_summary")
+    @_trace_ha_call("ha.domain_summary")
     async def domain_summary(
         self,
         domain: str,
@@ -200,7 +200,7 @@ class EntityMixin:
         Returns:
             Dictionary with count, state distribution, examples
         """
-        log_param("mcp.domain_summary.domain", domain)
+        log_param("ha.domain_summary.domain", domain)
 
         entities = await self.list_entities(domain=domain, detailed=True)
 
@@ -232,7 +232,7 @@ class EntityMixin:
             "common_attributes": list(common_attributes)[:20],
         }
 
-    @_trace_mcp_call("mcp.entity_action")
+    @_trace_ha_call("ha.entity_action")
     async def entity_action(
         self,
         entity_id: str,
@@ -249,8 +249,8 @@ class EntityMixin:
         Returns:
             Response from HA
         """
-        log_param("mcp.entity_action.entity_id", entity_id)
-        log_param("mcp.entity_action.action", action)
+        log_param("ha.entity_action.entity_id", entity_id)
+        log_param("ha.entity_action.action", action)
 
         domain = entity_id.split(".")[0] if "." in entity_id else ""
         service = f"turn_{action}" if action in ("on", "off") else action
@@ -262,7 +262,7 @@ class EntityMixin:
         await self._request("POST", f"/api/services/{domain}/{service}", json=data)
         return {"success": True}
 
-    @_trace_mcp_call("mcp.call_service")
+    @_trace_ha_call("ha.call_service")
     async def call_service(
         self,
         domain: str,
@@ -279,15 +279,15 @@ class EntityMixin:
         Returns:
             Response from HA
         """
-        log_param("mcp.call_service.domain", domain)
-        log_param("mcp.call_service.service", service)
+        log_param("ha.call_service.domain", domain)
+        log_param("ha.call_service.service", service)
 
         result = await self._request(
             "POST", f"/api/services/{domain}/{service}", json=data or {}
         )
         return result or {}
 
-    @_trace_mcp_call("mcp.get_history")
+    @_trace_ha_call("ha.get_history")
     async def get_history(
         self,
         entity_id: str,
@@ -302,8 +302,8 @@ class EntityMixin:
         Returns:
             History data
         """
-        log_param("mcp.get_history.entity_id", entity_id)
-        log_param("mcp.get_history.hours", hours)
+        log_param("ha.get_history.entity_id", entity_id)
+        log_param("ha.get_history.hours", hours)
 
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(hours=hours)
@@ -332,7 +332,7 @@ class EntityMixin:
             "last_changed": states[-1].get("last_changed") if states else None,
         }
 
-    @_trace_mcp_call("mcp.get_logbook")
+    @_trace_ha_call("ha.get_logbook")
     async def get_logbook(
         self,
         hours: int = 24,
@@ -350,9 +350,9 @@ class EntityMixin:
         Returns:
             List of logbook entry dicts
         """
-        log_param("mcp.get_logbook.hours", hours)
+        log_param("ha.get_logbook.hours", hours)
         if entity_id:
-            log_param("mcp.get_logbook.entity_id", entity_id)
+            log_param("ha.get_logbook.entity_id", entity_id)
 
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(hours=hours)
@@ -378,7 +378,7 @@ class EntityMixin:
 
         return []
 
-    @_trace_mcp_call("mcp.search_entities")
+    @_trace_ha_call("ha.search_entities")
     async def search_entities(
         self,
         query: str,
@@ -393,7 +393,7 @@ class EntityMixin:
         Returns:
             Search results with count and domain breakdown
         """
-        log_param("mcp.search_entities.query", query)
+        log_param("ha.search_entities.query", query)
 
         entities = await self.list_entities(search_query=query, limit=limit)
 

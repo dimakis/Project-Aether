@@ -18,7 +18,7 @@ from slowapi.errors import RateLimitExceeded
 from src.api.auth import verify_api_key
 from src.api.rate_limit import limiter
 from src.api.routes import api_router
-from src.exceptions import AetherError, ConfigurationError, MCPError, ValidationError
+from src.exceptions import AetherError, ConfigurationError, HAClientError, ValidationError
 from src.settings import Settings, get_settings
 from src.storage import close_db, init_db
 from src.tracing import init_mlflow
@@ -331,10 +331,10 @@ def _register_exception_handlers(app: FastAPI) -> None:
                 status_code = 400
             elif isinstance(exc, ConfigurationError):
                 status_code = 500
-            elif isinstance(exc, MCPError) and exc.status_code:
+            elif isinstance(exc, HAClientError) and exc.status_code:
                 status_code = exc.status_code
-            elif isinstance(exc, MCPError):
-                status_code = 502  # Bad Gateway for MCP errors
+            elif isinstance(exc, HAClientError):
+                status_code = 502  # Bad Gateway for HA client errors
 
         # Log the error
         import structlog

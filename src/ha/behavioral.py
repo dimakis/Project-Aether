@@ -14,13 +14,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from src.mcp.logbook import (
+from src.ha.logbook import (
     ACTION_TYPE_AUTOMATION,
     ACTION_TYPE_BUTTON,
     LogbookHistoryClient,
     classify_action,
 )
-from src.mcp.parsers import ParsedLogbookEntry
+from src.ha.parsers import ParsedLogbookEntry
 
 logger = logging.getLogger(__name__)
 
@@ -88,14 +88,14 @@ class BehavioralAnalysisClient:
     automation gaps, correlations, and device health issues.
     """
 
-    def __init__(self, mcp_client: Any) -> None:
-        """Initialize with an MCP client.
+    def __init__(self, ha_client: Any) -> None:
+        """Initialize with an HA client.
 
         Args:
-            mcp_client: MCPClient instance
+            ha_client: HAClient instance
         """
-        self._mcp = mcp_client
-        self._logbook = LogbookHistoryClient(mcp_client)
+        self._ha_client = ha_client
+        self._logbook = LogbookHistoryClient(ha_client)
 
     async def get_button_usage(
         self,
@@ -177,7 +177,7 @@ class BehavioralAnalysisClient:
 
         # Get automation list for names
         try:
-            automations = await self._mcp.list_automations()
+            automations = await self._ha_client.list_automations()
             auto_map = {}
             if isinstance(automations, list):
                 for a in automations:

@@ -23,7 +23,7 @@ class TestGetEntityStateTool:
             "attributes": {"brightness": 255, "friendly_name": "Living Room Light"},
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_entity_state.ainvoke({"entity_id": "light.living_room"})
 
         assert "on" in result.lower()
@@ -37,7 +37,7 @@ class TestGetEntityStateTool:
         mock_mcp = MagicMock()
         mock_mcp.get_entity = AsyncMock(return_value=None)
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_entity_state.ainvoke({"entity_id": "light.nonexistent"})
 
         assert "not found" in result.lower() or "error" in result.lower()
@@ -59,7 +59,7 @@ class TestListEntitiesByDomainTool:
             ]
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await list_entities_by_domain.ainvoke({"domain": "light"})
 
         assert "light.living_room" in result
@@ -78,7 +78,7 @@ class TestListEntitiesByDomainTool:
             ]
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await list_entities_by_domain.ainvoke({"domain": "light", "state_filter": "on"})
 
         assert "light.living_room" in result
@@ -101,7 +101,7 @@ class TestSearchEntitiesTool:
             ]
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await search_entities.ainvoke({"query": "kitchen"})
 
         assert "kitchen" in result.lower()
@@ -121,7 +121,7 @@ class TestGetDomainSummaryTool:
             "state_distribution": {"on": 3, "off": 7},
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_domain_summary.ainvoke({"domain": "light"})
 
         assert "10" in result or "total" in result.lower()
@@ -138,7 +138,7 @@ class TestControlEntityTool:
         mock_mcp = MagicMock()
         mock_mcp.entity_action = AsyncMock(return_value={"success": True})
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await control_entity.ainvoke({
                 "entity_id": "light.living_room",
                 "action": "on"
@@ -155,7 +155,7 @@ class TestControlEntityTool:
         mock_mcp = MagicMock()
         mock_mcp.entity_action = AsyncMock(return_value={"success": True})
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await control_entity.ainvoke({
                 "entity_id": "switch.garden",
                 "action": "off"
@@ -179,7 +179,7 @@ class TestDeployAutomationTool:
             "entity_id": "automation.test_lights",
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await deploy_automation.ainvoke({
                 "automation_id": "test_lights",
                 "alias": "Test Lights",
@@ -202,7 +202,7 @@ class TestDeployAutomationTool:
             "error": "Connection refused",
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await deploy_automation.ainvoke({
                 "automation_id": "test_lights",
                 "alias": "Test Lights",
@@ -224,7 +224,7 @@ class TestDeployAutomationTool:
             "entity_id": "automation.night_lights",
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await deploy_automation.ainvoke({
                 "automation_id": "night_lights",
                 "alias": "Night Lights",
@@ -252,7 +252,7 @@ class TestDeleteAutomationTool:
         mock_mcp = MagicMock()
         mock_mcp.delete_automation = AsyncMock(return_value={"success": True})
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await delete_automation.ainvoke({"automation_id": "old_automation"})
 
         assert "✅" in result or "deleted" in result.lower()
@@ -269,7 +269,7 @@ class TestDeleteAutomationTool:
             "error": "Not found",
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await delete_automation.ainvoke({"automation_id": "nonexistent"})
 
         assert "❌" in result or "failed" in result.lower()
@@ -289,7 +289,7 @@ class TestListAutomationsTool:
             {"entity_id": "automation.night_mode", "alias": "Night Mode", "state": "off"},
         ])
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await list_automations.ainvoke({})
 
         assert "morning_lights" in result.lower() or "Morning Lights" in result
@@ -305,7 +305,7 @@ class TestListAutomationsTool:
         mock_mcp = MagicMock()
         mock_mcp.list_automations = AsyncMock(return_value=[])
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await list_automations.ainvoke({})
 
         assert "no automations" in result.lower()
@@ -324,7 +324,7 @@ class TestGetHaLogsTool:
             return_value="2026-02-06 ERROR homeassistant.components.sensor: Connection failed"
         )
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_ha_logs.ainvoke({})
 
         assert "ERROR" in result or "error" in result.lower()
@@ -338,7 +338,7 @@ class TestGetHaLogsTool:
         mock_mcp = MagicMock()
         mock_mcp.get_error_log = AsyncMock(return_value="")
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_ha_logs.ainvoke({})
 
         assert "no errors" in result.lower()
@@ -352,7 +352,7 @@ class TestGetHaLogsTool:
         long_log = "X" * 6000
         mock_mcp.get_error_log = AsyncMock(return_value=long_log)
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_ha_logs.ainvoke({})
 
         # Result includes header text + truncated log
@@ -366,7 +366,7 @@ class TestGetHaLogsTool:
         mock_mcp = MagicMock()
         mock_mcp.get_error_log = AsyncMock(side_effect=Exception("Connection refused"))
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_ha_logs.ainvoke({})
 
         assert "failed" in result.lower()
@@ -383,7 +383,7 @@ class TestCheckHaConfigTool:
         mock_mcp = MagicMock()
         mock_mcp.check_config = AsyncMock(return_value={"result": "valid"})
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await check_ha_config.ainvoke({})
 
         assert "valid" in result.lower()
@@ -400,7 +400,7 @@ class TestCheckHaConfigTool:
             "errors": "Invalid entry in configuration.yaml: sensor",
         })
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await check_ha_config.ainvoke({})
 
         assert "invalid" in result.lower()
@@ -414,7 +414,7 @@ class TestCheckHaConfigTool:
         mock_mcp = MagicMock()
         mock_mcp.check_config = AsyncMock(side_effect=Exception("Timeout"))
 
-        with patch("src.tools.ha_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await check_ha_config.ainvoke({})
 
         assert "failed" in result.lower()

@@ -55,8 +55,8 @@ def mock_energy_data():
 
 
 @pytest.fixture
-def mock_mcp_client_analysis(mock_energy_data):
-    """Create mock MCP client for analysis workflow testing."""
+def mock_ha_client_analysis(mock_energy_data):
+    """Create mock HA client for analysis workflow testing."""
     client = MagicMock()
 
     # Configure list_entities for energy sensor discovery
@@ -145,7 +145,7 @@ class TestAnalysisWorkflowPipeline:
 
     async def test_data_scientist_invoke_with_mocks(
         self,
-        mock_mcp_client_analysis,
+        mock_ha_client_analysis,
         mock_energy_data,
         mock_sandbox_result_success,
     ):
@@ -161,7 +161,7 @@ class TestAnalysisWorkflowPipeline:
         )
 
         # Create agent with mocked dependencies
-        agent = DataScientistAgent(mcp_client=mock_mcp_client_analysis)
+        agent = DataScientistAgent(ha_client=mock_ha_client_analysis)
 
         # Mock the internal methods
         with patch.object(agent, "_collect_energy_data", new_callable=AsyncMock) as mock_collect:
@@ -181,7 +181,7 @@ class TestAnalysisWorkflowPipeline:
 
     async def test_workflow_nodes_sequence(
         self,
-        mock_mcp_client_analysis,
+        mock_ha_client_analysis,
         mock_energy_data,
         mock_sandbox_result_success,
     ):
@@ -200,8 +200,8 @@ class TestAnalysisWorkflowPipeline:
         )
 
         # Test collect_energy_data_node
-        with patch("src.mcp.get_mcp_client", return_value=mock_mcp_client_analysis):
-            with patch("src.mcp.EnergyHistoryClient") as MockClient:
+        with patch("src.ha.get_ha_client", return_value=mock_ha_client_analysis):
+            with patch("src.ha.EnergyHistoryClient") as MockClient:
                 mock_history = AsyncMock()
                 mock_history.get_energy_sensors = AsyncMock(return_value=[
                     {"entity_id": "sensor.grid_power"}
@@ -209,7 +209,7 @@ class TestAnalysisWorkflowPipeline:
                 mock_history.get_aggregated_energy = AsyncMock(return_value=mock_energy_data)
                 MockClient.return_value = mock_history
 
-                collect_result = await collect_energy_data_node(state, mcp_client=mock_mcp_client_analysis)
+                collect_result = await collect_energy_data_node(state, ha_client=mock_ha_client_analysis)
 
                 assert "entity_ids" in collect_result
                 assert "messages" in collect_result
@@ -297,7 +297,7 @@ class TestAnalysisWithDatabase:
     async def test_analysis_workflow_full_with_db(
         self,
         integration_session,
-        mock_mcp_client_analysis,
+        mock_ha_client_analysis,
         mock_energy_data,
         mock_sandbox_result_success,
     ):
@@ -306,7 +306,7 @@ class TestAnalysisWithDatabase:
         from src.dal import InsightRepository
         from src.graph.state import AnalysisType
 
-        workflow = DataScientistWorkflow(mcp_client=mock_mcp_client_analysis)
+        workflow = DataScientistWorkflow(ha_client=mock_ha_client_analysis)
 
         # Mock internal dependencies
         with patch.object(workflow.agent, "_collect_energy_data", new_callable=AsyncMock) as mock_collect:

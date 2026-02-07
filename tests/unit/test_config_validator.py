@@ -23,10 +23,10 @@ class TestRunConfigCheck:
     @pytest.mark.asyncio
     async def test_valid_config(self):
         """Test config check returns valid result."""
-        mcp = MagicMock()
-        mcp.check_config = AsyncMock(return_value={"result": "valid"})
+        ha = MagicMock()
+        ha.check_config = AsyncMock(return_value={"result": "valid"})
 
-        result = await run_config_check(mcp)
+        result = await run_config_check(ha)
 
         assert isinstance(result, ConfigCheckResult)
         assert result.result == "valid"
@@ -35,13 +35,13 @@ class TestRunConfigCheck:
     @pytest.mark.asyncio
     async def test_invalid_config_with_errors(self):
         """Test config check with errors."""
-        mcp = MagicMock()
-        mcp.check_config = AsyncMock(return_value={
+        ha = MagicMock()
+        ha.check_config = AsyncMock(return_value={
             "result": "invalid",
             "errors": "Integration error: sensor - Invalid config",
         })
 
-        result = await run_config_check(mcp)
+        result = await run_config_check(ha)
 
         assert result.result == "invalid"
         assert len(result.errors) >= 1
@@ -49,13 +49,13 @@ class TestRunConfigCheck:
     @pytest.mark.asyncio
     async def test_handles_mcp_error(self):
         """Test handling when MCP check_config fails."""
-        mcp = MagicMock()
-        mcp.check_config = AsyncMock(return_value={
+        ha = MagicMock()
+        ha.check_config = AsyncMock(return_value={
             "result": "error",
             "error": "Connection failed",
         })
 
-        result = await run_config_check(mcp)
+        result = await run_config_check(ha)
 
         assert result.result == "error"
 

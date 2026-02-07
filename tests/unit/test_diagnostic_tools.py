@@ -28,7 +28,7 @@ class TestAnalyzeErrorLogTool:
             "Connection lost\n"
         ))
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await analyze_error_log.ainvoke({})
 
         assert "zha" in result.lower()
@@ -42,7 +42,7 @@ class TestAnalyzeErrorLogTool:
         mock_mcp = MagicMock()
         mock_mcp.get_error_log = AsyncMock(return_value="")
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await analyze_error_log.ainvoke({})
 
         assert "no errors" in result.lower() or "clean" in result.lower()
@@ -55,7 +55,7 @@ class TestAnalyzeErrorLogTool:
         mock_mcp = MagicMock()
         mock_mcp.get_error_log = AsyncMock(side_effect=Exception("Connection failed"))
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await analyze_error_log.ainvoke({})
 
         assert "failed" in result.lower() or "error" in result.lower()
@@ -79,7 +79,7 @@ class TestFindUnavailableEntitiesTool:
              "last_changed": "2026-02-06T10:00:00Z", "attributes": {}},
         ])
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await find_unavailable_entities_tool.ainvoke({})
 
         assert "2" in result  # 2 unavailable entities
@@ -96,7 +96,7 @@ class TestFindUnavailableEntitiesTool:
              "last_changed": "2026-02-06T10:00:00Z", "attributes": {}},
         ])
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await find_unavailable_entities_tool.ainvoke({})
 
         assert "no unavailable" in result.lower() or "all" in result.lower()
@@ -126,7 +126,7 @@ class TestDiagnoseEntityTool:
         })
         mock_mcp.get_error_log = AsyncMock(return_value="")
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await diagnose_entity.ainvoke({"entity_id": "sensor.broken"})
 
         assert "sensor.broken" in result
@@ -140,7 +140,7 @@ class TestDiagnoseEntityTool:
         mock_mcp = MagicMock()
         mock_mcp.get_entity = AsyncMock(return_value=None)
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await diagnose_entity.ainvoke({"entity_id": "sensor.nonexistent"})
 
         assert "not found" in result.lower()
@@ -162,7 +162,7 @@ class TestCheckIntegrationHealthTool:
              "state": "setup_error", "disabled_by": None, "reason": "auth_expired"},
         ])
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await check_integration_health.ainvoke({})
 
         assert "nest" in result.lower()
@@ -179,7 +179,7 @@ class TestCheckIntegrationHealthTool:
              "state": "loaded", "disabled_by": None, "reason": None},
         ])
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await check_integration_health.ainvoke({})
 
         assert "healthy" in result.lower() or "no issues" in result.lower()
@@ -196,7 +196,7 @@ class TestValidateConfigTool:
         mock_mcp = MagicMock()
         mock_mcp.check_config = AsyncMock(return_value={"result": "valid"})
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await validate_config.ainvoke({})
 
         assert "valid" in result.lower()
@@ -212,7 +212,7 @@ class TestValidateConfigTool:
             "errors": "Integration error: bad config",
         })
 
-        with patch("src.tools.diagnostic_tools.get_mcp_client", return_value=mock_mcp):
+        with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await validate_config.ainvoke({})
 
         assert "invalid" in result.lower() or "error" in result.lower()

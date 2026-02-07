@@ -65,7 +65,7 @@ app.command()(list_commands.scripts)
 app.command()(list_commands.scenes)
 app.command()(list_commands.services)
 app.command(name="seed-services")(list_commands.seed_services_cmd)
-app.command(name="mcp-gaps")(list_commands.mcp_gaps)
+app.command(name="ha-gaps")(list_commands.mcp_gaps)
 
 # Register proposals as a sub-command group
 app.add_typer(proposals_commands.app, name="proposals")

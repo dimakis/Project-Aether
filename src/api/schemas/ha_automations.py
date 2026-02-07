@@ -71,11 +71,11 @@ class ScriptResponse(ScriptBase):
     # MCP Gap: sequence and fields are null until get_script_config available
     sequence: list[Any] | None = Field(
         None,
-        description="Script sequence (null - MCP gap)",
+        description="Script sequence (null - HA gap)",
     )
     fields: dict[str, Any] | None = Field(
         None,
-        description="Script input fields (null - MCP gap)",
+        description="Script input fields (null - HA gap)",
     )
 
     class Config:
@@ -111,7 +111,7 @@ class SceneResponse(SceneBase):
     # MCP Gap: entity_states is null until get_scene_config available
     entity_states: dict[str, Any] | None = Field(
         None,
-        description="Entity states in scene (null - MCP gap)",
+        description="Entity states in scene (null - HA gap)",
     )
 
     class Config:
@@ -187,8 +187,8 @@ class ServiceListResponse(BaseModel):
 class ServiceCallRequest(BaseModel):
     """Request to call a service."""
 
-    domain: str = Field(..., description="Service domain")
-    service: str = Field(..., description="Service name")
+    domain: str = Field(..., max_length=100, description="Service domain")
+    service: str = Field(..., max_length=100, description="Service name")
     data: dict[str, Any] | None = Field(
         None,
         description="Service call data (including target entity_id)",

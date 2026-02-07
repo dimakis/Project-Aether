@@ -86,11 +86,18 @@ async def receive_ha_webhook(
     """
     settings = get_settings()
 
-    # Validate webhook secret if configured
+    # Validate webhook secret — required in production, optional in development
     if settings.webhook_secret:
+        import secrets as _secrets
+
         auth_header = request.headers.get("X-Webhook-Secret", "")
-        if auth_header != settings.webhook_secret:
+        if not _secrets.compare_digest(auth_header, settings.webhook_secret):
             raise HTTPException(status_code=401, detail="Invalid webhook secret")
+    elif settings.environment == "production":
+        raise HTTPException(
+            status_code=500,
+            detail="Webhook secret not configured. Set WEBHOOK_SECRET for production use.",
+        )
 
     # Find matching triggers
     from src.dal.insight_schedules import InsightScheduleRepository

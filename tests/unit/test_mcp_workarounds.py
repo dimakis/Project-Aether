@@ -6,12 +6,12 @@ Constitution: Reliability & Quality - workaround validation.
 
 import pytest
 
-from src.mcp.workarounds import (
+from src.ha.workarounds import (
     extract_entity_metadata,
     infer_areas_from_entities,
     infer_devices_from_entities,
 )
-from src.mcp.parsers import ParsedEntity
+from src.ha.parsers import ParsedEntity
 
 
 @pytest.fixture

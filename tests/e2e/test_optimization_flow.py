@@ -22,7 +22,7 @@ class TestFullOptimizationFlow:
         from src.graph.state import AnalysisState
         from src.sandbox.runner import SandboxResult
 
-        # Mock MCP with behavioral data
+        # mock HA with behavioral data
         mock_mcp = AsyncMock()
         mock_mcp.get_logbook = AsyncMock(return_value=[])
         mock_mcp.list_automations = AsyncMock(return_value=[])
@@ -50,7 +50,7 @@ class TestFullOptimizationFlow:
             policy_name="test",
         )
 
-        agent = DataScientistAgent(mcp_client=mock_mcp)
+        agent = DataScientistAgent(ha_client=mock_mcp)
         agent._llm = mock_llm
 
         with patch.object(agent._sandbox, "run", return_value=mock_sandbox_result):

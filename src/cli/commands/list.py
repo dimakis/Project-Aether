@@ -371,8 +371,8 @@ def mcp_gaps() -> None:
 
 
 async def _show_mcp_gaps() -> None:
-    """Display MCP gaps report."""
-    from src.mcp.gaps import get_all_gaps, get_gaps_report
+    """Display HA gaps report."""
+    from src.ha.gaps import get_all_gaps, get_gaps_report
 
     gaps = get_all_gaps()
     report = get_gaps_report()
@@ -408,4 +408,4 @@ async def _show_mcp_gaps() -> None:
 
     console.print(table)
 
-    console.print("\n[dim]Run 'aether mcp-gaps --verbose' for full details[/dim]")
+    console.print("\n[dim]Run 'aether ha-gaps --verbose' for full details[/dim]")

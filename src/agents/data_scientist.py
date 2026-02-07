@@ -31,8 +31,8 @@ from src.agents.prompts import load_prompt
 from src.dal import EntityRepository, InsightRepository
 from src.graph.state import AgentRole, AnalysisState, AnalysisType, AutomationSuggestion
 from src.llm import get_llm
-from src.mcp import EnergyHistoryClient, MCPClient, get_mcp_client
-from src.mcp.behavioral import BehavioralAnalysisClient
+from src.ha import EnergyHistoryClient, HAClient, get_ha_client
+from src.ha.behavioral import BehavioralAnalysisClient
 from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
 from src.storage.entities.insight import InsightStatus, InsightType
@@ -62,27 +62,27 @@ class DataScientistAgent(BaseAgent):
 
     def __init__(
         self,
-        mcp_client: MCPClient | None = None,
+        ha_client: HAClient | None = None,
     ):
         """Initialize Data Scientist agent.
 
         Args:
-            mcp_client: Optional MCP client (creates one if not provided)
+            ha_client: Optional HA client (creates one if not provided)
         """
         super().__init__(
             role=AgentRole.DATA_SCIENTIST,
             name="DataScientist",
         )
-        self._mcp = mcp_client
+        self._ha_client = ha_client
         self._llm = None
         self._sandbox = SandboxRunner()
 
     @property
-    def mcp(self) -> MCPClient:
-        """Get MCP client, creating if needed."""
-        if self._mcp is None:
-            self._mcp = get_mcp_client()
-        return self._mcp
+    def ha(self) -> HAClient:
+        """Get HA client, creating if needed."""
+        if self._ha_client is None:
+            self._ha_client = get_ha_client()
+        return self._ha_client
 
     @property
     def llm(self):
@@ -218,14 +218,14 @@ class DataScientistAgent(BaseAgent):
         
         # If DB discovery failed or returned nothing, fall back to MCP
         if not entity_ids:
-            energy_client = EnergyHistoryClient(self.mcp)
+            energy_client = EnergyHistoryClient(self.ha)
             sensors = await energy_client.get_energy_sensors()
             entity_ids = [s["entity_id"] for s in sensors[:20]]
             log_param("discovered_sensors", len(entity_ids))
             log_param("discovery_source", "mcp_fallback")
 
         # Collect historical data via MCP (not stored locally)
-        energy_client = EnergyHistoryClient(self.mcp)
+        energy_client = EnergyHistoryClient(self.ha)
         data = await energy_client.get_aggregated_energy(
             entity_ids,
             hours=state.time_range_hours,
@@ -310,7 +310,7 @@ class DataScientistAgent(BaseAgent):
         Returns:
             Behavioral data for analysis
         """
-        behavioral = BehavioralAnalysisClient(self.mcp)
+        behavioral = BehavioralAnalysisClient(self.ha)
         hours = state.time_range_hours
         data: dict[str, object] = {
             "analysis_type": state.analysis_type.value,
@@ -923,15 +923,15 @@ class DataScientistWorkflow:
 
     def __init__(
         self,
-        mcp_client: MCPClient | None = None,
+        ha_client: HAClient | None = None,
     ):
         """Initialize the Data Scientist workflow.
 
         Args:
-            mcp_client: Optional MCP client
+            ha_client: Optional HA client
         """
         self._settings = get_settings()
-        self.agent = DataScientistAgent(mcp_client=mcp_client)
+        self.agent = DataScientistAgent(ha_client=ha_client)
 
     async def run_analysis(
         self,

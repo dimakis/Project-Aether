@@ -21,8 +21,8 @@ from src.graph.state import AnalysisState, AnalysisType, AutomationSuggestion
 
 
 @pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client."""
+def mock_ha_client():
+    """Create a mock HA client."""
     client = AsyncMock()
     client.get_logbook = AsyncMock(return_value=[])
     client.list_automations = AsyncMock(return_value=[])
@@ -30,9 +30,9 @@ def mock_mcp_client():
 
 
 @pytest.fixture
-def ds_agent(mock_mcp_client):
-    """Create DataScientistAgent with mock MCP."""
-    return DataScientistAgent(mcp_client=mock_mcp_client)
+def ds_agent(mock_ha_client):
+    """Create DataScientistAgent with mock HA."""
+    return DataScientistAgent(ha_client=mock_ha_client)
 
 
 class TestBehavioralAnalysisTypes:

@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.base import BaseRepository
-from src.mcp.constants import get_all_services
+from src.ha.constants import get_all_services
 from src.storage.entities.ha_automation import Service
 
 

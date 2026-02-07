@@ -1,6 +1,6 @@
 """Home Assistant tools for agents.
 
-Provides LangChain-compatible tools that wrap MCP client calls
+Provides LangChain-compatible tools that wrap HA client calls
 for common Home Assistant interactions.
 """
 
@@ -10,12 +10,12 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.mcp import get_mcp_client
+from src.ha import get_ha_client
 from src.tracing import trace_with_uri
 
 
 def _extract_results(payload: Any) -> list[dict[str, Any]]:
-    """Normalize MCP response payload to a list of entities."""
+    """Normalize HA response payload to a list of entities."""
     if payload is None:
         return []
     if isinstance(payload, list):
@@ -30,8 +30,8 @@ def _extract_results(payload: Any) -> list[dict[str, Any]]:
 @trace_with_uri(name="ha.get_entity_state", span_type="TOOL")
 async def get_entity_state(entity_id: str) -> str:
     """Get the current state and key attributes for an entity."""
-    mcp = get_mcp_client()
-    entity = await mcp.get_entity(entity_id)
+    ha = get_ha_client()
+    entity = await ha.get_entity(entity_id)
     if not entity:
         return f"Entity '{entity_id}' not found."
 
@@ -46,8 +46,8 @@ async def get_entity_state(entity_id: str) -> str:
 @trace_with_uri(name="ha.list_entities_by_domain", span_type="TOOL")
 async def list_entities_by_domain(domain: str, state_filter: str | None = None) -> str:
     """List entities for a given domain, optionally filtered by state."""
-    mcp = get_mcp_client()
-    payload = await mcp.list_entities(domain=domain)
+    ha = get_ha_client()
+    payload = await ha.list_entities(domain=domain)
     entities = _extract_results(payload)
 
     if state_filter:
@@ -66,13 +66,13 @@ async def list_entities_by_domain(domain: str, state_filter: str | None = None) 
 @trace_with_uri(name="ha.search_entities", span_type="TOOL")
 async def search_entities(query: str) -> str:
     """Search entities by name or ID."""
-    mcp = get_mcp_client()
+    ha = get_ha_client()
 
-    if hasattr(mcp, "search_entities"):
-        payload = await mcp.search_entities(query=query)
+    if hasattr(ha, "search_entities"):
+        payload = await ha.search_entities(query=query)
         entities = _extract_results(payload)
     else:
-        payload = await mcp.list_entities(search_query=query)
+        payload = await ha.list_entities(search_query=query)
         entities = _extract_results(payload)
 
     if not entities:
@@ -86,8 +86,8 @@ async def search_entities(query: str) -> str:
 @trace_with_uri(name="ha.get_domain_summary", span_type="TOOL")
 async def get_domain_summary(domain: str) -> str:
     """Get a summary of entity counts and states for a domain."""
-    mcp = get_mcp_client()
-    summary = await mcp.domain_summary(domain=domain)
+    ha = get_ha_client()
+    summary = await ha.domain_summary(domain=domain)
     if not summary:
         return f"No summary available for domain '{domain}'."
 
@@ -100,9 +100,9 @@ async def get_domain_summary(domain: str) -> str:
 @trace_with_uri(name="ha.control_entity", span_type="TOOL")
 async def control_entity(entity_id: str, action: str) -> str:
     """Control an entity (on/off/toggle)."""
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        await mcp.entity_action(entity_id=entity_id, action=action)
+        await ha.entity_action(entity_id=entity_id, action=action)
     except Exception as exc:  # pragma: no cover - defensive
         return f"Failed to control {entity_id}: {exc}"
 
@@ -137,9 +137,9 @@ async def deploy_automation(
     Returns:
         Success or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.create_automation(
+        result = await ha.create_automation(
             automation_id=automation_id,
             alias=alias,
             trigger=trigger,
@@ -171,9 +171,9 @@ async def delete_automation(automation_id: str) -> str:
     Returns:
         Success or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.delete_automation(automation_id)
+        result = await ha.delete_automation(automation_id)
         if result.get("success"):
             return f"✅ Automation '{automation_id}' deleted."
         else:
@@ -190,9 +190,9 @@ async def list_automations() -> str:
     Returns:
         Formatted list of automations with their status
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        automations = await mcp.list_automations()
+        automations = await ha.list_automations()
         if not automations:
             return "No automations found."
 
@@ -233,9 +233,9 @@ async def create_script(
     Returns:
         Success or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.create_script(
+        result = await ha.create_script(
             script_id=script_id,
             alias=alias,
             sequence=sequence,
@@ -275,9 +275,9 @@ async def create_scene(
     Returns:
         Success or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.create_scene(
+        result = await ha.create_scene(
             scene_id=scene_id,
             name=name,
             entities=entities,
@@ -311,9 +311,9 @@ async def create_input_boolean(
     Returns:
         Success or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.create_input_boolean(
+        result = await ha.create_input_boolean(
             input_id=input_id,
             name=name,
             initial=initial,
@@ -355,9 +355,9 @@ async def create_input_number(
     Returns:
         Success or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.create_input_number(
+        result = await ha.create_input_number(
             input_id=input_id,
             name=name,
             min_value=min_value,
@@ -393,9 +393,9 @@ async def fire_event(
     Returns:
         Success or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.fire_event(event_type, event_data)
+        result = await ha.fire_event(event_type, event_data)
 
         if result.get("success"):
             return f"✅ Event '{event_type}' fired."
@@ -420,9 +420,9 @@ async def render_template(template: str) -> str:
     Returns:
         Rendered result or error message
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.render_template(template)
+        result = await ha.render_template(template)
         if result is not None:
             return f"Result: {result}"
         else:
@@ -445,9 +445,9 @@ async def get_ha_logs() -> str:
     Returns:
         Recent error/warning log entries (truncated to ~4000 chars)
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        log_text = await mcp.get_error_log()
+        log_text = await ha.get_error_log()
         if not log_text:
             return "No errors found in the Home Assistant log."
 
@@ -474,9 +474,9 @@ async def check_ha_config() -> str:
     Returns:
         Configuration check result with any errors or warnings
     """
-    mcp = get_mcp_client()
+    ha = get_ha_client()
     try:
-        result = await mcp.check_config()
+        result = await ha.check_config()
         status = result.get("result", "unknown")
 
         if status == "valid":

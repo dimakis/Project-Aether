@@ -1,4 +1,4 @@
-"""MCP response mocks and HA state fixtures.
+"""HA client response mocks and HA state fixtures.
 
 Provides pre-built mock responses for testing without
 actual Home Assistant connections.
@@ -170,22 +170,22 @@ HA_ENTITY_HISTORY: dict[str, Any] = {
 
 
 # =============================================================================
-# MOCK MCP CLIENT FACTORY
+# mock HA CLIENT FACTORY
 # =============================================================================
 
 
-def create_mock_mcp_client(
+def create_mock_ha_client(
     system_overview: dict[str, Any] | None = None,
     light_entities: list[dict[str, Any]] | None = None,
 ) -> MagicMock:
-    """Create a mock MCP client with configurable responses.
+    """Create a mock HA client with configurable responses.
 
     Args:
         system_overview: Custom system overview response
         light_entities: Custom light entity list
 
     Returns:
-        Configured MagicMock MCP client
+        Configured MagicMock HA client
     """
     client = MagicMock()
 
@@ -321,7 +321,7 @@ __all__ = [
     "HA_DOMAIN_SUMMARY",
     "HA_ENTITY_HISTORY",
     # Factories
-    "create_mock_mcp_client",
+    "create_mock_ha_client",
     "create_mock_llm_response",
     # LLM responses
     "LLM_CATEGORIZER_RESPONSE",

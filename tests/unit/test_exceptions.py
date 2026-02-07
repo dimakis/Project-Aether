@@ -10,7 +10,7 @@ from src.exceptions import (
     ConfigurationError,
     DALError,
     LLMError,
-    MCPError,
+    HAClientError,
     SandboxError,
     ValidationError,
 )
@@ -73,12 +73,12 @@ class TestDALError:
         assert error.correlation_id is not None
 
 
-class TestMCPError:
-    """Test MCPError class."""
+class TestHAClientError:
+    """Test HAClientError class."""
 
     def test_backward_compatibility_tool_positional(self):
         """Test backward compatibility with positional tool parameter."""
-        error = MCPError("Connection failed", "connect")
+        error = HAClientError("Connection failed", "connect")
         assert error.tool == "connect"
         assert error.details == {}
         assert error.correlation_id is not None
@@ -86,24 +86,24 @@ class TestMCPError:
     def test_backward_compatibility_with_details(self):
         """Test backward compatibility with details parameter."""
         details = {"url": "http://localhost", "status": 500}
-        error = MCPError("Connection failed", "connect", details=details)
+        error = HAClientError("Connection failed", "connect", details=details)
         assert error.tool == "connect"
         assert error.details == details
 
     def test_status_code_attribute(self):
         """Test that status_code is stored."""
-        error = MCPError("Not found", "get_entity", status_code=404)
+        error = HAClientError("Not found", "get_entity", status_code=404)
         assert error.status_code == 404
 
     def test_status_code_optional(self):
         """Test that status_code is optional."""
-        error = MCPError("Error", "tool")
+        error = HAClientError("Error", "tool")
         assert error.status_code is None
 
     def test_correlation_id_propagation(self):
         """Test that correlation_id can be provided."""
         custom_id = str(uuid.uuid4())
-        error = MCPError("Error", "tool", correlation_id=custom_id)
+        error = HAClientError("Error", "tool", correlation_id=custom_id)
         assert error.correlation_id == custom_id
 
 
@@ -159,21 +159,21 @@ class TestExceptionChaining:
     def test_correlation_id_propagates_through_chain(self):
         """Test that correlation ID propagates through exception chains."""
         original_id = str(uuid.uuid4())
-        original_error = MCPError("Connection failed", "connect", correlation_id=original_id)
+        original_error = HAClientError("Connection failed", "connect", correlation_id=original_id)
 
         try:
             raise original_error
-        except MCPError as e:
+        except HAClientError as e:
             # Re-raise with new context
             new_error = AgentError("Agent failed", correlation_id=e.correlation_id)
             assert new_error.correlation_id == original_id
 
     def test_exception_cause_preservation(self):
         """Test that exception cause is preserved."""
-        original_error = MCPError("Connection failed", "connect")
+        original_error = HAClientError("Connection failed", "connect")
         try:
             raise original_error
-        except MCPError as e:
+        except HAClientError as e:
             new_error = AgentError("Agent failed", correlation_id=e.correlation_id)
             new_error.__cause__ = e
             assert new_error.__cause__ is original_error
@@ -185,8 +185,8 @@ class TestExceptionChaining:
         assert isinstance(error, AetherError)
         assert isinstance(error, Exception)
 
-        mcp_error = MCPError("Test", "tool")
-        assert isinstance(mcp_error, MCPError)
+        mcp_error = HAClientError("Test", "tool")
+        assert isinstance(mcp_error, HAClientError)
         assert isinstance(mcp_error, AetherError)
         assert isinstance(mcp_error, Exception)
 
@@ -202,8 +202,8 @@ class TestErrorResponseFormat:
         assert str(error) == "Test error"
 
     def test_mcp_error_response_attributes(self):
-        """Test that MCPError has attributes for API responses."""
-        error = MCPError("Not found", "get_entity", status_code=404)
+        """Test that HAClientError has attributes for API responses."""
+        error = HAClientError("Not found", "get_entity", status_code=404)
         assert hasattr(error, "correlation_id")
         assert hasattr(error, "status_code")
         assert error.status_code == 404

@@ -10,7 +10,7 @@ from typing import Any
 
 from src.dal import DiscoverySyncService
 from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
-from src.mcp import MCPClient
+from src.ha import HAClient
 from src.settings import get_settings
 from src.tracing import log_dict, log_metric, log_param, start_experiment_run
 
@@ -28,23 +28,23 @@ class LibrarianWorkflow:
 
     def __init__(
         self,
-        mcp_client: MCPClient | None = None,
+        ha_client: HAClient | None = None,
     ):
         """Initialize the Librarian workflow.
 
         Args:
-            mcp_client: Optional MCP client (creates one if not provided)
+            ha_client: Optional HA client (creates one if not provided)
         """
         self._settings = get_settings()
-        self._mcp = mcp_client
+        self._ha_client = ha_client
 
     @property
-    def mcp(self) -> MCPClient:
-        """Get MCP client, creating if needed."""
-        if self._mcp is None:
-            from src.mcp import get_mcp_client
-            self._mcp = get_mcp_client()
-        return self._mcp
+    def ha(self) -> HAClient:
+        """Get HA client, creating if needed."""
+        if self._ha_client is None:
+            from src.ha import get_ha_client
+            self._ha_client = get_ha_client()
+        return self._ha_client
 
     async def run_discovery(
         self,
@@ -158,10 +158,10 @@ class LibrarianWorkflow:
         Returns:
             Updated state with fetched entities
         """
-        from src.mcp import parse_entity_list
+        from src.ha import parse_entity_list
 
         # Fetch entities
-        raw_entities = await self.mcp.list_entities(
+        raw_entities = await self.ha.list_entities(
             domain=domain_filter,
             detailed=True,
         )
@@ -204,7 +204,7 @@ class LibrarianWorkflow:
         from src.storage import get_session
 
         async with get_session() as session:
-            sync_service = DiscoverySyncService(session, self.mcp)
+            sync_service = DiscoverySyncService(session, self.ha)
             discovery = await sync_service.run_discovery(
                 triggered_by=triggered_by,
                 mlflow_run_id=state.mlflow_run_id,
@@ -235,19 +235,19 @@ class LibrarianWorkflow:
 async def run_librarian_discovery(
     triggered_by: str = "manual",
     domain_filter: str | None = None,
-    mcp_client: MCPClient | None = None,
+    ha_client: HAClient | None = None,
 ) -> DiscoveryState:
     """Convenience function to run Librarian discovery.
 
     Args:
         triggered_by: What triggered this discovery
         domain_filter: Optional domain filter
-        mcp_client: Optional MCP client
+        ha_client: Optional HA client
 
     Returns:
         Final discovery state
     """
-    workflow = LibrarianWorkflow(mcp_client=mcp_client)
+    workflow = LibrarianWorkflow(ha_client=ha_client)
     return await workflow.run_discovery(
         triggered_by=triggered_by,
         domain_filter=domain_filter,

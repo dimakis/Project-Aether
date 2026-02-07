@@ -118,13 +118,13 @@ def mock_db_session() -> AsyncMock:
 
 
 # =============================================================================
-# MCP CLIENT
+# HA CLIENT
 # =============================================================================
 
 
 @pytest.fixture
-def mock_mcp_client() -> MagicMock:
-    """Mock MCP client for Home Assistant interactions.
+def mock_ha_client() -> MagicMock:
+    """Mock HA client for Home Assistant interactions.
 
     Provides realistic mock responses for HA operations.
     """
