@@ -1,3 +1,5 @@
+**Completed**: 2026-02-07
+
 # Implementation Plan: Diagnostic Collaboration
 
 **Feature**: [spec.md](./spec.md)  
