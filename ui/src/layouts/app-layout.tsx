@@ -141,6 +141,9 @@ export function AppLayout() {
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 overflow-auto">
           <Outlet />
+          <footer className="px-6 py-4 text-center text-[11px] text-muted-foreground/50">
+            made with cc (claude &amp; coffee) 😄
+          </footer>
         </main>
 
         {/* Global Agent Activity Panel */}
