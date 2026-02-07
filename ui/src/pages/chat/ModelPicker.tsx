@@ -2,11 +2,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Model } from "@/lib/types";
+import type { ModelInfo } from "@/lib/types";
 
 interface ModelPickerProps {
   selectedModel: string;
-  availableModels: Model[];
+  availableModels: ModelInfo[];
   onModelChange: (modelId: string) => void;
 }
 

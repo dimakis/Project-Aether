@@ -42,7 +42,9 @@ import {
   useRollbackPrompt,
   useDeleteConfigVersion,
   useDeletePromptVersion,
+  useModels,
 } from "@/api/hooks";
+import { ModelPicker } from "@/pages/chat/ModelPicker";
 import type {
   AgentDetail,
   AgentStatusValue,
@@ -465,6 +467,7 @@ function OverviewTab({
 
 function ConfigTab({ agentName }: { agentName: string }) {
   const { data: versions, isLoading } = useAgentConfigVersions(agentName);
+  const { data: modelsData } = useModels();
   const [showCreate, setShowCreate] = useState(false);
   const [modelName, setModelName] = useState("");
   const [temperature, setTemperature] = useState("");
@@ -537,11 +540,13 @@ function ConfigTab({ agentName }: { agentName: string }) {
             <Card className="border-blue-500/30 bg-blue-500/5">
               <CardContent className="space-y-3 pt-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    placeholder="Model name (e.g. gpt-4o)"
-                    value={modelName}
-                    onChange={(e) => setModelName(e.target.value)}
-                  />
+                  <div className="flex items-center rounded-md border border-input px-1">
+                    <ModelPicker
+                      selectedModel={modelName || "Select model..."}
+                      availableModels={modelsData?.data ?? []}
+                      onModelChange={(id) => setModelName(id)}
+                    />
+                  </div>
                   <Input
                     placeholder="Temperature (0.0-2.0)"
                     type="number"
