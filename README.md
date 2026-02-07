@@ -18,6 +18,9 @@ Project Aether is an intelligent home automation system that connects AI agents 
 - [How It Works](#how-it-works)
 - [User Flows](#user-flows)
 - [Quick Start](#quick-start)
+- [Authentication](#authentication)
+- [LLM Usage Tracking](#llm-usage-tracking)
+- [Remote Access](#remote-access)
 - [Deployment Modes](#deployment-modes)
 - [LLM Configuration](#llm-configuration)
 - [Architecture](#architecture)
@@ -55,6 +58,12 @@ Set up cron schedules (e.g., daily energy analysis at 2 AM) or HA webhook trigge
 
 ### Agent Activity Tracing
 A real-time visualization panel in the chat UI shows which agents are active, how they delegate to each other, and a timeline of trace events — making the "thinking" process visible and debuggable.
+
+### Authentication & Passkeys
+Single-user authentication with multiple methods: JWT session tokens (password login), WebAuthn passkeys (Face ID / Touch ID), and API keys (for programmatic access). All methods coexist — use a passkey from your phone and an API key for scripts.
+
+### LLM Usage Tracking
+Every LLM API call is tracked with token counts, estimated costs, and response latency. The Usage dashboard shows daily trends, per-model breakdowns, and cost estimates. Pricing data covers OpenAI, Anthropic, Google, Meta, DeepSeek, and Mistral models.
 
 ### Multi-Provider LLM Support
 Works with OpenAI, OpenRouter (100+ models), Google Gemini, Ollama (local/free), Together AI, and Groq. Per-agent model routing lets you use a premium model for the Architect and a cheaper model for script generation.
@@ -424,6 +433,147 @@ That's it. The UI connects to the API at `localhost:8000`, which talks to your H
 
 ---
 
+## Authentication
+
+Aether supports three authentication methods, all of which can coexist:
+
+### 1. Password Login (JWT)
+
+Set a username and password in your `.env`:
+
+```bash
+AUTH_USERNAME=admin          # default: admin
+AUTH_PASSWORD=your-secret    # required for password auth
+JWT_SECRET=a-long-random-string  # optional, auto-derived if empty
+JWT_EXPIRY_HOURS=72          # default: 72 hours
+```
+
+Login via the UI or API:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "your-secret"}'
+```
+
+The JWT is returned in the response body **and** as an httpOnly cookie (`aether_session`).
+
+### 2. Passkey / Biometric Login (WebAuthn)
+
+Register a passkey from the UI settings after logging in with a password. Once registered, use Face ID, Touch ID, or Windows Hello to sign in — no password needed.
+
+Configure for your domain:
+
+```bash
+WEBAUTHN_RP_ID=home.example.com     # your domain (must match URL)
+WEBAUTHN_RP_NAME=Aether             # display name
+WEBAUTHN_ORIGIN=https://home.example.com  # full origin URL
+```
+
+> **Note**: WebAuthn requires HTTPS in production. Use Cloudflare Tunnel or Tailscale for secure remote access.
+
+### 3. API Key (Programmatic Access)
+
+For scripts, CLI tools, or external integrations:
+
+```bash
+API_KEY=your-api-key
+```
+
+Pass via header or query parameter:
+
+```bash
+curl -H "X-API-Key: your-api-key" http://localhost:8000/api/v1/entities
+```
+
+### Auth Disabled (Development)
+
+When neither `AUTH_PASSWORD` nor `API_KEY` is set, authentication is completely disabled for development convenience.
+
+---
+
+## LLM Usage Tracking
+
+Every LLM call is automatically tracked with token counts and estimated costs.
+
+### Dashboard
+
+Navigate to **LLM Usage** in the sidebar to see:
+- **Summary cards**: total calls, tokens, estimated cost, models used
+- **Daily usage chart**: calls per day over the selected period
+- **Cost by model**: pie chart showing cost distribution
+- **Model breakdown table**: per-model stats with latency
+
+### API Endpoints
+
+```bash
+# Get usage summary (last 30 days)
+GET /api/v1/usage/summary?days=30
+
+# Get daily breakdown
+GET /api/v1/usage/daily?days=30
+
+# Get per-model breakdown
+GET /api/v1/usage/models?days=30
+```
+
+### Custom Pricing
+
+Override or add model pricing with a JSON file:
+
+```bash
+LLM_PRICING_FILE=/path/to/pricing.json
+```
+
+Format:
+
+```json
+{
+  "my-custom-model": {
+    "input_per_1m": 1.50,
+    "output_per_1m": 5.00
+  }
+}
+```
+
+---
+
+## Remote Access
+
+To access Aether from your phone or outside your home network:
+
+### Recommended: Cloudflare Tunnel (Free)
+
+1. Install `cloudflared` on your HA machine
+2. Create a tunnel: `cloudflared tunnel create aether`
+3. Configure to route to `http://localhost:3000`
+4. Update your `.env`:
+
+```bash
+WEBAUTHN_RP_ID=aether.your-domain.com
+WEBAUTHN_ORIGIN=https://aether.your-domain.com
+ALLOWED_ORIGINS=https://aether.your-domain.com
+```
+
+Benefits: no port forwarding, automatic HTTPS, DDoS protection.
+
+### Alternative: Tailscale (VPN)
+
+1. Install Tailscale on your HA machine and phone
+2. Access via Tailscale IP: `http://100.x.y.z:3000`
+
+Benefits: zero-config VPN, no public exposure, works with HTTP (no HTTPS needed for WebAuthn on Tailscale).
+
+### Security Checklist
+
+- [ ] Set `AUTH_PASSWORD` to a strong password
+- [ ] Set `JWT_SECRET` to a random 32+ character string
+- [ ] Configure `ALLOWED_ORIGINS` for your domain
+- [ ] Register a passkey for passwordless login
+- [ ] Use HTTPS (required for WebAuthn on public domains)
+
+---
+
 ## Deployment Modes
 
 | Mode | Command | Description |
@@ -610,7 +760,10 @@ The React frontend provides a modern interface for interacting with Aether:
 | **Insights** | `/insights` | Browse analysis results — energy patterns, behavioral insights, diagnostics |
 | **Entities** | `/entities` | Browse and search all discovered HA entities with filtering |
 | **Registry** | `/registry` | Home Assistant registry management — devices, areas, automations |
+| **Schedules** | `/schedules` | Manage cron schedules and webhook triggers for automated insights |
+| **LLM Usage** | `/usage` | LLM API call tracking — daily trends, cost by model, token breakdown |
 | **Diagnostics** | `/diagnostics` | System health, error logs, integration status, entity diagnostics |
+| **Login** | `/login` | Authentication — passkey (Face ID / Touch ID) or password login |
 
 ### Chat Features
 
@@ -626,7 +779,7 @@ The React frontend provides a modern interface for interacting with Aether:
 
 ## API Reference
 
-All endpoints require API key authentication via `X-API-Key` header or `api_key` query parameter (except health/status).
+All endpoints require authentication via JWT token (cookie or Bearer header), API key (`X-API-Key` header or `api_key` query parameter), or passkey. Health, status, metrics, and login endpoints are exempt.
 
 ### OpenAI-Compatible Endpoints
 
@@ -698,6 +851,20 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `POST` | `/api/v1/webhooks/ha` | Receive HA webhook events |
 | **Traces** | | |
 | `GET` | `/api/v1/traces/{trace_id}/spans` | Get trace span tree for visualization |
+| **Authentication** | | |
+| `POST` | `/api/v1/auth/login` | Password login (returns JWT) |
+| `POST` | `/api/v1/auth/logout` | Clear session cookie |
+| `GET` | `/api/v1/auth/me` | Check session status |
+| `POST` | `/api/v1/auth/passkey/register/options` | Start passkey registration (auth required) |
+| `POST` | `/api/v1/auth/passkey/register/verify` | Complete passkey registration |
+| `POST` | `/api/v1/auth/passkey/authenticate/options` | Start passkey login (public) |
+| `POST` | `/api/v1/auth/passkey/authenticate/verify` | Complete passkey login (returns JWT) |
+| `GET` | `/api/v1/auth/passkeys` | List registered passkeys |
+| `DELETE` | `/api/v1/auth/passkeys/{id}` | Delete a passkey |
+| **LLM Usage** | | |
+| `GET` | `/api/v1/usage/summary` | Usage summary with cost (query: `?days=30`) |
+| `GET` | `/api/v1/usage/daily` | Daily usage breakdown |
+| `GET` | `/api/v1/usage/models` | Per-model usage breakdown |
 
 Interactive API docs available at `http://localhost:8000/api/docs` when running in debug mode.
 
