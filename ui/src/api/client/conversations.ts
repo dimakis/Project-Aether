@@ -35,7 +35,7 @@ export const conversations = {
 
 // ─── Chat (OpenAI-compatible, streaming) ────────────────────────────────────
 
-/** A chunk from the SSE stream — text delta, metadata, or real-time trace event */
+/** A chunk from the SSE stream — text delta, metadata, trace, or status event */
 export type StreamChunk =
   | string
   | {
@@ -52,6 +52,11 @@ export type StreamChunk =
       tool?: string;
       ts?: number;
       agents?: string[];
+    }
+  | {
+      type: "status";
+      /** Status message (e.g. "Running analyze_energy..."), empty string to clear */
+      content: string;
     };
 
 export async function* streamChat(
@@ -126,6 +131,15 @@ export async function* streamChat(
             tool: parsed.tool,
             ts: parsed.ts,
             agents: parsed.agents,
+          };
+          continue;
+        }
+
+        // Handle status events (tool execution progress)
+        if (parsed.type === "status") {
+          yield {
+            type: "status",
+            content: parsed.content ?? "",
           };
           continue;
         }

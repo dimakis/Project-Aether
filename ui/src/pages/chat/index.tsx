@@ -64,6 +64,7 @@ export function ChatPage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [statusMessage, setStatusMessage] = useState<string>("");
   const [workflowSelection, setWorkflowSelection] = useState<WorkflowSelection>({
     preset: null,
     disabledAgents: new Set(),
@@ -262,6 +263,10 @@ export function ChatPage() {
             handleTraceEvent(chunk as TraceEventChunk, setAgentActivity);
             continue;
           }
+          if (chunk.type === "status") {
+            setStatusMessage(chunk.content);
+            continue;
+          }
         }
         const text = typeof chunk === "string" ? chunk : "";
         fullContent += text;
@@ -309,6 +314,7 @@ export function ChatPage() {
     } finally {
       setIsStreaming(false);
       setStreamStartTime(null);
+      setStatusMessage("");
       clearAgentActivity();
       inputRef.current?.focus();
     }
@@ -462,7 +468,11 @@ export function ChatPage() {
                     className="flex items-center gap-1.5 text-xs text-muted-foreground"
                   >
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    <span>{selectedModel}</span>
+                    {statusMessage ? (
+                      <span className="text-primary/80">{statusMessage}</span>
+                    ) : (
+                      <span>{selectedModel}</span>
+                    )}
                     <span className="text-muted-foreground/50">|</span>
                     <span className="tabular-nums">{elapsed}s</span>
                   </motion.div>
