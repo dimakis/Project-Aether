@@ -6,9 +6,11 @@ including automations, scripts, scenes, and the service registry.
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.rate_limit import limiter
 from src.api.schemas import (
     AutomationListResponse,
     AutomationResponse,
@@ -28,15 +30,51 @@ from src.dal import (
     ScriptRepository,
     ServiceRepository,
 )
+from src.dal.sync import run_registry_sync
 from src.storage import get_session
 
 router = APIRouter(tags=["HA Registry"])
+
+
+class RegistrySyncResponse(BaseModel):
+    """Response from registry sync."""
+
+    automations_synced: int = Field(description="Number of automations synced")
+    scripts_synced: int = Field(description="Number of scripts synced")
+    scenes_synced: int = Field(description="Number of scenes synced")
+    duration_seconds: float = Field(description="Sync duration in seconds")
 
 
 async def get_db() -> AsyncSession:
     """Dependency to get database session."""
     async with get_session() as session:
         yield session
+
+
+# =============================================================================
+# REGISTRY SYNC
+# =============================================================================
+
+
+@router.post("/sync", response_model=RegistrySyncResponse)
+@limiter.limit("5/minute")
+async def sync_registry(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> RegistrySyncResponse:
+    """Sync automations, scripts, and scenes from Home Assistant.
+
+    Lightweight sync that only populates registry tables (skips
+    areas, devices, and entities). Rate limited to 5/minute.
+    """
+    try:
+        result = await run_registry_sync(session=session)
+        return RegistrySyncResponse(**result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Registry sync failed: {e!s}",
+        ) from e
 
 
 # =============================================================================
@@ -483,6 +521,18 @@ async def get_registry_summary(
         "list_floors: Floor hierarchy unavailable",
     ]
 
+    # Get last sync time from most recent completed discovery session
+    from sqlalchemy import select
+    from src.storage.entities import DiscoverySession, DiscoveryStatus
+
+    result = await session.execute(
+        select(DiscoverySession.completed_at)
+        .where(DiscoverySession.status == DiscoveryStatus.COMPLETED)
+        .order_by(DiscoverySession.completed_at.desc())
+        .limit(1)
+    )
+    last_synced_at = result.scalar_one_or_none()
+
     return HARegistrySummary(
         automations_count=automations_count,
         automations_enabled=automations_enabled,
@@ -490,6 +540,6 @@ async def get_registry_summary(
         scenes_count=scenes_count,
         services_count=services_count,
         services_seeded=seeded_count,
-        last_synced_at=datetime.now(timezone.utc),  # TODO(T170): Get from last discovery session
+        last_synced_at=last_synced_at,
         mcp_gaps=mcp_gaps,
     )
