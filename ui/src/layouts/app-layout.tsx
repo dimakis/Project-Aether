@@ -11,8 +11,13 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSystemStatus } from "@/api/hooks";
-import { useAgentActivity } from "@/lib/agent-activity-store";
+import { useSystemStatus, useProposals } from "@/api/hooks";
+import {
+  useAgentActivity,
+  useActivityPanel,
+  toggleActivityPanel,
+} from "@/lib/agent-activity-store";
+import { AgentActivityPanel } from "@/components/chat/agent-activity-panel";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -37,6 +42,11 @@ export function AppLayout() {
   const { data: status } = useSystemStatus();
   const isHealthy = status?.status === "healthy";
   const agentActivity = useAgentActivity();
+  const { panelOpen } = useActivityPanel();
+
+  // Fetch pending proposal count for the sidebar badge
+  const { data: pendingData } = useProposals("proposed");
+  const pendingCount = pendingData?.total ?? 0;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -67,13 +77,34 @@ export function AppLayout() {
               }
             >
               <Icon className="h-4 w-4" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {/* Pending proposals badge */}
+              {label === "Proposals" && pendingCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold text-amber-400 ring-1 ring-amber-500/30">
+                  {pendingCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
 
         {/* Status footer */}
-        <div className="border-t border-border p-4">
+        <div className="space-y-2 border-t border-border p-4">
+          {/* Activity panel toggle */}
+          <button
+            onClick={toggleActivityPanel}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+              panelOpen
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+            )}
+          >
+            <Activity className="h-3.5 w-3.5" />
+            Activity Panel
+          </button>
+
+          {/* System status */}
           {agentActivity.isActive ? (
             <div className="flex items-center gap-2 text-xs text-primary">
               <div className="relative h-2 w-2">
@@ -106,10 +137,15 @@ export function AppLayout() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+      {/* Main Content + Activity Panel */}
+      <div className="flex flex-1 overflow-hidden">
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+
+        {/* Global Agent Activity Panel */}
+        <AgentActivityPanel />
+      </div>
     </div>
   );
 }

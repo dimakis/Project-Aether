@@ -112,8 +112,10 @@ export function useDeployProposal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => proposals.deploy(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: queryKeys.proposals });
+      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposal(id) });
     },
   });
 }
@@ -122,6 +124,27 @@ export function useRollbackProposal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => proposals.rollback(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: queryKeys.proposals });
+      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposal(id) });
+    },
+  });
+}
+
+export function useCreateProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      trigger?: unknown;
+      actions?: unknown;
+      description?: string;
+      conditions?: unknown;
+      mode?: string;
+      proposal_type?: string;
+      service_call?: Record<string, unknown>;
+    }) => proposals.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.proposals });
     },
@@ -245,6 +268,35 @@ export function useRegistrySummary() {
   return useQuery({
     queryKey: queryKeys.registrySummary,
     queryFn: () => registry.summary(),
+  });
+}
+
+export function useAutomationConfig(automationId: string) {
+  return useQuery({
+    queryKey: ["automationConfig", automationId],
+    queryFn: () => registry.automationConfig(automationId),
+    enabled: !!automationId,
+  });
+}
+
+export function useRegistryScripts() {
+  return useQuery({
+    queryKey: ["registryScripts"],
+    queryFn: () => registry.scripts(),
+  });
+}
+
+export function useRegistryScenes() {
+  return useQuery({
+    queryKey: ["registryScenes"],
+    queryFn: () => registry.scenes(),
+  });
+}
+
+export function useRegistryServices(domain?: string) {
+  return useQuery({
+    queryKey: ["registryServices", domain],
+    queryFn: () => registry.services(domain),
   });
 }
 

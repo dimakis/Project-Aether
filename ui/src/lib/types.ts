@@ -57,19 +57,30 @@ export interface ConversationDetail extends Conversation {
 // ─── Proposals ───────────────────────────────────────────────────────────────
 
 export type ProposalStatus =
-  | "pending"
+  | "draft"
+  | "proposed"
   | "approved"
   | "rejected"
   | "deployed"
   | "rolled_back"
+  | "archived"
   | "failed";
+
+export type ProposalTypeValue = "automation" | "entity_command" | "script" | "scene";
 
 export interface Proposal {
   id: string;
+  proposal_type?: ProposalTypeValue;
   name: string;
   description?: string;
   status: ProposalStatus;
   conversation_id?: string;
+  service_call?: {
+    domain: string;
+    service: string;
+    entity_id?: string;
+    data?: Record<string, unknown>;
+  };
   proposed_at?: string;
   approved_at?: string;
   approved_by?: string;
@@ -222,22 +233,89 @@ export interface DomainSummary {
 export interface Automation {
   id: string;
   entity_id: string;
-  state: string;
+  ha_automation_id: string;
   alias: string;
+  state: string;
+  description?: string | null;
+  mode?: string;
+  trigger_types?: string[] | null;
+  trigger_count?: number;
+  action_count?: number;
+  condition_count?: number;
+  last_triggered?: string | null;
+  last_synced_at?: string | null;
 }
 
 export interface AutomationList {
   automations: Automation[];
   total: number;
+  enabled_count?: number;
+  disabled_count?: number;
+}
+
+export interface Script {
+  id: string;
+  entity_id: string;
+  alias: string;
+  state: string;
+  description?: string | null;
+  mode?: string;
+  icon?: string | null;
+  last_triggered?: string | null;
+  last_synced_at?: string | null;
+  sequence?: unknown[] | null;
+  fields?: Record<string, unknown> | null;
+}
+
+export interface ScriptList {
+  scripts: Script[];
+  total: number;
+  running_count?: number;
+}
+
+export interface Scene {
+  id: string;
+  entity_id: string;
+  name: string;
+  icon?: string | null;
+  last_synced_at?: string | null;
+  entity_states?: Record<string, unknown> | null;
+}
+
+export interface SceneList {
+  scenes: Scene[];
+  total: number;
+}
+
+export interface Service {
+  id: string;
+  domain: string;
+  service: string;
+  name?: string | null;
+  description?: string | null;
+  fields?: Record<string, unknown> | null;
+  target?: Record<string, unknown> | null;
+  is_seeded?: boolean;
+  last_synced_at?: string | null;
+}
+
+export interface ServiceList {
+  services: Service[];
+  total: number;
+  domains?: string[];
+  seeded_count?: number;
+  discovered_count?: number;
 }
 
 export interface HARegistrySummary {
-  automations: number;
-  scripts: number;
-  scenes: number;
-  areas: number;
-  devices: number;
-  entities: number;
+  automations_count: number;
+  automations_enabled: number;
+  scripts_count: number;
+  scenes_count: number;
+  services_count: number;
+  services_seeded: number;
+  last_synced_at?: string | null;
+  mcp_gaps?: string[];
 }
 
 // ─── Insight Schedules (Feature 10) ──────────────────────────────────────────

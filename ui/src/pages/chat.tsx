@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -26,7 +27,6 @@ import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { ThinkingIndicator } from "@/components/ui/thinking-indicator";
 import { ThinkingDisclosure } from "@/components/chat/thinking-disclosure";
-import { AgentActivityPanel } from "@/components/chat/agent-activity-panel";
 import { cn } from "@/lib/utils";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import {
@@ -37,10 +37,17 @@ import {
   type ChatSession,
 } from "@/lib/storage";
 import { parseThinkingContent } from "@/lib/thinking-parser";
-import { setAgentActivity, clearAgentActivity } from "@/lib/agent-activity-store";
-import { useModels, useConversations, useTraceSpans } from "@/api/hooks";
+import {
+  setAgentActivity,
+  clearAgentActivity,
+  setLastTraceId,
+  useActivityPanel,
+  toggleActivityPanel,
+} from "@/lib/agent-activity-store";
+import { useModels, useConversations, useCreateProposal } from "@/api/hooks";
 import { streamChat, submitFeedback } from "@/api/client";
 import type { ChatMessage } from "@/lib/types";
+import yaml from "js-yaml";
 
 const SUGGESTIONS = [
   {
@@ -107,6 +114,8 @@ const suggestionVariants = {
 };
 
 export function ChatPage() {
+  const navigate = useNavigate();
+
   // ─── Multi-session persisted state ──────────────────────────────────
   const [sessions, setSessions] = usePersistedState<ChatSession[]>(
     STORAGE_KEYS.chatSessions,
@@ -134,14 +143,14 @@ export function ChatPage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [activityPanelOpen, setActivityPanelOpen] = useState(false);
-  const [lastTraceId, setLastTraceId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const { panelOpen: activityPanelOpen } = useActivityPanel();
+
   const { data: modelsData } = useModels();
   const { data: conversationsData } = useConversations();
-  const { data: traceData, isLoading: traceLoading } = useTraceSpans(lastTraceId);
+  const createProposalMut = useCreateProposal();
 
   const availableModels = modelsData?.data ?? [];
   const recentConversations = conversationsData?.items?.slice(0, 10) ?? [];
@@ -357,9 +366,9 @@ export function ChatPage() {
         return updated;
       });
 
-      // Update trace ID for the activity panel
+      // Update trace ID in the global store for the activity panel
       if (traceId) {
-        setLastTraceId(traceId);
+        setLastTraceId(traceId);  // persisted to localStorage via global store
       }
     } catch {
       updateSessionMessages((prev) => {
@@ -385,6 +394,45 @@ export function ChatPage() {
     await navigator.clipboard.writeText(content);
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 2000);
+  };
+
+  const handleCreateProposal = (yamlContent: string) => {
+    try {
+      const parsed = yaml.load(yamlContent) as Record<string, unknown>;
+      const name =
+        (parsed.alias as string) ||
+        (parsed.name as string) ||
+        "Automation from chat";
+      const trigger = parsed.trigger || parsed.triggers || [];
+      const actions = parsed.action || parsed.actions || [];
+      const conditions = parsed.condition || parsed.conditions || undefined;
+      const mode = (parsed.mode as string) || "single";
+      const description = (parsed.description as string) || undefined;
+
+      createProposalMut.mutate(
+        { name, trigger, actions, conditions, mode, description },
+        {
+          onSuccess: () => {
+            navigate("/proposals");
+          },
+        },
+      );
+    } catch {
+      // If YAML parsing fails, create with raw content as description
+      createProposalMut.mutate(
+        {
+          name: "Automation from chat",
+          trigger: {},
+          actions: {},
+          description: `YAML content:\n${yamlContent}`,
+        },
+        {
+          onSuccess: () => {
+            navigate("/proposals");
+          },
+        },
+      );
+    }
   };
 
   const handleRetry = () => {
@@ -518,9 +566,9 @@ export function ChatPage() {
         </div>
       </div>
 
-      {/* Chat Area + Activity Panel */}
+      {/* Chat Area */}
       <div className="flex flex-1 overflow-hidden">
-      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Model selector header */}
         <div className="flex h-14 items-center justify-between border-b border-border px-4">
           <div className="relative">
@@ -589,7 +637,7 @@ export function ChatPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setActivityPanelOpen(!activityPanelOpen)}
+              onClick={toggleActivityPanel}
               className={cn(
                 activityPanelOpen && "bg-primary/10 text-primary",
               )}
@@ -670,6 +718,7 @@ export function ChatPage() {
                     onCopy={handleCopyMessage}
                     onRetry={handleRetry}
                     onFeedback={handleFeedback}
+                    onCreateProposal={handleCreateProposal}
                   />
                 ))}
               </AnimatePresence>
@@ -714,17 +763,7 @@ export function ChatPage() {
             </p>
           </div>
         </div>
-      </div>
-
-      {/* Agent Activity Panel (Feature 11) */}
-      <AgentActivityPanel
-        isOpen={activityPanelOpen}
-        onClose={() => setActivityPanelOpen(false)}
-        trace={traceData ?? null}
-        isLoading={traceLoading}
-        isStreaming={isStreaming}
-        activeAgent="architect"
-      />
+        </div>
       </div>
     </div>
   );
@@ -740,6 +779,7 @@ interface ChatMessageComponentProps {
   onCopy: (content: string, idx: number) => void;
   onRetry: () => void;
   onFeedback: (index: number, sentiment: "positive" | "negative") => void;
+  onCreateProposal?: (yamlContent: string) => void;
 }
 
 function ChatMessageComponent({
@@ -750,6 +790,7 @@ function ChatMessageComponent({
   onCopy,
   onRetry,
   onFeedback,
+  onCreateProposal,
 }: ChatMessageComponentProps) {
   // Parse thinking content for assistant messages
   const parsed = useMemo(() => {
@@ -757,7 +798,7 @@ function ChatMessageComponent({
     return parseThinkingContent(msg.content);
   }, [msg.role, msg.content]);
 
-  const visibleContent = parsed?.visible ?? msg.content;
+  const visibleContent = parsed?.visible || msg.content;
   const thinkingBlocks = parsed?.thinking ?? [];
   const isModelThinking = parsed?.isThinking ?? false;
 
@@ -821,7 +862,7 @@ function ChatMessageComponent({
 
             {visibleContent ? (
               <>
-                <MarkdownRenderer content={visibleContent} />
+                <MarkdownRenderer content={visibleContent} onCreateProposal={onCreateProposal} />
                 {msg.isStreaming && !isModelThinking && (
                   <ThinkingIndicator hasContent />
                 )}
@@ -867,7 +908,7 @@ function ChatMessageComponent({
             )}
           </div>
         ) : (
-          <MarkdownRenderer content={msg.content} className="text-sm" />
+          <MarkdownRenderer content={msg.content} className="text-sm" onCreateProposal={msg.role === "assistant" ? onCreateProposal : undefined} />
         )}
       </div>
 

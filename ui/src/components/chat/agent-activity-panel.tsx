@@ -2,34 +2,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Activity, Loader2 } from "lucide-react";
 import { AgentTopology } from "./agent-topology";
 import { TraceTimeline } from "./trace-timeline";
-import type { TraceResponse } from "@/lib/types";
+import {
+  useAgentActivity,
+  useActivityPanel,
+  setActivityPanelOpen,
+} from "@/lib/agent-activity-store";
+import { useTraceSpans } from "@/api/hooks";
 
-interface AgentActivityPanelProps {
-  /** Whether the panel is visible */
-  isOpen: boolean;
-  /** Close the panel */
-  onClose: () => void;
-  /** Trace data (null while loading or if no trace) */
-  trace: TraceResponse | null | undefined;
-  /** Whether the trace is still loading */
-  isLoading: boolean;
-  /** Whether the message is still streaming (show live state) */
-  isStreaming: boolean;
-  /** Currently active agent during streaming */
-  activeAgent?: string;
-}
+/**
+ * Global Agent Activity Panel.
+ *
+ * Reads all state from the global agent-activity-store, so it can be
+ * rendered at the AppLayout level and persist across page navigation.
+ */
+export function AgentActivityPanel() {
+  const activity = useAgentActivity();
+  const { lastTraceId, panelOpen } = useActivityPanel();
+  const { data: trace, isLoading } = useTraceSpans(lastTraceId);
 
-export function AgentActivityPanel({
-  isOpen,
-  onClose,
-  trace,
-  isLoading,
-  isStreaming,
-  activeAgent,
-}: AgentActivityPanelProps) {
+  const isStreaming = activity.isActive;
+  const activeAgent = activity.activeAgent || "architect";
+
   return (
     <AnimatePresence>
-      {isOpen && (
+      {panelOpen && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 280, opacity: 1 }}
@@ -47,7 +43,7 @@ export function AgentActivityPanel({
               )}
             </div>
             <button
-              onClick={onClose}
+              onClick={() => setActivityPanelOpen(false)}
               className="rounded-md p-1 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
             >
               <X className="h-4 w-4" />
@@ -63,8 +59,8 @@ export function AgentActivityPanel({
                   Agent Flow
                 </p>
                 <AgentTopology
-                  agents={activeAgent ? [activeAgent] : ["architect"]}
-                  activeAgent={activeAgent || "architect"}
+                  agents={[activeAgent]}
+                  activeAgent={activeAgent}
                   isLive
                 />
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground/60">

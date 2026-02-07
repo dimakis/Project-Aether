@@ -5,7 +5,7 @@ Proposed automation rules requiring HITL approval - User Story 2.
 
 import enum
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -15,6 +15,22 @@ from src.storage.models import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from src.storage.entities.conversation import Conversation
+
+
+class ProposalType(enum.Enum):
+    """Type of proposal action.
+
+    Determines how the proposal is deployed:
+    - automation: HA automation YAML (existing behavior)
+    - entity_command: Single service call (turn on/off/toggle entity)
+    - script: HA script creation
+    - scene: HA scene creation
+    """
+
+    AUTOMATION = "automation"
+    ENTITY_COMMAND = "entity_command"
+    SCRIPT = "script"
+    SCENE = "scene"
 
 
 class ProposalStatus(enum.Enum):
@@ -64,6 +80,14 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         Index("ix_proposals_status_created", "status", "created_at"),
     )
 
+    proposal_type: Mapped[str] = mapped_column(
+        String(20),
+        insert_default=ProposalType.AUTOMATION.value,
+        default=ProposalType.AUTOMATION.value,
+        nullable=False,
+        server_default="automation",
+        doc="Type of proposal: automation, entity_command, script, scene",
+    )
     conversation_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("conversation.id", ondelete="SET NULL"),
@@ -101,6 +125,11 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         default="single",
         doc="Execution mode: single, restart, queued, parallel",
+    )
+    service_call: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        doc="Service call details for entity_command type (domain, service, data)",
     )
     status: Mapped[ProposalStatus] = mapped_column(
         default=ProposalStatus.DRAFT,
@@ -232,12 +261,34 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
             raise ValueError(f"Cannot archive from status {self.status.value}")
         self.status = ProposalStatus.ARCHIVED
 
+    @property
+    def proposal_type_enum(self) -> ProposalType:
+        """Get proposal_type as a ProposalType enum."""
+        try:
+            if isinstance(self.proposal_type, ProposalType):
+                return self.proposal_type
+            return ProposalType(self.proposal_type)
+        except (ValueError, TypeError):
+            return ProposalType.AUTOMATION
+
     def to_ha_yaml_dict(self) -> dict:
-        """Convert to Home Assistant automation YAML format.
+        """Convert to Home Assistant YAML format appropriate for the proposal type.
 
         Returns:
             Dictionary suitable for YAML serialization to HA config.
         """
+        ptype = self.proposal_type_enum
+        if ptype == ProposalType.ENTITY_COMMAND:
+            return self._to_entity_command_dict()
+        elif ptype == ProposalType.SCRIPT:
+            return self._to_script_dict()
+        elif ptype == ProposalType.SCENE:
+            return self._to_scene_dict()
+        else:
+            return self._to_automation_dict()
+
+    def _to_automation_dict(self) -> dict:
+        """Convert to HA automation YAML format."""
         automation = {
             "alias": self.name,
             "trigger": self.trigger if isinstance(self.trigger, list) else [self.trigger],
@@ -254,3 +305,39 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
             )
 
         return automation
+
+    def _to_entity_command_dict(self) -> dict:
+        """Convert to service call YAML format."""
+        sc = self.service_call or {}
+        result: dict[str, Any] = {
+            "service": f"{sc.get('domain', 'homeassistant')}.{sc.get('service', 'turn_on')}",
+        }
+        if sc.get("entity_id"):
+            result["target"] = {"entity_id": sc["entity_id"]}
+        if sc.get("data"):
+            result["data"] = sc["data"]
+        if self.description:
+            result["description"] = self.description
+        return result
+
+    def _to_script_dict(self) -> dict:
+        """Convert to HA script YAML format."""
+        script = {
+            "alias": self.name,
+            "sequence": self.actions if isinstance(self.actions, list) else [self.actions],
+            "mode": self.mode,
+        }
+        if self.description:
+            script["description"] = self.description
+        return script
+
+    def _to_scene_dict(self) -> dict:
+        """Convert to HA scene YAML format."""
+        scene: dict[str, Any] = {
+            "name": self.name,
+        }
+        if self.actions:
+            scene["entities"] = self.actions
+        if self.description:
+            scene["description"] = self.description  # not standard HA but useful
+        return scene

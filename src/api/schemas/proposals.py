@@ -13,8 +13,8 @@ class ProposalCreate(BaseModel):
     """Schema for creating a proposal directly (bypass conversation)."""
 
     name: str = Field(description="Automation name")
-    trigger: dict | list = Field(description="HA trigger configuration")
-    actions: dict | list = Field(description="HA action configuration")
+    trigger: dict | list = Field(default_factory=dict, description="HA trigger configuration")
+    actions: dict | list = Field(default_factory=dict, description="HA action configuration")
     description: str | None = Field(
         default=None,
         description="What the automation does",
@@ -27,12 +27,21 @@ class ProposalCreate(BaseModel):
         default="single",
         description="Execution mode: single, restart, queued, parallel",
     )
+    proposal_type: str = Field(
+        default="automation",
+        description="Type: automation, entity_command, script, scene",
+    )
+    service_call: dict | None = Field(
+        default=None,
+        description="Service call details for entity_command type (domain, service, entity_id, data)",
+    )
 
 
 class ProposalResponse(BaseModel):
     """Schema for proposal response."""
 
     id: str = Field(description="Proposal UUID")
+    proposal_type: str = Field(default="automation", description="Type: automation, entity_command, script, scene")
     conversation_id: str | None = Field(description="Source conversation")
     name: str = Field(description="Automation name")
     description: str | None = Field(description="Description")
@@ -40,6 +49,7 @@ class ProposalResponse(BaseModel):
     conditions: dict | list | None = Field(description="Conditions")
     actions: dict | list = Field(description="Actions")
     mode: str = Field(description="Execution mode")
+    service_call: dict | None = Field(default=None, description="Service call details for entity_command type")
     status: str = Field(description="Proposal status")
     ha_automation_id: str | None = Field(description="HA automation ID if deployed")
     proposed_at: datetime | None = Field(description="When proposed")

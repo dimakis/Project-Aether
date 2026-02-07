@@ -19,6 +19,7 @@ from src.storage.entities.ha_entity import HAEntity
 from src.storage.entities.automation_proposal import (
     AutomationProposal,
     ProposalStatus,
+    ProposalType,
     VALID_TRANSITIONS,
 )
 
@@ -47,6 +48,7 @@ __all__ = [
     # Automation Proposals
     "AutomationProposal",
     "ProposalStatus",
+    "ProposalType",
     "VALID_TRANSITIONS",
     # Insights
     "Insight",

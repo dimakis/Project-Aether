@@ -250,6 +250,21 @@ export const proposals = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+
+  create: (data: {
+    name: string;
+    trigger?: unknown;
+    actions?: unknown;
+    description?: string;
+    conditions?: unknown;
+    mode?: string;
+    proposal_type?: string;
+    service_call?: Record<string, unknown>;
+  }) =>
+    request<import("@/lib/types").Proposal>(`/proposals`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 
 // ─── Insights ───────────────────────────────────────────────────────────────
@@ -363,9 +378,55 @@ export const registry = {
       `/registry/automations`,
     ),
 
+  automation: (id: string) =>
+    request<import("@/lib/types").Automation>(
+      `/registry/automations/${id}`,
+    ),
+
+  automationConfig: (id: string) =>
+    request<{ automation_id: string; ha_automation_id: string; config: unknown; yaml: string }>(
+      `/registry/automations/${id}/config`,
+    ),
+
+  scripts: () =>
+    request<import("@/lib/types").ScriptList>(
+      `/registry/scripts`,
+    ),
+
+  script: (id: string) =>
+    request<import("@/lib/types").Script>(
+      `/registry/scripts/${id}`,
+    ),
+
+  scenes: () =>
+    request<import("@/lib/types").SceneList>(
+      `/registry/scenes`,
+    ),
+
+  scene: (id: string) =>
+    request<import("@/lib/types").Scene>(
+      `/registry/scenes/${id}`,
+    ),
+
+  services: (domain?: string) =>
+    request<import("@/lib/types").ServiceList>(
+      `/registry/services${domain ? `?domain=${domain}` : ""}`,
+    ),
+
+  service: (id: string) =>
+    request<import("@/lib/types").Service>(
+      `/registry/services/${id}`,
+    ),
+
   summary: () =>
     request<import("@/lib/types").HARegistrySummary>(
       `/registry/summary`,
+    ),
+
+  seedServices: () =>
+    request<{ seeded: number; updated: number }>(
+      `/registry/services/seed`,
+      { method: "POST" },
     ),
 };
 

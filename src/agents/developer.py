@@ -14,7 +14,7 @@ from src.agents import BaseAgent
 from src.dal import ProposalRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus
 from src.mcp import MCPClient, get_mcp_client
-from src.settings import get_settings
+from src.mcp.automation_deploy import AutomationDeployer
 from src.storage.entities import ProposalStatus
 
 
@@ -164,10 +164,12 @@ class DeveloperAgent(BaseAgent):
         automation_id: str,
         yaml_content: str,
     ) -> dict[str, Any]:
-        """Attempt to deploy automation via MCP.
+        """Deploy automation via HA REST API.
 
-        Note: MCP Gap - No direct automation creation tool exists.
-        This uses workarounds documented in the spec.
+        Uses AutomationDeployer which calls the HA config API
+        (POST /api/config/automation/config/{id}) to create
+        automations directly. Falls back to manual instructions
+        if the REST API call fails.
 
         Args:
             automation_id: Unique automation ID
@@ -176,27 +178,8 @@ class DeveloperAgent(BaseAgent):
         Returns:
             Deployment result
         """
-        # Known MCP gap: No create_automation tool
-        # Options:
-        # 1. Generate YAML for manual import (safest)
-        # 2. Use HA REST API if configured
-        # 3. Write to HA config directory if accessible
-
-        settings = get_settings()
-
-        # For now, return manual method
-        # Future: Add REST API or file-based deployment
-
-        return {
-            "method": "manual",
-            "yaml_file": f"automations/{automation_id}.yaml",
-            "instructions": (
-                "Automation YAML generated. To deploy:\n"
-                "1. Copy the YAML below to your HA automations.yaml\n"
-                "2. Call Developer Settings > YAML > Reload Automations\n"
-                "3. Or use 'automation.reload' service"
-            ),
-        }
+        deployer = AutomationDeployer(self.mcp)
+        return await deployer.deploy_automation(yaml_content, automation_id)
 
     async def rollback_automation(
         self,

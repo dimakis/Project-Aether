@@ -131,7 +131,7 @@ Every agent operation is traced via MLflow with parent-child span relationships,
 | **Architect** | Orchestrator & Chat | The unified entry point. Handles conversation, routes to specialists, designs automations, runs diagnostics. |
 | **Data Scientist** | Analysis & Insights | Analyzes energy data, detects behavioral patterns, runs diagnostic investigations. Generates Python scripts executed in a secure sandbox. |
 | **Librarian** | Discovery & Catalog | Discovers all HA entities, devices, and areas. Builds a searchable local catalog. |
-| **Developer** | Deployment | Takes approved automation proposals and deploys them to Home Assistant. |
+| **Developer** | Deployment | Takes approved automation proposals and deploys them to Home Assistant via the REST API (`/api/config/automation/config`). Falls back to manual instructions if the API is unreachable. |
 
 ### Model Context Propagation
 
@@ -513,6 +513,7 @@ The Architect is the unified entry point for all user requests. It understands i
 | `discover_entities` | Librarian | Entity catalog refresh |
 | `diagnose_issue` | Data Scientist (diagnostic mode) | Collaborative troubleshooting |
 | `deploy_automation` | Developer | Automation deployment (HITL) |
+| `seek_approval` | Architect | Route all mutating actions (entity commands, automations, scripts, scenes) through the approval workflow |
 | `get_entity_history` | — (direct MCP) | Historical data retrieval |
 | `analyze_error_log` | — (diagnostics module) | HA error log analysis |
 | `find_unavailable_entities` | — (diagnostics module) | Entity health scan |
@@ -584,7 +585,7 @@ The React frontend provides a modern interface for interacting with Aether:
 |------|------|-------------|
 | **Dashboard** | `/` | System overview — entity counts, pending proposals, recent insights, domain breakdown |
 | **Chat** | `/chat` | Conversational interface with streaming, model selection, thinking disclosure, and agent activity panel |
-| **Proposals** | `/proposals` | View, approve, reject, or rollback automation proposals |
+| **Proposals** | `/proposals` | View, approve, deploy to HA, or rollback automation proposals. Includes an Architect prompt for generating new proposals directly. |
 | **Insights** | `/insights` | Browse analysis results — energy patterns, behavioral insights, diagnostics |
 | **Entities** | `/entities` | Browse and search all discovered HA entities with filtering |
 | **Registry** | `/registry` | Home Assistant registry management — devices, areas, automations |
@@ -641,11 +642,13 @@ These endpoints allow any OpenAI-compatible client (including Open WebUI) to wor
 | `DELETE` | `/api/insight-schedules/{id}` | Delete schedule |
 | `POST` | `/api/insight-schedules/{id}/run` | Manual trigger |
 | **Proposals** | | |
-| `GET` | `/api/proposals` | List automation proposals |
-| `GET` | `/api/proposals/{id}` | Get proposal details |
+| `GET` | `/api/proposals` | List automation proposals (filterable by status) |
+| `GET` | `/api/proposals/pending` | List proposals awaiting approval |
+| `GET` | `/api/proposals/{id}` | Get proposal details with YAML |
+| `POST` | `/api/proposals` | Create a new proposal directly |
 | `POST` | `/api/proposals/{id}/approve` | Approve proposal |
 | `POST` | `/api/proposals/{id}/reject` | Reject proposal |
-| `POST` | `/api/proposals/{id}/deploy` | Deploy approved proposal |
+| `POST` | `/api/proposals/{id}/deploy` | Deploy approved proposal to HA via REST API |
 | `POST` | `/api/proposals/{id}/rollback` | Rollback deployed proposal |
 | **HA Registry** | | |
 | `GET` | `/api/automations` | List HA automations |

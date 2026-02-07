@@ -2,16 +2,19 @@ import { useMemo, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { isInlineCode } from "react-shiki";
+import { FileCheck } from "lucide-react";
 import { CodeBlock, InlineCode } from "@/components/ui/code-block";
 import { cn } from "@/lib/utils";
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  /** When provided, YAML code blocks get a "Create Proposal" button */
+  onCreateProposal?: (yamlContent: string) => void;
 }
 
 /** Custom markdown renderer that routes code blocks to shiki CodeBlock component */
-export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className, onCreateProposal }: MarkdownRendererProps) {
   const components = useMemo(() => ({
     // Route fenced code blocks through our shiki CodeBlock
     // Uses react-shiki's isInlineCode helper to distinguish inline vs fenced
@@ -23,12 +26,25 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
       if (!isInline) {
         const lang = match ? match[1] : "text";
         const codeStr = String(children).replace(/\n$/, "");
+        const isYaml = lang === "yaml" || lang === "yml";
+
         return (
-          <CodeBlock
-            code={codeStr}
-            language={lang}
-            collapsible={codeStr.split("\n").length > 30}
-          />
+          <div>
+            <CodeBlock
+              code={codeStr}
+              language={lang}
+              collapsible={codeStr.split("\n").length > 30}
+            />
+            {isYaml && onCreateProposal && (
+              <button
+                onClick={() => onCreateProposal(codeStr)}
+                className="mt-1 flex items-center gap-1.5 rounded-md border border-border/50 bg-card px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+              >
+                <FileCheck className="h-3 w-3" />
+                Create Proposal
+              </button>
+            )}
+          </div>
         );
       }
 

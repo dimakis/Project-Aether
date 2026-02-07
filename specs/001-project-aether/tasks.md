@@ -251,7 +251,7 @@ These features would unlock additional capabilities. **Report back when these be
 
 **Independent Test**: Start conversation, describe automation need, receive proposal, approve/reject, verify deployment to HA
 
-**MCP Tools Used**: `call_service_tool` (for deployment), `entity_action`, `list_entities` (context for proposals)
+**MCP Tools Used**: `call_service_tool` (for entity commands), `entity_action`, `list_entities` (context), `seek_approval` (HITL routing), HA REST API for automation deployment
 
 ### Models for User Story 2
 
@@ -291,6 +291,18 @@ These features would unlock additional capabilities. **Report back when these be
 - [x] T086 [US2] Create src/api/routes/chat.py with GET/POST /conversations, GET /conversations/{id}, POST /conversations/{id}/messages (commit: 4a2b7e9)
 - [x] T087 [US2] Add WebSocket endpoint for streaming at /conversations/{id}/stream in src/api/routes/chat.py (commit: 4a2b7e9)
 - [x] T088 [US2] Create src/api/routes/proposals.py with GET /proposals, GET /proposals/{id}, POST approve/reject/deploy/rollback (commit: 4a2b7e9)
+
+### Seek Approval Tool & Proposal Types (Enhancement to US2)
+
+- [x] T300 [US2] Create `seek_approval` tool in src/tools/approval_tools.py — routes all mutating actions through the proposals approval workflow
+- [x] T301 [US2] Add `ProposalType` enum (automation, entity_command, script, scene) to AutomationProposal model
+- [x] T302 [US2] Add `proposal_type` (String) and `service_call` (JSONB) columns to automation_proposal table via Alembic migration 009
+- [x] T303 [US2] Update Architect system prompt to mandate `seek_approval` for all state-modifying actions
+- [x] T304 [US2] Wire DeveloperAgent._deploy_via_mcp to use AutomationDeployer for real HA REST API deployment (POST /api/config/automation/config/{id})
+- [x] T305 [US2] Fix frontend status mismatch: backend returns "proposed" but UI checked for "pending" — aligned to "proposed" with "Pending" display label
+- [x] T306 [US2] Add deploy result feedback (method, instructions, errors) in proposals detail overlay
+- [x] T307 [US2] Add Architect prompt component to Proposals page for generating proposals directly
+- [x] T308 [US2] Make Agent Activity panel persistent across page changes via global store with localStorage
 
 ### CLI Commands for User Story 2
 
@@ -699,6 +711,20 @@ The following uncompleted features were migrated from this file:
 | Calendar & Presence Integration | [`features/05-calendar-presence-integration/`](./features/05-calendar-presence-integration/) | Planned |
 | HA Diagnostics & Troubleshooting | [`features/06-C-ha-diagnostics-troubleshooting/`](./features/06-C-ha-diagnostics-troubleshooting/) | ✅ Complete |
 | Diagnostics API & CLI | [`features/07-diagnostics-api-cli/`](./features/07-diagnostics-api-cli/) | Planned |
+| Model Routing & Multi-Agent | [`features/08-C-model-routing-multi-agent/`](./features/08-C-model-routing-multi-agent/) | ✅ Complete |
+| Real LLM Streaming | [`features/09-real-llm-streaming/`](./features/09-real-llm-streaming/) | Proposed |
+| Scheduled & Event-Driven Insights | [`features/10-scheduled-event-insights/`](./features/10-scheduled-event-insights/) | Proposed |
+| Agent Activity Trace | [`features/11-agent-activity-trace/`](./features/11-agent-activity-trace/) | Phase 1 Complete (persistent panel, global store) |
+| Climate Comfort Analysis | [`features/12-climate-comfort-analysis/`](./features/12-climate-comfort-analysis/) | Proposed |
+| Presence & Occupancy Intelligence | [`features/13-presence-occupancy-intelligence/`](./features/13-presence-occupancy-intelligence/) | Proposed |
+| Solar & Battery Optimization | [`features/14-solar-battery-optimization/`](./features/14-solar-battery-optimization/) | Proposed |
+| Appliance Efficiency Tracking | [`features/15-appliance-efficiency-tracking/`](./features/15-appliance-efficiency-tracking/) | Proposed |
+| Security Pattern Analysis | [`features/16-security-pattern-analysis/`](./features/16-security-pattern-analysis/) | Proposed |
+| Peak Demand Management | [`features/17-peak-demand-management/`](./features/17-peak-demand-management/) | Proposed |
+| Weather-Correlated Analysis | [`features/18-weather-correlated-analysis/`](./features/18-weather-correlated-analysis/) | Proposed |
+| Water Usage Analysis | [`features/19-water-usage-analysis/`](./features/19-water-usage-analysis/) | Proposed |
+| Sleep & Wellness Correlation | [`features/20-sleep-wellness-correlation/`](./features/20-sleep-wellness-correlation/) | Proposed |
+| Carbon Footprint Estimation | [`features/21-carbon-footprint-estimation/`](./features/21-carbon-footprint-estimation/) | Proposed |
 
 ### What Stays in This File
 

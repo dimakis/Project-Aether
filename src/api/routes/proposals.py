@@ -23,10 +23,37 @@ from src.api.schemas import (
     RollbackResponse,
 )
 from src.dal import ProposalRepository
+from src.mcp import get_mcp_client
 from src.storage import get_session
-from src.storage.entities import ProposalStatus
+from src.storage.entities import ProposalStatus, ProposalType
 
 router = APIRouter(prefix="/proposals", tags=["Proposals"])
+
+
+def _proposal_to_response(p) -> ProposalResponse:
+    """Convert an AutomationProposal model to a ProposalResponse schema."""
+    return ProposalResponse(
+        id=p.id,
+        proposal_type=p.proposal_type if isinstance(p.proposal_type, str) else (p.proposal_type.value if hasattr(p.proposal_type, "value") else "automation"),
+        conversation_id=p.conversation_id,
+        name=p.name,
+        description=p.description,
+        trigger=p.trigger,
+        conditions=p.conditions,
+        actions=p.actions,
+        mode=p.mode,
+        service_call=p.service_call,
+        status=p.status.value,
+        ha_automation_id=p.ha_automation_id,
+        proposed_at=p.proposed_at,
+        approved_at=p.approved_at,
+        approved_by=p.approved_by,
+        deployed_at=p.deployed_at,
+        rolled_back_at=p.rolled_back_at,
+        rejection_reason=p.rejection_reason,
+        created_at=p.created_at,
+        updated_at=p.updated_at,
+    )
 
 
 @router.get(
@@ -48,7 +75,7 @@ async def list_proposals(
         status_filter = None
         if status:
             try:
-                status_filter = ProposalStatus(status.upper())
+                status_filter = ProposalStatus(status.lower())
             except ValueError:
                 pass
 
@@ -64,29 +91,7 @@ async def list_proposals(
         total = await repo.count(status=status_filter)
 
         return ProposalListResponse(
-            items=[
-                ProposalResponse(
-                    id=p.id,
-                    conversation_id=p.conversation_id,
-                    name=p.name,
-                    description=p.description,
-                    trigger=p.trigger,
-                    conditions=p.conditions,
-                    actions=p.actions,
-                    mode=p.mode,
-                    status=p.status.value,
-                    ha_automation_id=p.ha_automation_id,
-                    proposed_at=p.proposed_at,
-                    approved_at=p.approved_at,
-                    approved_by=p.approved_by,
-                    deployed_at=p.deployed_at,
-                    rolled_back_at=p.rolled_back_at,
-                    rejection_reason=p.rejection_reason,
-                    created_at=p.created_at,
-                    updated_at=p.updated_at,
-                )
-                for p in proposals
-            ],
+            items=[_proposal_to_response(p) for p in proposals],
             total=total,
             limit=limit,
             offset=offset,
@@ -107,29 +112,7 @@ async def list_pending_proposals(limit: int = 50) -> ProposalListResponse:
         total = await repo.count(status=ProposalStatus.PROPOSED)
 
         return ProposalListResponse(
-            items=[
-                ProposalResponse(
-                    id=p.id,
-                    conversation_id=p.conversation_id,
-                    name=p.name,
-                    description=p.description,
-                    trigger=p.trigger,
-                    conditions=p.conditions,
-                    actions=p.actions,
-                    mode=p.mode,
-                    status=p.status.value,
-                    ha_automation_id=p.ha_automation_id,
-                    proposed_at=p.proposed_at,
-                    approved_at=p.approved_at,
-                    approved_by=p.approved_by,
-                    deployed_at=p.deployed_at,
-                    rolled_back_at=p.rolled_back_at,
-                    rejection_reason=p.rejection_reason,
-                    created_at=p.created_at,
-                    updated_at=p.updated_at,
-                )
-                for p in proposals
-            ],
+            items=[_proposal_to_response(p) for p in proposals],
             total=total,
             limit=limit,
             offset=0,
@@ -155,25 +138,9 @@ async def get_proposal(proposal_id: str) -> ProposalYAMLResponse:
         # Generate YAML
         yaml_content = _generate_yaml(proposal)
 
+        base = _proposal_to_response(proposal)
         return ProposalYAMLResponse(
-            id=proposal.id,
-            conversation_id=proposal.conversation_id,
-            name=proposal.name,
-            description=proposal.description,
-            trigger=proposal.trigger,
-            conditions=proposal.conditions,
-            actions=proposal.actions,
-            mode=proposal.mode,
-            status=proposal.status.value,
-            ha_automation_id=proposal.ha_automation_id,
-            proposed_at=proposal.proposed_at,
-            approved_at=proposal.approved_at,
-            approved_by=proposal.approved_by,
-            deployed_at=proposal.deployed_at,
-            rolled_back_at=proposal.rolled_back_at,
-            rejection_reason=proposal.rejection_reason,
-            created_at=proposal.created_at,
-            updated_at=proposal.updated_at,
+            **base.model_dump(),
             yaml_content=yaml_content,
         )
 
@@ -196,6 +163,8 @@ async def create_proposal(request: ProposalCreate) -> ProposalResponse:
             description=request.description,
             conditions=request.conditions,
             mode=request.mode,
+            proposal_type=request.proposal_type,
+            service_call=request.service_call,
         )
 
         # Submit for approval
@@ -205,26 +174,7 @@ async def create_proposal(request: ProposalCreate) -> ProposalResponse:
         # Refresh
         proposal = await repo.get_by_id(proposal.id)
 
-        return ProposalResponse(
-            id=proposal.id,
-            conversation_id=proposal.conversation_id,
-            name=proposal.name,
-            description=proposal.description,
-            trigger=proposal.trigger,
-            conditions=proposal.conditions,
-            actions=proposal.actions,
-            mode=proposal.mode,
-            status=proposal.status.value,
-            ha_automation_id=proposal.ha_automation_id,
-            proposed_at=proposal.proposed_at,
-            approved_at=proposal.approved_at,
-            approved_by=proposal.approved_by,
-            deployed_at=proposal.deployed_at,
-            rolled_back_at=proposal.rolled_back_at,
-            rejection_reason=proposal.rejection_reason,
-            created_at=proposal.created_at,
-            updated_at=proposal.updated_at,
-        )
+        return _proposal_to_response(proposal)
 
 
 @router.post(
@@ -260,26 +210,7 @@ async def approve_proposal(
 
         proposal = await repo.get_by_id(proposal_id)
 
-        return ProposalResponse(
-            id=proposal.id,
-            conversation_id=proposal.conversation_id,
-            name=proposal.name,
-            description=proposal.description,
-            trigger=proposal.trigger,
-            conditions=proposal.conditions,
-            actions=proposal.actions,
-            mode=proposal.mode,
-            status=proposal.status.value,
-            ha_automation_id=proposal.ha_automation_id,
-            proposed_at=proposal.proposed_at,
-            approved_at=proposal.approved_at,
-            approved_by=proposal.approved_by,
-            deployed_at=proposal.deployed_at,
-            rolled_back_at=proposal.rolled_back_at,
-            rejection_reason=proposal.rejection_reason,
-            created_at=proposal.created_at,
-            updated_at=proposal.updated_at,
-        )
+        return _proposal_to_response(proposal)
 
 
 @router.post(
@@ -315,26 +246,7 @@ async def reject_proposal(
 
         proposal = await repo.get_by_id(proposal_id)
 
-        return ProposalResponse(
-            id=proposal.id,
-            conversation_id=proposal.conversation_id,
-            name=proposal.name,
-            description=proposal.description,
-            trigger=proposal.trigger,
-            conditions=proposal.conditions,
-            actions=proposal.actions,
-            mode=proposal.mode,
-            status=proposal.status.value,
-            ha_automation_id=proposal.ha_automation_id,
-            proposed_at=proposal.proposed_at,
-            approved_at=proposal.approved_at,
-            approved_by=proposal.approved_by,
-            deployed_at=proposal.deployed_at,
-            rolled_back_at=proposal.rolled_back_at,
-            rejection_reason=proposal.rejection_reason,
-            created_at=proposal.created_at,
-            updated_at=proposal.updated_at,
-        )
+        return _proposal_to_response(proposal)
 
 
 @router.post(
@@ -378,13 +290,17 @@ async def deploy_proposal(
                 detail=f"Cannot deploy proposal in status {proposal.status.value}. Must be approved first.",
             )
 
-        # Deploy via Developer agent
-        from src.agents import DeveloperWorkflow
-
-        workflow = DeveloperWorkflow()
-
+        # Dispatch based on proposal type
         try:
-            result = await workflow.deploy(proposal_id, session)
+            if proposal.proposal_type == ProposalType.ENTITY_COMMAND.value:
+                result = await _deploy_entity_command(proposal, repo)
+            else:
+                # Deploy via Developer agent (automations, scripts, scenes)
+                from src.agents import DeveloperWorkflow
+
+                workflow = DeveloperWorkflow()
+                result = await workflow.deploy(proposal_id, session)
+
             await session.commit()
 
             return DeploymentResponse(
@@ -463,6 +379,43 @@ async def rollback_proposal(
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _deploy_entity_command(proposal, repo: ProposalRepository) -> dict:
+    """Execute an entity command proposal via MCP.
+
+    Args:
+        proposal: The AutomationProposal with proposal_type=entity_command
+        repo: ProposalRepository for state updates
+
+    Returns:
+        Deployment result dict
+    """
+    sc = proposal.service_call or {}
+    domain = sc.get("domain", "homeassistant")
+    service = sc.get("service", "turn_on")
+    entity_id = sc.get("entity_id")
+    data = sc.get("data", {})
+
+    if entity_id:
+        data["entity_id"] = entity_id
+
+    mcp = get_mcp_client()
+    await mcp.call_service(domain=domain, service=service, data=data)
+
+    # Mark as deployed (use a descriptive ID since there's no HA automation)
+    command_id = f"cmd_{proposal.id[:8]}_{domain}_{service}"
+    await repo.deploy(proposal.id, command_id)
+
+    import yaml as yaml_lib
+    yaml_content = yaml_lib.dump(proposal.to_ha_yaml_dict(), default_flow_style=False, sort_keys=False)
+
+    return {
+        "ha_automation_id": command_id,
+        "deployment_method": "mcp_service_call",
+        "yaml_content": yaml_content,
+        "instructions": f"Executed {domain}.{service} on {entity_id or 'target'}",
+    }
 
 
 def _generate_yaml(proposal) -> str:

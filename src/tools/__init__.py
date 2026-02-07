@@ -7,6 +7,10 @@ from src.tools.agent_tools import (
     get_agent_tools,
     get_entity_history,
 )
+from src.tools.approval_tools import (
+    get_approval_tools,
+    seek_approval,
+)
 from src.tools.diagnostic_tools import (
     analyze_error_log,
     check_integration_health,
@@ -31,10 +35,11 @@ def get_all_tools() -> list:
     """Return all tools available to the Architect agent.
 
     Combines HA tools (entity queries, control, diagnostics) with agent
-    delegation tools (energy analysis, discovery, diagnostics) and
-    advanced diagnostic tools (log analysis, entity/integration health).
+    delegation tools (energy analysis, discovery, diagnostics),
+    advanced diagnostic tools (log analysis, entity/integration health),
+    and approval tools (seek_approval for HITL mutations).
     """
-    return get_ha_tools() + get_agent_tools() + get_diagnostic_tools()
+    return get_ha_tools() + get_agent_tools() + get_diagnostic_tools() + get_approval_tools()
 
 
 __all__ = [
@@ -60,6 +65,9 @@ __all__ = [
     "check_integration_health",
     "validate_config",
     "get_diagnostic_tools",
+    # Approval Tools
+    "seek_approval",
+    "get_approval_tools",
     # Combined
     "get_all_tools",
 ]

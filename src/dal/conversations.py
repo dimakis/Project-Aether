@@ -433,6 +433,8 @@ class ProposalRepository:
         conditions: dict | None = None,
         mode: str = "single",
         mlflow_run_id: str | None = None,
+        proposal_type: str = "automation",
+        service_call: dict | None = None,
     ) -> AutomationProposal:
         """Create a new automation proposal.
 
@@ -445,12 +447,26 @@ class ProposalRepository:
             conditions: Optional conditions
             mode: Execution mode
             mlflow_run_id: Optional MLflow tracking ID
+            proposal_type: Type of proposal (automation, entity_command, script, scene)
+            service_call: Service call details for entity_command type
 
         Returns:
             Created AutomationProposal
         """
+        from src.storage.entities.automation_proposal import ProposalType
+
+        # Resolve proposal type to string value
+        if isinstance(proposal_type, ProposalType):
+            ptype_str = proposal_type.value
+        else:
+            try:
+                ptype_str = ProposalType(proposal_type).value
+            except ValueError:
+                ptype_str = ProposalType.AUTOMATION.value
+
         proposal = AutomationProposal(
             id=str(uuid4()),
+            proposal_type=ptype_str,
             conversation_id=conversation_id,
             name=name,
             description=description,
@@ -458,6 +474,7 @@ class ProposalRepository:
             conditions=conditions,
             actions=actions,
             mode=mode,
+            service_call=service_call,
             status=ProposalStatus.DRAFT,
             mlflow_run_id=mlflow_run_id,
         )
