@@ -82,7 +82,13 @@ export const conversations = {
 /** A chunk from the SSE stream — either a text delta or a metadata event */
 export type StreamChunk =
   | string
-  | { type: "metadata"; trace_id?: string; conversation_id?: string };
+  | {
+      type: "metadata";
+      trace_id?: string;
+      conversation_id?: string;
+      /** Tool names the Architect invoked during this turn */
+      tool_calls?: string[];
+    };
 
 export async function* streamChat(
   model: string,
@@ -136,9 +142,14 @@ export async function* streamChat(
           throw new ApiError(500, parsed.error.message);
         }
 
-        // Handle metadata events (trace_id, conversation_id)
+        // Handle metadata events (trace_id, conversation_id, tool_calls)
         if (parsed.type === "metadata") {
-          yield { type: "metadata", trace_id: parsed.trace_id, conversation_id: parsed.conversation_id };
+          yield {
+            type: "metadata",
+            trace_id: parsed.trace_id,
+            conversation_id: parsed.conversation_id,
+            tool_calls: parsed.tool_calls,
+          };
           continue;
         }
 

@@ -116,6 +116,7 @@ export function InlineAssistant({
 
       try {
         let fullContent = "";
+        let toolCallsUsed: string[] = [];
 
         for await (const chunk of streamChat(model, chatHistory)) {
           if (
@@ -123,6 +124,10 @@ export function InlineAssistant({
             "type" in chunk &&
             chunk.type === "metadata"
           ) {
+            // Capture tool calls from metadata for targeted invalidation
+            if (chunk.tool_calls) {
+              toolCallsUsed = chunk.tool_calls;
+            }
             continue;
           }
           const text = typeof chunk === "string" ? chunk : "";
@@ -149,9 +154,30 @@ export function InlineAssistant({
           return updated;
         });
 
-        // Invalidate relevant queries so the page data refreshes
+        // Invalidate relevant queries so the page data refreshes.
+        // Always invalidate the provided keys, plus targeted invalidation
+        // based on which tools the Architect actually called.
         for (const key of invalidateKeys) {
           queryClient.invalidateQueries({ queryKey: key });
+        }
+
+        // Targeted invalidation based on tool calls
+        if (toolCallsUsed.length > 0) {
+          const TOOL_INVALIDATION_MAP: Record<string, string[][]> = {
+            create_insight_schedule: [["insightSchedules"]],
+            run_custom_analysis: [["insights"], ["insightsSummary"]],
+            analyze_energy: [["insights"], ["insightsSummary"]],
+            diagnose_issue: [["insights"], ["insightsSummary"]],
+            seek_approval: [["proposals"]],
+          };
+          for (const toolName of toolCallsUsed) {
+            const keys = TOOL_INVALIDATION_MAP[toolName];
+            if (keys) {
+              for (const key of keys) {
+                queryClient.invalidateQueries({ queryKey: key });
+              }
+            }
+          }
         }
       } catch {
         setMessages((prev) => {

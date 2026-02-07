@@ -446,14 +446,25 @@ async def _stream_chat_completion(
                     }
                     yield f"data: {json.dumps(final_chunk)}\n\n"
 
-                    # Send metadata event with trace_id before DONE
+                    # Extract tool call names from the state messages
+                    # (AIMessages with tool_calls indicate which tools the Architect used)
+                    tool_calls_used: list[str] = []
+                    for msg in state.messages:
+                        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
+                            tool_calls_used.extend(
+                                tc.get("name", "") for tc in msg.tool_calls if tc.get("name")
+                            )
+
+                    # Send metadata event with trace_id and tool calls before DONE
+                    metadata: dict[str, object] = {
+                        "type": "metadata",
+                        "conversation_id": conversation_id,
+                    }
                     if trace_id:
-                        metadata = {
-                            "type": "metadata",
-                            "trace_id": trace_id,
-                            "conversation_id": conversation_id,
-                        }
-                        yield f"data: {json.dumps(metadata)}\n\n"
+                        metadata["trace_id"] = trace_id
+                    if tool_calls_used:
+                        metadata["tool_calls"] = list(set(tool_calls_used))
+                    yield f"data: {json.dumps(metadata)}\n\n"
 
                     yield "data: [DONE]\n\n"
 
