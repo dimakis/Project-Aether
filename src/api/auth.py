@@ -6,8 +6,9 @@ Supports multiple authentication methods (checked in order):
 3. API key header (X-API-Key)
 4. API key query parameter (api_key)
 
-If no auth credentials are configured (both AUTH_PASSWORD and API_KEY empty),
-authentication is disabled (development convenience).
+If no auth credentials are configured (both AUTH_PASSWORD and API_KEY empty):
+- Production: authentication fails closed (rejects all requests)
+- Development/testing: authentication is disabled for convenience
 """
 
 import secrets
@@ -18,6 +19,8 @@ import jwt
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader, APIKeyQuery
 from pydantic import SecretStr
+
+from src.exceptions import ConfigurationError
 
 # Import module (not function) so monkeypatching in tests works correctly.
 # Using `from src.settings import get_settings` would create a local reference
@@ -35,11 +38,13 @@ api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 JWT_ALGORITHM = "HS256"
 JWT_COOKIE_NAME = "aether_session"
 
-# Routes that are exempt from authentication
+# Routes that are exempt from authentication.
+# NOTE: /metrics intentionally requires auth — monitoring systems should
+# use an API key. Only health/readiness probes are fully exempt.
 EXEMPT_ROUTES = {
     "/api/v1/health",
+    "/api/v1/ready",
     "/api/v1/status",
-    "/api/v1/metrics",
     "/api/v1/auth/login",
     "/api/v1/auth/login/ha-token",
     "/api/v1/auth/setup",
@@ -52,13 +57,29 @@ EXEMPT_ROUTES = {
 def _get_jwt_secret(settings: Settings) -> str:
     """Get or generate the JWT signing secret.
 
-    If jwt_secret is not configured, generates a deterministic secret
-    from auth_password to survive restarts (but not password changes).
+    In production, a strong explicit JWT_SECRET is required (minimum 32
+    characters). In development, falls back to a deterministic secret
+    derived from the auth_password for convenience.
     """
     configured = settings.jwt_secret.get_secret_value()
     if configured:
+        if settings.environment == "production" and len(configured) < 32:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "JWT_SECRET is shorter than 32 characters. Use a cryptographically "
+                "random secret for production (e.g. `openssl rand -hex 32`)."
+            )
         return configured
-    # Fallback: derive from auth_password (stable across restarts)
+
+    # Production MUST have an explicit secret
+    if settings.environment == "production":
+        raise ConfigurationError(
+            "JWT_SECRET must be set in production. "
+            "Generate one with: openssl rand -hex 32"
+        )
+
+    # Development fallback: derive from auth_password (stable across restarts)
     password = settings.auth_password.get_secret_value()
     if password:
         return f"aether-jwt-{password}-auto"
@@ -153,8 +174,15 @@ async def verify_api_key(
 
     settings = _settings_mod.get_settings()
 
-    # If no auth is configured at all, disable authentication
+    # If no auth is configured at all:
+    # - Production: fail closed (reject the request)
+    # - Development/testing: allow unauthenticated access for convenience
     if not _is_auth_configured(settings):
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication is not configured. Set AUTH_PASSWORD or API_KEY.",
+            )
         return ""
 
     # 1. Check JWT Bearer token

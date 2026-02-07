@@ -56,12 +56,20 @@ RUN useradd --create-home --shell /bin/bash aether && \
     chown -R aether:aether /app
 USER aether
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Health check (liveness probe — /health is lightweight, no dependency checks)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 # Expose API port
 EXPOSE 8000
 
 # Default command
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers: Trust X-Forwarded-For/Proto from reverse proxy (nginx, K8s ingress)
+# --forwarded-allow-ips=*: Accept forwarded headers from any IP (K8s pod network)
+# --timeout-graceful-shutdown=30: Allow 30s for in-flight requests on SIGTERM
+CMD ["uvicorn", "src.api.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--proxy-headers", \
+     "--forwarded-allow-ips", "*", \
+     "--timeout-graceful-shutdown", "30"]

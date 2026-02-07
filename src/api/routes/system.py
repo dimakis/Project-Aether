@@ -2,12 +2,19 @@
 
 Provides health checks for load balancers and
 detailed status for monitoring dashboards.
+
+Endpoints:
+- /health  — Lightweight liveness probe (no dependency checks)
+- /ready   — Readiness probe (checks critical dependencies like DB)
+- /status  — Detailed component health for monitoring dashboards
+- /metrics — Operational metrics (rate-limit exempt, auth-gated in production)
 """
 
+import logging
 import time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from src.api.metrics import get_metrics_collector
 from src.api.rate_limit import limiter
@@ -19,6 +26,8 @@ from src.api.schemas import (
 )
 from src.settings import get_settings
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 # Track application start time for uptime calculation
@@ -28,18 +37,49 @@ _start_time: float = time.time()
 @router.get(
     "/health",
     response_model=HealthResponse,
-    summary="Health Check",
+    summary="Health Check (Liveness)",
     description="Simple health check for load balancers. Returns 200 if the service is running.",
 )
 async def health_check() -> HealthResponse:
-    """Basic health check endpoint.
+    """Basic health check endpoint (liveness probe).
 
     Returns a simple healthy status if the application is running.
     Used by load balancers and container orchestrators for liveness probes.
+    Does NOT check dependencies — use /ready for readiness probes.
 
     Returns:
         HealthResponse with current status
     """
+    return HealthResponse(
+        status=HealthStatus.HEALTHY,
+        timestamp=datetime.now(timezone.utc),
+        version="0.1.0",
+    )
+
+
+@router.get(
+    "/ready",
+    response_model=HealthResponse,
+    summary="Readiness Probe",
+    description="Readiness check that verifies critical dependencies (database). Returns 503 if not ready.",
+)
+async def readiness_check() -> HealthResponse:
+    """Readiness probe for container orchestrators (K8s readiness probe).
+
+    Checks critical dependencies (database). Returns 200 when the pod
+    is ready to accept traffic, 503 otherwise.
+
+    Returns:
+        HealthResponse with readiness status
+    """
+    from fastapi import HTTPException
+
+    db_health = await _check_database()
+    if db_health.status == HealthStatus.UNHEALTHY:
+        raise HTTPException(
+            status_code=503,
+            detail="Not ready: database unavailable",
+        )
     return HealthResponse(
         status=HealthStatus.HEALTHY,
         timestamp=datetime.now(timezone.utc),
@@ -53,8 +93,12 @@ async def health_check() -> HealthResponse:
     description="Returns current operational metrics including request rates, latency percentiles, error counts, and agent invocations.",
 )
 @limiter.exempt
-async def get_metrics() -> dict:
+async def get_metrics(request: Request) -> dict:
     """Get current operational metrics.
+
+    In production, this endpoint requires authentication (handled by
+    the global auth dependency). The rate limiter is exempt because
+    Prometheus/monitoring systems poll frequently.
 
     Returns metrics including:
     - Request counts (by method, path, status)
@@ -140,10 +184,14 @@ async def _check_database() -> ComponentHealth:
 
     except Exception as e:
         latency = (time.perf_counter() - start) * 1000
+        # Log the real error server-side; return a sanitized message to clients
+        logger.error("Database health check failed: %s", e, exc_info=True)
+        settings = get_settings()
+        message = f"Database error: {e!s}" if settings.debug else "Database unavailable"
         return ComponentHealth(
             name="database",
             status=HealthStatus.UNHEALTHY,
-            message=f"Database error: {e!s}",
+            message=message,
             latency_ms=latency,
         )
 
@@ -179,10 +227,13 @@ async def _check_mlflow() -> ComponentHealth:
     except Exception as e:
         latency = (time.perf_counter() - start) * 1000
         # MLflow is not critical - mark as degraded, not unhealthy
+        logger.warning("MLflow health check failed: %s", e)
+        settings = get_settings()
+        message = f"MLflow unavailable: {e!s}" if settings.debug else "MLflow unavailable"
         return ComponentHealth(
             name="mlflow",
             status=HealthStatus.DEGRADED,
-            message=f"MLflow unavailable: {e!s}",
+            message=message,
             latency_ms=latency,
         )
 
@@ -253,10 +304,15 @@ async def _check_home_assistant() -> ComponentHealth:
         )
     except Exception as e:
         latency = (time.perf_counter() - start) * 1000
+        logger.warning("Home Assistant health check failed: %s", e)
+        settings = get_settings()
+        message = (
+            f"Home Assistant error: {e!s}" if settings.debug else "Home Assistant unavailable"
+        )
         return ComponentHealth(
             name="home_assistant",
             status=HealthStatus.UNHEALTHY,
-            message=f"Home Assistant error: {e!s}",
+            message=message,
             latency_ms=latency,
         )
 

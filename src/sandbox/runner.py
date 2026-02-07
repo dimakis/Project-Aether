@@ -103,6 +103,16 @@ class SandboxRunner:
 
         # Check if sandbox is enabled
         if not settings.sandbox_enabled:
+            # SECURITY: Never allow unsandboxed execution in production.
+            # Constitution Principle II (Isolation) requires all generated
+            # scripts to run in a gVisor sandbox.
+            if settings.environment == "production":
+                from src.exceptions import ConfigurationError
+
+                raise ConfigurationError(
+                    "Sandbox MUST be enabled in production (SANDBOX_ENABLED=true). "
+                    "Unsandboxed script execution is only permitted in development."
+                )
             return await self._run_unsandboxed(script, policy)
 
         started_at = datetime.now(timezone.utc)

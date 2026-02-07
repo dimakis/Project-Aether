@@ -15,15 +15,45 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.storage.entities.system_config import SystemConfig
 
+# Fixed salt for PBKDF2 key derivation.
+# Changing this would invalidate all existing encrypted tokens.
+# The real entropy comes from the JWT_SECRET, not the salt — the salt
+# prevents rainbow-table attacks against the KDF output.
+_KDF_SALT = b"aether-fernet-kdf-v1"
+_KDF_ITERATIONS = 480_000  # OWASP 2023 recommendation for PBKDF2-SHA256
+
 
 def _derive_fernet_key(secret: str) -> bytes:
-    """Derive a Fernet key from an arbitrary secret string.
+    """Derive a Fernet key from an arbitrary secret string using PBKDF2.
 
-    Uses SHA-256 to produce a 32-byte key, then base64-encodes it
-    as required by Fernet (url-safe base64, 32 bytes).
+    Uses PBKDF2-HMAC-SHA256 with a fixed application salt and high
+    iteration count (OWASP 2023 recommended) to produce a 32-byte key,
+    then base64-encodes it as required by Fernet.
 
     Args:
         secret: The secret to derive the key from (e.g. JWT_SECRET).
+
+    Returns:
+        A valid Fernet key (44 bytes, url-safe base64).
+    """
+    dk = hashlib.pbkdf2_hmac(
+        "sha256",
+        secret.encode(),
+        _KDF_SALT,
+        _KDF_ITERATIONS,
+        dklen=32,
+    )
+    return base64.urlsafe_b64encode(dk)
+
+
+def _derive_fernet_key_legacy(secret: str) -> bytes:
+    """Legacy key derivation using raw SHA-256 (for migration only).
+
+    Used to decrypt tokens that were encrypted before the PBKDF2 upgrade.
+    Will be removed in a future version.
+
+    Args:
+        secret: The secret to derive the key from.
 
     Returns:
         A valid Fernet key (44 bytes, url-safe base64).
@@ -50,6 +80,9 @@ def encrypt_token(token: str, secret: str) -> str:
 def decrypt_token(encrypted: str, secret: str) -> str:
     """Decrypt a Fernet-encrypted token.
 
+    Tries PBKDF2-derived key first. Falls back to legacy SHA-256
+    derivation for tokens encrypted before the KDF upgrade.
+
     Args:
         encrypted: The encrypted token string (base64).
         secret: The secret used to derive the decryption key.
@@ -58,11 +91,20 @@ def decrypt_token(encrypted: str, secret: str) -> str:
         The decrypted plaintext token.
 
     Raises:
-        cryptography.fernet.InvalidToken: If decryption fails.
+        cryptography.fernet.InvalidToken: If decryption fails with both keys.
     """
+    from cryptography.fernet import InvalidToken
+
+    # Try current PBKDF2 key first
     key = _derive_fernet_key(secret)
-    f = Fernet(key)
-    return f.decrypt(encrypted.encode()).decode()
+    try:
+        return Fernet(key).decrypt(encrypted.encode()).decode()
+    except InvalidToken:
+        pass
+
+    # Fall back to legacy SHA-256 derivation for pre-upgrade tokens
+    legacy_key = _derive_fernet_key_legacy(secret)
+    return Fernet(legacy_key).decrypt(encrypted.encode()).decode()
 
 
 class SystemConfigRepository:

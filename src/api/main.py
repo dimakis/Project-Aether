@@ -55,8 +55,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_db()
 
     # Start scheduler (Feature 10: Scheduled & Event-Driven Insights)
+    # Respects AETHER_ROLE to prevent duplicate jobs in multi-replica deployments
     scheduler = None
-    if settings.scheduler_enabled and settings.environment != "testing":
+    should_start_scheduler = (
+        settings.scheduler_enabled
+        and settings.environment != "testing"
+        and settings.aether_role in ("all", "scheduler")
+    )
+    if should_start_scheduler:
         from src.scheduler import SchedulerService
 
         scheduler = SchedulerService()
@@ -92,18 +98,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Configure CORS
+    # Configure CORS — restrict methods and headers in non-development
+    allowed_methods = ["*"] if settings.environment in ("development", "testing") else [
+        "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
+    ]
+    allowed_headers = ["*"] if settings.environment in ("development", "testing") else [
+        "Authorization", "Content-Type", "X-API-Key", "X-Correlation-ID",
+    ]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_get_allowed_origins(settings),
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=allowed_methods,
+        allow_headers=allowed_headers,
     )
 
     # Configure rate limiting (T188)
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # Add request body size limit middleware (prevents DoS via oversized payloads)
+    app.middleware("http")(_body_size_limit_middleware)
 
     # Add security headers middleware (outermost = runs on every response)
     app.middleware("http")(_security_headers_middleware)
@@ -160,11 +175,51 @@ def _get_allowed_origins(settings: Settings) -> list[str]:
         return origins
 
 
+async def _body_size_limit_middleware(request: Request, call_next):
+    """Middleware to reject requests with oversized bodies.
+
+    Prevents denial-of-service attacks via large payloads.
+    WebSocket upgrade requests are exempt.
+
+    Args:
+        request: FastAPI request object
+        call_next: Next middleware/handler
+
+    Returns:
+        Response, or 413 if content-length exceeds the limit
+    """
+    from fastapi.responses import JSONResponse
+
+    from src.api.rate_limit import MAX_REQUEST_BODY_BYTES
+
+    # Skip WebSocket upgrades
+    if request.headers.get("upgrade", "").lower() == "websocket":
+        return await call_next(request)
+
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "error": {
+                    "code": 413,
+                    "message": f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES} bytes.",
+                    "type": "request_too_large",
+                }
+            },
+        )
+
+    return await call_next(request)
+
+
 async def _security_headers_middleware(request: Request, call_next):
     """Middleware to add security-related HTTP headers.
 
     Adds headers that protect against common web vulnerabilities:
     - XSS, MIME sniffing, clickjacking, referrer leakage
+    - HSTS for transport security (production/staging)
+    - CSP to restrict resource loading
+    - Permissions-Policy to restrict browser features
 
     Args:
         request: FastAPI request object
@@ -173,6 +228,7 @@ async def _security_headers_middleware(request: Request, call_next):
     Returns:
         Response with security headers
     """
+    settings = get_settings()
     response = await call_next(request)
 
     # Prevent MIME-type sniffing
@@ -183,6 +239,24 @@ async def _security_headers_middleware(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     # Referrer policy
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    # HSTS: enforce HTTPS in production/staging (browsers will refuse HTTP after first visit)
+    if settings.environment in ("production", "staging"):
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+
+    # Content-Security-Policy: restrict resource loading to same origin
+    # API endpoints return JSON, so a strict CSP is appropriate.
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; frame-ancestors 'none'"
+    )
+
+    # Permissions-Policy: disable unnecessary browser features
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    )
+
     # Prevent caching of API responses
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
@@ -273,12 +347,14 @@ def _register_exception_handlers(app: FastAPI) -> None:
             exc_info=exc,
         )
 
+        # Sanitize error message for non-debug environments
+        message = str(exc) if settings.debug else f"An error occurred. Correlation ID: {correlation_id}"
         return JSONResponse(
             status_code=status_code,
             content={
                 "error": {
                     "code": status_code,
-                    "message": str(exc),
+                    "message": message,
                     "type": error_type,
                     "correlation_id": correlation_id,
                 }

@@ -58,12 +58,26 @@ class SchedulerService:
         return cls._instance
 
     async def start(self) -> None:
-        """Start the scheduler and load jobs from the database."""
+        """Start the scheduler and load jobs from the database.
+
+        Respects AETHER_ROLE: only starts when role is 'all' or 'scheduler'.
+        This prevents duplicate job execution in multi-replica K8s deployments
+        where API pods should NOT run the scheduler.
+        """
         if not _APSCHEDULER_AVAILABLE or self._scheduler is None:
             logger.warning("APScheduler not available, scheduler cannot start")
             return
 
         settings = get_settings()
+
+        # Role-based guard: skip scheduler in API-only pods
+        if settings.aether_role == "api":
+            logger.info(
+                "Scheduler skipped: AETHER_ROLE=%s (only 'all' or 'scheduler' run jobs)",
+                settings.aether_role,
+            )
+            return
+
         if not settings.scheduler_enabled:
             logger.info("Scheduler disabled via settings")
             return

@@ -173,6 +173,15 @@ class Settings(BaseSettings):
         description="Expected WebAuthn origin (must match the URL users access)",
     )
 
+    # Role-based process separation (K8s multi-replica deployment)
+    # - "all": Run both API server and scheduler (default, for single-process dev)
+    # - "api": API server only (no scheduler) — use for API Deployment replicas
+    # - "scheduler": Scheduler only — use for a single-replica scheduler Deployment
+    aether_role: Literal["all", "api", "scheduler"] = Field(
+        default="all",
+        description="Process role: 'all' (default), 'api' (no scheduler), or 'scheduler' (scheduler only)",
+    )
+
     # Scheduler (Feature 10: Scheduled & Event-Driven Insights)
     scheduler_enabled: bool = Field(
         default=True,
