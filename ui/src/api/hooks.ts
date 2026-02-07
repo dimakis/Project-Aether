@@ -279,17 +279,19 @@ export function useSyncEntities() {
 
 // ─── Registry ───────────────────────────────────────────────────────────────
 
-export function useRegistryAutomations() {
+export function useRegistryAutomations(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.registryAutomations,
     queryFn: () => registry.automations(),
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useRegistrySummary() {
+export function useRegistrySummary(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.registrySummary,
     queryFn: () => registry.summary(),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -301,24 +303,27 @@ export function useAutomationConfig(automationId: string) {
   });
 }
 
-export function useRegistryScripts() {
+export function useRegistryScripts(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["registryScripts"],
     queryFn: () => registry.scripts(),
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useRegistryScenes() {
+export function useRegistryScenes(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["registryScenes"],
     queryFn: () => registry.scenes(),
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useRegistryServices(domain?: string) {
+export function useRegistryServices(options?: { domain?: string; enabled?: boolean }) {
   return useQuery({
-    queryKey: ["registryServices", domain],
-    queryFn: () => registry.services(domain),
+    queryKey: ["registryServices", options?.domain],
+    queryFn: () => registry.services(options?.domain),
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -29,20 +29,26 @@ export function RegistryPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { data: summary, isLoading: summaryLoading } = useRegistrySummary({
+    enabled: activeTab === "overview",
+  });
   const { data: automations, isLoading: autoLoading } =
-    useRegistryAutomations();
-  const { data: scripts, isLoading: scriptsLoading } = useRegistryScripts();
-  const { data: scenes, isLoading: scenesLoading } = useRegistryScenes();
+    useRegistryAutomations({ enabled: activeTab === "automations" });
+  const { data: scripts, isLoading: scriptsLoading } = useRegistryScripts({
+    enabled: activeTab === "scripts",
+  });
+  const { data: scenes, isLoading: scenesLoading } = useRegistryScenes({
+    enabled: activeTab === "scenes",
+  });
   const { data: services, isLoading: servicesLoading } =
-    useRegistryServices();
-  const { data: summary, isLoading: summaryLoading } = useRegistrySummary();
+    useRegistryServices({ enabled: activeTab === "services" });
 
-  // Tab counts
+  // Tab counts from summary (always loaded on first visit) or individual data
   const tabCounts: Record<string, number> = {
-    automations: automations?.total ?? 0,
-    scripts: scripts?.total ?? 0,
-    scenes: scenes?.total ?? 0,
-    services: services?.total ?? 0,
+    automations: summary?.automations_count ?? automations?.total ?? 0,
+    scripts: summary?.scripts_count ?? scripts?.total ?? 0,
+    scenes: summary?.scenes_count ?? scenes?.total ?? 0,
+    services: summary?.services_count ?? services?.total ?? 0,
     overview: 0,
   };
 

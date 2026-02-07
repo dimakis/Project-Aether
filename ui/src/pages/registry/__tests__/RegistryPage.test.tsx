@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RegistryPage } from "../index";
+import {
+  useRegistryAutomations,
+  useRegistryScripts,
+  useRegistryScenes,
+  useRegistryServices,
+  useRegistrySummary,
+} from "@/api/hooks";
 
 // Mock all registry hooks
 vi.mock("@/api/hooks", () => ({
@@ -80,5 +87,26 @@ describe("RegistryPage", () => {
     render(<RegistryPage />);
     await user.click(screen.getByRole("button", { name: /automations/i }));
     expect(screen.getByPlaceholderText(/search automations/i)).toBeInTheDocument();
+  });
+
+  describe("lazy data loading", () => {
+    it("only enables summary hook on mount (overview tab)", () => {
+      render(<RegistryPage />);
+      expect(useRegistrySummary).toHaveBeenCalledWith({ enabled: true });
+      expect(useRegistryAutomations).toHaveBeenCalledWith({ enabled: false });
+      expect(useRegistryScripts).toHaveBeenCalledWith({ enabled: false });
+      expect(useRegistryScenes).toHaveBeenCalledWith({ enabled: false });
+      expect(useRegistryServices).toHaveBeenCalledWith({ enabled: false });
+    });
+
+    it("enables automations hook when automations tab is active", async () => {
+      const user = userEvent.setup();
+      render(<RegistryPage />);
+      await user.click(screen.getByRole("button", { name: /automations/i }));
+      expect(useRegistryAutomations).toHaveBeenLastCalledWith({ enabled: true });
+      expect(useRegistryScripts).toHaveBeenLastCalledWith({ enabled: false });
+      expect(useRegistryScenes).toHaveBeenLastCalledWith({ enabled: false });
+      expect(useRegistryServices).toHaveBeenLastCalledWith({ enabled: false });
+    });
   });
 });
