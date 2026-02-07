@@ -17,6 +17,8 @@ interface AutomationTabProps {
   searchQuery: string;
   enabledCount?: number;
   disabledCount?: number;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 function AutomationDetail({ automation }: { automation: Automation }) {
@@ -96,6 +98,8 @@ export function AutomationTab({
   searchQuery,
   enabledCount,
   disabledCount,
+  onSync,
+  isSyncing,
 }: AutomationTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -123,7 +127,7 @@ export function AutomationTab({
       </div>
     );
 
-  if (filtered.length === 0) return <EmptyState type="automations" />;
+  if (filtered.length === 0) return <EmptyState type="automations" onSync={onSync} isSyncing={isSyncing} />;
 
   return (
     <div>

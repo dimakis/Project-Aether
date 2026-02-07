@@ -15,6 +15,8 @@ interface ScriptTabProps {
   isLoading: boolean;
   searchQuery: string;
   runningCount?: number;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 type SortKey = "name" | "last_triggered";
@@ -24,6 +26,8 @@ export function ScriptTab({
   isLoading,
   searchQuery,
   runningCount,
+  onSync,
+  isSyncing,
 }: ScriptTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -54,7 +58,7 @@ export function ScriptTab({
       </div>
     );
 
-  if (filtered.length === 0) return <EmptyState type="scripts" />;
+  if (filtered.length === 0) return <EmptyState type="scripts" onSync={onSync} isSyncing={isSyncing} />;
 
   return (
     <div>

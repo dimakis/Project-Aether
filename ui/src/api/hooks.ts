@@ -279,6 +279,20 @@ export function useSyncEntities() {
 
 // ─── Registry ───────────────────────────────────────────────────────────────
 
+export function useSyncRegistry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => registry.sync(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.registryAutomations });
+      qc.invalidateQueries({ queryKey: queryKeys.registrySummary });
+      qc.invalidateQueries({ queryKey: ["registryScripts"] });
+      qc.invalidateQueries({ queryKey: ["registryScenes"] });
+      qc.invalidateQueries({ queryKey: ["registryServices"] });
+    },
+  });
+}
+
 export function useRegistryAutomations(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.registryAutomations,

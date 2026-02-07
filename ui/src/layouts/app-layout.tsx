@@ -142,7 +142,7 @@ export function AppLayout() {
         <main className="flex-1 overflow-auto">
           <Outlet />
           <footer className="px-6 py-4 text-center text-[11px] text-muted-foreground/50">
-            made with cc (claude &amp; coffee) 😄
+            Made with CC (Claude 🤖 &amp; Coffee ☕) 😄
           </footer>
         </main>
 

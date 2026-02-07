@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { BookOpen, Zap, FileText, Clapperboard, Wrench, Activity, Search, X } from "lucide-react";
+import { BookOpen, Zap, FileText, Clapperboard, Wrench, Activity, Search, X, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -9,6 +10,7 @@ import {
   useRegistryScripts,
   useRegistryScenes,
   useRegistryServices,
+  useSyncRegistry,
 } from "@/api/hooks";
 import { AutomationTab } from "./AutomationTab";
 import { ScriptTab } from "./ScriptTab";
@@ -43,6 +45,7 @@ export function RegistryPage() {
   });
   const { data: services, isLoading: servicesLoading } =
     useRegistryServices({ enabled: activeTab === "services" });
+  const syncMut = useSyncRegistry();
 
   // Tab counts from summary (always loaded on first visit) or individual data
   const tabCounts: Record<string, number> = {
@@ -56,14 +59,27 @@ export function RegistryPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <BookOpen className="h-6 w-6" />
-          HA Registry
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Home Assistant automations, scripts, scenes, and services
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold">
+            <BookOpen className="h-6 w-6" />
+            HA Registry
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Home Assistant automations, scripts, scenes, and services
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => syncMut.mutate()}
+          disabled={syncMut.isPending}
+        >
+          <RefreshCw
+            className={`mr-2 h-3.5 w-3.5 ${syncMut.isPending ? "animate-spin" : ""}`}
+          />
+          {syncMut.isPending ? "Syncing..." : "Sync Registry"}
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -128,6 +144,8 @@ export function RegistryPage() {
           searchQuery={searchQuery}
           enabledCount={automations?.enabled_count}
           disabledCount={automations?.disabled_count}
+          onSync={() => syncMut.mutate()}
+          isSyncing={syncMut.isPending}
         />
       )}
       {activeTab === "scripts" && (
@@ -136,6 +154,8 @@ export function RegistryPage() {
           isLoading={scriptsLoading}
           searchQuery={searchQuery}
           runningCount={scripts?.running_count}
+          onSync={() => syncMut.mutate()}
+          isSyncing={syncMut.isPending}
         />
       )}
       {activeTab === "scenes" && (
@@ -143,6 +163,8 @@ export function RegistryPage() {
           scenes={scenes?.scenes ?? []}
           isLoading={scenesLoading}
           searchQuery={searchQuery}
+          onSync={() => syncMut.mutate()}
+          isSyncing={syncMut.isPending}
         />
       )}
       {activeTab === "services" && (
@@ -151,6 +173,8 @@ export function RegistryPage() {
           domains={services?.domains ?? []}
           isLoading={servicesLoading}
           searchQuery={searchQuery}
+          onSync={() => syncMut.mutate()}
+          isSyncing={syncMut.isPending}
         />
       )}
       {activeTab === "overview" && (

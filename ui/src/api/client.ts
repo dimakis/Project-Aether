@@ -439,6 +439,14 @@ export const registry = {
       `/registry/services/seed`,
       { method: "POST" },
     ),
+
+  sync: () =>
+    request<{
+      automations_synced: number;
+      scripts_synced: number;
+      scenes_synced: number;
+      duration_seconds: number;
+    }>(`/registry/sync`, { method: "POST" }),
 };
 
 // ─── System ─────────────────────────────────────────────────────────────────

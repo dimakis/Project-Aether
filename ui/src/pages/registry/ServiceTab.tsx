@@ -14,6 +14,8 @@ interface ServiceTabProps {
   domains: string[];
   isLoading: boolean;
   searchQuery: string;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export function ServiceTab({
@@ -21,6 +23,8 @@ export function ServiceTab({
   domains,
   isLoading,
   searchQuery,
+  onSync,
+  isSyncing,
 }: ServiceTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [domainFilter, setDomainFilter] = useState("");
@@ -122,7 +126,7 @@ export function ServiceTab({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState type="services" />
+        <EmptyState type="services" onSync={onSync} isSyncing={isSyncing} />
       ) : (
         <div className="space-y-2">
           {filtered.map((svc) => (

@@ -13,12 +13,16 @@ interface SceneTabProps {
   scenes: Scene[];
   isLoading: boolean;
   searchQuery: string;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export function SceneTab({
   scenes,
   isLoading,
   searchQuery,
+  onSync,
+  isSyncing,
 }: SceneTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -44,7 +48,7 @@ export function SceneTab({
       </div>
     );
 
-  if (filtered.length === 0) return <EmptyState type="scenes" />;
+  if (filtered.length === 0) return <EmptyState type="scenes" onSync={onSync} isSyncing={isSyncing} />;
 
   return (
     <div>

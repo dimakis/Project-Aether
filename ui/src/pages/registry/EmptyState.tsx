@@ -1,11 +1,14 @@
-import { BookOpen } from "lucide-react";
+import { BookOpen, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
   type: string;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
-export function EmptyState({ type }: EmptyStateProps) {
+export function EmptyState({ type, onSync, isSyncing }: EmptyStateProps) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center py-16">
@@ -13,6 +16,20 @@ export function EmptyState({ type }: EmptyStateProps) {
         <p className="text-sm text-muted-foreground">
           No {type} found. Sync the registry first.
         </p>
+        {onSync && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={onSync}
+            disabled={isSyncing}
+          >
+            <RefreshCw
+              className={`mr-2 h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`}
+            />
+            {isSyncing ? "Syncing..." : "Sync Now"}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
