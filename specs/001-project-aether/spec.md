@@ -77,6 +77,60 @@ As a homeowner, I want the system to generate custom dashboards based on my usag
 
 ---
 
+### User Story 6 - Home Assistant Registry Management (Priority: P3) 🆕
+
+As a homeowner, I want the system to manage my Home Assistant registries (areas, floors, labels, devices, entities) so that my smart home is well-organized without manual configuration effort.
+
+**Why this priority**: Extends entity discovery (P1) with organizational capabilities. Enables agents to clean up naming, create logical groupings, and maintain structure.
+
+**Independent Test**: Agent can create an area, assign entities to it, rename entities, and create labels - all via REST API.
+
+**Feature Spec**: [features/04-ha-registry-management/](features/04-ha-registry-management/spec.md)
+
+**Acceptance Scenarios**:
+
+1. **Given** entities without areas, **When** agent analyzes context, **Then** it suggests area assignments with 80% accuracy.
+2. **Given** poorly-named entities, **When** agent renames them, **Then** names are descriptive and consistent.
+3. **Given** a need for grouping, **When** agent creates labels, **Then** labeled entities can be controlled as a group.
+
+---
+
+### User Story 7 - Calendar & Presence Integration (Priority: P3) 🆕
+
+As a homeowner, I want the system to understand my calendar and track household presence so that automations can be context-aware based on schedules and who's home.
+
+**Why this priority**: Enables sophisticated automations that consider real-world context. Builds on Architect (P2) for presence-aware automation design.
+
+**Independent Test**: Agent can query calendar events, determine who's home, create a zone, and build presence-triggered automations.
+
+**Feature Spec**: [features/05-calendar-presence-integration/](features/05-calendar-presence-integration/spec.md)
+
+**Acceptance Scenarios**:
+
+1. **Given** a connected calendar, **When** agent checks for meetings, **Then** it correctly reports availability.
+2. **Given** person entities, **When** agent checks presence, **Then** it accurately reports who's home.
+3. **Given** presence conditions, **When** used in automations, **Then** automations fire correctly on arrival/departure.
+
+---
+
+### User Story 8 - Home Assistant Diagnostics & Troubleshooting (Priority: P4) 🆕
+
+As a homeowner, I want the system to help diagnose and troubleshoot Home Assistant issues so that I can resolve problems without deep technical knowledge.
+
+**Why this priority**: Quality-of-life feature that helps users maintain their system. Read-only operations, low risk.
+
+**Independent Test**: Agent can fetch error logs, run config check, identify unavailable entities, and provide actionable troubleshooting guidance.
+
+**Feature Spec**: [features/06-ha-diagnostics-troubleshooting/](features/06-ha-diagnostics-troubleshooting/spec.md)
+
+**Acceptance Scenarios**:
+
+1. **Given** errors in HA log, **When** agent analyzes logs, **Then** it categorizes by integration and suggests fixes.
+2. **Given** unavailable entities, **When** agent diagnoses, **Then** it identifies likely root cause.
+3. **Given** config changes, **When** agent validates, **Then** it reports errors before restart.
+
+---
+
 ### Edge Cases
 
 - What happens when Home Assistant is temporarily unreachable during discovery or sync?
