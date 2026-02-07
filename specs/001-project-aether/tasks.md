@@ -695,7 +695,7 @@ Starting from this date, new features are no longer tracked as phases in this fi
 
 ### Migrated Features
 
-The following uncompleted features were migrated from this file:
+The following features were migrated from this file:
 
 | Feature | Original Phase | New Location |
 |---------|---------------|--------------|
@@ -707,14 +707,14 @@ The following uncompleted features were migrated from this file:
 | Feature | Location | Status |
 |---------|----------|--------|
 | Diagnostic Collaboration | [`features/02-C-diagnostic-collaboration/`](./features/02-C-diagnostic-collaboration/) | ✅ Complete |
-| HA Registry Management | [`features/04-ha-registry-management/`](./features/04-ha-registry-management/) | Planned |
+| HA Registry Management | [`features/04-ha-registry-management/`](./features/04-ha-registry-management/) | ✅ Complete |
 | Calendar & Presence Integration | [`features/05-calendar-presence-integration/`](./features/05-calendar-presence-integration/) | Planned |
 | HA Diagnostics & Troubleshooting | [`features/06-C-ha-diagnostics-troubleshooting/`](./features/06-C-ha-diagnostics-troubleshooting/) | ✅ Complete |
-| Diagnostics API & CLI | [`features/07-diagnostics-api-cli/`](./features/07-diagnostics-api-cli/) | Planned |
+| Diagnostics API & CLI | [`features/07-diagnostics-api-cli/`](./features/07-diagnostics-api-cli/) | ✅ Complete |
 | Model Routing & Multi-Agent | [`features/08-C-model-routing-multi-agent/`](./features/08-C-model-routing-multi-agent/) | ✅ Complete |
 | Real LLM Streaming | [`features/09-real-llm-streaming/`](./features/09-real-llm-streaming/) | Proposed |
-| Scheduled & Event-Driven Insights | [`features/10-scheduled-event-insights/`](./features/10-scheduled-event-insights/) | Proposed |
-| Agent Activity Trace | [`features/11-agent-activity-trace/`](./features/11-agent-activity-trace/) | Phase 1+2 Complete (persistent panel, real-time SSE trace events) |
+| Scheduled & Event-Driven Insights | [`features/10-scheduled-event-insights/`](./features/10-scheduled-event-insights/) | ✅ Complete |
+| Agent Activity Trace | [`features/11-agent-activity-trace/`](./features/11-agent-activity-trace/) | ✅ Complete |
 | Climate Comfort Analysis | [`features/12-climate-comfort-analysis/`](./features/12-climate-comfort-analysis/) | Proposed |
 | Presence & Occupancy Intelligence | [`features/13-presence-occupancy-intelligence/`](./features/13-presence-occupancy-intelligence/) | Proposed |
 | Solar & Battery Optimization | [`features/14-solar-battery-optimization/`](./features/14-solar-battery-optimization/) | Proposed |
@@ -725,6 +725,9 @@ The following uncompleted features were migrated from this file:
 | Water Usage Analysis | [`features/19-water-usage-analysis/`](./features/19-water-usage-analysis/) | Proposed |
 | Sleep & Wellness Correlation | [`features/20-sleep-wellness-correlation/`](./features/20-sleep-wellness-correlation/) | Proposed |
 | Carbon Footprint Estimation | [`features/21-carbon-footprint-estimation/`](./features/21-carbon-footprint-estimation/) | Proposed |
+| Weekly Diagnostic Reports | [`features/22-weekly-diagnostic-reports/`](./features/22-weekly-diagnostic-reports/) | Proposed |
+| Agent Configuration | [`features/23-agent-configuration/`](./features/23-agent-configuration/) | ✅ Complete |
+| Kubernetes Deployment | [`features/24-kubernetes-deployment/`](./features/24-kubernetes-deployment/) | Proposed |
 
 ### What Stays in This File
 

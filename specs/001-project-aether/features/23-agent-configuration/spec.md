@@ -1,8 +1,10 @@
+**Completed**: 2026-02-07
+
 # Feature Specification: Agent Configuration Page
 
 **Feature Branch**: `023-agent-configuration`  
 **Created**: 2026-02-07  
-**Status**: Draft  
+**Status**: Complete  
 **Input**: User description: "Agent configuration page where we can configure and lifecycle our agents -- separate LLMs for each, promotion, etc."
 
 ## User Scenarios & Testing

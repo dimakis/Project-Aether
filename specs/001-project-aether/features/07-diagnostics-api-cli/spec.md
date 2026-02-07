@@ -1,6 +1,8 @@
+**Completed**: 2026-02-07
+
 # Feature: Diagnostics API & CLI
 
-**Status**: Not Started  
+**Status**: Complete  
 **Priority**: P4  
 **User Story**: US8 (continued)  
 **Depends on**: Feature 06 (HA Diagnostics & Troubleshooting - Core)
