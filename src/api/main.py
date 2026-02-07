@@ -105,6 +105,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+    # Add security headers middleware (outermost = runs on every response)
+    app.middleware("http")(_security_headers_middleware)
+
     # Add correlation ID middleware (must be before routes)
     app.middleware("http")(_correlation_middleware)
 
@@ -126,13 +129,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 def _get_allowed_origins(settings: Settings) -> list[str]:
     """Get allowed CORS origins based on environment.
 
+    Priority:
+    1. Explicit ALLOWED_ORIGINS env var (comma-separated)
+    2. Environment-based defaults
+
     Args:
         settings: Application settings
 
     Returns:
         List of allowed origins
     """
-    if settings.environment == "development":
+    # Explicit override
+    if settings.allowed_origins:
+        return [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
+
+    # Environment-based defaults
+    if settings.environment in ("development", "testing"):
         return ["*"]
     elif settings.environment == "staging":
         return [
@@ -141,8 +153,41 @@ def _get_allowed_origins(settings: Settings) -> list[str]:
             settings.ha_url,
         ]
     else:
-        # Production: only allow HA instance
-        return [settings.ha_url]
+        # Production: only allow HA instance + WebAuthn origin
+        origins = [settings.ha_url]
+        if settings.webauthn_origin and settings.webauthn_origin not in origins:
+            origins.append(settings.webauthn_origin)
+        return origins
+
+
+async def _security_headers_middleware(request: Request, call_next):
+    """Middleware to add security-related HTTP headers.
+
+    Adds headers that protect against common web vulnerabilities:
+    - XSS, MIME sniffing, clickjacking, referrer leakage
+
+    Args:
+        request: FastAPI request object
+        call_next: Next middleware/handler
+
+    Returns:
+        Response with security headers
+    """
+    response = await call_next(request)
+
+    # Prevent MIME-type sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # Prevent clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
+    # XSS protection (legacy browsers)
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # Referrer policy
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Prevent caching of API responses
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+
+    return response
 
 
 async def _correlation_middleware(request: Request, call_next):

@@ -153,6 +153,12 @@ class Settings(BaseSettings):
         description="JWT token lifetime in hours",
     )
 
+    # CORS
+    allowed_origins: str = Field(
+        default="",
+        description="Comma-separated list of allowed CORS origins (empty = auto based on environment)",
+    )
+
     # WebAuthn / Passkey
     webauthn_rp_id: str = Field(
         default="localhost",
