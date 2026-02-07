@@ -91,6 +91,63 @@ describe("AutomationTab", () => {
     });
   });
 
+  describe("sorting", () => {
+    const automations = [
+      makeAutomation({ id: "a1", alias: "Zebra lights", state: "on" }),
+      makeAutomation({ id: "a2", alias: "Apple fan", state: "off" }),
+      makeAutomation({ id: "a3", alias: "Mango heater", state: "on" }),
+    ];
+
+    it("renders a sort dropdown with options", () => {
+      render(
+        <AutomationTab
+          automations={automations}
+          isLoading={false}
+          searchQuery=""
+          enabledCount={2}
+          disabledCount={1}
+        />,
+      );
+      const sortSelect = screen.getByRole("combobox", { name: /sort/i });
+      expect(sortSelect).toBeInTheDocument();
+    });
+
+    it("sorts by name ascending by default", () => {
+      render(
+        <AutomationTab
+          automations={automations}
+          isLoading={false}
+          searchQuery=""
+          enabledCount={2}
+          disabledCount={1}
+        />,
+      );
+      const cards = screen.getAllByText(/lights|fan|heater/);
+      expect(cards[0].textContent).toBe("Apple fan");
+      expect(cards[1].textContent).toBe("Mango heater");
+      expect(cards[2].textContent).toBe("Zebra lights");
+    });
+
+    it("sorts by state when selected", async () => {
+      const user = userEvent.setup();
+      render(
+        <AutomationTab
+          automations={automations}
+          isLoading={false}
+          searchQuery=""
+          enabledCount={2}
+          disabledCount={1}
+        />,
+      );
+      const sortSelect = screen.getByRole("combobox", { name: /sort/i });
+      await user.selectOptions(sortSelect, "state");
+      // "on" items should come before "off" items
+      const cards = screen.getAllByText(/lights|fan|heater/);
+      // off ("Apple fan") should come after the two "on" items
+      expect(cards[2].textContent).toBe("Apple fan");
+    });
+  });
+
   describe("expand/collapse animation", () => {
     it("expands card detail on click and collapses on second click", async () => {
       const user = userEvent.setup();

@@ -23,13 +23,16 @@ export function SceneTab({
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    if (!searchQuery) return scenes;
-    const q = searchQuery.toLowerCase();
-    return scenes.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.entity_id.toLowerCase().includes(q),
-    );
+    let result = scenes;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.entity_id.toLowerCase().includes(q),
+      );
+    }
+    return [...result].sort((a, b) => a.name.localeCompare(b.name));
   }, [scenes, searchQuery]);
 
   if (isLoading)

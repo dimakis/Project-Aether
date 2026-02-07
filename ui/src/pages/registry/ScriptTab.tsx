@@ -17,6 +17,8 @@ interface ScriptTabProps {
   runningCount?: number;
 }
 
+type SortKey = "name" | "last_triggered";
+
 export function ScriptTab({
   scripts,
   isLoading,
@@ -24,17 +26,24 @@ export function ScriptTab({
   runningCount,
 }: ScriptTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
 
   const filtered = useMemo(() => {
-    if (!searchQuery) return scripts;
-    const q = searchQuery.toLowerCase();
-    return scripts.filter(
-      (s) =>
-        s.alias.toLowerCase().includes(q) ||
-        s.entity_id.toLowerCase().includes(q) ||
-        (s.description ?? "").toLowerCase().includes(q),
-    );
-  }, [scripts, searchQuery]);
+    let result = scripts;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.alias.toLowerCase().includes(q) ||
+          s.entity_id.toLowerCase().includes(q) ||
+          (s.description ?? "").toLowerCase().includes(q),
+      );
+    }
+    return [...result].sort((a, b) => {
+      if (sortKey === "name") return a.alias.localeCompare(b.alias);
+      return (b.last_triggered ?? "").localeCompare(a.last_triggered ?? "");
+    });
+  }, [scripts, searchQuery, sortKey]);
 
   if (isLoading)
     return (
@@ -49,14 +58,25 @@ export function ScriptTab({
 
   return (
     <div>
-      {/* Stats row */}
-      <div className="mb-4 flex gap-3">
-        <StatPill
-          label="Running"
-          value={runningCount ?? 0}
-          color="text-emerald-400"
-        />
-        <StatPill label="Total" value={scripts.length} color="text-primary" />
+      {/* Stats + Sort row */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex gap-3">
+          <StatPill
+            label="Running"
+            value={runningCount ?? 0}
+            color="text-emerald-400"
+          />
+          <StatPill label="Total" value={scripts.length} color="text-primary" />
+        </div>
+        <select
+          aria-label="Sort"
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground"
+        >
+          <option value="name">Name</option>
+          <option value="last_triggered">Last Triggered</option>
+        </select>
       </div>
 
       {searchQuery && filtered.length !== scripts.length && (

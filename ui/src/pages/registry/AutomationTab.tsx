@@ -73,6 +73,23 @@ function AutomationDetail({ automation }: { automation: Automation }) {
   );
 }
 
+type SortKey = "name" | "last_triggered" | "state";
+
+function sortAutomations(items: Automation[], key: SortKey): Automation[] {
+  return [...items].sort((a, b) => {
+    switch (key) {
+      case "name":
+        return a.alias.localeCompare(b.alias);
+      case "last_triggered":
+        return (b.last_triggered ?? "").localeCompare(a.last_triggered ?? "");
+      case "state":
+        return (b.state ?? "").localeCompare(a.state ?? "");
+      default:
+        return 0;
+    }
+  });
+}
+
 export function AutomationTab({
   automations,
   isLoading,
@@ -81,17 +98,21 @@ export function AutomationTab({
   disabledCount,
 }: AutomationTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
 
   const filtered = useMemo(() => {
-    if (!searchQuery) return automations;
-    const q = searchQuery.toLowerCase();
-    return automations.filter(
-      (a) =>
-        a.alias.toLowerCase().includes(q) ||
-        a.entity_id.toLowerCase().includes(q) ||
-        (a.description ?? "").toLowerCase().includes(q),
-    );
-  }, [automations, searchQuery]);
+    let result = automations;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.alias.toLowerCase().includes(q) ||
+          a.entity_id.toLowerCase().includes(q) ||
+          (a.description ?? "").toLowerCase().includes(q),
+      );
+    }
+    return sortAutomations(result, sortKey);
+  }, [automations, searchQuery, sortKey]);
 
   if (isLoading)
     return (
@@ -106,19 +127,31 @@ export function AutomationTab({
 
   return (
     <div>
-      {/* Stats row */}
-      <div className="mb-4 flex gap-3">
-        <StatPill
-          label="Enabled"
-          value={enabledCount ?? 0}
-          color="text-emerald-400"
-        />
-        <StatPill
-          label="Disabled"
-          value={disabledCount ?? 0}
-          color="text-zinc-400"
-        />
-        <StatPill label="Total" value={automations.length} color="text-primary" />
+      {/* Stats + Sort row */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex gap-3">
+          <StatPill
+            label="Enabled"
+            value={enabledCount ?? 0}
+            color="text-emerald-400"
+          />
+          <StatPill
+            label="Disabled"
+            value={disabledCount ?? 0}
+            color="text-zinc-400"
+          />
+          <StatPill label="Total" value={automations.length} color="text-primary" />
+        </div>
+        <select
+          aria-label="Sort"
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground"
+        >
+          <option value="name">Name</option>
+          <option value="last_triggered">Last Triggered</option>
+          <option value="state">State</option>
+        </select>
       </div>
 
       {searchQuery && filtered.length !== automations.length && (

@@ -24,6 +24,7 @@ export function ServiceTab({
 }: ServiceTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [domainFilter, setDomainFilter] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "domain">("name");
 
   const filtered = useMemo(() => {
     let result = services;
@@ -40,8 +41,11 @@ export function ServiceTab({
           (s.description ?? "").toLowerCase().includes(q),
       );
     }
-    return result;
-  }, [services, searchQuery, domainFilter]);
+    return [...result].sort((a, b) => {
+      if (sortKey === "domain") return a.domain.localeCompare(b.domain) || a.service.localeCompare(b.service);
+      return `${a.domain}.${a.service}`.localeCompare(`${b.domain}.${b.service}`);
+    });
+  }, [services, searchQuery, domainFilter, sortKey]);
 
   if (isLoading)
     return (
@@ -85,11 +89,24 @@ export function ServiceTab({
         </div>
       )}
 
-      {(searchQuery || domainFilter) && filtered.length !== services.length && (
-        <p className="mb-2 text-xs text-muted-foreground">
-          Showing {filtered.length} of {services.length}
-        </p>
-      )}
+      <div className="mb-3 flex items-center justify-between">
+        {(searchQuery || domainFilter) && filtered.length !== services.length ? (
+          <p className="text-xs text-muted-foreground">
+            Showing {filtered.length} of {services.length}
+          </p>
+        ) : (
+          <div />
+        )}
+        <select
+          aria-label="Sort"
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as "name" | "domain")}
+          className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground"
+        >
+          <option value="name">Name</option>
+          <option value="domain">Domain</option>
+        </select>
+      </div>
 
       {filtered.length === 0 ? (
         <EmptyState type="services" />
