@@ -4,9 +4,15 @@ Defines the graph structures that connect nodes into complete workflows.
 All workflow entry points start a trace session for correlation.
 """
 
-from typing import Any, Literal
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal
 
 from langgraph.checkpoint.memory import MemorySaver
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from src.mcp.client import MCPClient
 
 from src.graph import END, START, StateGraph, create_graph
 from src.graph.nodes import (
@@ -45,8 +51,8 @@ from src.tracing import start_experiment_run, trace_with_uri
 
 
 def build_discovery_graph(
-    mcp_client: Any = None,
-    session: Any = None,
+    mcp_client: MCPClient | None = None,
+    session: AsyncSession | None = None,
 ) -> StateGraph:
     """Build the entity discovery workflow graph.
 
@@ -88,27 +94,27 @@ def build_discovery_graph(
     graph = create_graph(DiscoveryState)
 
     # Define node wrappers that inject dependencies
-    async def _initialize(state: DiscoveryState) -> dict[str, Any]:
+    async def _initialize(state: DiscoveryState) -> dict[str, object]:
         return await initialize_discovery_node(state)
 
-    async def _fetch_entities(state: DiscoveryState) -> dict[str, Any]:
+    async def _fetch_entities(state: DiscoveryState) -> dict[str, object]:
         return await fetch_entities_node(state, mcp_client=mcp_client)
 
-    async def _infer_devices(state: DiscoveryState) -> dict[str, Any]:
+    async def _infer_devices(state: DiscoveryState) -> dict[str, object]:
         return await infer_devices_node(state, mcp_client=mcp_client)
 
-    async def _infer_areas(state: DiscoveryState) -> dict[str, Any]:
+    async def _infer_areas(state: DiscoveryState) -> dict[str, object]:
         return await infer_areas_node(state, mcp_client=mcp_client)
 
-    async def _sync_automations(state: DiscoveryState) -> dict[str, Any]:
+    async def _sync_automations(state: DiscoveryState) -> dict[str, object]:
         return await sync_automations_node(state, mcp_client=mcp_client)
 
-    async def _persist_entities(state: DiscoveryState) -> dict[str, Any]:
+    async def _persist_entities(state: DiscoveryState) -> dict[str, object]:
         return await persist_entities_node(
             state, session=session, mcp_client=mcp_client
         )
 
-    async def _finalize(state: DiscoveryState) -> dict[str, Any]:
+    async def _finalize(state: DiscoveryState) -> dict[str, object]:
         return await finalize_discovery_node(state)
 
     # Add nodes
@@ -139,8 +145,8 @@ def build_discovery_graph(
 
 @trace_with_uri(name="workflow.run_discovery", span_type="CHAIN")
 async def run_discovery_workflow(
-    mcp_client: Any = None,
-    session: Any = None,
+    mcp_client: MCPClient | None = None,
+    session: AsyncSession | None = None,
     initial_state: DiscoveryState | None = None,
 ) -> DiscoveryState:
     """Execute the discovery workflow.
@@ -207,7 +213,7 @@ def build_simple_discovery_graph() -> StateGraph:
     """
     graph = create_graph(DiscoveryState)
 
-    async def mock_discover(state: DiscoveryState) -> dict[str, Any]:
+    async def mock_discover(state: DiscoveryState) -> dict[str, object]:
         return {
             "status": DiscoveryStatus.COMPLETED,
             "entities_added": 0,
@@ -227,8 +233,8 @@ def build_simple_discovery_graph() -> StateGraph:
 
 
 def build_conversation_graph(
-    session: Any = None,
-    checkpointer: Any = None,
+    session: AsyncSession | None = None,
+    checkpointer: object | None = None,
 ) -> StateGraph:
     """Build the conversation workflow graph for automation design.
 
@@ -270,13 +276,13 @@ def build_conversation_graph(
     graph = create_graph(ConversationState)
 
     # Define node wrappers with injected dependencies
-    async def _architect_propose(state: ConversationState) -> dict[str, Any]:
+    async def _architect_propose(state: ConversationState) -> dict[str, object]:
         return await architect_propose_node(state, session=session)
 
-    async def _approval_gate(state: ConversationState) -> dict[str, Any]:
+    async def _approval_gate(state: ConversationState) -> dict[str, object]:
         return await approval_gate_node(state)
 
-    async def _process_approval(state: ConversationState) -> dict[str, Any]:
+    async def _process_approval(state: ConversationState) -> dict[str, object]:
         # Default to rejection if no explicit approval
         # Real approval happens via external input before resuming
         approved = state.status == ConversationStatus.APPROVED
@@ -286,7 +292,7 @@ def build_conversation_graph(
             session=session,
         )
 
-    async def _deploy(state: ConversationState) -> dict[str, Any]:
+    async def _deploy(state: ConversationState) -> dict[str, object]:
         if state.approved_items:
             proposal_id = state.approved_items[-1]
             return await developer_deploy_node(state, proposal_id, session=session)
@@ -329,9 +335,9 @@ def build_conversation_graph(
 
 
 def compile_conversation_graph(
-    session: Any = None,
+    session: AsyncSession | None = None,
     thread_id: str | None = None,
-) -> Any:
+) -> object:
     """Compile the conversation graph with HITL interrupt.
 
     Constitution: Safety First - interrupt_before at approval_gate
@@ -363,7 +369,7 @@ def compile_conversation_graph(
 @trace_with_uri(name="workflow.run_conversation", span_type="CHAIN")
 async def run_conversation_workflow(
     user_message: str,
-    session: Any = None,
+    session: AsyncSession | None = None,
     thread_id: str | None = None,
     existing_state: ConversationState | None = None,
 ) -> ConversationState:
@@ -434,7 +440,7 @@ async def resume_after_approval(
     approved: bool,
     approved_by: str = "user",
     rejection_reason: str | None = None,
-    session: Any = None,
+    session: AsyncSession | None = None,
 ) -> ConversationState:
     """Resume conversation workflow after HITL approval decision.
 
@@ -511,8 +517,8 @@ async def resume_after_approval(
 
 
 def build_analysis_graph(
-    mcp_client: Any = None,
-    session: Any = None,
+    mcp_client: MCPClient | None = None,
+    session: AsyncSession | None = None,
 ) -> StateGraph:
     """Build the energy analysis workflow graph.
 
@@ -548,19 +554,19 @@ def build_analysis_graph(
     graph = create_graph(AnalysisState)
 
     # Define node wrappers with dependency injection
-    async def _collect_data(state: AnalysisState) -> dict[str, Any]:
+    async def _collect_data(state: AnalysisState) -> dict[str, object]:
         return await collect_energy_data_node(state, mcp_client=mcp_client)
 
-    async def _generate_script(state: AnalysisState) -> dict[str, Any]:
+    async def _generate_script(state: AnalysisState) -> dict[str, object]:
         return await generate_script_node(state, session=session)
 
-    async def _execute_sandbox(state: AnalysisState) -> dict[str, Any]:
+    async def _execute_sandbox(state: AnalysisState) -> dict[str, object]:
         return await execute_sandbox_node(state)
 
-    async def _extract_insights(state: AnalysisState) -> dict[str, Any]:
+    async def _extract_insights(state: AnalysisState) -> dict[str, object]:
         return await extract_insights_node(state, session=session)
 
-    async def _handle_error(state: AnalysisState) -> dict[str, Any]:
+    async def _handle_error(state: AnalysisState) -> dict[str, object]:
         # Get error from state if available
         error = Exception("Unknown error")
         return await analysis_error_node(state, error)
@@ -588,8 +594,8 @@ async def run_analysis_workflow(
     entity_ids: list[str] | None = None,
     hours: int = 24,
     custom_query: str | None = None,
-    mcp_client: Any = None,
-    session: Any = None,
+    mcp_client: MCPClient | None = None,
+    session: AsyncSession | None = None,
 ) -> AnalysisState:
     """Run an energy analysis workflow.
 
@@ -653,8 +659,8 @@ async def run_analysis_workflow(
 
 
 def build_optimization_graph(
-    mcp_client: Any = None,
-    session: Any = None,
+    mcp_client: MCPClient | None = None,
+    session: AsyncSession | None = None,
 ) -> StateGraph:
     """Build the optimization workflow graph.
 
@@ -700,16 +706,16 @@ def build_optimization_graph(
     graph = create_graph(AnalysisState)
 
     # Node wrappers with dependency injection
-    async def _collect_behavioral(state: AnalysisState) -> dict[str, Any]:
+    async def _collect_behavioral(state: AnalysisState) -> dict[str, object]:
         return await collect_behavioral_data_node(state, mcp_client=mcp_client)
 
-    async def _analyze_and_suggest(state: AnalysisState) -> dict[str, Any]:
+    async def _analyze_and_suggest(state: AnalysisState) -> dict[str, object]:
         return await analyze_and_suggest_node(state, session=session)
 
-    async def _architect_review(state: AnalysisState) -> dict[str, Any]:
+    async def _architect_review(state: AnalysisState) -> dict[str, object]:
         return await architect_review_node(state, session=session)
 
-    async def _present_recommendations(state: AnalysisState) -> dict[str, Any]:
+    async def _present_recommendations(state: AnalysisState) -> dict[str, object]:
         return await present_recommendations_node(state)
 
     # Add nodes
@@ -747,8 +753,8 @@ async def run_optimization_workflow(
     entity_ids: list[str] | None = None,
     hours: int = 168,
     custom_query: str | None = None,
-    mcp_client: Any = None,
-    session: Any = None,
+    mcp_client: MCPClient | None = None,
+    session: AsyncSession | None = None,
 ) -> AnalysisState:
     """Run an optimization analysis workflow.
 
@@ -831,7 +837,7 @@ WORKFLOW_REGISTRY = {
 }
 
 
-def get_workflow(name: str, **kwargs: Any) -> StateGraph:
+def get_workflow(name: str, **kwargs: object) -> StateGraph:
     """Get a workflow graph by name.
 
     Args:

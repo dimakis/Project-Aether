@@ -4,8 +4,10 @@ Provides a way to query entities using natural language,
 translating user questions into database queries.
 """
 
+from __future__ import annotations
+
 import json
-from typing import Any
+from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,12 @@ from src.dal.areas import AreaRepository
 from src.dal.automations import AutomationRepository, SceneRepository, ScriptRepository
 from src.dal.devices import DeviceRepository
 from src.dal.entities import EntityRepository
+
+if TYPE_CHECKING:
+    from src.storage.entities.area import Area
+    from src.storage.entities.automation import HAAutomation
+    from src.storage.entities.device import Device
+    from src.storage.entities.entity import HAEntity
 
 
 class NaturalLanguageQueryEngine:
@@ -38,8 +46,8 @@ class NaturalLanguageQueryEngine:
     async def query(
         self,
         question: str,
-        context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        context: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """Process a natural language query.
 
         Args:
@@ -62,7 +70,7 @@ class NaturalLanguageQueryEngine:
             "explanation": self._generate_explanation(intent, result),
         }
 
-    async def _parse_intent(self, question: str) -> dict[str, Any]:
+    async def _parse_intent(self, question: str) -> dict[str, object]:
         """Parse user question into structured intent.
 
         This is a simplified version that uses pattern matching.
@@ -77,7 +85,7 @@ class NaturalLanguageQueryEngine:
         question_lower = question.lower()
 
         # Default intent
-        intent: dict[str, Any] = {
+        intent: dict[str, object] = {
             "type": "list_entities",
             "filters": {},
             "limit": 20,
@@ -135,7 +143,7 @@ class NaturalLanguageQueryEngine:
 
         return intent
 
-    async def _execute_query(self, intent: dict[str, Any]) -> dict[str, Any]:
+    async def _execute_query(self, intent: dict[str, object]) -> dict[str, object]:
         """Execute query based on parsed intent.
 
         Args:
@@ -205,8 +213,8 @@ class NaturalLanguageQueryEngine:
 
     def _generate_explanation(
         self,
-        intent: dict[str, Any],
-        result: dict[str, Any],
+        intent: dict[str, object],
+        result: dict[str, object],
     ) -> str:
         """Generate human-readable explanation of query result.
 
@@ -261,7 +269,7 @@ class NaturalLanguageQueryEngine:
 
         return " ".join(parts) + "."
 
-    def _entity_to_dict(self, entity: Any) -> dict[str, Any]:
+    def _entity_to_dict(self, entity: HAEntity) -> dict[str, object]:
         """Convert entity to dictionary.
 
         Args:
@@ -282,7 +290,7 @@ class NaturalLanguageQueryEngine:
             "device": entity.device.name if entity.device else None,
         }
 
-    def _device_to_dict(self, device: Any) -> dict[str, Any]:
+    def _device_to_dict(self, device: Device) -> dict[str, object]:
         """Convert device to dictionary.
 
         Args:
@@ -300,7 +308,7 @@ class NaturalLanguageQueryEngine:
             "area": device.area.name if device.area else None,
         }
 
-    def _area_to_dict(self, area: Any) -> dict[str, Any]:
+    def _area_to_dict(self, area: Area) -> dict[str, object]:
         """Convert area to dictionary.
 
         Args:
@@ -316,7 +324,7 @@ class NaturalLanguageQueryEngine:
             "entity_count": len(area.entities) if area.entities else 0,
         }
 
-    def _automation_to_dict(self, automation: Any) -> dict[str, Any]:
+    def _automation_to_dict(self, automation: HAAutomation) -> dict[str, object]:
         """Convert automation to dictionary.
 
         Args:
@@ -339,8 +347,8 @@ class NaturalLanguageQueryEngine:
 async def query_entities(
     session: AsyncSession,
     question: str,
-    context: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+    context: dict[str, object] | None = None,
+) -> dict[str, object]:
     """Convenience function to run a natural language query.
 
     Args:

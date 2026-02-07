@@ -4,45 +4,28 @@ MCP Gap: No `list_services` tool available.
 Workaround: Seed common services from constants, expand during discovery.
 """
 
-from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.dal.base import BaseRepository
 from src.mcp.constants import get_all_services
 from src.storage.entities.ha_automation import Service
 
 
-class ServiceRepository:
+class ServiceRepository(BaseRepository[Service]):
     """Repository for Service CRUD operations.
 
     Manages the service registry which is seeded with common services
     and expanded as services are discovered during agent operations.
+    
+    Note: Service uses composite key (domain + service) instead of single HA ID.
     """
-
-    def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
-        self.session = session
-
-    async def get_by_id(self, service_id: str) -> Service | None:
-        """Get service by internal ID.
-
-        Args:
-            service_id: Internal UUID
-
-        Returns:
-            Service or None
-        """
-        result = await self.session.execute(
-            select(Service).where(Service.id == service_id)
-        )
-        return result.scalar_one_or_none()
+    
+    model = Service
+    ha_id_field = "domain"  # Not used for Service, but required by base
+    order_by_field = "domain"
 
     async def get_by_full_name(self, domain: str, service: str) -> Service | None:
         """Get service by domain and service name.
@@ -123,31 +106,7 @@ class ServiceRepository:
         Returns:
             Service count
         """
-        from sqlalchemy import func
-
-        query = select(func.count(Service.id))
-        if domain:
-            query = query.where(Service.domain == domain)
-
-        result = await self.session.execute(query)
-        return result.scalar() or 0
-
-    async def create(self, data: dict[str, Any]) -> Service:
-        """Create a new service record.
-
-        Args:
-            data: Service data
-
-        Returns:
-            Created service
-        """
-        service = Service(
-            id=str(uuid4()),
-            **data,
-        )
-        self.session.add(service)
-        await self.session.flush()
-        return service
+        return await super().count(domain=domain)
 
     async def upsert(self, data: dict[str, Any]) -> tuple[Service, bool]:
         """Create or update a service.

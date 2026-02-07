@@ -1,39 +1,18 @@
 """Area repository for HA area CRUD operations."""
 
-from datetime import datetime, timezone
-from typing import Any
-from uuid import uuid4
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.dal.base import BaseRepository
 from src.storage.entities import Area
 
 
-class AreaRepository:
+class AreaRepository(BaseRepository[Area]):
     """Repository for Area CRUD operations."""
-
-    def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
-        self.session = session
-
-    async def get_by_id(self, area_id: str) -> Area | None:
-        """Get area by internal ID.
-
-        Args:
-            area_id: Internal UUID
-
-        Returns:
-            Area or None
-        """
-        result = await self.session.execute(
-            select(Area).where(Area.id == area_id)
-        )
-        return result.scalar_one_or_none()
+    
+    model = Area
+    ha_id_field = "ha_area_id"
+    order_by_field = "name"
 
     async def get_by_ha_area_id(self, ha_area_id: str) -> Area | None:
         """Get area by Home Assistant area_id.
@@ -44,10 +23,7 @@ class AreaRepository:
         Returns:
             Area or None
         """
-        result = await self.session.execute(
-            select(Area).where(Area.ha_area_id == ha_area_id)
-        )
-        return result.scalar_one_or_none()
+        return await self.get_by_ha_id(ha_area_id)
 
     async def list_all(
         self,
@@ -65,69 +41,7 @@ class AreaRepository:
         Returns:
             List of areas
         """
-        query = select(Area)
-
-        if floor_id:
-            query = query.where(Area.floor_id == floor_id)
-
-        query = query.order_by(Area.name).limit(limit).offset(offset)
-
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
-
-    async def count(self) -> int:
-        """Count all areas.
-
-        Returns:
-            Area count
-        """
-        from sqlalchemy import func
-
-        result = await self.session.execute(select(func.count(Area.id)))
-        return result.scalar() or 0
-
-    async def create(self, data: dict[str, Any]) -> Area:
-        """Create a new area.
-
-        Args:
-            data: Area data
-
-        Returns:
-            Created area
-        """
-        area = Area(
-            id=str(uuid4()),
-            **data,
-            last_synced_at=datetime.now(timezone.utc),
-        )
-        self.session.add(area)
-        await self.session.flush()
-        return area
-
-    async def upsert(self, data: dict[str, Any]) -> tuple[Area, bool]:
-        """Create or update an area.
-
-        Args:
-            data: Area data (must include ha_area_id)
-
-        Returns:
-            Tuple of (area, created)
-        """
-        ha_area_id = data.get("ha_area_id")
-        if not ha_area_id:
-            raise ValueError("ha_area_id required for upsert")
-
-        existing = await self.get_by_ha_area_id(ha_area_id)
-        if existing:
-            for key, value in data.items():
-                if hasattr(existing, key) and key != "id":
-                    setattr(existing, key, value)
-            existing.last_synced_at = datetime.now(timezone.utc)
-            await self.session.flush()
-            return existing, False
-        else:
-            area = await self.create(data)
-            return area, True
+        return await super().list_all(limit=limit, offset=offset, floor_id=floor_id)
 
     async def get_all_ha_area_ids(self) -> set[str]:
         """Get all HA area IDs in database.
@@ -135,8 +49,7 @@ class AreaRepository:
         Returns:
             Set of area IDs
         """
-        result = await self.session.execute(select(Area.ha_area_id))
-        return {row[0] for row in result.fetchall()}
+        return await self.get_all_ha_ids()
 
     async def get_id_mapping(self) -> dict[str, str]:
         """Get mapping of HA area_id to internal ID.

@@ -1,12 +1,11 @@
 """Entity repository for HA entity CRUD operations."""
 
-from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.dal.base import BaseRepository
 from src.storage.entities import HAEntity
 
 
@@ -25,33 +24,15 @@ def _escape_ilike(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-class EntityRepository:
+class EntityRepository(BaseRepository[HAEntity]):
     """Repository for HAEntity CRUD operations.
 
     Provides efficient entity querying with optional caching.
     """
-
-    def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
-        self.session = session
-
-    async def get_by_id(self, entity_id: str) -> HAEntity | None:
-        """Get entity by our internal ID.
-
-        Args:
-            entity_id: Internal UUID
-
-        Returns:
-            HAEntity or None
-        """
-        result = await self.session.execute(
-            select(HAEntity).where(HAEntity.id == entity_id)
-        )
-        return result.scalar_one_or_none()
+    
+    model = HAEntity
+    ha_id_field = "entity_id"
+    order_by_field = "entity_id"
 
     async def get_by_entity_id(self, ha_entity_id: str) -> HAEntity | None:
         """Get entity by Home Assistant entity_id.
@@ -62,10 +43,7 @@ class EntityRepository:
         Returns:
             HAEntity or None
         """
-        result = await self.session.execute(
-            select(HAEntity).where(HAEntity.entity_id == ha_entity_id)
-        )
-        return result.scalar_one_or_none()
+        return await self.get_by_ha_id(ha_entity_id)
 
     async def list_all(
         self,
@@ -89,21 +67,14 @@ class EntityRepository:
         Returns:
             List of entities
         """
-        query = select(HAEntity)
-
-        if domain:
-            query = query.where(HAEntity.domain == domain)
-        if area_id:
-            query = query.where(HAEntity.area_id == area_id)
-        if device_id:
-            query = query.where(HAEntity.device_id == device_id)
-        if state:
-            query = query.where(HAEntity.state == state)
-
-        query = query.order_by(HAEntity.entity_id).limit(limit).offset(offset)
-
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
+        return await super().list_all(
+            limit=limit,
+            offset=offset,
+            domain=domain,
+            area_id=area_id,
+            device_id=device_id,
+            state=state,
+        )
 
     async def list_by_domain(self, domain: str) -> list[HAEntity]:
         """List all entities in a domain.
@@ -162,14 +133,7 @@ class EntityRepository:
         Returns:
             Count of entities
         """
-        from sqlalchemy import func
-
-        query = select(func.count(HAEntity.id))
-        if domain:
-            query = query.where(HAEntity.domain == domain)
-
-        result = await self.session.execute(query)
-        return result.scalar() or 0
+        return await super().count(domain=domain)
 
     async def get_domain_counts(self) -> dict[str, int]:
         """Get entity count per domain.
@@ -188,23 +152,6 @@ class EntityRepository:
         result = await self.session.execute(query)
         return {row[0]: row[1] for row in result.fetchall()}
 
-    async def create(self, data: dict[str, Any]) -> HAEntity:
-        """Create a new entity.
-
-        Args:
-            data: Entity data
-
-        Returns:
-            Created entity
-        """
-        entity = HAEntity(
-            id=str(uuid4()),
-            **data,
-            last_synced_at=datetime.now(timezone.utc),
-        )
-        self.session.add(entity)
-        await self.session.flush()
-        return entity
 
     async def update(
         self,
@@ -232,32 +179,6 @@ class EntityRepository:
         await self.session.flush()
         return entity
 
-    async def upsert(self, data: dict[str, Any]) -> tuple[HAEntity, bool]:
-        """Create or update an entity.
-
-        Args:
-            data: Entity data (must include entity_id)
-
-        Returns:
-            Tuple of (entity, created) where created is True if new
-        """
-        ha_entity_id = data.get("entity_id")
-        if not ha_entity_id:
-            raise ValueError("entity_id required for upsert")
-
-        existing = await self.get_by_entity_id(ha_entity_id)
-        if existing:
-            # Update
-            for key, value in data.items():
-                if hasattr(existing, key) and key != "id":
-                    setattr(existing, key, value)
-            existing.last_synced_at = datetime.now(timezone.utc)
-            await self.session.flush()
-            return existing, False
-        else:
-            # Create
-            entity = await self.create(data)
-            return entity, True
 
     async def delete(self, ha_entity_id: str) -> bool:
         """Delete an entity by HA entity_id.
@@ -282,8 +203,7 @@ class EntityRepository:
         Returns:
             Set of entity IDs
         """
-        result = await self.session.execute(select(HAEntity.entity_id))
-        return {row[0] for row in result.fetchall()}
+        return await self.get_all_ha_ids()
 
     async def search(
         self,
