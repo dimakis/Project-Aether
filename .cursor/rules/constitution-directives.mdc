@@ -1,0 +1,39 @@
+---
+description: Core constitutional directives for the Aether project — security, safety, TDD, and quality constraints that apply to all code.
+alwaysApply: true
+---
+
+# Aether Constitution Directives
+
+These are non-negotiable constraints from `.specify/memory/constitution.md`. Violations must be justified or refactored.
+
+## Principles
+
+1. **Safety** — HA automations require human-in-the-loop approval before execution.
+2. **Isolation** — Generated scripts run in gVisor sandbox only.
+3. **Observability** — All agent actions, LLM calls, tool invocations traced via MLflow.
+4. **State** — LangGraph for workflow state; Postgres for durable checkpointing.
+5. **Reliability** — 80% min coverage (95%+ critical paths). Testing pyramid: unit > integration > E2E.
+6. **Security** — Defence in depth at every layer. Security wins over speed — always.
+
+## Security (Principle VI)
+
+- Encrypt credentials at rest (Fernet/AES-256) or hash (bcrypt >= 12).
+- Validate all input via Pydantic; parameterised queries only.
+- TLS in production; security headers on every response; no wildcard CORS.
+- Pin deps; patch CVEs within 72h; audit new deps.
+- Auth required by default; exempt routes explicit in `EXEMPT_ROUTES`.
+- Never store plaintext secrets, use eval/exec outside sandbox, disable auth, return stack traces, use MD5/SHA-1, or hard-code secrets.
+- Never choose a simpler implementation that weakens security.
+
+## Development Standards
+
+- **TDD**: Test first (red), implement (green), refactor, commit atomically. Never batch tests.
+- **Commits**: One logical change per commit, max ~400 lines, proactive commits after each TDD cycle.
+- **Conventional Commits**: `<type>[scope]: <description>` (feat, fix, docs, style, refactor, perf, test, build, ci, chore).
+- **Feature delivery**: Create feature dir with spec/plan/tasks before coding. Update docs alongside code.
+
+## Reference
+
+Full governance with rationale: `.specify/memory/constitution.md`
+Active skills: `security-review`, `tdd-cycle`, `feature-checklist` (in `.cursor/skills/`)

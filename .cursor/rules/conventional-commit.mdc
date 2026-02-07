@@ -1,0 +1,42 @@
+---
+description: Conventional commit message format reference for all commits in this project.
+alwaysApply: true
+---
+
+# Conventional Commits
+
+All commits MUST use this format:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+## Types
+
+| Type | When to use |
+|------|-------------|
+| `feat` | New feature (MINOR version bump) |
+| `fix` | Bug fix (PATCH version bump) |
+| `docs` | Documentation only |
+| `style` | Formatting, whitespace (no logic change) |
+| `refactor` | Code restructuring (no feature or fix) |
+| `perf` | Performance improvement |
+| `test` | Adding or updating tests |
+| `build` | Build system or dependency changes |
+| `ci` | CI configuration |
+| `chore` | Other (no src or test change) |
+
+## Breaking Changes
+
+Append `!` after type/scope: `feat(api)!: remove deprecated endpoint`
+
+Or add footer: `BREAKING CHANGE: removed /api/v1/old`
+
+## Reference
+
+Full spec: https://www.conventionalcommits.org/
+Project governance: `.specify/memory/constitution.md` under "Conventional Commits"

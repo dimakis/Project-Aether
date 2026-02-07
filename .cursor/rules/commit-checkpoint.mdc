@@ -1,0 +1,35 @@
+---
+description: Self-check for uncommitted changes and proactive commit discipline during coding sessions.
+alwaysApply: true
+---
+
+# Commit Checkpoint
+
+After each logical unit of work, self-check before proceeding.
+
+## Rules
+
+1. **After each TDD cycle** (test passes green): commit test + implementation immediately. No exceptions.
+2. **After each logical unit**: spec files, doc updates, refactoring, config changes — each gets its own commit.
+3. **Max ~400 uncommitted lines**: If approaching this limit, stop and commit what is complete.
+4. **Proactive commits**: Committing is part of the task. Do NOT wait for the user to ask.
+5. **Session end**: All uncommitted work must be committed or stashed before switching context.
+
+## Commit Format
+
+One logical change per commit. Use conventional commit messages:
+
+```
+<type>(scope): concise description
+```
+
+## Self-Check Prompt
+
+Before starting the next task, ask yourself:
+- Do I have uncommitted changes? If yes, commit them now.
+- Is my last commit a complete, independently verifiable unit? If not, finish it first.
+- Am I about to combine unrelated changes? If yes, split them.
+
+## Reference
+
+Full details: `.specify/memory/constitution.md` under "Incremental Commits" and "Commit Checkpoints".
