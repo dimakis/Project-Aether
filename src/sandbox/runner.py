@@ -280,12 +280,13 @@ class SandboxRunner:
             ]
         )
 
-        # Mount data if provided
+        # Mount data if provided — at /workspace/data.json to match the
+        # Data Scientist system prompt which tells the LLM to read from there.
         if data_path and data_path.exists():
             cmd.extend(
                 [
                     "--volume",
-                    f"{data_path}:/data:ro",
+                    f"{data_path}:/workspace/data.json:ro",
                 ]
             )
 
@@ -329,8 +330,12 @@ class SandboxRunner:
         # Fall back to basic Python image
         import logging
 
-        logging.getLogger(__name__).warning(
-            f"Container image '{self.image}' not found, using fallback '{self.FALLBACK_IMAGE}'"
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Container image '{self.image}' not found — falling back to '{self.FALLBACK_IMAGE}'. "
+            f"The fallback image lacks data-science packages (numpy, pandas, scipy, etc.) "
+            f"and analysis scripts WILL fail. Build the sandbox image with:\n"
+            f"  make build-sandbox"
         )
         return self.FALLBACK_IMAGE
 

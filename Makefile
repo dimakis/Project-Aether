@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install
+.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -55,6 +55,9 @@ help:
 	@echo "  make ui-install  - Install UI dependencies"
 	@echo "  make ui-dev      - Start UI dev server"
 	@echo "  make ui-build    - Build UI for production"
+	@echo ""
+	@echo "Sandbox:"
+	@echo "  make build-sandbox - Build sandbox image for Data Scientist analysis"
 	@echo ""
 	@echo "URLs (when running):"
 	@echo "  API:        http://localhost:$(API_PORT)"
@@ -302,6 +305,17 @@ ui-build:
 
 ui-lint:
 	cd ui && npm run lint
+
+# ============================================================================
+# Sandbox
+# ============================================================================
+
+build-sandbox:
+	@echo "Building Data Scientist sandbox image..."
+	podman build -t aether-sandbox:latest -f infrastructure/podman/Containerfile.sandbox .
+	@echo ""
+	@echo "Sandbox image built: aether-sandbox:latest"
+	@echo "The Data Scientist can now run analysis scripts with numpy, pandas, scipy, etc."
 
 # ============================================================================
 # Utilities
