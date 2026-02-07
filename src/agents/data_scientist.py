@@ -11,10 +11,15 @@ Constitution: Isolation - All scripts run in gVisor sandbox.
 Constitution: Observability - All analysis traced in MLflow.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -22,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 from src.agents import BaseAgent
 from src.agents.model_context import get_model_context, resolve_model
+from src.agents.prompts import load_prompt
 from src.dal import EntityRepository, InsightRepository
 from src.graph.state import AgentRole, AnalysisState, AnalysisType, AutomationSuggestion
 from src.llm import get_llm
@@ -31,112 +37,6 @@ from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
 from src.storage.entities.insight import InsightStatus, InsightType
 from src.tracing import log_metric, log_param, start_experiment_run
-
-
-# System prompt for the Data Scientist
-DATA_SCIENTIST_SYSTEM_PROMPT = """You are an expert data scientist specializing in home energy analysis and system diagnostics.
-
-Your role is to analyze energy sensor data from Home Assistant and generate insights
-that help users optimize their energy consumption. You also perform diagnostic
-analysis when asked to troubleshoot issues with sensors, integrations, or data quality.
-
-## Response Formatting
-
-Use rich markdown formatting to make analysis results clear and actionable:
-- Use **bold** for key findings and `code` for entity IDs and values
-- Use headings (##, ###) to organize analysis sections
-- Use tables to present comparisons, rankings, and data summaries
-- Use code blocks with ```python for scripts and ```json for data structures
-- Use emojis to improve scanability of results:
-  📊 for data/statistics, ⚡ for energy, 💰 for cost savings,
-  📈 for trends/increases, 📉 for decreases, ⚠️ for anomalies/warnings,
-  ✅ for healthy/good, ❌ for problems/errors, 🔍 for investigation,
-  💡 for recommendations, 🌡️ for temperature, 🔋 for battery/power
-
-When analyzing data, you should:
-1. Identify usage patterns (daily, weekly, seasonal)
-2. Detect anomalies or unusual consumption
-3. Find energy-saving opportunities
-4. Provide actionable recommendations
-
-When diagnosing issues, you should:
-1. Analyze data gaps, missing values, and connectivity patterns
-2. Correlate error logs with sensor behavior
-3. Identify integration failures or configuration problems
-4. Recommend specific remediation steps
-
-You can generate Python scripts for analysis. Scripts run in a sandboxed environment with:
-- pandas, numpy, matplotlib, scipy, scikit-learn, statsmodels, seaborn
-- Read-only access to data passed via /workspace/data.json
-- Output written to stdout/stderr
-- 30 second timeout, 512MB memory limit
-
-When generating scripts:
-1. Always read data from /workspace/data.json
-2. Print results as JSON to stdout for parsing
-3. Save any charts to /workspace/output/ directory
-4. Handle missing or invalid data gracefully
-
-Output JSON structure for insights:
-{
-  "insights": [
-    {
-      "type": "energy_optimization|anomaly_detection|usage_pattern|cost_saving",
-      "title": "Brief title",
-      "description": "Detailed explanation",
-      "confidence": 0.0-1.0,
-      "impact": "low|medium|high|critical",
-      "evidence": {"key": "value"},
-      "entities": ["entity_id1", "entity_id2"]
-    }
-  ],
-  "summary": "Overall analysis summary",
-  "recommendations": ["recommendation1", "recommendation2"]
-}
-"""
-
-# Behavioral analysis system prompt (Feature 03)
-DATA_SCIENTIST_BEHAVIORAL_PROMPT = """You are an expert data scientist specializing in smart home behavioral analysis.
-
-Your role is to analyze logbook and usage data from Home Assistant to identify
-behavioral patterns, automation gaps, and optimization opportunities.
-
-When analyzing behavioral data, you should:
-1. Identify repeating manual actions that could be automated
-2. Score existing automation effectiveness (trigger frequency vs manual overrides)
-3. Discover entity correlations (devices used together)
-4. Detect device health issues (unresponsive, degraded, anomalous)
-5. Find cost-saving opportunities from usage patterns
-
-You can generate Python scripts for analysis. Scripts run in a sandboxed environment with:
-- pandas, numpy, matplotlib, scipy, scikit-learn, statsmodels, seaborn
-- Read-only access to data passed via /workspace/data.json
-- Output written to stdout/stderr
-- 30 second timeout, 512MB memory limit
-
-When generating scripts:
-1. Always read data from /workspace/data.json
-2. Print results as JSON to stdout for parsing
-3. Save any charts to /workspace/output/ directory
-4. Handle missing or invalid data gracefully
-
-Output JSON structure for behavioral insights:
-{
-  "insights": [
-    {
-      "type": "automation_gap|automation_inefficiency|correlation|device_health|behavioral_pattern|cost_saving",
-      "title": "Brief title",
-      "description": "Detailed explanation",
-      "confidence": 0.0-1.0,
-      "impact": "low|medium|high|critical",
-      "evidence": {"key": "value"},
-      "entities": ["entity_id1", "entity_id2"]
-    }
-  ],
-  "summary": "Overall analysis summary",
-  "recommendations": ["recommendation1", "recommendation2"]
-}
-"""
 
 # Analysis types that use behavioral (logbook) data vs energy (history) data
 BEHAVIORAL_ANALYSIS_TYPES = {
@@ -215,8 +115,8 @@ class DataScientistAgent(BaseAgent):
     async def invoke(
         self,
         state: AnalysisState,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+        **kwargs: object,
+    ) -> dict[str, object]:
         """Run energy analysis.
 
         Args:
@@ -290,8 +190,8 @@ class DataScientistAgent(BaseAgent):
     async def _collect_energy_data(
         self,
         state: AnalysisState,
-        session: Any = None,
-    ) -> dict[str, Any]:
+        session: AsyncSession | None = None,
+    ) -> dict[str, object]:
         """Collect energy data for analysis.
 
         Uses local database for entity discovery (faster, no MCP overhead),
@@ -342,7 +242,7 @@ class DataScientistAgent(BaseAgent):
 
     async def _discover_energy_sensors_from_db(
         self,
-        session: Any,
+        session: AsyncSession,
     ) -> list[str]:
         """Discover energy sensors from the local database.
 
@@ -397,7 +297,7 @@ class DataScientistAgent(BaseAgent):
     async def _collect_behavioral_data(
         self,
         state: AnalysisState,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Collect behavioral data from logbook for analysis.
 
         Uses the BehavioralAnalysisClient to gather button usage,
@@ -411,7 +311,7 @@ class DataScientistAgent(BaseAgent):
         """
         behavioral = BehavioralAnalysisClient(self.mcp)
         hours = state.time_range_hours
-        data: dict[str, Any] = {
+        data: dict[str, object] = {
             "analysis_type": state.analysis_type.value,
             "hours": hours,
         }
@@ -515,7 +415,7 @@ class DataScientistAgent(BaseAgent):
     async def _generate_script(
         self,
         state: AnalysisState,
-        energy_data: dict[str, Any],
+        energy_data: dict[str, object],
     ) -> str:
         """Generate Python analysis script using LLM.
 
@@ -531,9 +431,9 @@ class DataScientistAgent(BaseAgent):
         
         # Use behavioral prompt for behavioral analysis types
         system_prompt = (
-            DATA_SCIENTIST_BEHAVIORAL_PROMPT
+            load_prompt("data_scientist_behavioral")
             if state.analysis_type in BEHAVIORAL_ANALYSIS_TYPES
-            else DATA_SCIENTIST_SYSTEM_PROMPT
+            else load_prompt("data_scientist_system")
         )
         
         messages = [
@@ -568,6 +468,7 @@ class DataScientistAgent(BaseAgent):
         total_kwh = energy_data.get("total_kwh", 0.0)
         hours = state.time_range_hours
         
+        # Base context used by several analysis type branches
         base_context = f"""
 I have energy data from {entity_count} sensors over the past {hours} hours.
 Total energy consumption: {total_kwh:.2f} kWh
@@ -576,22 +477,39 @@ Data structure (available in /workspace/data.json):
 - entities: List of entity data with data_points, stats, etc.
 - total_kwh: Total consumption
 - hours: Analysis period
-
 """
         
         if state.analysis_type == AnalysisType.ENERGY_OPTIMIZATION:
-            return base_context + """
-Please analyze this energy data and generate a Python script that:
-1. Identifies the top energy consumers
-2. Detects peak usage times
-3. Finds opportunities for energy savings
-4. Calculates potential savings if usage is shifted to off-peak hours
-
-Output insights as JSON to stdout with type="energy_optimization".
-"""
+            return load_prompt(
+                "data_scientist_energy",
+                entity_count=str(entity_count),
+                hours=str(hours),
+                total_kwh=f"{total_kwh:.2f}",
+            )
+        
+        elif state.analysis_type == AnalysisType.DIAGNOSTIC:
+            instructions = state.custom_query or "Perform a general diagnostic analysis"
+            diagnostic_ctx = state.diagnostic_context or "No additional diagnostic context provided."
+            
+            return load_prompt(
+                "data_scientist_diagnostic",
+                entity_count=str(entity_count),
+                hours=str(hours),
+                total_kwh=f"{total_kwh:.2f}",
+                diagnostic_context=diagnostic_ctx,
+                instructions=instructions,
+            )
         
         elif state.analysis_type == AnalysisType.ANOMALY_DETECTION:
-            return base_context + """
+            base_context = f"""
+I have energy data from {entity_count} sensors over the past {hours} hours.
+Total energy consumption: {total_kwh:.2f} kWh
+
+Data structure (available in /workspace/data.json):
+- entities: List of entity data with data_points, stats, etc.
+- total_kwh: Total consumption
+- hours: Analysis period
+
 Please analyze this energy data and generate a Python script that:
 1. Establishes baseline consumption patterns
 2. Detects anomalies using statistical methods (z-score, IQR)
@@ -600,9 +518,18 @@ Please analyze this energy data and generate a Python script that:
 
 Output insights as JSON to stdout with type="anomaly_detection".
 """
+            return base_context
         
         elif state.analysis_type == AnalysisType.USAGE_PATTERNS:
-            return base_context + """
+            base_context = f"""
+I have energy data from {entity_count} sensors over the past {hours} hours.
+Total energy consumption: {total_kwh:.2f} kWh
+
+Data structure (available in /workspace/data.json):
+- entities: List of entity data with data_points, stats, etc.
+- total_kwh: Total consumption
+- hours: Analysis period
+
 Please analyze this energy data and generate a Python script that:
 1. Identifies daily usage patterns (morning, afternoon, evening, night)
 2. Compares weekday vs weekend consumption
@@ -611,37 +538,7 @@ Please analyze this energy data and generate a Python script that:
 
 Output insights as JSON to stdout with type="usage_pattern".
 """
-        
-        elif state.analysis_type == AnalysisType.DIAGNOSTIC:
-            instructions = state.custom_query or "Perform a general diagnostic analysis"
-            diagnostic_ctx = state.diagnostic_context or "No additional diagnostic context provided."
-
-            return base_context + f"""
-**DIAGNOSTIC MODE** — The Architect has gathered evidence about a system issue
-and needs your help analyzing it.
-
-**Architect's Collected Evidence:**
-{diagnostic_ctx}
-
-**Investigation Instructions:**
-{instructions}
-
-Please generate a Python script that:
-1. Analyzes the provided entity data for gaps, missing values, and anomalies
-2. Checks for periods with no data (connectivity issues)
-3. Identifies state transitions that suggest integration failures
-4. Correlates any patterns with the diagnostic context above
-5. Provides specific findings about root cause and affected time periods
-
-Output insights as JSON to stdout with type="diagnostic".
-Each insight should include:
-- title: Short description of the finding
-- description: Detailed explanation
-- impact: "critical", "high", "medium", or "low"
-- confidence: 0.0-1.0
-- evidence: Supporting data points
-- recommendation: What to do about it
-"""
+            return base_context
 
         elif state.analysis_type == AnalysisType.BEHAVIOR_ANALYSIS:
             return base_context + """
@@ -750,7 +647,7 @@ Output insights as JSON to stdout.
     async def _execute_script(
         self,
         script: str,
-        energy_data: dict[str, Any],
+        energy_data: dict[str, object],
     ) -> SandboxResult:
         """Execute analysis script in sandbox.
 
@@ -968,8 +865,8 @@ Output insights as JSON to stdout.
 
     async def _persist_insights(
         self,
-        insights: list[dict[str, Any]],
-        session: Any,
+        insights: list[dict[str, object]],
+        session: AsyncSession,
         state: AnalysisState,
     ) -> list[str]:
         """Persist insights to database.
@@ -1042,7 +939,7 @@ class DataScientistWorkflow:
         hours: int = 24,
         custom_query: str | None = None,
         diagnostic_context: str | None = None,
-        session: Any = None,
+        session: AsyncSession | None = None,
     ) -> AnalysisState:
         """Execute an energy analysis.
 
@@ -1109,7 +1006,5 @@ class DataScientistWorkflow:
 __all__ = [
     "DataScientistAgent",
     "DataScientistWorkflow",
-    "DATA_SCIENTIST_SYSTEM_PROMPT",
-    "DATA_SCIENTIST_BEHAVIORAL_PROMPT",
     "BEHAVIORAL_ANALYSIS_TYPES",
 ]

@@ -4,8 +4,10 @@ The Developer takes approved automation proposals and deploys them
 to Home Assistant, handling YAML generation and service calls.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import yaml
@@ -15,7 +17,10 @@ from src.dal import ProposalRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus
 from src.mcp import MCPClient, get_mcp_client
 from src.mcp.automation_deploy import AutomationDeployer
-from src.storage.entities import ProposalStatus
+from src.storage.entities import AutomationProposal, ProposalStatus
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class DeveloperAgent(BaseAgent):
@@ -53,8 +58,8 @@ class DeveloperAgent(BaseAgent):
     async def invoke(
         self,
         state: ConversationState,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+        **kwargs: object,
+    ) -> dict[str, object]:
         """Deploy approved automations.
 
         Args:
@@ -101,9 +106,9 @@ class DeveloperAgent(BaseAgent):
 
     async def deploy_automation(
         self,
-        proposal: Any,
-        session: Any,
-    ) -> dict[str, Any]:
+        proposal: AutomationProposal,
+        session: AsyncSession,
+    ) -> dict[str, object]:
         """Deploy an automation proposal to Home Assistant.
 
         Constitution: This should only be called after HITL approval.
@@ -146,7 +151,7 @@ class DeveloperAgent(BaseAgent):
             "error": error_msg,
         }
 
-    def _generate_automation_yaml(self, proposal: Any) -> str:
+    def _generate_automation_yaml(self, proposal: AutomationProposal) -> str:
         """Generate Home Assistant automation YAML.
 
         Args:
@@ -172,7 +177,7 @@ class DeveloperAgent(BaseAgent):
         self,
         automation_id: str,
         yaml_content: str,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Deploy automation via HA REST API.
 
         Uses AutomationDeployer which calls the HA config API
@@ -193,8 +198,8 @@ class DeveloperAgent(BaseAgent):
     async def rollback_automation(
         self,
         proposal_id: str,
-        session: Any,
-    ) -> dict[str, Any]:
+        session: AsyncSession,
+    ) -> dict[str, object]:
         """Rollback a deployed automation.
 
         Args:
@@ -308,8 +313,8 @@ class DeveloperWorkflow:
     async def deploy(
         self,
         proposal_id: str,
-        session: Any,
-    ) -> dict[str, Any]:
+        session: AsyncSession,
+    ) -> dict[str, object]:
         """Deploy an approved proposal.
 
         Args:
@@ -336,8 +341,8 @@ class DeveloperWorkflow:
     async def rollback(
         self,
         proposal_id: str,
-        session: Any,
-    ) -> dict[str, Any]:
+        session: AsyncSession,
+    ) -> dict[str, object]:
         """Rollback a deployed proposal.
 
         Args:
