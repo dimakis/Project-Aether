@@ -191,7 +191,7 @@
 
 ### Last Findings
 
-**Source modules**: 77 files | **Test files**: 40 (excluding conftest/factories/mocks)
+**Source modules**: 78 files | **Test files**: 43 (excluding conftest/factories/mocks)
 
 #### Modules WITH Tests
 
@@ -220,6 +220,7 @@
 | `src/storage/entities/automation_proposal.py` | `test_approval_state.py` |
 | `src/graph/state.py` | `test_approval_state.py` (partial) |
 | `src/llm.py` | `test_llm.py` |
+| `src/agents/model_context.py` | `test_model_context.py`, `test_model_propagation.py`, `test_insight_suggestions.py` |
 
 #### Modules WITHOUT Dedicated Tests
 
@@ -291,15 +292,16 @@
 | `ArchitectAgent` | YES | `BaseAgent.trace_span()` |
 | `LibrarianAgent` | YES | `BaseAgent.trace_span()` |
 | `DeveloperAgent` | YES | `BaseAgent.trace_span()` |
-| `DataScientistAgent` | YES | `BaseAgent.trace_span()` |
+| `DataScientistAgent` | YES | `BaseAgent.trace_span()` + `parent_span_id` from `ModelContext` |
 | `MCPClient` methods | YES | `@trace_with_uri` decorators |
 | Discovery workflow | YES | `session_context()` at entry |
 | Conversation workflow | YES | `session_context()` at entry |
 | Analysis workflow | YES | `session_context()` at entry |
+| Inter-agent delegation | YES | `model_context()` carries `parent_span_id` for parent-child linking |
 | CLI commands | PARTIAL | `discover` traced, `chat` traced, others not |
 | API routes | NO | No per-request tracing middleware |
 
-**Severity**: OK — Core agent operations fully traced. API route-level tracing is a nice-to-have (T128).
+**Severity**: OK — Core agent operations fully traced. Inter-agent trace linking via `ModelContext.parent_span_id` added. API route-level tracing is a nice-to-have (T128).
 
 **Task Reference**: T207, T128
 
@@ -466,5 +468,6 @@ After updating, identify the top 3-5 highest-priority items and propose them as 
 
 | Date | Branch | Run By | Key Changes |
 |------|--------|--------|-------------|
+| 2026-02-07 | `001-project-aether` | Feature update | Added: model context propagation (`src/agents/model_context.py`), per-agent model settings, inter-agent trace linking, automation suggestion reverse communication. Tests: +33 (test_model_context, test_model_propagation, test_insight_suggestions). Feature: `08-C-model-routing-multi-agent`. Updated T173-T177 scope. |
 | 2026-02-06 | `001-project-aether` | Post-fix update | Fixed: datetime.utcnow (T187), rate limiting (T188), N+1 query (T190), DB indexes (T191), silent catches in agents/__init__.py, dead CLI stubs (TD006), untracked TODO (TD009). Corrected: thread safety was already PASS (T186). |
 | 2026-02-06 | `001-project-aether` | Initial creation | Baseline healthcheck with all sections populated |
