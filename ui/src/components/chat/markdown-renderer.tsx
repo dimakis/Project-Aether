@@ -34,16 +34,12 @@ export function MarkdownRenderer({ content, className, onCreateProposal }: Markd
               code={codeStr}
               language={lang}
               collapsible={codeStr.split("\n").length > 30}
+              action={
+                isYaml && onCreateProposal
+                  ? { label: "Create Proposal", icon: <FileCheck className="h-3 w-3" />, onClick: onCreateProposal }
+                  : undefined
+              }
             />
-            {isYaml && onCreateProposal && (
-              <button
-                onClick={() => onCreateProposal(codeStr)}
-                className="mt-1 flex items-center gap-1.5 rounded-md border border-border/50 bg-card px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
-              >
-                <FileCheck className="h-3 w-3" />
-                Create Proposal
-              </button>
-            )}
           </div>
         );
       }
@@ -151,7 +147,7 @@ export function MarkdownRenderer({ content, className, onCreateProposal }: Markd
     strong(props: ComponentPropsWithoutRef<"strong">) {
       return <strong className="font-semibold text-foreground" {...props} />;
     },
-  }), []);
+  }), [onCreateProposal]);
 
   return (
     <div className={cn("markdown-body", className)}>
