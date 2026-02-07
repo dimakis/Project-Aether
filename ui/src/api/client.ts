@@ -681,4 +681,59 @@ export const usage = {
     }>(`/usage/models?days=${days}`),
 };
 
+// ─── Model Ratings ──────────────────────────────────────────────────────────
+
+export interface ModelRatingItem {
+  id: string;
+  model_name: string;
+  agent_role: string;
+  rating: number;
+  notes: string | null;
+  config_snapshot: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModelRatingListResponse {
+  items: ModelRatingItem[];
+  total: number;
+}
+
+export interface ModelSummaryItem {
+  model_name: string;
+  agent_role: string;
+  avg_rating: number;
+  rating_count: number;
+  latest_config: Record<string, unknown> | null;
+}
+
+export interface ModelRatingCreatePayload {
+  model_name: string;
+  agent_role: string;
+  rating: number;
+  notes?: string | null;
+  config_snapshot?: Record<string, unknown> | null;
+}
+
+export const modelRatings = {
+  list: (modelName?: string, agentRole?: string) => {
+    const params = new URLSearchParams();
+    if (modelName) params.set("model_name", modelName);
+    if (agentRole) params.set("agent_role", agentRole);
+    const qs = params.toString();
+    return request<ModelRatingListResponse>(`/models/ratings${qs ? `?${qs}` : ""}`);
+  },
+
+  create: (data: ModelRatingCreatePayload) =>
+    request<ModelRatingItem>(`/models/ratings`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  summary: (agentRole?: string) => {
+    const qs = agentRole ? `?agent_role=${agentRole}` : "";
+    return request<ModelSummaryItem[]>(`/models/summary${qs}`);
+  },
+};
+
 export { ApiError };

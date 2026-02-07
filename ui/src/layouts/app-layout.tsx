@@ -11,6 +11,7 @@ import {
   Clock,
   BarChart3,
   Bot,
+  Star,
   LogOut,
   User,
   ChevronDown,
@@ -37,6 +38,7 @@ const navItems = [
   { to: "/usage", icon: BarChart3, label: "LLM Usage" },
   { to: "/diagnostics", icon: Activity, label: "Diagnostics" },
   { to: "/agents", icon: Bot, label: "Agents" },
+  { to: "/agents/registry", icon: Star, label: "Model Registry" },
 ];
 
 const AGENT_LABELS: Record<string, string> = {

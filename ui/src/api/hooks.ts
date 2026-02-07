@@ -5,6 +5,7 @@ import {
   conversations,
   insightSchedules,
   models,
+  modelRatings,
   proposals,
   insights,
   entities,
@@ -13,6 +14,7 @@ import {
   traces,
   usage,
 } from "./client";
+import type { ModelRatingCreatePayload } from "./client";
 
 // ─── Keys ───────────────────────────────────────────────────────────────────
 
@@ -600,5 +602,32 @@ export function useGeneratePrompt() {
   return useMutation({
     mutationFn: ({ name, userInput }: { name: string; userInput?: string }) =>
       agents.generatePrompt(name, userInput),
+  });
+}
+
+// ─── Model Ratings ──────────────────────────────────────────────────────────
+
+export function useModelRatings(modelName?: string, agentRole?: string) {
+  return useQuery({
+    queryKey: ["model-ratings", modelName, agentRole],
+    queryFn: () => modelRatings.list(modelName, agentRole),
+  });
+}
+
+export function useModelSummary(agentRole?: string) {
+  return useQuery({
+    queryKey: ["model-summary", agentRole],
+    queryFn: () => modelRatings.summary(agentRole),
+  });
+}
+
+export function useCreateModelRating() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: ModelRatingCreatePayload) => modelRatings.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["model-ratings"] });
+      qc.invalidateQueries({ queryKey: ["model-summary"] });
+    },
   });
 }
