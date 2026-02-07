@@ -10,13 +10,22 @@ import {
   useRegistrySummary,
 } from "@/api/hooks";
 
+const mockSummary = {
+  automations_count: 12,
+  automations_enabled: 10,
+  scripts_count: 5,
+  scenes_count: 3,
+  services_count: 42,
+  services_seeded: 8,
+};
+
 // Mock all registry hooks
 vi.mock("@/api/hooks", () => ({
   useRegistryAutomations: vi.fn(() => ({ data: null, isLoading: false })),
   useRegistryScripts: vi.fn(() => ({ data: null, isLoading: false })),
   useRegistryScenes: vi.fn(() => ({ data: null, isLoading: false })),
   useRegistryServices: vi.fn(() => ({ data: null, isLoading: false })),
-  useRegistrySummary: vi.fn(() => ({ data: null, isLoading: false })),
+  useRegistrySummary: vi.fn(() => ({ data: mockSummary, isLoading: false })),
 }));
 
 // Mock child tab components to isolate RegistryPage tests
@@ -87,6 +96,38 @@ describe("RegistryPage", () => {
     render(<RegistryPage />);
     await user.click(screen.getByRole("button", { name: /automations/i }));
     expect(screen.getByPlaceholderText(/search automations/i)).toBeInTheDocument();
+  });
+
+  describe("tab count badges", () => {
+    it("renders counts from summary data in tab badges", () => {
+      render(<RegistryPage />);
+      // Find tab buttons with counts
+      const automationsTab = screen.getByRole("button", { name: /automations/i });
+      const scriptsTab = screen.getByRole("button", { name: /scripts/i });
+      const scenesTab = screen.getByRole("button", { name: /scenes/i });
+      const servicesTab = screen.getByRole("button", { name: /services/i });
+
+      expect(automationsTab.textContent).toContain("12");
+      expect(scriptsTab.textContent).toContain("5");
+      expect(scenesTab.textContent).toContain("3");
+      expect(servicesTab.textContent).toContain("42");
+    });
+
+    it("does not render a count badge on the overview tab", () => {
+      render(<RegistryPage />);
+      const overviewTab = screen.getByRole("button", { name: /overview/i });
+      // Overview should NOT contain any numeric badge
+      expect(overviewTab.textContent).toBe("Overview");
+    });
+
+    it("renders tab counts using Badge component styling", () => {
+      render(<RegistryPage />);
+      // Badge component uses the class "rounded-full" from badgeVariants
+      const automationsTab = screen.getByRole("button", { name: /automations/i });
+      const badge = automationsTab.querySelector(".rounded-full");
+      expect(badge).toBeInTheDocument();
+      expect(badge?.textContent).toBe("12");
+    });
   });
 
   describe("lazy data loading", () => {

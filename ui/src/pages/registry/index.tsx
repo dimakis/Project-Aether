@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BookOpen, Zap, FileText, Clapperboard, Wrench, Activity, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   useRegistryAutomations,
@@ -86,9 +87,12 @@ export function RegistryPage() {
               <Icon className="h-3.5 w-3.5" />
               {tab.label}
               {tabCounts[tab.key] > 0 && (
-                <span className="ml-0.5 text-[10px] text-muted-foreground">
+                <Badge
+                  variant="secondary"
+                  className="ml-1 h-5 min-w-5 justify-center px-1.5 py-0 text-[10px] font-medium"
+                >
                   {tabCounts[tab.key]}
-                </span>
+                </Badge>
               )}
             </button>
           );
