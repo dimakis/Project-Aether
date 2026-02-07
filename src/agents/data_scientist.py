@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -37,6 +37,7 @@ from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
 from src.storage.entities.insight import InsightStatus, InsightType
 from src.tracing import log_metric, log_param, start_experiment_run
+from src.tracing.mlflow import get_active_run
 
 # Analysis types that use behavioral (logbook) data vs energy (history) data
 BEHAVIORAL_ANALYSIS_TYPES = {
@@ -955,6 +956,8 @@ class DataScientistWorkflow:
         Returns:
             Final analysis state with results
         """
+        import mlflow as _mlflow
+
         # Initialize state
         state = AnalysisState(
             current_agent=AgentRole.DATA_SCIENTIST,
@@ -965,6 +968,69 @@ class DataScientistWorkflow:
             diagnostic_context=diagnostic_context,
         )
 
+        # If there's already an active run/trace (e.g. from a conversation tool call),
+        # create a span within it so the Data Scientist shows up in the agent activity
+        # panel. Only create a new run when called standalone (e.g. from /insights/analyze).
+        active_run = get_active_run()
+
+        if active_run:
+            # Within existing trace: create a child span (visible in agent activity)
+            return await self._run_within_trace(state, session, _mlflow)
+        else:
+            # Standalone: create a new MLflow run
+            return await self._run_standalone(state, session, analysis_type, entity_ids, hours)
+
+    async def _run_within_trace(
+        self,
+        state: AnalysisState,
+        session: AsyncSession | None,
+        _mlflow: Any,
+    ) -> AnalysisState:
+        """Run analysis within an existing MLflow trace (e.g. conversation tool call)."""
+        # Capture the run ID from the active run
+        active_run = get_active_run()
+        if active_run:
+            state.mlflow_run_id = active_run.info.run_id if hasattr(active_run, "info") else None
+
+        @_mlflow.trace(
+            name="DataScientist.run_analysis",
+            span_type="CHAIN",
+            attributes={
+                "analysis_type": state.analysis_type.value,
+                "hours": state.time_range_hours,
+                "entity_count": len(state.entity_ids),
+            },
+        )
+        async def _traced_analysis():
+            updates = await self.agent.invoke(state, session=session)
+            for key, value in updates.items():
+                if hasattr(state, key):
+                    setattr(state, key, value)
+            return state
+
+        try:
+            return await _traced_analysis()
+        except Exception as e:
+            state.insights.append({
+                "type": "error",
+                "title": "Analysis Failed",
+                "description": str(e),
+                "confidence": 0.0,
+                "impact": "low",
+                "evidence": {},
+                "entities": [],
+            })
+            raise
+
+    async def _run_standalone(
+        self,
+        state: AnalysisState,
+        session: AsyncSession | None,
+        analysis_type: AnalysisType,
+        entity_ids: list[str] | None,
+        hours: int,
+    ) -> AnalysisState:
+        """Run analysis as a standalone MLflow run (e.g. from /insights/analyze)."""
         with start_experiment_run(run_name="data_scientist_analysis") as run:
             if run:
                 state.mlflow_run_id = run.info.run_id if hasattr(run, "info") else None
@@ -974,15 +1040,12 @@ class DataScientistWorkflow:
             log_param("entity_count", len(entity_ids) if entity_ids else "auto")
 
             try:
-                # Run the agent
                 updates = await self.agent.invoke(state, session=session)
-                
-                # Apply updates
+
                 for key, value in updates.items():
                     if hasattr(state, key):
                         setattr(state, key, value)
 
-                # Log final metrics
                 log_metric("insights.count", float(len(state.insights)))
                 log_metric("recommendations.count", float(len(state.recommendations)))
 
