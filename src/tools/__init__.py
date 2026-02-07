@@ -7,6 +7,10 @@ from src.tools.agent_tools import (
     get_agent_tools,
     get_entity_history,
 )
+from src.tools.analysis_tools import (
+    get_analysis_tools,
+    run_custom_analysis,
+)
 from src.tools.approval_tools import (
     get_approval_tools,
     seek_approval,
@@ -29,6 +33,10 @@ from src.tools.ha_tools import (
     list_entities_by_domain,
     search_entities,
 )
+from src.tools.insight_schedule_tools import (
+    create_insight_schedule,
+    get_insight_schedule_tools,
+)
 
 
 def get_all_tools() -> list:
@@ -37,9 +45,18 @@ def get_all_tools() -> list:
     Combines HA tools (entity queries, control, diagnostics) with agent
     delegation tools (energy analysis, discovery, diagnostics),
     advanced diagnostic tools (log analysis, entity/integration health),
-    and approval tools (seek_approval for HITL mutations).
+    approval tools (seek_approval for HITL mutations),
+    insight schedule tools (create/manage recurring analysis),
+    and custom analysis tools (free-form Data Scientist queries).
     """
-    return get_ha_tools() + get_agent_tools() + get_diagnostic_tools() + get_approval_tools()
+    return (
+        get_ha_tools()
+        + get_agent_tools()
+        + get_diagnostic_tools()
+        + get_approval_tools()
+        + get_insight_schedule_tools()
+        + get_analysis_tools()
+    )
 
 
 __all__ = [
@@ -68,6 +85,12 @@ __all__ = [
     # Approval Tools
     "seek_approval",
     "get_approval_tools",
+    # Insight Schedule Tools
+    "create_insight_schedule",
+    "get_insight_schedule_tools",
+    # Custom Analysis Tools
+    "run_custom_analysis",
+    "get_analysis_tools",
     # Combined
     "get_all_tools",
 ]
