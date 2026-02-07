@@ -591,6 +591,13 @@ export const agents = {
       `/agents/${name}/prompt/versions/${versionId}`,
       { method: "DELETE" },
     ),
+
+  // Prompt generation
+  generatePrompt: (name: string, userInput?: string) =>
+    request<{ generated_prompt: string; agent_name: string; agent_role: string }>(
+      `/agents/${name}/prompt/generate`,
+      { method: "POST", body: JSON.stringify({ user_input: userInput || null }) },
+    ),
 };
 
 // ─── System ─────────────────────────────────────────────────────────────────

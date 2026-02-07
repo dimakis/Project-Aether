@@ -595,3 +595,10 @@ export function useDeletePromptVersion() {
     },
   });
 }
+
+export function useGeneratePrompt() {
+  return useMutation({
+    mutationFn: ({ name, userInput }: { name: string; userInput?: string }) =>
+      agents.generatePrompt(name, userInput),
+  });
+}

@@ -43,6 +43,7 @@ import {
   useDeleteConfigVersion,
   useDeletePromptVersion,
   useModels,
+  useGeneratePrompt,
 } from "@/api/hooks";
 import { ModelPicker } from "@/pages/chat/ModelPicker";
 import type {
@@ -632,11 +633,14 @@ function PromptTab({ agentName }: { agentName: string }) {
   const [showCreate, setShowCreate] = useState(false);
   const [promptTemplate, setPromptTemplate] = useState("");
   const [changeSummary, setChangeSummary] = useState("");
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [genInput, setGenInput] = useState("");
 
   const createMutation = useCreatePromptVersion();
   const promoteMutation = usePromotePromptVersion();
   const rollbackMutation = useRollbackPrompt();
   const deleteMutation = useDeletePromptVersion();
+  const generateMutation = useGeneratePrompt();
 
   const handleCreate = () => {
     if (!promptTemplate.trim()) return;
@@ -653,6 +657,21 @@ function PromptTab({ agentName }: { agentName: string }) {
           setShowCreate(false);
           setPromptTemplate("");
           setChangeSummary("");
+        },
+      },
+    );
+  };
+
+  const handleGenerate = () => {
+    generateMutation.mutate(
+      { name: agentName, userInput: genInput || undefined },
+      {
+        onSuccess: (data) => {
+          setPromptTemplate(data.generated_prompt);
+          setShowGenerate(false);
+          setGenInput("");
+          // Ensure the create form is open so user can see the result
+          setShowCreate(true);
         },
       },
     );
@@ -676,6 +695,15 @@ function PromptTab({ agentName }: { agentName: string }) {
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            onClick={() => setShowGenerate(!showGenerate)}
+            disabled={hasDraft}
+          >
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            Generate with AI
+          </Button>
+          <Button
+            size="sm"
             onClick={() => setShowCreate(true)}
             disabled={showCreate || hasDraft}
           >
@@ -684,6 +712,66 @@ function PromptTab({ agentName }: { agentName: string }) {
           </Button>
         </div>
       </div>
+
+      {/* AI Generate form */}
+      <AnimatePresence>
+        {showGenerate && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+          >
+            <Card className="border-purple-500/30 bg-purple-500/5">
+              <CardContent className="space-y-3 pt-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-purple-400">
+                  <Sparkles className="h-4 w-4" />
+                  AI Prompt Generation
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The AI will generate a system prompt based on this agent's role,
+                  tools, and current behavior. Add custom instructions below (optional).
+                </p>
+                <textarea
+                  className="min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  placeholder="Optional: Add specific instructions (e.g. 'Focus on energy optimization', 'Be more concise')"
+                  value={genInput}
+                  onChange={(e) => setGenInput(e.target.value)}
+                />
+                {generateMutation.isError && (
+                  <p className="text-xs text-destructive">
+                    Generation failed. Please try again.
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowGenerate(false);
+                      setGenInput("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleGenerate}
+                    disabled={generateMutation.isPending}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {generateMutation.isPending ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Generate
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Create form */}
       <AnimatePresence>
