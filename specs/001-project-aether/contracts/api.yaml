@@ -43,17 +43,6 @@ paths:
       summary: Health Check
       description: Simple health check for load balancers. Returns 200 if the service is running.
       operationId: health_check_api_v1_health_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -61,12 +50,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/metrics:
     get:
       tags:
@@ -75,32 +61,18 @@ paths:
       description: Returns current operational metrics including request rates, latency percentiles, error counts, and agent
         invocations.
       operationId: get_metrics_api_v1_metrics_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                type: object
                 additionalProperties: true
+                type: object
                 title: Response Get Metrics Api V1 Metrics Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/status:
     get:
       tags:
@@ -108,17 +80,6 @@ paths:
       summary: System Status
       description: Detailed system status including component health checks.
       operationId: system_status_api_v1_status_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -126,12 +87,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemStatus'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/entities:
     get:
       tags:
@@ -139,6 +97,9 @@ paths:
       summary: List Entities
       description: List all entities with optional filtering.
       operationId: list_entities_api_v1_entities_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: domain
         in: query
@@ -187,16 +148,6 @@ paths:
           minimum: 0
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -217,6 +168,9 @@ paths:
       summary: Get Entity
       description: Get a specific entity by HA entity_id.
       operationId: get_entity_api_v1_entities__entity_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: entity_id
         in: path
@@ -224,16 +178,6 @@ paths:
         schema:
           type: string
           title: Entity Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -266,23 +210,12 @@ paths:
 
         - "devices that are on"'
       operationId: query_entities_api_v1_entities_query_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EntityQueryRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -296,6 +229,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/entities/sync:
     post:
       tags:
@@ -306,23 +242,12 @@ paths:
 
         Rate limited to 5/minute (expensive MCP + DB operation).'
       operationId: sync_entities_api_v1_entities_sync_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EntitySyncRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -336,6 +261,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/entities/domains/summary:
     get:
       tags:
@@ -343,33 +271,19 @@ paths:
       summary: Get Domain Summary
       description: Get entity count per domain.
       operationId: get_domain_summary_api_v1_entities_domains_summary_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                type: object
                 additionalProperties:
                   type: integer
+                type: object
                 title: Response Get Domain Summary Api V1 Entities Domains Summary Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/areas:
     get:
       tags:
@@ -377,6 +291,9 @@ paths:
       summary: List Areas
       description: List all areas.
       operationId: list_areas_api_v1_areas_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: floor_id
         in: query
@@ -405,16 +322,6 @@ paths:
           minimum: 0
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -435,6 +342,9 @@ paths:
       summary: Get Area
       description: Get a specific area.
       operationId: get_area_api_v1_areas__area_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: area_id
         in: path
@@ -442,16 +352,6 @@ paths:
         schema:
           type: string
           title: Area Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -472,6 +372,9 @@ paths:
       summary: List Devices
       description: List all devices.
       operationId: list_devices_api_v1_devices_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: area_id
         in: query
@@ -510,16 +413,6 @@ paths:
           minimum: 0
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -540,6 +433,9 @@ paths:
       summary: Get Device
       description: Get a specific device.
       operationId: get_device_api_v1_devices__device_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: device_id
         in: path
@@ -547,16 +443,6 @@ paths:
         schema:
           type: string
           title: Device Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -570,6 +456,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/sync:
+    post:
+      tags:
+      - HA Registry
+      summary: Sync Registry
+      description: 'Sync automations, scripts, and scenes from Home Assistant.
+
+
+        Lightweight sync that only populates registry tables (skips
+
+        areas, devices, and entities). Rate limited to 5/minute.'
+      operationId: sync_registry_api_v1_registry_sync_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrySyncResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/registry/automations:
     get:
       tags:
@@ -579,6 +487,9 @@ paths:
         \ of results\n    offset: Number of results to skip\n    session: Database session\n\nReturns:\n    List of automations\
         \ with counts"
       operationId: list_automations_api_v1_registry_automations_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: state
         in: query
@@ -602,16 +513,6 @@ paths:
           type: integer
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -633,6 +534,9 @@ paths:
       description: "Get a specific automation.\n\nArgs:\n    automation_id: Internal UUID or HA automation ID\n    session:\
         \ Database session\n\nReturns:\n    Automation details\n\nRaises:\n    HTTPException: If automation not found"
       operationId: get_automation_api_v1_registry_automations__automation_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: automation_id
         in: path
@@ -640,16 +544,6 @@ paths:
         schema:
           type: string
           title: Automation Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -672,6 +566,9 @@ paths:
         \ UUID, HA automation ID, or entity ID slug\n    session: Database session\n\nReturns:\n    Automation config dict\
         \ from HA"
       operationId: get_automation_config_api_v1_registry_automations__automation_id__config_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: automation_id
         in: path
@@ -679,16 +576,6 @@ paths:
         schema:
           type: string
           title: Automation Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -712,6 +599,9 @@ paths:
       description: "List all scripts.\n\nArgs:\n    state: Optional filter by state\n    limit: Maximum number of results\n\
         \    offset: Number of results to skip\n    session: Database session\n\nReturns:\n    List of scripts with counts"
       operationId: list_scripts_api_v1_registry_scripts_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: state
         in: query
@@ -735,16 +625,6 @@ paths:
           type: integer
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -766,6 +646,9 @@ paths:
       description: "Get a specific script.\n\nArgs:\n    script_id: Internal UUID or entity ID\n    session: Database session\n\
         \nReturns:\n    Script details\n\nRaises:\n    HTTPException: If script not found"
       operationId: get_script_api_v1_registry_scripts__script_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: script_id
         in: path
@@ -773,16 +656,6 @@ paths:
         schema:
           type: string
           title: Script Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -804,6 +677,9 @@ paths:
       description: "List all scenes.\n\nArgs:\n    limit: Maximum number of results\n    offset: Number of results to skip\n\
         \    session: Database session\n\nReturns:\n    List of scenes"
       operationId: list_scenes_api_v1_registry_scenes_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: limit
         in: query
@@ -819,16 +695,6 @@ paths:
           type: integer
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -850,6 +716,9 @@ paths:
       description: "Get a specific scene.\n\nArgs:\n    scene_id: Internal UUID or entity ID\n    session: Database session\n\
         \nReturns:\n    Scene details\n\nRaises:\n    HTTPException: If scene not found"
       operationId: get_scene_api_v1_registry_scenes__scene_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: scene_id
         in: path
@@ -857,16 +726,6 @@ paths:
         schema:
           type: string
           title: Scene Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -888,6 +747,9 @@ paths:
       description: "List all services.\n\nArgs:\n    domain: Optional filter by domain\n    limit: Maximum number of results\n\
         \    offset: Number of results to skip\n    session: Database session\n\nReturns:\n    List of services with metadata"
       operationId: list_services_api_v1_registry_services_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: domain
         in: query
@@ -911,16 +773,6 @@ paths:
           type: integer
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -942,6 +794,9 @@ paths:
       description: "Get a specific service.\n\nArgs:\n    service_id: Internal UUID or full service name (domain.service)\n\
         \    session: Database session\n\nReturns:\n    Service details\n\nRaises:\n    HTTPException: If service not found"
       operationId: get_service_api_v1_registry_services__service_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: service_id
         in: path
@@ -949,16 +804,6 @@ paths:
         schema:
           type: string
           title: Service Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -980,23 +825,12 @@ paths:
       description: "Call a Home Assistant service via MCP.\n\nArgs:\n    request: Service call request\n    session: Database\
         \ session\n\nReturns:\n    Service call result"
       operationId: call_service_api_v1_registry_services_call_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ServiceCallRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -1010,6 +844,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/registry/services/seed:
     post:
       tags:
@@ -1018,33 +855,19 @@ paths:
       description: "Seed common services into the database.\n\nThis populates the service registry with known common services\n\
         that agents can use for automation proposals.\n\nArgs:\n    session: Database session\n\nReturns:\n    Seeding statistics"
       operationId: seed_services_api_v1_registry_services_seed_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                type: object
                 additionalProperties:
                   type: integer
+                type: object
                 title: Response Seed Services Api V1 Registry Services Seed Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/registry/summary:
     get:
       tags:
@@ -1053,17 +876,6 @@ paths:
       description: "Get a summary of the HA registry.\n\nProvides counts and status of automations, scripts, scenes, and services.\n\
         \nArgs:\n    session: Database session\n\nReturns:\n    Registry summary with MCP gaps"
       operationId: get_registry_summary_api_v1_registry_summary_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1071,12 +883,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HARegistrySummary'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/conversations:
     post:
       tags:
@@ -1084,17 +893,9 @@ paths:
       summary: Start a new conversation
       description: Create a new conversation and send the initial message.
       operationId: create_conversation_api_v1_conversations_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       requestBody:
         required: true
         content:
@@ -1126,6 +927,9 @@ paths:
       summary: List conversations
       description: List all conversations for the current user.
       operationId: list_conversations_api_v1_conversations_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: status
         in: query
@@ -1149,16 +953,6 @@ paths:
           type: integer
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1179,6 +973,9 @@ paths:
       summary: Get conversation details
       description: Get a conversation with all its messages.
       operationId: get_conversation_api_v1_conversations__conversation_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: conversation_id
         in: path
@@ -1186,16 +983,6 @@ paths:
         schema:
           type: string
           title: Conversation Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1221,6 +1008,9 @@ paths:
       summary: Delete conversation
       description: Delete a conversation and all its messages.
       operationId: delete_conversation_api_v1_conversations__conversation_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: conversation_id
         in: path
@@ -1228,16 +1018,6 @@ paths:
         schema:
           type: string
           title: Conversation Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1266,6 +1046,9 @@ paths:
       summary: Send a message
       description: Send a message in an existing conversation.
       operationId: send_message_api_v1_conversations__conversation_id__messages_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: conversation_id
         in: path
@@ -1273,16 +1056,6 @@ paths:
         schema:
           type: string
           title: Conversation Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1315,6 +1088,9 @@ paths:
       summary: List proposals
       description: List automation proposals with optional status filter.
       operationId: list_proposals_api_v1_proposals_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: status
         in: query
@@ -1338,16 +1114,6 @@ paths:
           type: integer
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1367,17 +1133,9 @@ paths:
       summary: Create proposal
       description: Create a new automation proposal directly (without conversation).
       operationId: create_proposal_api_v1_proposals_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       requestBody:
         required: true
         content:
@@ -1404,6 +1162,9 @@ paths:
       summary: List pending proposals
       description: List proposals awaiting approval.
       operationId: list_pending_proposals_api_v1_proposals_pending_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: limit
         in: query
@@ -1412,16 +1173,6 @@ paths:
           type: integer
           default: 50
           title: Limit
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1442,6 +1193,9 @@ paths:
       summary: Get proposal details
       description: Get a proposal with its YAML content.
       operationId: get_proposal_api_v1_proposals__proposal_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: proposal_id
         in: path
@@ -1449,16 +1203,6 @@ paths:
         schema:
           type: string
           title: Proposal Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1478,13 +1222,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/proposals/{proposal_id}/approve:
-    post:
+    delete:
       tags:
       - Proposals
-      summary: Approve proposal
-      description: Approve a pending automation proposal.
-      operationId: approve_proposal_api_v1_proposals__proposal_id__approve_post
+      summary: Delete proposal
+      description: Delete a proposal. Cannot delete deployed proposals (rollback first).
+      operationId: delete_proposal_api_v1_proposals__proposal_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: proposal_id
         in: path
@@ -1492,16 +1238,44 @@ paths:
         schema:
           type: string
           title: Proposal Id
-      - name: args
-        in: query
+      responses:
+        '204':
+          description: Successful Response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/approve:
+    post:
+      tags:
+      - Proposals
+      summary: Approve proposal
+      description: Approve a pending automation proposal.
+      operationId: approve_proposal_api_v1_proposals__proposal_id__approve_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
         required: true
         schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
+          type: string
+          title: Proposal Id
       requestBody:
         required: true
         content:
@@ -1540,6 +1314,9 @@ paths:
       summary: Reject proposal
       description: Reject a pending automation proposal.
       operationId: reject_proposal_api_v1_proposals__proposal_id__reject_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: proposal_id
         in: path
@@ -1547,16 +1324,6 @@ paths:
         schema:
           type: string
           title: Proposal Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1595,6 +1362,9 @@ paths:
       summary: Deploy proposal
       description: Deploy an approved automation to Home Assistant.
       operationId: deploy_proposal_api_v1_proposals__proposal_id__deploy_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: proposal_id
         in: path
@@ -1602,16 +1372,6 @@ paths:
         schema:
           type: string
           title: Proposal Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         content:
           application/json:
@@ -1652,6 +1412,9 @@ paths:
       summary: Rollback proposal
       description: Rollback a deployed automation from Home Assistant.
       operationId: rollback_proposal_api_v1_proposals__proposal_id__rollback_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: proposal_id
         in: path
@@ -1659,16 +1422,6 @@ paths:
         schema:
           type: string
           title: Proposal Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         content:
           application/json:
@@ -1709,6 +1462,9 @@ paths:
       summary: List insights
       description: List insights with optional type and status filters.
       operationId: list_insights_api_v1_insights_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: type
         in: query
@@ -1740,16 +1496,6 @@ paths:
           type: integer
           default: 0
           title: Offset
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1769,17 +1515,9 @@ paths:
       summary: Create insight
       description: Create a new insight (typically done by Data Scientist agent).
       operationId: create_insight_api_v1_insights_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       requestBody:
         required: true
         content:
@@ -1806,6 +1544,9 @@ paths:
       summary: List pending insights
       description: List insights awaiting review.
       operationId: list_pending_insights_api_v1_insights_pending_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: limit
         in: query
@@ -1814,16 +1555,6 @@ paths:
           type: integer
           default: 50
           title: Limit
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1844,17 +1575,6 @@ paths:
       summary: Get insights summary
       description: Get counts and statistics for insights.
       operationId: get_insights_summary_api_v1_insights_summary_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1862,12 +1582,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InsightSummary'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/insights/{insight_id}:
     get:
       tags:
@@ -1875,6 +1592,9 @@ paths:
       summary: Get insight
       description: Get a specific insight by ID.
       operationId: get_insight_api_v1_insights__insight_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: insight_id
         in: path
@@ -1882,16 +1602,6 @@ paths:
         schema:
           type: string
           title: Insight Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1917,6 +1627,9 @@ paths:
       summary: Delete insight
       description: Delete an insight.
       operationId: delete_insight_api_v1_insights__insight_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: insight_id
         in: path
@@ -1924,16 +1637,6 @@ paths:
         schema:
           type: string
           title: Insight Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '204':
           description: Successful Response
@@ -1956,6 +1659,9 @@ paths:
       summary: Mark insight as reviewed
       description: Mark an insight as reviewed by a user.
       operationId: review_insight_api_v1_insights__insight_id__review_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: insight_id
         in: path
@@ -1963,16 +1669,6 @@ paths:
         schema:
           type: string
           title: Insight Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -2005,6 +1701,9 @@ paths:
       summary: Mark insight as actioned
       description: Mark an insight as actioned (user took action based on it).
       operationId: action_insight_api_v1_insights__insight_id__action_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: insight_id
         in: path
@@ -2012,16 +1711,6 @@ paths:
         schema:
           type: string
           title: Insight Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -2054,6 +1743,9 @@ paths:
       summary: Dismiss insight
       description: Dismiss an insight (not relevant or not actionable).
       operationId: dismiss_insight_api_v1_insights__insight_id__dismiss_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: insight_id
         in: path
@@ -2061,16 +1753,6 @@ paths:
         schema:
           type: string
           title: Insight Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -2103,23 +1785,12 @@ paths:
       summary: Start energy analysis
       description: Start a new energy analysis job (async).
       operationId: start_analysis_api_v1_insights_analyze_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AnalysisRequest'
+        required: true
       responses:
         '202':
           description: Successful Response
@@ -2133,6 +1804,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/optimize:
     post:
       tags:
@@ -2145,23 +1819,12 @@ paths:
 
         that can be polled for completion.'
       operationId: start_optimization_api_v1_optimize_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/OptimizationRequest'
+        required: true
       responses:
         '202':
           description: Successful Response
@@ -2175,6 +1838,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/optimize/{job_id}:
     get:
       tags:
@@ -2182,6 +1848,9 @@ paths:
       summary: Get Optimization Status
       description: Get the status of an optimization job.
       operationId: get_optimization_status_api_v1_optimize__job_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: job_id
         in: path
@@ -2189,16 +1858,6 @@ paths:
         schema:
           type: string
           title: Job Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -2219,17 +1878,6 @@ paths:
       summary: List Suggestions
       description: List all pending automation suggestions.
       operationId: list_suggestions_api_v1_optimize_suggestions_list_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -2237,12 +1885,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuggestionListResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/optimize/suggestions/{suggestion_id}/accept:
     post:
       tags:
@@ -2250,6 +1895,9 @@ paths:
       summary: Accept Suggestion
       description: Accept an automation suggestion and create a proposal.
       operationId: accept_suggestion_api_v1_optimize_suggestions__suggestion_id__accept_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: suggestion_id
         in: path
@@ -2257,16 +1905,6 @@ paths:
         schema:
           type: string
           title: Suggestion Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -2295,6 +1933,9 @@ paths:
       summary: Reject Suggestion
       description: Reject an automation suggestion.
       operationId: reject_suggestion_api_v1_optimize_suggestions__suggestion_id__reject_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: suggestion_id
         in: path
@@ -2302,16 +1943,6 @@ paths:
         schema:
           type: string
           title: Suggestion Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -2340,6 +1971,9 @@ paths:
       summary: List Schedules
       description: List all insight schedules.
       operationId: list_schedules_api_v1_insight_schedules_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: trigger_type
         in: query
@@ -2356,16 +1990,6 @@ paths:
           type: boolean
           default: false
           title: Enabled Only
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -2388,17 +2012,9 @@ paths:
 
         For cron triggers, the schedule is immediately registered with APScheduler.'
       operationId: create_schedule_api_v1_insight_schedules_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       requestBody:
         required: true
         content:
@@ -2425,6 +2041,9 @@ paths:
       summary: Get Schedule
       description: Get a single insight schedule by ID.
       operationId: get_schedule_api_v1_insight_schedules__schedule_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: schedule_id
         in: path
@@ -2432,16 +2051,6 @@ paths:
         schema:
           type: string
           title: Schedule Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -2461,6 +2070,9 @@ paths:
       summary: Update Schedule
       description: Update an insight schedule.
       operationId: update_schedule_api_v1_insight_schedules__schedule_id__put
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: schedule_id
         in: path
@@ -2468,16 +2080,6 @@ paths:
         schema:
           type: string
           title: Schedule Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
         required: true
         content:
@@ -2503,6 +2105,9 @@ paths:
       summary: Delete Schedule
       description: Delete an insight schedule.
       operationId: delete_schedule_api_v1_insight_schedules__schedule_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: schedule_id
         in: path
@@ -2510,16 +2115,6 @@ paths:
         schema:
           type: string
           title: Schedule Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '204':
           description: Successful Response
@@ -2536,6 +2131,9 @@ paths:
       summary: Run Schedule Now
       description: Manually trigger a scheduled insight analysis.
       operationId: run_schedule_now_api_v1_insight_schedules__schedule_id__run_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: schedule_id
         in: path
@@ -2543,16 +2141,6 @@ paths:
         schema:
           type: string
           title: Schedule Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -2580,23 +2168,12 @@ paths:
         \ \"{{ trigger.from_state.state }}\"\n          new_state: \"{{ trigger.to_state.state }}\"\n```\n\nRate limited to\
         \ 30/minute to prevent HA event storms."
       operationId: receive_ha_webhook_api_v1_webhooks_ha_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/HAWebhookPayload'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -2610,6 +2187,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/traces/{trace_id}/spans:
     get:
       tags:
@@ -2622,6 +2202,9 @@ paths:
 
         into a nested tree with agent identification and relative timing.'
       operationId: get_trace_spans_api_v1_traces__trace_id__spans_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
       parameters:
       - name: trace_id
         in: path
@@ -2629,16 +2212,6 @@ paths:
         schema:
           type: string
           title: Trace Id
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -2671,17 +2244,6 @@ paths:
 
         All models power the Architect agent with Home Assistant tools.'
       operationId: list_models_api_v1_models_get
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -2689,12 +2251,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ModelsResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/feedback:
     post:
       tags:
@@ -2705,23 +2264,12 @@ paths:
 
         Logs user sentiment against the MLflow trace for model evaluation.'
       operationId: submit_feedback_api_v1_feedback_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/FeedbackRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -2734,6 +2282,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/chat/completions:
     post:
       tags:
@@ -2749,23 +2300,12 @@ paths:
 
         Rate limited to 10/minute (LLM-backed).'
       operationId: create_chat_completion_api_v1_chat_completions_post
-      parameters:
-      - name: args
-        in: query
-        required: true
-        schema:
-          title: Args
-      - name: kwargs
-        in: query
-        required: true
-        schema:
-          title: Kwargs
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ChatCompletionRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -2778,6 +2318,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
 components:
   schemas:
     ActionRequest:
@@ -5011,6 +4554,32 @@ components:
       - yaml_content
       title: ProposalYAMLResponse
       description: Schema for proposal with YAML content.
+    RegistrySyncResponse:
+      properties:
+        automations_synced:
+          type: integer
+          title: Automations Synced
+          description: Number of automations synced
+        scripts_synced:
+          type: integer
+          title: Scripts Synced
+          description: Number of scripts synced
+        scenes_synced:
+          type: integer
+          title: Scenes Synced
+          description: Number of scenes synced
+        duration_seconds:
+          type: number
+          title: Duration Seconds
+          description: Sync duration in seconds
+      type: object
+      required:
+      - automations_synced
+      - scripts_synced
+      - scenes_synced
+      - duration_seconds
+      title: RegistrySyncResponse
+      description: Response from registry sync.
     RejectionRequest:
       properties:
         reason:
@@ -5565,6 +5134,15 @@ components:
       - message
       title: WebhookResponse
       description: Response after processing a webhook.
+  securitySchemes:
+    APIKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    APIKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
 servers:
 - url: http://localhost:8000
   description: Local development

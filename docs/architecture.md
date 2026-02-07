@@ -274,6 +274,7 @@ All endpoints require API key authentication via `X-API-Key` header (except heal
 | `/api/v1/proposals/{id}/rollback` | POST | Rollback deployment |
 | `/api/v1/optimize` | POST | Run optimization analysis |
 | `/api/v1/registry/automations` | GET | List HA automations |
+| `/api/v1/registry/sync` | POST | Sync automations/scripts/scenes from HA |
 | `/api/v1/registry/services` | GET | List HA services |
 | `/api/v1/registry/services/call` | POST | Call an HA service |
 | `/api/v1/webhooks/ha` | POST | Receive HA webhook events |

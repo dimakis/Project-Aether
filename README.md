@@ -691,6 +691,7 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `GET` | `/api/v1/registry/scripts` | List HA scripts |
 | `GET` | `/api/v1/registry/scenes` | List HA scenes |
 | `GET` | `/api/v1/registry/services` | List known services |
+| `POST` | `/api/v1/registry/sync` | Sync automations/scripts/scenes from HA |
 | `POST` | `/api/v1/registry/services/call` | Call an HA service |
 | `GET` | `/api/v1/registry/summary` | Registry summary |
 | **Webhooks** | | |
