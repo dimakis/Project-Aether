@@ -9,6 +9,7 @@ import {
   Settings2,
   FileText,
   History,
+  Ban,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,13 +35,14 @@ export function AgentCard({
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const statusMutation = useUpdateAgentStatus();
+  const isDisabled = agent.status === "disabled";
 
   const handleStatusChange = (status: AgentStatusValue) => {
     statusMutation.mutate({ name: agent.name, status });
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={cn("overflow-hidden", isDisabled && "opacity-60")}>
       {/* Card Header - always visible */}
       <button
         onClick={onToggle}
@@ -51,10 +53,14 @@ export function AgentCard({
         ) : (
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         )}
-        <Bot className="h-5 w-5 text-primary" />
+        {isDisabled ? (
+          <Ban className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <Bot className="h-5 w-5 text-primary" />
+        )}
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold">
+            <span className={cn("font-semibold", isDisabled && "text-muted-foreground")}>
               {AGENT_LABELS[agent.name] ?? agent.name}
             </span>
             <Badge
