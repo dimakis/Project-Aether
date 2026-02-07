@@ -1,5 +1,6 @@
 """Discovery sync service for orchestrating HA synchronization."""
 
+import time
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -7,6 +8,7 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.areas import AreaRepository
+from src.dal.automations import AutomationRepository, SceneRepository, ScriptRepository
 from src.dal.devices import DeviceRepository
 from src.dal.entities import EntityRepository
 from src.mcp import MCPClient, parse_entity_list
@@ -44,6 +46,9 @@ class DiscoverySyncService:
         self.entity_repo = EntityRepository(session)
         self.device_repo = DeviceRepository(session)
         self.area_repo = AreaRepository(session)
+        self.automation_repo = AutomationRepository(session)
+        self.script_repo = ScriptRepository(session)
+        self.scene_repo = SceneRepository(session)
 
     async def run_discovery(
         self,
@@ -101,7 +106,7 @@ class DiscoverySyncService:
             # 5. Get domain breakdown
             discovery.domain_counts = await self.entity_repo.get_domain_counts()
 
-            # 6. Sync automations, scripts, scenes
+            # 6. Sync automations, scripts, scenes to registry tables
             await self._sync_automation_entities(entities)
             discovery.automations_found = len([e for e in entities if e.domain == "automation"])
             discovery.scripts_found = len([e for e in entities if e.domain == "script"])
@@ -257,15 +262,87 @@ class DiscoverySyncService:
 
         return stats
 
-    async def _sync_automation_entities(self, entities: list[Any]) -> None:
-        """Sync automation, script, and scene entities.
+    async def _sync_automation_entities(self, entities: list[Any]) -> dict[str, int]:
+        """Sync automation, script, and scene entities to registry tables.
+
+        Populates ha_automations, scripts, and scenes tables from parsed
+        entity data. Removes stale records no longer present in HA.
 
         Args:
-            entities: All parsed entities
+            entities: All parsed entities (filters to automation/script/scene)
+
+        Returns:
+            Stats dict with automations_synced, scripts_synced, scenes_synced
         """
-        # For now, just rely on the main entity sync
-        # Detailed automation/script/scene records would need additional MCP tools
-        pass
+        stats = {"automations_synced": 0, "scripts_synced": 0, "scenes_synced": 0}
+
+        # Partition entities by domain
+        automations = [e for e in entities if e.domain == "automation"]
+        scripts = [e for e in entities if e.domain == "script"]
+        scenes = [e for e in entities if e.domain == "scene"]
+
+        # --- Automations ---
+        seen_automation_ids: set[str] = set()
+        for entity in automations:
+            attrs = entity.attributes or {}
+            ha_automation_id = attrs.get("id", entity.entity_id.split(".", 1)[-1])
+            seen_automation_ids.add(ha_automation_id)
+
+            await self.automation_repo.upsert({
+                "ha_automation_id": ha_automation_id,
+                "entity_id": entity.entity_id,
+                "alias": attrs.get("friendly_name", entity.name),
+                "state": entity.state or "off",
+                "mode": attrs.get("mode", "single"),
+                "last_triggered": attrs.get("last_triggered"),
+            })
+            stats["automations_synced"] += 1
+
+        # Remove stale automations
+        existing_automation_ids = await self.automation_repo.get_all_ha_ids()
+        for stale_id in existing_automation_ids - seen_automation_ids:
+            await self.automation_repo.delete(stale_id)
+
+        # --- Scripts ---
+        seen_script_ids: set[str] = set()
+        for entity in scripts:
+            attrs = entity.attributes or {}
+            seen_script_ids.add(entity.entity_id)
+
+            await self.script_repo.upsert({
+                "entity_id": entity.entity_id,
+                "alias": attrs.get("friendly_name", entity.name),
+                "state": entity.state or "off",
+                "mode": attrs.get("mode", "single"),
+                "icon": attrs.get("icon"),
+                "last_triggered": attrs.get("last_triggered"),
+            })
+            stats["scripts_synced"] += 1
+
+        # Remove stale scripts
+        existing_script_ids = await self.script_repo.get_all_ha_ids()
+        for stale_id in existing_script_ids - seen_script_ids:
+            await self.script_repo.delete(stale_id)
+
+        # --- Scenes ---
+        seen_scene_ids: set[str] = set()
+        for entity in scenes:
+            attrs = entity.attributes or {}
+            seen_scene_ids.add(entity.entity_id)
+
+            await self.scene_repo.upsert({
+                "entity_id": entity.entity_id,
+                "name": attrs.get("friendly_name", entity.name),
+                "icon": attrs.get("icon"),
+            })
+            stats["scenes_synced"] += 1
+
+        # Remove stale scenes
+        existing_scene_ids = await self.scene_repo.get_all_ha_ids()
+        for stale_id in existing_scene_ids - seen_scene_ids:
+            await self.scene_repo.delete(stale_id)
+
+        return stats
 
 
 async def run_discovery(
@@ -289,3 +366,42 @@ async def run_discovery(
 
     service = DiscoverySyncService(session, mcp_client)
     return await service.run_discovery(triggered_by=triggered_by)
+
+
+async def run_registry_sync(
+    session: AsyncSession,
+    mcp_client: MCPClient | None = None,
+) -> dict[str, Any]:
+    """Sync only registry items (automations, scripts, scenes).
+
+    Lighter-weight alternative to run_discovery() that skips
+    area/device/entity sync and only populates registry tables.
+
+    Args:
+        session: Database session
+        mcp_client: Optional MCP client (creates one if not provided)
+
+    Returns:
+        Dict with automations_synced, scripts_synced, scenes_synced,
+        and duration_seconds.
+    """
+    if mcp_client is None:
+        from src.mcp import get_mcp_client
+        mcp_client = get_mcp_client()
+
+    start = time.monotonic()
+
+    service = DiscoverySyncService(session, mcp_client)
+
+    # Fetch entities from HA and parse
+    raw_entities = await mcp_client.list_entities(detailed=True)
+    entities = parse_entity_list(raw_entities)
+
+    # Sync only registry tables
+    stats = await service._sync_automation_entities(entities)
+
+    duration = time.monotonic() - start
+    stats["duration_seconds"] = round(duration, 2)
+
+    await session.commit()
+    return stats

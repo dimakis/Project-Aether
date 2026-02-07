@@ -38,7 +38,21 @@ def mock_mcp_client():
 @pytest.fixture
 def sync_service(mock_session, mock_mcp_client):
     """Create DiscoverySyncService with mocked dependencies."""
-    return DiscoverySyncService(mock_session, mock_mcp_client)
+    service = DiscoverySyncService(mock_session, mock_mcp_client)
+    # Mock registry repos so run_discovery tests don't hit real DB
+    service.automation_repo = MagicMock()
+    service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+    service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+    service.automation_repo.delete = AsyncMock(return_value=True)
+    service.script_repo = MagicMock()
+    service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+    service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+    service.script_repo.delete = AsyncMock(return_value=True)
+    service.scene_repo = MagicMock()
+    service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+    service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+    service.scene_repo.delete = AsyncMock(return_value=True)
+    return service
 
 
 @pytest.fixture
@@ -1381,7 +1395,7 @@ class TestRunRegistrySync:
         mock_mcp = MagicMock()
         mock_mcp.list_entities = AsyncMock(return_value=[])
 
-        with patch("src.dal.sync.get_mcp_client", return_value=mock_mcp) as mock_get_mcp, \
+        with patch("src.mcp.get_mcp_client", return_value=mock_mcp) as mock_get_mcp, \
              patch("src.dal.sync.parse_entity_list", return_value=[]), \
              patch.object(DiscoverySyncService, "_sync_automation_entities", new_callable=AsyncMock) as mock_sync:
             mock_sync.return_value = {
