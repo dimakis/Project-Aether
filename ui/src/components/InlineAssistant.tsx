@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { streamChat } from "@/api/client";
 import type { ChatMessage } from "@/lib/types";
+import { handleTraceEvent } from "@/lib/trace-event-handler";
+import type { TraceEventChunk } from "@/lib/trace-event-handler";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -65,6 +67,7 @@ export function InlineAssistant({
   const [messages, setMessages] = useState<InlineMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -119,16 +122,21 @@ export function InlineAssistant({
         let toolCallsUsed: string[] = [];
 
         for await (const chunk of streamChat(model, chatHistory)) {
-          if (
-            typeof chunk === "object" &&
-            "type" in chunk &&
-            chunk.type === "metadata"
-          ) {
-            // Capture tool calls from metadata for targeted invalidation
-            if (chunk.tool_calls) {
-              toolCallsUsed = chunk.tool_calls;
+          if (typeof chunk === "object" && "type" in chunk) {
+            if (chunk.type === "metadata") {
+              // Capture tool calls from metadata for targeted invalidation
+              if (chunk.tool_calls) {
+                toolCallsUsed = chunk.tool_calls;
+              }
+              continue;
             }
-            continue;
+            if (chunk.type === "trace") {
+              // Update local agent activity indicator
+              handleTraceEvent(chunk as TraceEventChunk, (activity) => {
+                setActiveAgent(activity.activeAgent ?? null);
+              });
+              continue;
+            }
           }
           const text = typeof chunk === "string" ? chunk : "";
           fullContent += text;
@@ -191,6 +199,7 @@ export function InlineAssistant({
         });
       } finally {
         setIsStreaming(false);
+        setActiveAgent(null);
         inputRef.current?.focus();
       }
     },
@@ -293,7 +302,18 @@ export function InlineAssistant({
                                 {msg.content || (msg.isStreaming ? "..." : "")}
                               </ReactMarkdown>
                               {msg.isStreaming && (
-                                <span className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-primary/60" />
+                                <span className="ml-1 inline-flex items-center gap-1">
+                                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary/60" />
+                                  {activeAgent && activeAgent !== "architect" && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {activeAgent === "data_scientist"
+                                        ? "Analyzing..."
+                                        : activeAgent === "system"
+                                          ? "Processing..."
+                                          : activeAgent}
+                                    </span>
+                                  )}
+                                </span>
                               )}
                             </div>
                           ) : (
