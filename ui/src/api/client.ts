@@ -612,6 +612,91 @@ export const system = {
     request<import("@/lib/types").SystemStatus>("/status"),
 };
 
+// ─── Diagnostics ────────────────────────────────────────────────────────────
+
+export interface EntityDiagnosticItem {
+  entity_id: string;
+  state: string;
+  available: boolean;
+  last_changed: string | null;
+  integration: string;
+  issues: string[];
+}
+
+export interface IntegrationHealthItem {
+  entry_id: string;
+  domain: string;
+  title: string;
+  state: string;
+  reason: string | null;
+  disabled_by: string | null;
+}
+
+export interface HAHealthResponse {
+  unavailable_entities: EntityDiagnosticItem[];
+  stale_entities: EntityDiagnosticItem[];
+  unhealthy_integrations: IntegrationHealthItem[];
+  summary: {
+    unavailable_count: number;
+    stale_count: number;
+    unhealthy_integration_count: number;
+  };
+}
+
+export interface ErrorLogResponse {
+  summary: {
+    total: number;
+    errors: number;
+    warnings: number;
+    by_level: Record<string, number>;
+  };
+  by_integration: Record<string, Array<{
+    timestamp: string;
+    level: string;
+    logger: string;
+    message: string;
+    exception: string | null;
+  }>>;
+  known_patterns: Array<{
+    pattern: string;
+    severity: string;
+    suggestion: string;
+    matched_entries: number;
+  }>;
+  entry_count: number;
+}
+
+export interface ConfigCheckResponse {
+  valid: boolean;
+  result: string;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface RecentTracesResponse {
+  traces: Array<{
+    trace_id: string;
+    status: string;
+    timestamp_ms: number;
+    duration_ms: number | null;
+  }>;
+  total: number;
+}
+
+export const diagnostics = {
+  haHealth: () =>
+    request<HAHealthResponse>("/diagnostics/ha-health"),
+
+  errorLog: () =>
+    request<ErrorLogResponse>("/diagnostics/error-log"),
+
+  configCheck: () =>
+    request<ConfigCheckResponse>("/diagnostics/config-check"),
+
+  recentTraces: (limit = 50) =>
+    request<RecentTracesResponse>(`/diagnostics/traces/recent?limit=${limit}`),
+};
+
 // ─── Auth / Setup ────────────────────────────────────────────────────────────
 
 export const auth = {

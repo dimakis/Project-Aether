@@ -3,6 +3,7 @@ import {
   agents,
   areas,
   conversations,
+  diagnostics,
   insightSchedules,
   models,
   modelRatings,
@@ -629,5 +630,40 @@ export function useCreateModelRating() {
       qc.invalidateQueries({ queryKey: ["model-ratings"] });
       qc.invalidateQueries({ queryKey: ["model-summary"] });
     },
+  });
+}
+
+// ─── Diagnostics ────────────────────────────────────────────────────────────
+
+export function useHAHealth() {
+  return useQuery({
+    queryKey: ["diagnostics", "ha-health"],
+    queryFn: () => diagnostics.haHealth(),
+    staleTime: 60_000,
+  });
+}
+
+export function useErrorLog() {
+  return useQuery({
+    queryKey: ["diagnostics", "error-log"],
+    queryFn: () => diagnostics.errorLog(),
+    staleTime: 60_000,
+  });
+}
+
+export function useConfigCheck() {
+  return useQuery({
+    queryKey: ["diagnostics", "config-check"],
+    queryFn: () => diagnostics.configCheck(),
+    staleTime: 60_000,
+    enabled: false, // Only fetch on demand
+  });
+}
+
+export function useRecentTraces(limit = 50) {
+  return useQuery({
+    queryKey: ["diagnostics", "traces", limit],
+    queryFn: () => diagnostics.recentTraces(limit),
+    staleTime: 30_000,
   });
 }
