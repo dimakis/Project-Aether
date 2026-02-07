@@ -79,10 +79,10 @@ class TestAPIKeyAuthentication:
     ):
         """Test that requests without API key return 401 when auth is enabled."""
         # Make request to a protected endpoint without API key
-        response = await client_with_auth.get("/api/v1/entities")
+        response = await client_with_auth.get("/api/v1/models")
 
         assert response.status_code == 401
-        assert "API key required" in response.json()["error"]["message"]
+        assert "Authentication required" in response.json()["error"]["message"]
 
     async def test_request_with_valid_header_key_succeeds(
         self,
@@ -91,7 +91,7 @@ class TestAPIKeyAuthentication:
         """Test that requests with valid API key in header succeed."""
         # Make request with valid API key in header
         response = await client_with_auth.get(
-            "/api/v1/entities",
+            "/api/v1/models",
             headers={"X-API-Key": "test-api-key-123"},
         )
 
@@ -105,7 +105,7 @@ class TestAPIKeyAuthentication:
         """Test that requests with valid API key in query parameter succeed."""
         # Make request with valid API key in query parameter
         response = await client_with_auth.get(
-            "/api/v1/entities",
+            "/api/v1/models",
             params={"api_key": "test-api-key-123"},
         )
 
@@ -119,7 +119,7 @@ class TestAPIKeyAuthentication:
         """Test that requests with invalid API key return 401."""
         # Make request with invalid API key
         response = await client_with_auth.get(
-            "/api/v1/entities",
+            "/api/v1/models",
             headers={"X-API-Key": "wrong-key"},
         )
 
@@ -132,7 +132,7 @@ class TestAPIKeyAuthentication:
     ):
         """Test that authentication is bypassed when API_KEY is empty."""
         # Make request without API key
-        response = await client_without_auth.get("/api/v1/entities")
+        response = await client_without_auth.get("/api/v1/models")
 
         # Should succeed (auth disabled)
         assert response.status_code != 401
@@ -143,25 +143,23 @@ class TestAPIKeyAuthentication:
     ):
         """Test that health endpoint works without authentication."""
         # Make request to health endpoint without API key
-        response = await client_with_auth.get("/api/v1/system/health")
+        response = await client_with_auth.get("/api/v1/health")
 
         # Should succeed (health endpoint is exempt)
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
 
-    async def test_status_endpoint_works_without_auth(
+    async def test_metrics_endpoint_works_without_auth(
         self,
         client_with_auth: AsyncClient,
     ):
-        """Test that status endpoint works without authentication."""
-        # Make request to status endpoint without API key
-        response = await client_with_auth.get("/api/v1/system/status")
+        """Test that metrics endpoint works without authentication."""
+        # Make request to metrics endpoint without API key
+        response = await client_with_auth.get("/api/v1/metrics")
 
-        # Should succeed (status endpoint is exempt)
+        # Should succeed (metrics endpoint is exempt)
         assert response.status_code == 200
-        data = response.json()
-        assert "status" in data
 
     async def test_header_key_takes_precedence_over_query(
         self,
@@ -170,7 +168,7 @@ class TestAPIKeyAuthentication:
         """Test that header key takes precedence when both are provided."""
         # Make request with valid header key but invalid query key
         response = await client_with_auth.get(
-            "/api/v1/entities",
+            "/api/v1/models",
             headers={"X-API-Key": "test-api-key-123"},
             params={"api_key": "wrong-key"},
         )
@@ -210,13 +208,13 @@ class TestAPIKeyAuthentication:
         """Test that constant-time comparison prevents timing attacks."""
         # Try with key that differs at the start
         response1 = await client_with_auth.get(
-            "/api/v1/entities",
+            "/api/v1/models",
             headers={"X-API-Key": "wrong-start"},
         )
 
         # Try with key that differs at the end
         response2 = await client_with_auth.get(
-            "/api/v1/entities",
+            "/api/v1/models",
             headers={"X-API-Key": "test-api-key-999"},
         )
 

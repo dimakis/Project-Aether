@@ -133,6 +133,40 @@ class Settings(BaseSettings):
         description="API key for authentication (empty = auth disabled)",
     )
 
+    # Authentication (JWT + Passkey)
+    auth_username: str = Field(
+        default="admin",
+        description="Login username for session authentication",
+    )
+    auth_password: SecretStr = Field(
+        default=SecretStr(""),
+        description="Login password (empty = session auth disabled, API key or passkey only)",
+    )
+    jwt_secret: SecretStr = Field(
+        default=SecretStr(""),
+        description="JWT signing secret (auto-generated on startup if empty)",
+    )
+    jwt_expiry_hours: int = Field(
+        default=72,
+        ge=1,
+        le=720,
+        description="JWT token lifetime in hours",
+    )
+
+    # WebAuthn / Passkey
+    webauthn_rp_id: str = Field(
+        default="localhost",
+        description="WebAuthn Relying Party ID (your domain, e.g. home.example.com)",
+    )
+    webauthn_rp_name: str = Field(
+        default="Aether",
+        description="WebAuthn Relying Party display name",
+    )
+    webauthn_origin: str = Field(
+        default="http://localhost:3000",
+        description="Expected WebAuthn origin (must match the URL users access)",
+    )
+
     # Scheduler (Feature 10: Scheduled & Event-Driven Insights)
     scheduler_enabled: bool = Field(
         default=True,

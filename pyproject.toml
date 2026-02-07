@@ -49,6 +49,8 @@ dependencies = [
     "structlog>=24.4.0",
     "langchain-google-genai>=4.2.0",
     "slowapi>=0.1.9",
+    "pyjwt",
+    "bcrypt",
 ]
 
 [project.optional-dependencies]
