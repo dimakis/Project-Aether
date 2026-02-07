@@ -43,6 +43,9 @@ from src.storage.entities.system_config import SystemConfig
 # LLM Usage Tracking
 from src.storage.entities.llm_usage import LLMUsage
 
+# Model Ratings
+from src.storage.entities.model_rating import ModelRating
+
 __all__ = [
     # Core
     "Agent",
@@ -82,4 +85,6 @@ __all__ = [
     "SystemConfig",
     # LLM Usage
     "LLMUsage",
+    # Model Ratings
+    "ModelRating",
 ]
