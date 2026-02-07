@@ -302,19 +302,49 @@ export function ChatPage() {
 
   const handleCreateProposal = (yamlContent: string) => {
     try {
-      const parsed = yaml.load(yamlContent) as Record<string, unknown>;
+      // Use safe schema to prevent arbitrary object instantiation from YAML
+      const parsed = yaml.load(yamlContent, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
+
+      // Detect proposal type from YAML structure:
+      // - scene: has "entities" key, no triggers/sequence
+      // - script: has "sequence" key, no triggers
+      // - automation (default): has triggers
+      let proposal_type = "automation";
+      if (parsed.entities && !parsed.trigger && !parsed.sequence) {
+        proposal_type = "scene";
+      } else if (parsed.sequence && !parsed.trigger) {
+        proposal_type = "script";
+      }
+
       const name =
         (parsed.alias as string) ||
         (parsed.name as string) ||
-        "Automation from chat";
+        `${proposal_type.charAt(0).toUpperCase() + proposal_type.slice(1)} from chat`;
+
+      // Extract actions based on type
+      let actions: unknown;
+      if (proposal_type === "scene") {
+        // Convert entities map to action list for scene
+        const entities = parsed.entities as Record<string, unknown>;
+        actions = entities
+          ? Object.entries(entities).map(([eid, state]) => ({
+              entity_id: eid,
+              ...(typeof state === "object" && state !== null ? state : { state }),
+            }))
+          : [];
+      } else if (proposal_type === "script") {
+        actions = parsed.sequence || parsed.action || parsed.actions || [];
+      } else {
+        actions = parsed.action || parsed.actions || [];
+      }
+
       const trigger = parsed.trigger || parsed.triggers || [];
-      const actions = parsed.action || parsed.actions || [];
       const conditions = parsed.condition || parsed.conditions || undefined;
       const mode = (parsed.mode as string) || "single";
       const description = (parsed.description as string) || undefined;
 
       createProposalMut.mutate(
-        { name, trigger, actions, conditions, mode, description },
+        { name, trigger, actions, conditions, mode, description, proposal_type },
         {
           onSuccess: () => {
             navigate("/proposals");

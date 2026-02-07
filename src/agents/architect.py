@@ -251,11 +251,58 @@ class ArchitectAgent(BaseAgent):
             from src.tools import get_all_tools
             return get_all_tools()
         except Exception:
+            import logging
+
+            logging.getLogger(__name__).error(
+                "Failed to load tools -- agent will operate without tools. "
+                "This may affect HITL enforcement.",
+                exc_info=True,
+            )
             return []
 
+    # Read-only tools that can execute without HITL approval.
+    # Any tool NOT in this set is treated as mutating and requires explicit user approval.
+    # This whitelist approach ensures newly added tools default to requiring approval.
+    _READ_ONLY_TOOLS: frozenset[str] = frozenset({
+        # HA query tools
+        "get_entity_state",
+        "list_entities_by_domain",
+        "search_entities",
+        "get_domain_summary",
+        "list_automations",
+        "render_template",
+        "get_ha_logs",
+        "check_ha_config",
+        # Diagnostic tools
+        "analyze_error_log",
+        "find_unavailable_entities",
+        "diagnose_entity",
+        "check_integration_health",
+        "validate_config",
+        # Agent delegation tools (read-only analysis)
+        "analyze_energy",
+        "discover_entities",
+        "get_entity_history",
+        "diagnose_issue",
+        "analyze_behavior",
+        # Analysis tools
+        "run_custom_analysis",
+        # Scheduling (creates config, no HA mutation)
+        "create_insight_schedule",
+        # Approval tools (creating proposals IS the approval mechanism)
+        "seek_approval",
+        "propose_automation_from_insight",
+    })
+
     def _is_mutating_tool(self, tool_name: str) -> bool:
-        """Check if a tool call can mutate Home Assistant state."""
-        return tool_name in {"control_entity"}
+        """Check if a tool call can mutate Home Assistant state.
+
+        Uses a whitelist of known read-only tools. Any tool not in the
+        whitelist is treated as mutating and requires HITL approval.
+        This fail-safe approach ensures newly registered tools default
+        to requiring approval rather than silently bypassing it.
+        """
+        return tool_name not in self._READ_ONLY_TOOLS
 
     async def _handle_tool_calls(
         self,
@@ -465,6 +512,7 @@ class ArchitectAgent(BaseAgent):
             description=proposal_data.get("description"),
             conditions=proposal_data.get("conditions"),
             mode=proposal_data.get("mode", "single"),
+            proposal_type=proposal_data.get("proposal_type", "automation"),
         )
 
         # Submit for approval
@@ -475,6 +523,8 @@ class ArchitectAgent(BaseAgent):
     def _proposal_to_yaml(self, proposal_data: dict) -> str:
         """Convert proposal to YAML string for display.
 
+        Supports automation, script, and scene proposal types.
+
         Args:
             proposal_data: Proposal data dict
 
@@ -483,6 +533,33 @@ class ArchitectAgent(BaseAgent):
         """
         import yaml
 
+        proposal_type = proposal_data.get("proposal_type", "automation")
+
+        if proposal_type == "script":
+            # HA script format: alias, sequence, mode
+            script = {
+                "alias": proposal_data.get("name"),
+                "description": proposal_data.get("description", ""),
+                "sequence": proposal_data.get("actions", []),
+                "mode": proposal_data.get("mode", "single"),
+            }
+            return yaml.dump(script, default_flow_style=False, sort_keys=False)
+
+        if proposal_type == "scene":
+            # HA scene format: name, entities
+            entities = {}
+            for action in proposal_data.get("actions", []):
+                entity_id = action.get("entity_id")
+                if entity_id:
+                    entity_state = {k: v for k, v in action.items() if k != "entity_id"}
+                    entities[entity_id] = entity_state
+            scene = {
+                "name": proposal_data.get("name"),
+                "entities": entities,
+            }
+            return yaml.dump(scene, default_flow_style=False, sort_keys=False)
+
+        # Default: automation format
         automation = {
             "alias": proposal_data.get("name"),
             "description": proposal_data.get("description", ""),

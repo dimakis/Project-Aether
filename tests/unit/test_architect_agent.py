@@ -141,6 +141,82 @@ Would you like me to adjust anything?"""
         assert "mode: single" in yaml_str
 
     @pytest.mark.asyncio
+    async def test_proposal_to_yaml_script(self):
+        """Test YAML generation for script proposals."""
+        from src.agents.architect import ArchitectAgent
+
+        agent = ArchitectAgent()
+
+        proposal_data = {
+            "name": "Good Night Routine",
+            "description": "Turn off all lights and lock doors",
+            "proposal_type": "script",
+            "actions": [
+                {"service": "light.turn_off", "target": {"entity_id": "all"}},
+                {"service": "lock.lock", "target": {"entity_id": "lock.front_door"}},
+            ],
+            "mode": "single",
+        }
+
+        yaml_str = agent._proposal_to_yaml(proposal_data)
+
+        assert "alias: Good Night Routine" in yaml_str
+        assert "sequence:" in yaml_str
+        assert "mode: single" in yaml_str
+        # Scripts should NOT have triggers
+        assert "trigger:" not in yaml_str
+
+    @pytest.mark.asyncio
+    async def test_proposal_to_yaml_scene(self):
+        """Test YAML generation for scene proposals."""
+        from src.agents.architect import ArchitectAgent
+
+        agent = ArchitectAgent()
+
+        proposal_data = {
+            "name": "Movie Time",
+            "description": "Set lights for watching movies",
+            "proposal_type": "scene",
+            "actions": [
+                {"entity_id": "light.living_room", "state": "on", "brightness": 50},
+                {"entity_id": "light.ceiling", "state": "off"},
+            ],
+        }
+
+        yaml_str = agent._proposal_to_yaml(proposal_data)
+
+        assert "name: Movie Time" in yaml_str
+        assert "entities:" in yaml_str
+        # Scenes should NOT have triggers or sequences
+        assert "trigger:" not in yaml_str
+        assert "sequence:" not in yaml_str
+
+    @pytest.mark.asyncio
+    async def test_extract_proposal_with_type(self):
+        """Test proposal extraction preserves proposal_type field."""
+        from src.agents.architect import ArchitectAgent
+
+        agent = ArchitectAgent()
+
+        response = """Here's a script proposal:
+
+```json
+{
+  "proposal": {
+    "name": "Good Night",
+    "proposal_type": "script",
+    "actions": [{"service": "light.turn_off"}],
+    "mode": "single"
+  }
+}
+```"""
+
+        result = agent._extract_proposal(response)
+        assert result is not None
+        assert result["name"] == "Good Night"
+        assert result["proposal_type"] == "script"
+
+    @pytest.mark.asyncio
     async def test_build_messages_includes_system_prompt(self):
         """Test that message building includes system prompt."""
         from src.agents.architect import ArchitectAgent

@@ -63,6 +63,38 @@ seek_approval(
 )
 ```
 
+For scripts (reusable action sequences, no triggers), use:
+```
+seek_approval(
+  action_type="script",
+  name="Good Night Routine",
+  description="Turn off all lights and lock doors",
+  actions=[
+    {"service": "light.turn_off", "target": {"entity_id": "all"}},
+    {"service": "lock.lock", "target": {"entity_id": "lock.front_door"}}
+  ],
+  mode="single"
+)
+```
+
+For scenes (preset entity states), use:
+```
+seek_approval(
+  action_type="scene",
+  name="Movie Time",
+  description="Set lights for watching movies",
+  actions=[
+    {"entity_id": "light.living_room", "state": "on", "brightness": 50},
+    {"entity_id": "light.ceiling", "state": "off"}
+  ]
+)
+```
+
+**When to use which type:**
+- **Automation**: Triggered by events/state changes/time, runs actions automatically
+- **Script**: Manually triggered reusable action sequences (no triggers)
+- **Scene**: Preset entity states that can be activated (snapshots of desired state)
+
 After calling seek_approval, tell the user the proposal has been submitted and
 they can review/approve it on the **Proposals** page.
 
