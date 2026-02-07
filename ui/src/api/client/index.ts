@@ -15,6 +15,8 @@ export {
   usage,
   modelRatings,
 } from "./system";
+export { workflows } from "./workflows";
+export type { WorkflowPreset, WorkflowPresetsResponse } from "./workflows";
 export type {
   EntityDiagnosticItem,
   IntegrationHealthItem,

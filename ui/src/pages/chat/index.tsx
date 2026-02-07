@@ -28,6 +28,10 @@ import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import { ModelPicker } from "./ModelPicker";
+import {
+  WorkflowPresetSelector,
+  type WorkflowSelection,
+} from "./WorkflowPresetSelector";
 import yaml from "js-yaml";
 
 export function ChatPage() {
@@ -59,6 +63,10 @@ export function ChatPage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [workflowSelection, setWorkflowSelection] = useState<WorkflowSelection>({
+    preset: null,
+    disabledAgents: new Set(),
+  });
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { panelOpen: activityPanelOpen } = useActivityPanel();
@@ -419,11 +427,17 @@ export function ChatPage() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Model selector header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-4">
-            <ModelPicker
-              selectedModel={selectedModel}
-              availableModels={availableModels}
-              onModelChange={setSelectedModel}
-            />
+            <div className="flex items-center gap-2">
+              <ModelPicker
+                selectedModel={selectedModel}
+                availableModels={availableModels}
+                onModelChange={setSelectedModel}
+              />
+              <WorkflowPresetSelector
+                selection={workflowSelection}
+                onSelectionChange={setWorkflowSelection}
+              />
+            </div>
 
             <div className="flex items-center gap-2">
               {/* Streaming elapsed timer */}

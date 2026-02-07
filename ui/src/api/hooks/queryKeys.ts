@@ -17,4 +17,5 @@ export const queryKeys = {
   registryAutomations: ["registry", "automations"] as const,
   registrySummary: ["registry", "summary"] as const,
   systemStatus: ["system", "status"] as const,
+  workflowPresets: ["workflows", "presets"] as const,
 } as const;
