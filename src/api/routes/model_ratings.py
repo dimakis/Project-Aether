@@ -68,6 +68,21 @@ class ModelSummaryResponse(BaseModel):
     latest_config: dict | None
 
 
+class ModelPerformanceResponse(BaseModel):
+    """Auto-collected performance metrics from LLMUsage data."""
+
+    model: str
+    agent_role: str | None
+    call_count: int
+    avg_latency_ms: float | None
+    p95_latency_ms: float | None
+    total_input_tokens: int
+    total_output_tokens: int
+    total_tokens: int
+    total_cost_usd: float | None
+    avg_cost_per_call: float | None
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -198,3 +213,76 @@ async def model_summary(
             )
 
         return summaries
+
+
+@router.get("/performance", response_model=list[ModelPerformanceResponse])
+async def model_performance(
+    agent_role: str | None = None,
+    hours: int = 168,  # Default: 7 days
+) -> list[ModelPerformanceResponse]:
+    """Get auto-collected performance metrics from LLM usage data.
+
+    Aggregates latency, token counts, and cost from the LLMUsage table.
+    No manual ratings required -- metrics come from actual usage.
+
+    Args:
+        agent_role: Filter by agent role (e.g. 'architect')
+        hours: Time window in hours (default: 168 = 7 days)
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import case, func
+
+    from src.storage.entities.llm_usage import LLMUsage
+
+    async with get_session() as session:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+        # Base query filtered by time
+        base = select(LLMUsage).where(LLMUsage.created_at >= cutoff)
+
+        if agent_role:
+            base = base.where(LLMUsage.agent_role == agent_role)
+
+        # Aggregate metrics per model + agent_role
+        query = (
+            select(
+                LLMUsage.model,
+                LLMUsage.agent_role,
+                func.count(LLMUsage.id).label("call_count"),
+                func.avg(LLMUsage.latency_ms).label("avg_latency_ms"),
+                func.percentile_cont(0.95)
+                .within_group(LLMUsage.latency_ms)
+                .label("p95_latency_ms"),
+                func.sum(LLMUsage.input_tokens).label("total_input_tokens"),
+                func.sum(LLMUsage.output_tokens).label("total_output_tokens"),
+                func.sum(LLMUsage.total_tokens).label("total_tokens"),
+                func.sum(LLMUsage.cost_usd).label("total_cost_usd"),
+                func.avg(LLMUsage.cost_usd).label("avg_cost_per_call"),
+            )
+            .where(LLMUsage.created_at >= cutoff)
+            .group_by(LLMUsage.model, LLMUsage.agent_role)
+            .order_by(func.count(LLMUsage.id).desc())
+        )
+
+        if agent_role:
+            query = query.where(LLMUsage.agent_role == agent_role)
+
+        result = await session.execute(query)
+        rows = result.all()
+
+        return [
+            ModelPerformanceResponse(
+                model=row.model,
+                agent_role=row.agent_role,
+                call_count=row.call_count,
+                avg_latency_ms=round(float(row.avg_latency_ms), 1) if row.avg_latency_ms else None,
+                p95_latency_ms=round(float(row.p95_latency_ms), 1) if row.p95_latency_ms else None,
+                total_input_tokens=row.total_input_tokens or 0,
+                total_output_tokens=row.total_output_tokens or 0,
+                total_tokens=row.total_tokens or 0,
+                total_cost_usd=round(float(row.total_cost_usd), 4) if row.total_cost_usd else None,
+                avg_cost_per_call=round(float(row.avg_cost_per_call), 4) if row.avg_cost_per_call else None,
+            )
+            for row in rows
+        ]
