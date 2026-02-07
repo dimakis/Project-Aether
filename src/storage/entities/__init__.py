@@ -25,6 +25,9 @@ from src.storage.entities.automation_proposal import (
 # Insights (User Story 3)
 from src.storage.entities.insight import Insight, InsightStatus, InsightType
 
+# Insight Schedules (Feature 10)
+from src.storage.entities.insight_schedule import InsightSchedule, TriggerType
+
 __all__ = [
     # Core
     "Agent",
@@ -49,4 +52,7 @@ __all__ = [
     "Insight",
     "InsightType",
     "InsightStatus",
+    # Insight Schedules (Feature 10)
+    "InsightSchedule",
+    "TriggerType",
 ]

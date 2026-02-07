@@ -119,6 +119,20 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8000, ge=1, le=65535)
     api_workers: int = Field(default=1, ge=1, le=16)
 
+    # Scheduler (Feature 10: Scheduled & Event-Driven Insights)
+    scheduler_enabled: bool = Field(
+        default=True,
+        description="Enable the APScheduler for periodic insight jobs",
+    )
+    scheduler_timezone: str = Field(
+        default="UTC",
+        description="Timezone for cron schedule evaluation",
+    )
+    webhook_secret: str | None = Field(
+        default=None,
+        description="Optional shared secret for webhook authentication (in addition to HA token)",
+    )
+
     # Sandbox (Constitution: Isolation)
     sandbox_enabled: bool = Field(
         default=True,

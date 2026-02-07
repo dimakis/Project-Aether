@@ -41,6 +41,8 @@ dependencies = [
     # CLI
     "typer>=0.14.0",
     "rich>=13.9.0",
+    # Scheduling (Feature 10: Scheduled & Event-Driven Insights)
+    "apscheduler>=3.10.0",
     # Utilities
     "httpx>=0.28.0",
     "python-dotenv>=1.0.0",

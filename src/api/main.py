@@ -47,9 +47,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.environment != "testing":
         await init_db()
 
+    # Start scheduler (Feature 10: Scheduled & Event-Driven Insights)
+    scheduler = None
+    if settings.scheduler_enabled and settings.environment != "testing":
+        from src.scheduler import SchedulerService
+
+        scheduler = SchedulerService()
+        await scheduler.start()
+
     yield
 
     # Shutdown
+    if scheduler:
+        await scheduler.stop()
     await close_db()
 
 
