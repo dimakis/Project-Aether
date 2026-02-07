@@ -1,0 +1,60 @@
+# =============================================================================
+# Aether UI - Multi-stage build
+# =============================================================================
+# Stage 1: Build the React app
+# Stage 2: Serve with nginx alpine (~25MB final image)
+#
+# Runtime configuration:
+#   AETHER_API_URL - Backend API URL for env.js injection (default: /api)
+#   AETHER_API_UPSTREAM - nginx proxy upstream (default: http://app:8000)
+# =============================================================================
+
+# --- Build Stage ---
+FROM docker.io/library/node:22-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies first (cache layer)
+COPY ui/package.json ui/package-lock.json ./
+RUN npm ci
+
+# Copy source and build
+COPY ui/ ./
+RUN npm run build
+
+# --- Runtime Stage ---
+FROM docker.io/library/nginx:alpine
+
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy nginx config template (uses envsubst for runtime config)
+COPY infrastructure/podman/nginx.conf /etc/nginx/templates/default.conf.template
+
+# Copy built app
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Create entrypoint script for runtime env injection
+RUN cat > /docker-entrypoint.d/40-inject-env.sh << 'SCRIPT'
+#!/bin/sh
+# Inject runtime environment variables into env.js
+# This runs before nginx starts (via nginx docker-entrypoint.d)
+AETHER_API_URL="${AETHER_API_URL:-/api}"
+cat > /usr/share/nginx/html/env.js << EOF
+window.__ENV__ = {
+  API_URL: "${AETHER_API_URL}",
+};
+EOF
+echo "Injected env.js: API_URL=${AETHER_API_URL}"
+SCRIPT
+RUN chmod +x /docker-entrypoint.d/40-inject-env.sh
+
+# Default environment variables
+ENV AETHER_API_UPSTREAM=http://app:8000
+ENV NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
+
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -q --spider http://localhost:8080/healthz || exit 1

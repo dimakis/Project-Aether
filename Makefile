@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean
+.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -15,7 +15,7 @@ help:
 	@echo ""
 	@echo "Deployment (single commands):"
 	@echo "  make run         - Start development environment (infra + API with hot-reload)"
-	@echo "  make run-ui      - Start dev environment + Open WebUI chat interface"
+	@echo "  make run-ui      - Start dev environment + UI dev server"
 	@echo "  make run-prod    - Start production stack (everything containerized)"
 	@echo "  make down        - Stop all services and containers"
 	@echo ""
@@ -25,7 +25,7 @@ help:
 	@echo ""
 	@echo "Infrastructure (building blocks):"
 	@echo "  make up          - Start infrastructure containers only"
-	@echo "  make up-ui       - Start infrastructure + Open WebUI"
+	@echo "  make up-ui       - Start infrastructure + UI container"
 	@echo "  make serve       - Start API server on host (hot-reload)"
 	@echo "  make logs        - View container logs"
 	@echo "  make psql        - Connect to PostgreSQL"
@@ -51,9 +51,14 @@ help:
 	@echo "  make discover    - Run entity discovery"
 	@echo "  make status      - Show system status"
 	@echo ""
+	@echo "UI:"
+	@echo "  make ui-install  - Install UI dependencies"
+	@echo "  make ui-dev      - Start UI dev server"
+	@echo "  make ui-build    - Build UI for production"
+	@echo ""
 	@echo "URLs (when running):"
 	@echo "  API:        http://localhost:$(API_PORT)"
-	@echo "  Open WebUI: http://localhost:$(WEBUI_PORT)"
+	@echo "  UI:         http://localhost:$(WEBUI_PORT)"
 	@echo "  MLflow:     http://localhost:$(MLFLOW_PORT)"
 
 # ============================================================================
@@ -86,18 +91,21 @@ run: up migrate
 	@echo ""
 	uv run aether serve --reload
 
-# Development + Open WebUI chat interface
-run-ui: up-ui migrate
+# Development + UI (API on host, UI dev server)
+run-ui: up migrate
 	@echo ""
-	@echo "Starting API server with hot-reload..."
-	@echo "Open WebUI: http://localhost:$(WEBUI_PORT)"
+	@echo "Starting API server + UI dev server..."
+	@echo "UI:  http://localhost:$(WEBUI_PORT)"
+	@echo "API: http://localhost:$(API_PORT)"
 	@echo "Press Ctrl+C to stop"
 	@echo ""
-	uv run aether serve --reload
+	@trap 'kill 0' EXIT; \
+		cd ui && npm run dev & \
+		uv run aether serve --reload
 
 # Production mode: everything containerized
 run-prod: migrate-container
-	AETHER_API_URL=http://app:8000/api $(COMPOSE) --profile full --profile ui up -d --build
+	AETHER_API_UPSTREAM=http://app:8000 $(COMPOSE) --profile full --profile ui up -d --build
 	@echo ""
 	@echo "Production stack running:"
 	@echo "  Open WebUI: http://localhost:$(WEBUI_PORT)"
@@ -135,13 +143,13 @@ up:
 	@echo "  Redis:      localhost:6379"
 
 up-ui:
-	$(COMPOSE) --profile ui up -d
+	$(COMPOSE) --profile ui up -d --build
 	@echo "Waiting for services..."
 	@sleep 3
 	@echo ""
-	@echo "Infrastructure + Open WebUI ready:"
-	@echo "  Open WebUI: http://localhost:$(WEBUI_PORT)"
-	@echo "  MLflow:     http://localhost:$(MLFLOW_PORT)"
+	@echo "Infrastructure + Aether UI ready:"
+	@echo "  UI:     http://localhost:$(WEBUI_PORT)"
+	@echo "  MLflow: http://localhost:$(MLFLOW_PORT)"
 
 mlflow:
 	@chmod +x scripts/mlflow_local.sh 2>/dev/null || true
@@ -278,6 +286,22 @@ demo-us1:
 demo-us2:
 	@chmod +x demo_us2.sh 2>/dev/null || true
 	./demo_us2.sh
+
+# ============================================================================
+# UI (React Frontend)
+# ============================================================================
+
+ui-install:
+	cd ui && npm install
+
+ui-dev:
+	cd ui && npm run dev
+
+ui-build:
+	cd ui && npm run build
+
+ui-lint:
+	cd ui && npm run lint
 
 # ============================================================================
 # Utilities

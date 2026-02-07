@@ -137,80 +137,37 @@ services:
       retries: 3
 
   # ===========================================================================
-  # Open WebUI - Chat Interface (profile: ui)
+  # Aether UI - Custom React Dashboard (profile: ui)
   # ===========================================================================
-  # Provides a beautiful chat UI that connects to Aether's OpenAI-compatible API.
-  # Access at http://localhost:3000 after starting.
+  # Custom-built React SPA with dashboard, chat, proposals, insights, entities,
+  # registry, and diagnostics views. Served by nginx with API proxying.
   #
   # Usage:
   #   podman-compose --profile ui up -d                  # UI + infra (API on host)
   #   podman-compose --profile full --profile ui up -d  # UI + containerized API
   #
-  # Note: When using --profile ui without --profile full, API must run on host.
-  # AETHER_API_URL env var controls where Open WebUI connects:
-  #   - Default: http://host.containers.internal:8000/api (host API)
-  #   - With --profile full: http://app:8000/api (containerized API)
-  open-webui:
+  # Configuration:
+  #   AETHER_API_UPSTREAM - Where nginx proxies /api/ requests
+  #     Default: http://host.containers.internal:8000 (host API)
+  #     With --profile full: http://app:8000 (containerized API)
+  aether-ui:
     profiles: ["ui"]
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: aether-webui
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.ui
+    image: aether-ui:latest
+    container_name: aether-ui
     restart: unless-stopped
     environment:
-      # =======================================================================
-      # Aether Architect Agent
-      # =======================================================================
-      # Connects to Aether's OpenAI-compatible API. All chats go through
-      # the Architect agent (with Home Assistant tools), but you can
-      # select which LLM model powers it from the dropdown.
-      #
-      # Available models: gpt-4o, gpt-4o-mini, gpt-4-turbo, claude-3-*, etc.
-      # =======================================================================
-      OPENAI_API_BASE_URL: ${AETHER_API_URL:-http://host.containers.internal:8000/api}/v1
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-aether-local}
-      ENABLE_OPENAI_API: "True"
-      
-      # Disable Ollama (using Aether API)
-      ENABLE_OLLAMA_API: "False"
-      
-      # Disable authentication for local development
-      WEBUI_AUTH: "False"
-      
-      # Disable telemetry
-      SCARF_NO_ANALYTICS: "true"
-      DO_NOT_TRACK: "true"
-      ANONYMIZED_TELEMETRY: "false"
-      
-      # Default to GPT-4o-mini for cost efficiency
-      DEFAULT_MODELS: "gpt-4o-mini"
-      
-      # =======================================================================
-      # Custom UI Configuration for Aether
-      # =======================================================================
-      # Landing page suggestions tailored for Home Assistant control
-      DEFAULT_PROMPT_SUGGESTIONS: >-
-        [
-          {"title": ["Turn on ", "living room lights"], "content": "Turn on the living room lights"},
-          {"title": ["What's the ", "temperature in the bedroom?"], "content": "What's the temperature in the bedroom?"},
-          {"title": ["Analyze my ", "energy usage this week"], "content": "Analyze my energy consumption over the past week and suggest optimizations"},
-          {"title": ["Show me ", "all devices that are on"], "content": "List all devices and lights that are currently on"},
-          {"title": ["Create an ", "automation for morning routine"], "content": "Help me create an automation for my morning routine that turns on lights and adjusts the thermostat"},
-          {"title": ["Which devices ", "use the most power?"], "content": "Which devices in my home use the most power? Show me the top energy consumers"}
-        ]
-      
-      # Branding
-      WEBUI_NAME: "Aether - Home Assistant AI"
-      TITLE_GENERATION_PROMPT_TEMPLATE: "Create a short, descriptive title for a Home Assistant conversation based on: {{prompt}}"
+      AETHER_API_UPSTREAM: ${AETHER_API_UPSTREAM:-http://host.containers.internal:8000}
     ports:
       - "${WEBUI_PORT:-3000}:8080"
-    volumes:
-      - open_webui_data:/app/backend/data
     extra_hosts:
-      # Required for container to reach host on Linux
       - "host.containers.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
 
 volumes:
@@ -222,8 +179,6 @@ volumes:
     name: aether-mlflow-artifacts
   redis_data:
     name: aether-redis-data
-  open_webui_data:
-    name: aether-webui-data
 
 networks:
   default:
