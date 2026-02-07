@@ -6,6 +6,7 @@ to Home Assistant, handling YAML generation and service calls.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -21,6 +22,8 @@ from src.storage.entities import AutomationProposal, ProposalStatus
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 
 class DeveloperAgent(BaseAgent):
@@ -202,12 +205,16 @@ class DeveloperAgent(BaseAgent):
     ) -> dict[str, object]:
         """Rollback a deployed automation.
 
+        Disables the automation in Home Assistant and updates the proposal
+        status to ROLLED_BACK. Reports whether the HA disable succeeded
+        so the caller can surface errors to the user.
+
         Args:
             proposal_id: ID of proposal to rollback
             session: Database session
 
         Returns:
-            Rollback result
+            Rollback result with ha_disabled flag and optional ha_error
         """
         repo = ProposalRepository(session)
         proposal = await repo.get_by_id(proposal_id)
@@ -219,29 +226,46 @@ class DeveloperAgent(BaseAgent):
             return {"error": f"Can only rollback deployed proposals (status: {proposal.status.value})"}
 
         ha_automation_id = proposal.ha_automation_id
+        ha_disabled = False
+        ha_error: str | None = None
 
-        # Attempt to disable/remove via MCP
+        # Attempt to disable via MCP
         if ha_automation_id:
+            entity_id = f"automation.{ha_automation_id}"
             try:
-                # Try to turn off the automation
                 await self.mcp.call_service(
                     domain="automation",
                     service="turn_off",
-                    data={"entity_id": f"automation.{ha_automation_id}"},
+                    data={"entity_id": entity_id},
                 )
-            except Exception:
-                # Best effort - might not exist
-                pass
+                ha_disabled = True
+                logger.info(
+                    "Rollback: disabled HA automation %s for proposal %s",
+                    entity_id,
+                    proposal_id,
+                )
+            except Exception as exc:
+                ha_error = str(exc)
+                logger.warning(
+                    "Rollback: failed to disable HA automation %s for proposal %s: %s",
+                    entity_id,
+                    proposal_id,
+                    exc,
+                )
 
-        # Update status
+        # Always update DB status regardless of HA result
         await repo.rollback(proposal_id)
 
-        return {
+        result: dict[str, object] = {
             "rolled_back": True,
+            "ha_disabled": ha_disabled,
             "ha_automation_id": ha_automation_id,
             "rolled_back_at": datetime.now(timezone.utc).isoformat(),
             "note": "Automation disabled. Manual removal from automations.yaml may be needed.",
         }
+        if ha_error:
+            result["ha_error"] = ha_error
+        return result
 
     async def enable_automation(self, ha_automation_id: str) -> dict[str, Any]:
         """Enable a deployed automation.

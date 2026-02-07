@@ -151,20 +151,21 @@ async def get_proposal(proposal_id: str) -> ProposalYAMLResponse:
     summary="Create proposal",
     description="Create a new automation proposal directly (without conversation).",
 )
-async def create_proposal(request: ProposalCreate) -> ProposalResponse:
+@limiter.limit("10/minute")
+async def create_proposal(request: Request, body: ProposalCreate) -> ProposalResponse:
     """Create a new proposal."""
     async with get_session() as session:
         repo = ProposalRepository(session)
 
         proposal = await repo.create(
-            name=request.name,
-            trigger=request.trigger if isinstance(request.trigger, dict) else {"triggers": request.trigger},
-            actions=request.actions if isinstance(request.actions, dict) else {"actions": request.actions},
-            description=request.description,
-            conditions=request.conditions,
-            mode=request.mode,
-            proposal_type=request.proposal_type,
-            service_call=request.service_call,
+            name=body.name,
+            trigger=body.trigger if isinstance(body.trigger, dict) else {"triggers": body.trigger},
+            actions=body.actions if isinstance(body.actions, dict) else {"actions": body.actions},
+            description=body.description,
+            conditions=body.conditions,
+            mode=body.mode,
+            proposal_type=body.proposal_type,
+            service_call=body.service_call,
         )
 
         # Submit for approval
@@ -319,6 +320,8 @@ async def deploy_proposal(
             )
 
         except Exception as e:
+            from src.api.utils import sanitize_error
+
             return DeploymentResponse(
                 success=False,
                 proposal_id=proposal_id,
@@ -327,7 +330,7 @@ async def deploy_proposal(
                 yaml_content=_generate_yaml(proposal),
                 instructions=None,
                 deployed_at=None,
-                error=str(e),
+                error=sanitize_error(e, context="Deploy proposal"),
             )
 
 
@@ -377,12 +380,19 @@ async def rollback_proposal(
                 success=result.get("rolled_back", False),
                 proposal_id=proposal_id,
                 ha_automation_id=result.get("ha_automation_id"),
+                ha_disabled=result.get("ha_disabled", False),
+                ha_error=result.get("ha_error"),
                 rolled_back_at=datetime.now(timezone.utc),
                 note=result.get("note"),
             )
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            from src.api.utils import sanitize_error
+
+            raise HTTPException(
+                status_code=500,
+                detail=sanitize_error(e, context="Rollback proposal"),
+            )
 
 
 @router.delete(

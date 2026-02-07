@@ -403,6 +403,21 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                 Rollback
               </Button>
             )}
+            {/* Rollback result feedback */}
+            {rollbackMut.isSuccess && rollbackMut.data && (
+              <div className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium",
+                rollbackMut.data.ha_disabled
+                  ? "bg-success/10 text-success"
+                  : "bg-amber-500/10 text-amber-500",
+              )}>
+                {rollbackMut.data.ha_disabled
+                  ? "Automation disabled in HA"
+                  : rollbackMut.data.ha_error
+                    ? `Rolled back in DB but HA disable failed: ${rollbackMut.data.ha_error}`
+                    : "Rolled back (no HA automation to disable)"}
+              </div>
+            )}
           </div>
         </div>
       </div>

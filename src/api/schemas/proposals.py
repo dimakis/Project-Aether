@@ -12,11 +12,12 @@ from pydantic import BaseModel, Field
 class ProposalCreate(BaseModel):
     """Schema for creating a proposal directly (bypass conversation)."""
 
-    name: str = Field(description="Automation name")
+    name: str = Field(max_length=255, description="Automation name")
     trigger: dict | list = Field(default_factory=dict, description="HA trigger configuration")
     actions: dict | list = Field(default_factory=dict, description="HA action configuration")
     description: str | None = Field(
         default=None,
+        max_length=2000,
         description="What the automation does",
     )
     conditions: dict | list | None = Field(
@@ -25,10 +26,12 @@ class ProposalCreate(BaseModel):
     )
     mode: str = Field(
         default="single",
+        max_length=20,
         description="Execution mode: single, restart, queued, parallel",
     )
     proposal_type: str = Field(
         default="automation",
+        max_length=50,
         description="Type: automation, entity_command, script, scene",
     )
     service_call: dict | None = Field(
@@ -84,10 +87,12 @@ class ApprovalRequest(BaseModel):
 
     approved_by: str = Field(
         default="user",
+        max_length=100,
         description="Who is approving",
     )
     comment: str | None = Field(
         default=None,
+        max_length=2000,
         description="Optional approval comment",
     )
 
@@ -95,9 +100,10 @@ class ApprovalRequest(BaseModel):
 class RejectionRequest(BaseModel):
     """Schema for rejecting a proposal."""
 
-    reason: str = Field(description="Why the proposal was rejected")
+    reason: str = Field(max_length=2000, description="Why the proposal was rejected")
     rejected_by: str = Field(
         default="user",
+        max_length=100,
         description="Who is rejecting",
     )
 
@@ -135,6 +141,7 @@ class RollbackRequest(BaseModel):
 
     reason: str | None = Field(
         default=None,
+        max_length=2000,
         description="Why rolling back",
     )
 
@@ -145,6 +152,14 @@ class RollbackResponse(BaseModel):
     success: bool = Field(description="Whether rollback succeeded")
     proposal_id: str = Field(description="Proposal ID")
     ha_automation_id: str | None = Field(description="HA automation ID that was rolled back")
+    ha_disabled: bool = Field(
+        default=False,
+        description="Whether the automation was actually disabled in HA",
+    )
+    ha_error: str | None = Field(
+        default=None,
+        description="Error message if HA disable failed",
+    )
     rolled_back_at: datetime = Field(description="When rolled back")
     note: str | None = Field(
         default=None,

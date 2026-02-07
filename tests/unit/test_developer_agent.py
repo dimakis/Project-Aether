@@ -143,7 +143,90 @@ class TestDeveloperAgent:
             result = await agent.rollback_automation("test-id", mock_session)
 
         assert result["rolled_back"] is True
+        assert result["ha_disabled"] is True
         mock_repo.rollback.assert_called_once_with("test-id")
+
+    @pytest.mark.asyncio
+    async def test_rollback_reports_ha_disable_failure(self, mock_mcp_client):
+        """Test that rollback reports when HA disable fails instead of silently swallowing."""
+        from src.agents.developer import DeveloperAgent
+        from src.storage.entities import ProposalStatus
+
+        mock_mcp_client.call_service = AsyncMock(side_effect=Exception("HA connection refused"))
+
+        mock_proposal = MagicMock()
+        mock_proposal.id = "test-id"
+        mock_proposal.status = ProposalStatus.DEPLOYED
+        mock_proposal.ha_automation_id = "test_auto"
+
+        mock_session = MagicMock()
+        mock_repo = MagicMock()
+        mock_repo.get_by_id = AsyncMock(return_value=mock_proposal)
+        mock_repo.rollback = AsyncMock()
+
+        with patch("src.agents.developer.ProposalRepository", return_value=mock_repo):
+            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+            result = await agent.rollback_automation("test-id", mock_session)
+
+        # Should still mark as rolled back in DB but report HA failure
+        assert result["rolled_back"] is True
+        assert result["ha_disabled"] is False
+        assert "ha_error" in result
+        assert "HA connection refused" in result["ha_error"]
+        mock_repo.rollback.assert_called_once_with("test-id")
+
+    @pytest.mark.asyncio
+    async def test_rollback_uses_correct_entity_id_format(self, mock_mcp_client):
+        """Test that rollback uses automation.{id} entity_id format correctly."""
+        from src.agents.developer import DeveloperAgent
+        from src.storage.entities import ProposalStatus
+
+        mock_proposal = MagicMock()
+        mock_proposal.id = "test-id"
+        mock_proposal.status = ProposalStatus.DEPLOYED
+        mock_proposal.ha_automation_id = "aether_abc12345"
+
+        mock_session = MagicMock()
+        mock_repo = MagicMock()
+        mock_repo.get_by_id = AsyncMock(return_value=mock_proposal)
+        mock_repo.rollback = AsyncMock()
+
+        with patch("src.agents.developer.ProposalRepository", return_value=mock_repo):
+            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+            await agent.rollback_automation("test-id", mock_session)
+
+        # Should call with automation.{ha_automation_id}
+        mock_mcp_client.call_service.assert_called_once_with(
+            domain="automation",
+            service="turn_off",
+            data={"entity_id": "automation.aether_abc12345"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_rollback_without_ha_automation_id(self, mock_mcp_client):
+        """Test rollback when no HA automation ID exists (never deployed to HA)."""
+        from src.agents.developer import DeveloperAgent
+        from src.storage.entities import ProposalStatus
+
+        mock_proposal = MagicMock()
+        mock_proposal.id = "test-id"
+        mock_proposal.status = ProposalStatus.DEPLOYED
+        mock_proposal.ha_automation_id = None
+
+        mock_session = MagicMock()
+        mock_repo = MagicMock()
+        mock_repo.get_by_id = AsyncMock(return_value=mock_proposal)
+        mock_repo.rollback = AsyncMock()
+
+        with patch("src.agents.developer.ProposalRepository", return_value=mock_repo):
+            agent = DeveloperAgent(mcp_client=mock_mcp_client)
+            result = await agent.rollback_automation("test-id", mock_session)
+
+        assert result["rolled_back"] is True
+        assert result["ha_disabled"] is False
+        assert "ha_error" not in result
+        # Should NOT have called HA
+        mock_mcp_client.call_service.assert_not_called()
 
 
 class TestDeveloperWorkflow:
