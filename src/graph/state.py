@@ -23,6 +23,12 @@ class AgentRole(StrEnum):
     DEVELOPER = "developer"
     DATA_SCIENTIST = "data_scientist"
     ORCHESTRATOR = "orchestrator"
+    # DS team specialists
+    ENERGY_ANALYST = "energy_analyst"
+    BEHAVIORAL_ANALYST = "behavioral_analyst"
+    DIAGNOSTIC_ANALYST = "diagnostic_analyst"
+    # Dashboard designer
+    DASHBOARD_DESIGNER = "dashboard_designer"
 
 
 class ConversationStatus(StrEnum):
@@ -323,6 +329,93 @@ class AutomationSuggestion(BaseModel):
     )
 
 
+# =============================================================================
+# DS TEAM SHARED ANALYSIS STATE
+# =============================================================================
+
+
+class SpecialistFinding(BaseModel):
+    """A single finding from one DS team specialist.
+
+    Accumulated in TeamAnalysis.findings during multi-specialist analysis.
+    Each specialist reads prior findings and flags cross-references or conflicts.
+    """
+
+    id: str = Field(
+        default_factory=lambda: str(uuid4()),
+        description="Unique finding identifier",
+    )
+    specialist: str = Field(
+        description="Which specialist produced this: energy_analyst, behavioral_analyst, diagnostic_analyst",
+    )
+    finding_type: str = Field(
+        description="Category: insight, concern, recommendation, data_quality_flag",
+    )
+    title: str = Field(description="Short title for the finding")
+    description: str = Field(description="Detailed explanation")
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score 0.0-1.0",
+    )
+    entities: list[str] = Field(
+        default_factory=list,
+        description="Entity IDs relevant to this finding",
+    )
+    evidence: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Supporting data (metrics, stats, raw values)",
+    )
+    automation_suggestion: AutomationSuggestion | None = Field(
+        default=None,
+        description="Optional automation proposal if finding warrants one",
+    )
+    cross_references: list[str] = Field(
+        default_factory=list,
+        description="IDs of related findings from other specialists",
+    )
+
+
+class TeamAnalysis(BaseModel):
+    """Shared analysis state for the DS team.
+
+    Passed through each specialist node in the LangGraph workflow.
+    Each specialist reads prior findings, adds their own, and flags
+    cross-references or conflicts. A synthesis step then merges findings.
+    """
+
+    request_id: str = Field(description="Unique analysis request identifier")
+    request_summary: str = Field(
+        description="What the user/Architect asked for",
+    )
+    findings: list[SpecialistFinding] = Field(
+        default_factory=list,
+        description="Accumulated findings from all specialists",
+    )
+    consensus: str | None = Field(
+        default=None,
+        description="Synthesized view after all specialists contribute",
+    )
+    conflicts: list[str] = Field(
+        default_factory=list,
+        description="Disagreements between specialists",
+    )
+    holistic_recommendations: list[str] = Field(
+        default_factory=list,
+        description="Combined, ranked recommendations",
+    )
+    synthesis_strategy: str | None = Field(
+        default=None,
+        description="Which synthesizer produced the consensus: 'programmatic' or 'llm'",
+    )
+
+
+# =============================================================================
+# SCRIPT EXECUTION
+# =============================================================================
+
+
 class ScriptExecution(BaseModel):
     """Record of a sandboxed script execution (Constitution: Isolation)."""
 
@@ -386,6 +479,12 @@ class AnalysisState(MessageState):
     # Dashboard output (User Story 4)
     dashboard_yaml: str | None = None
 
+    # DS team shared analysis (multi-specialist collaboration)
+    team_analysis: TeamAnalysis | None = Field(
+        default=None,
+        description="Shared analysis state for the DS team. Populated during multi-specialist workflows.",
+    )
+
 
 # =============================================================================
 # ORCHESTRATOR STATE (Main Graph)
@@ -438,6 +537,8 @@ __all__ = [
     "ConversationState",
     # Analysis
     "AutomationSuggestion",
+    "SpecialistFinding",
+    "TeamAnalysis",
     "ScriptExecution",
     "AnalysisState",
     # Orchestrator
