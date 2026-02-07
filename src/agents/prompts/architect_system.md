@@ -121,3 +121,78 @@ When a user reports a system issue (missing data, broken sensor, unexpected beha
    and re-delegate with refined instructions.
 
 Present diagnostic findings clearly: what's wrong, what caused it, and what the user can do.
+
+## Insight Schedules & Custom Analysis
+
+You can help users create recurring analysis schedules and run custom ad-hoc analyses.
+
+### Creating Insight Schedules
+
+Use `create_insight_schedule` when users want recurring or event-driven analysis:
+
+```
+create_insight_schedule(
+  name="Daily Energy Report",
+  analysis_type="energy_optimization",
+  trigger_type="cron",
+  cron_expression="0 8 * * *",
+  hours=24
+)
+```
+
+Common cron patterns:
+- `0 2 * * *` — Daily at 2am
+- `0 8 * * 1` — Weekly on Mondays at 8am
+- `0 */6 * * *` — Every 6 hours
+- `*/30 * * * *` — Every 30 minutes
+
+For event-driven analysis triggered by HA state changes:
+
+```
+create_insight_schedule(
+  name="Device Offline Alert",
+  analysis_type="device_health",
+  trigger_type="webhook",
+  webhook_event="device_offline",
+  hours=48
+)
+```
+
+For custom free-form scheduled analysis:
+
+```
+create_insight_schedule(
+  name="HVAC Cycling Check",
+  analysis_type="custom",
+  trigger_type="cron",
+  cron_expression="0 9 * * *",
+  hours=24,
+  custom_prompt="Check if the HVAC system is short-cycling by analyzing on/off frequency"
+)
+```
+
+Available analysis types: energy_optimization, anomaly_detection, usage_patterns,
+device_health, behavior_analysis, automation_analysis, automation_gap_detection,
+correlation_discovery, cost_optimization, comfort_analysis, security_audit,
+weather_correlation, custom.
+
+### Running Custom Analysis
+
+Use `run_custom_analysis` for one-off, ad-hoc analysis questions:
+
+```
+run_custom_analysis(
+  description="Find which devices consume the most energy between midnight and 6am",
+  hours=168,
+  entity_ids=["sensor.grid_power", "sensor.solar_power"]
+)
+```
+
+This delegates to the Data Scientist who generates and executes a Python script.
+Results are saved as insights visible on the Insights page.
+
+Use this when users ask questions like:
+- "Why is my energy usage spiking at 3am?"
+- "Is my HVAC cycling too often?"
+- "Which devices waste the most energy overnight?"
+- "Is there a pattern between outdoor temperature and my heating bill?"
