@@ -17,6 +17,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agents.behavioral_analyst import BehavioralAnalyst
+from src.agents.config_cache import is_agent_enabled
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
 from src.agents.synthesis import LLMSynthesizer, SynthesisStrategy
@@ -90,6 +91,8 @@ async def consult_energy_analyst(
     Returns:
         Summary of energy findings
     """
+    if not await is_agent_enabled("energy_analyst"):
+        return "Energy Analyst is currently disabled. Enable it on the Agents page to use."
     try:
         analyst = EnergyAnalyst()
         hours = min(max(hours, 1), 168)
@@ -144,6 +147,8 @@ async def consult_behavioral_analyst(
     Returns:
         Summary of behavioral findings
     """
+    if not await is_agent_enabled("behavioral_analyst"):
+        return "Behavioral Analyst is currently disabled. Enable it on the Agents page to use."
     try:
         analyst = BehavioralAnalyst()
         hours = min(max(hours, 1), 168)
@@ -205,6 +210,8 @@ async def consult_diagnostic_analyst(
     Returns:
         Summary of diagnostic findings
     """
+    if not await is_agent_enabled("diagnostic_analyst"):
+        return "Diagnostic Analyst is currently disabled. Enable it on the Agents page to use."
     try:
         analyst = DiagnosticAnalyst()
         hours = min(max(hours, 1), 168)

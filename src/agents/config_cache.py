@@ -133,6 +133,24 @@ def invalidate_agent_config(agent_name: str | None = None) -> None:
         logger.debug("Invalidated all agent config caches")
 
 
+async def is_agent_enabled(agent_name: str) -> bool:
+    """Check if an agent is enabled (status != 'disabled').
+
+    Returns True if the agent is not found in DB (fail-open for
+    agents that haven't been seeded yet).
+
+    Args:
+        agent_name: Agent identifier (e.g. 'energy_analyst')
+
+    Returns:
+        True if agent is enabled or not found, False if disabled
+    """
+    config = await get_agent_runtime_config(agent_name)
+    if config is None:
+        return True  # Agent not in DB yet — fail open
+    return config.status != "disabled"
+
+
 def clear_config_cache() -> None:
     """Clear the entire config cache. Used in tests."""
     _cache.clear()
