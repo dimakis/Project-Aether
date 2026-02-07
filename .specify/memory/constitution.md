@@ -1,8 +1,8 @@
 <!--
 Sync Impact Report:
-Version: 1.9.0 → 1.10.0 (MINOR: Added Principle VI — Security by Default)
+Version: 1.10.0 → 1.11.0 (MINOR: Restructured with AI Directives section; no principle changes)
 Modified Principles: None
-Added Sections: "VI. Security by Default" core principle
+Added Sections: "AI Directives" compact reference at top
 Removed Sections: None
 Templates Requiring Updates:
   ✅ No template updates required
@@ -10,6 +10,49 @@ Follow-up TODOs: None
 -->
 
 # Aether Home Architect Constitution
+
+---
+
+## AI Directives
+
+> **For coding agents.** Terse, actionable constraints extracted from the full governance below.
+> When in doubt, consult the detailed section for rationale and examples.
+
+### Principles
+
+1. **Safety** — Every HA automation MUST include human-in-the-loop approval before execution. No exceptions.
+2. **Isolation** — All generated scripts MUST run inside a gVisor (runsc) sandbox. Never execute untrusted code on the host.
+3. **Observability** — All agent actions, LLM calls, and tool invocations MUST be traced via MLflow with session correlation.
+4. **State** — Use LangGraph for workflow state; Postgres for durable checkpointing. No in-memory-only state for anything that must survive restarts.
+5. **Reliability** — Minimum 80% code coverage (95%+ for critical paths). Testing pyramid: unit → integration → E2E. Flaky tests are bugs.
+6. **Security** — Defence in depth at every layer. Security wins over development speed — always. See full 8-point posture below.
+
+### Security MUST / MUST NOT
+
+- MUST encrypt credentials at rest (Fernet/AES-256) or hash irreversibly (bcrypt, work factor >= 12).
+- MUST validate all external input via Pydantic schemas before use.
+- MUST use parameterised queries only — no raw SQL interpolation.
+- MUST serve production traffic over TLS with security headers on every response.
+- MUST pin dependencies to exact versions; patch known CVEs within 72 hours.
+- MUST require authentication by default; exempt routes are explicit exceptions.
+- MUST log auth events with timestamps; MUST NOT log secrets or PII.
+- MUST NOT store plaintext passwords/tokens, use eval()/exec() outside sandbox, disable auth for convenience, return stack traces in API errors, use MD5/SHA-1 for security hashing, or hard-code secrets.
+
+### Development MUST / MUST NOT
+
+- MUST follow TDD: write test first (red), implement (green), refactor, commit atomically. Never batch tests after implementation.
+- MUST commit incrementally: one logical change per commit, max ~400 lines, commit proactively after each TDD cycle.
+- MUST use Conventional Commits: `<type>[scope]: <description>` with required types (feat, fix, docs, style, refactor, perf, test, build, ci, chore).
+- MUST create feature directory (`specs/<project>/features/NN-name/`) with spec.md, plan.md, tasks.md before implementation begins.
+- MUST update documentation (architecture.md, tasks.md, plan.md) alongside code — never batch docs as an afterthought.
+- MUST NOT choose a simpler implementation that weakens security or creates tech debt degrading security posture later.
+
+### Reference
+
+Full governance, rationale, examples, and amendment procedure: see sections below.
+Procedural skills: `security-review`, `tdd-cycle`, `feature-checklist` (in `.cursor/skills/`).
+
+---
 
 ## Core Principles
 
@@ -127,11 +170,11 @@ For each task T0XX:
 When creating implementation plans or build plans, each deliverable/step MUST include its tests as part of the same step — never as a separate phase. A plan that lists "Part 2: Build modules" and "Part 4: Write tests" violates TDD just as much as coding all features before writing any tests. The correct structure is: "Step N: Build X (test-first)" where the test file is the first artifact created in that step.
 
 **Anti-patterns (Prohibited)**:
-- ❌ Writing all implementation first, then batching tests
-- ❌ Modifying test assertions to match incorrect implementation
-- ❌ Committing tests separately from their implementation
-- ❌ Skipping the "red" phase (test must fail first)
-- ❌ Structuring plans with "Implementation" and "Tests" as separate phases or sections (tests are part of each deliverable, not a separate workstream)
+- Writing all implementation first, then batching tests
+- Modifying test assertions to match incorrect implementation
+- Committing tests separately from their implementation
+- Skipping the "red" phase (test must fail first)
+- Structuring plans with "Implementation" and "Tests" as separate phases or sections (tests are part of each deliverable, not a separate workstream)
 
 **Quality Gates**:
 - Pre-commit hooks: `ruff` (lint), `ruff format` (format), `mypy` (type check)
@@ -187,13 +230,13 @@ This application is internet-accessible and controls a physical home. All code �
    - Logs MUST NOT contain secrets, tokens, or PII beyond what is strictly necessary.
 
 **Anti-patterns (Prohibited)**:
-- ❌ Storing plaintext passwords or tokens in the database
-- ❌ Using `eval()`, `exec()`, or equivalent dynamic code execution outside the sandbox
-- ❌ Disabling authentication "for convenience" in any deployed environment
-- ❌ Returning stack traces, internal paths, or dependency versions in API error responses
-- ❌ Using MD5 or SHA-1 for any security-critical hashing
-- ❌ Hard-coding secrets, even "temporarily"
-- ❌ Choosing a faster/simpler implementation that creates a known security weakness, even if "we'll fix it later"
+- Storing plaintext passwords or tokens in the database
+- Using `eval()`, `exec()`, or equivalent dynamic code execution outside the sandbox
+- Disabling authentication "for convenience" in any deployed environment
+- Returning stack traces, internal paths, or dependency versions in API error responses
+- Using MD5 or SHA-1 for any security-critical hashing
+- Hard-coding secrets, even "temporarily"
+- Choosing a faster/simpler implementation that creates a known security weakness, even if "we'll fix it later"
 
 Rationale: Aether is designed for remote access over the internet and controls a physical home. A security breach could expose private home data, enable unauthorized control of physical devices, or serve as a pivot point into the home network. Security is not a feature to be bolted on — it is a foundational property that must be maintained in every line of code, every dependency choice, and every architecture decision.
 
@@ -212,10 +255,10 @@ All work MUST be committed in small, focused, incremental commits. Each commit s
    - Documentation updates for a specific feature
 
 2. **Maximum Commit Scope**: A commit should NOT combine:
-   - ❌ Multiple unrelated features
-   - ❌ Feature code + unrelated refactoring
-   - ❌ Changes to multiple independent modules
-   - ❌ Implementation + documentation for different features
+   - Multiple unrelated features
+   - Feature code + unrelated refactoring
+   - Changes to multiple independent modules
+   - Implementation + documentation for different features
 
 3. **Commit Immediately**: After completing each functional piece:
    - Run tests to verify the piece works
@@ -230,7 +273,7 @@ All work MUST be committed in small, focused, incremental commits. Each commit s
 
 **Examples**:
 
-✅ Good commit sequence:
+Good commit sequence:
 ```
 feat(dal): add InsightRepository with CRUD operations
 feat(dal): add InsightRepository unit tests
@@ -239,7 +282,7 @@ feat(sandbox): update SandboxRunner to use custom image
 test(sandbox): add sandbox runner unit tests
 ```
 
-❌ Bad commit (too large, multiple pieces):
+Bad commit (too large, multiple pieces):
 ```
 feat(us3): implement Data Scientist foundation
 - InsightRepository
@@ -260,10 +303,10 @@ When an AI agent is implementing tasks in a coding session, the following commit
 5. **Session end**: Before ending a session or switching context, ALL uncommitted work must be committed (or stashed with explanation).
 
 **Anti-patterns (Prohibited)**:
-- ❌ Implementing multiple tasks in a session without committing between them
-- ❌ Waiting for the user to request commits instead of committing proactively
-- ❌ Accumulating a large batch of uncommitted changes across many files
-- ❌ Deferring commits to "do them all at the end"
+- Implementing multiple tasks in a session without committing between them
+- Waiting for the user to request commits instead of committing proactively
+- Accumulating a large batch of uncommitted changes across many files
+- Deferring commits to "do them all at the end"
 
 **Rationale**: Incremental commits enable:
 - Easier code review (smaller diffs)
@@ -372,4 +415,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.10.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-07
+**Version**: 1.11.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-07
