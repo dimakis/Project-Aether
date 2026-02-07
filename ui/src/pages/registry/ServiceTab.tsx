@@ -25,6 +25,9 @@ export function ServiceTab({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [domainFilter, setDomainFilter] = useState("");
   const [sortKey, setSortKey] = useState<"name" | "domain">("name");
+  const [showAllDomains, setShowAllDomains] = useState(false);
+
+  const DOMAIN_CUTOFF = 15;
 
   const filtered = useMemo(() => {
     let result = services;
@@ -60,7 +63,7 @@ export function ServiceTab({
     <div>
       {/* Domain filter chips */}
       {domains.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1">
+        <div className="mb-4 flex flex-wrap items-center gap-1">
           <button
             onClick={() => setDomainFilter("")}
             className={cn(
@@ -72,7 +75,7 @@ export function ServiceTab({
           >
             All
           </button>
-          {domains.slice(0, 20).map((d) => (
+          {(showAllDomains ? domains : domains.slice(0, DOMAIN_CUTOFF)).map((d) => (
             <button
               key={d}
               onClick={() => setDomainFilter(domainFilter === d ? "" : d)}
@@ -86,6 +89,16 @@ export function ServiceTab({
               {d}
             </button>
           ))}
+          {domains.length > DOMAIN_CUTOFF && (
+            <button
+              onClick={() => setShowAllDomains(!showAllDomains)}
+              className="rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showAllDomains
+                ? "Show less"
+                : `Show all (${domains.length})`}
+            </button>
+          )}
         </div>
       )}
 
