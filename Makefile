@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox
+.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -58,6 +58,9 @@ help:
 	@echo ""
 	@echo "Sandbox:"
 	@echo "  make build-sandbox - Build sandbox image for Data Scientist analysis"
+	@echo ""
+	@echo "Docs:"
+	@echo "  make openapi       - Regenerate OpenAPI spec from FastAPI"
 	@echo ""
 	@echo "URLs (when running):"
 	@echo "  API:        http://localhost:$(API_PORT)"
@@ -316,6 +319,14 @@ build-sandbox:
 	@echo ""
 	@echo "Sandbox image built: aether-sandbox:latest"
 	@echo "The Data Scientist can now run analysis scripts with numpy, pandas, scipy, etc."
+
+# ============================================================================
+# Docs
+# ============================================================================
+
+openapi:
+	@echo "Generating OpenAPI spec from FastAPI app..."
+	uv run python scripts/generate_openapi.py
 
 # ============================================================================
 # Utilities

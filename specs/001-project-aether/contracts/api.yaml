@@ -1,174 +1,768 @@
 openapi: 3.1.0
 info:
   title: Project Aether API
-  description: |
-    API for Project Aether - an intelligent home automation system with multi-agent architecture.
-    
-    ## Authentication
-    All endpoints require Bearer token authentication via the `Authorization` header.
-    
+  description: 'API for Project Aether — an intelligent home automation system with multi-agent architecture.
+
+
+    ## Architecture
+
+
+    Aether uses a multi-agent system (Architect, Data Scientist, Librarian, Developer) orchestrated
+
+    via LangGraph workflows and traced via MLflow. The Architect agent handles user conversations,
+
+    delegates to specialists, and proposes Home Assistant automations.
+
+
     ## Constitution Compliance
-    - **Safety First**: All automation endpoints require explicit HITL approval
-    - **Observability**: All requests are traced via MLflow (X-MLflow-Run-ID header returned)
-  version: 1.0.0
+
+
+    - **Safety First**: All automation proposals require explicit HITL approval before deployment
+
+    - **Isolation**: All analysis scripts run in sandboxed containers (gVisor/Podman)
+
+    - **Observability**: Every agent interaction is traced via MLflow
+
+    - **State**: LangGraph + PostgreSQL for persistent state management
+
+
+    ## Authentication
+
+
+    The API does not require authentication by default in local mode.
+
+    The OpenAI-compatible endpoints (/v1/*) accept optional Bearer tokens.
+
+
+    ## OpenAI Compatibility
+
+
+    The /v1/chat/completions and /v1/models endpoints are OpenAI-compatible,
+
+    allowing integration with tools like Open WebUI.
+
+    '
+  version: 0.4.0
   contact:
     name: Project Aether
   license:
     name: MIT
-
-servers:
-  - url: http://localhost:8000
-    description: Local development
-  - url: http://aether.local:8000
-    description: Home network
-
-tags:
-  - name: Entities
-    description: Home Assistant entity discovery and queries
-  - name: Chat
-    description: Conversational interface with Architect agent
-  - name: Automations
-    description: Automation proposals and HITL approval
-  - name: Insights
-    description: Data Scientist analysis and recommendations
-  - name: Dashboards
-    description: Custom dashboard generation
-  - name: System
-    description: Health checks and system status
-
 paths:
-  # ============== Entities ==============
+  /api/v1/health:
+    get:
+      tags:
+      - System
+      summary: Health Check
+      description: Simple health check for load balancers. Returns 200 if the service is running.
+      operationId: health_check_api_v1_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/v1/status:
+    get:
+      tags:
+      - System
+      summary: System Status
+      description: Detailed system status including component health checks.
+      operationId: system_status_api_v1_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
   /api/v1/entities:
     get:
-      tags: [Entities]
-      summary: List all entities
-      description: Returns all discovered Home Assistant entities with optional filtering
-      operationId: listEntities
+      tags:
+      - Entities
+      summary: List Entities
+      description: List all entities with optional filtering.
+      operationId: list_entities_api_v1_entities_get
       parameters:
-        - name: domain
-          in: query
-          schema:
-            type: string
-          description: Filter by HA domain (light, switch, sensor, etc.)
-        - name: area
-          in: query
-          schema:
-            type: string
-          description: Filter by area name
-        - name: state
-          in: query
-          schema:
-            type: string
-          description: Filter by current state
-        - name: q
-          in: query
-          schema:
-            type: string
-          description: Natural language search query
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 100
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
+      - name: domain
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by domain
+          title: Domain
+        description: Filter by domain
+      - name: area_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by area
+          title: Area Id
+        description: Filter by area
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by state
+          title: State
+        description: Filter by state
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       responses:
         '200':
-          description: List of entities
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EntityList'
-
+                $ref: '#/components/schemas/EntityListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/entities/{entity_id}:
     get:
-      tags: [Entities]
-      summary: Get entity details
-      operationId: getEntity
+      tags:
+      - Entities
+      summary: Get Entity
+      description: Get a specific entity by HA entity_id.
+      operationId: get_entity_api_v1_entities__entity_id__get
       parameters:
-        - name: entity_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: entity_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Entity Id
       responses:
         '200':
-          description: Entity details
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Entity'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
+                $ref: '#/components/schemas/EntityResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/entities/query:
     post:
-      tags: [Entities]
-      summary: Natural language entity query
-      description: Query entities using natural language (e.g., "all lights in the living room")
-      operationId: queryEntities
+      tags:
+      - Entities
+      summary: Query Entities
+      description: 'Query entities using natural language.
+
+
+        Rate limited to 10/minute (LLM-backed).
+
+
+        Examples:
+
+        - "all lights in the living room"
+
+        - "temperature sensors"
+
+        - "devices that are on"'
+      operationId: query_entities_api_v1_entities_query_post
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EntityQuery'
+              $ref: '#/components/schemas/EntityQueryRequest'
+        required: true
       responses:
         '200':
-          description: Matching entities
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/EntityQueryResult'
-
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/entities/sync:
     post:
-      tags: [Entities]
-      summary: Trigger entity sync
-      description: Manually trigger a sync with Home Assistant
-      operationId: syncEntities
-      responses:
-        '202':
-          description: Sync started
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoverySession'
+      tags:
+      - Entities
+      summary: Sync Entities
+      description: 'Trigger entity discovery and sync from Home Assistant.
 
-  # ============== Chat ==============
-  /api/v1/conversations:
-    get:
-      tags: [Chat]
-      summary: List conversations
-      operationId: listConversations
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [active, completed, archived]
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
+
+        Rate limited to 5/minute (expensive MCP + DB operation).'
+      operationId: sync_entities_api_v1_entities_sync_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntitySyncRequest'
+        required: true
       responses:
         '200':
-          description: List of conversations
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConversationList'
-
+                $ref: '#/components/schemas/EntitySyncResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/entities/domains/summary:
+    get:
+      tags:
+      - Entities
+      summary: Get Domain Summary
+      description: Get entity count per domain.
+      operationId: get_domain_summary_api_v1_entities_domains_summary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: integer
+                type: object
+                title: Response Get Domain Summary Api V1 Entities Domains Summary Get
+  /api/v1/areas:
+    get:
+      tags:
+      - Areas
+      summary: List Areas
+      description: List all areas.
+      operationId: list_areas_api_v1_areas_get
+      parameters:
+      - name: floor_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by floor
+          title: Floor Id
+        description: Filter by floor
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AreaListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/areas/{area_id}:
+    get:
+      tags:
+      - Areas
+      summary: Get Area
+      description: Get a specific area.
+      operationId: get_area_api_v1_areas__area_id__get
+      parameters:
+      - name: area_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Area Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AreaResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/devices:
+    get:
+      tags:
+      - Devices
+      summary: List Devices
+      description: List all devices.
+      operationId: list_devices_api_v1_devices_get
+      parameters:
+      - name: area_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by area
+          title: Area Id
+        description: Filter by area
+      - name: manufacturer
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by manufacturer
+          title: Manufacturer
+        description: Filter by manufacturer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/devices/{device_id}:
+    get:
+      tags:
+      - Devices
+      summary: Get Device
+      description: Get a specific device.
+      operationId: get_device_api_v1_devices__device_id__get
+      parameters:
+      - name: device_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Device Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/automations:
+    get:
+      tags:
+      - HA Registry
+      summary: List Automations
+      description: "List all automations.\n\nArgs:\n    state: Optional filter by state (on/off)\n    limit: Maximum number\
+        \ of results\n    offset: Number of results to skip\n    session: Database session\n\nReturns:\n    List of automations\
+        \ with counts"
+      operationId: list_automations_api_v1_registry_automations_get
+      parameters:
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/automations/{automation_id}:
+    get:
+      tags:
+      - HA Registry
+      summary: Get Automation
+      description: "Get a specific automation.\n\nArgs:\n    automation_id: Internal UUID or HA automation ID\n    session:\
+        \ Database session\n\nReturns:\n    Automation details\n\nRaises:\n    HTTPException: If automation not found"
+      operationId: get_automation_api_v1_registry_automations__automation_id__get
+      parameters:
+      - name: automation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Automation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/scripts:
+    get:
+      tags:
+      - HA Registry
+      summary: List Scripts
+      description: "List all scripts.\n\nArgs:\n    state: Optional filter by state\n    limit: Maximum number of results\n\
+        \    offset: Number of results to skip\n    session: Database session\n\nReturns:\n    List of scripts with counts"
+      operationId: list_scripts_api_v1_registry_scripts_get
+      parameters:
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScriptListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/scripts/{script_id}:
+    get:
+      tags:
+      - HA Registry
+      summary: Get Script
+      description: "Get a specific script.\n\nArgs:\n    script_id: Internal UUID or entity ID\n    session: Database session\n\
+        \nReturns:\n    Script details\n\nRaises:\n    HTTPException: If script not found"
+      operationId: get_script_api_v1_registry_scripts__script_id__get
+      parameters:
+      - name: script_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Script Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScriptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/scenes:
+    get:
+      tags:
+      - HA Registry
+      summary: List Scenes
+      description: "List all scenes.\n\nArgs:\n    limit: Maximum number of results\n    offset: Number of results to skip\n\
+        \    session: Database session\n\nReturns:\n    List of scenes"
+      operationId: list_scenes_api_v1_registry_scenes_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/scenes/{scene_id}:
+    get:
+      tags:
+      - HA Registry
+      summary: Get Scene
+      description: "Get a specific scene.\n\nArgs:\n    scene_id: Internal UUID or entity ID\n    session: Database session\n\
+        \nReturns:\n    Scene details\n\nRaises:\n    HTTPException: If scene not found"
+      operationId: get_scene_api_v1_registry_scenes__scene_id__get
+      parameters:
+      - name: scene_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scene Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/services:
+    get:
+      tags:
+      - HA Registry
+      summary: List Services
+      description: "List all services.\n\nArgs:\n    domain: Optional filter by domain\n    limit: Maximum number of results\n\
+        \    offset: Number of results to skip\n    session: Database session\n\nReturns:\n    List of services with metadata"
+      operationId: list_services_api_v1_registry_services_get
+      parameters:
+      - name: domain
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 500
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/services/{service_id}:
+    get:
+      tags:
+      - HA Registry
+      summary: Get Service
+      description: "Get a specific service.\n\nArgs:\n    service_id: Internal UUID or full service name (domain.service)\n\
+        \    session: Database session\n\nReturns:\n    Service details\n\nRaises:\n    HTTPException: If service not found"
+      operationId: get_service_api_v1_registry_services__service_id__get
+      parameters:
+      - name: service_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Service Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/services/call:
     post:
-      tags: [Chat]
-      summary: Start new conversation
-      description: Start a new conversation with the Architect agent
-      operationId: createConversation
+      tags:
+      - HA Registry
+      summary: Call Service
+      description: "Call a Home Assistant service via MCP.\n\nArgs:\n    request: Service call request\n    session: Database\
+        \ session\n\nReturns:\n    Service call result"
+      operationId: call_service_api_v1_registry_services_call_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceCallRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceCallResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/services/seed:
+    post:
+      tags:
+      - HA Registry
+      summary: Seed Services
+      description: "Seed common services into the database.\n\nThis populates the service registry with known common services\n\
+        that agents can use for automation proposals.\n\nArgs:\n    session: Database session\n\nReturns:\n    Seeding statistics"
+      operationId: seed_services_api_v1_registry_services_seed_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: integer
+                type: object
+                title: Response Seed Services Api V1 Registry Services Seed Post
+  /api/v1/registry/summary:
+    get:
+      tags:
+      - HA Registry
+      summary: Get Registry Summary
+      description: "Get a summary of the HA registry.\n\nProvides counts and status of automations, scripts, scenes, and services.\n\
+        \nArgs:\n    session: Database session\n\nReturns:\n    Registry summary with MCP gaps"
+      operationId: get_registry_summary_api_v1_registry_summary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HARegistrySummary'
+  /api/v1/conversations:
+    post:
+      tags:
+      - Conversations
+      summary: Start a new conversation
+      description: Create a new conversation and send the initial message.
+      operationId: create_conversation_api_v1_conversations_post
       requestBody:
         required: true
         content:
@@ -176,745 +770,4028 @@ paths:
             schema:
               $ref: '#/components/schemas/ConversationCreate'
       responses:
-        '201':
-          description: Conversation created
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Conversation'
-
-  /api/v1/conversations/{conversation_id}:
+                $ref: '#/components/schemas/ConversationDetailResponse'
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Internal Server Error
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     get:
-      tags: [Chat]
-      summary: Get conversation details
-      operationId: getConversation
+      tags:
+      - Conversations
+      summary: List conversations
+      description: List all conversations for the current user.
+      operationId: list_conversations_api_v1_conversations_get
       parameters:
-        - name: conversation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
       responses:
         '200':
-          description: Conversation with messages
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConversationDetail'
-
+                $ref: '#/components/schemas/ConversationListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/conversations/{conversation_id}:
+    get:
+      tags:
+      - Conversations
+      summary: Get conversation details
+      description: Get a conversation with all its messages.
+      operationId: get_conversation_api_v1_conversations__conversation_id__get
+      parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Conversation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetailResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Conversations
+      summary: Delete conversation
+      description: Delete a conversation and all its messages.
+      operationId: delete_conversation_api_v1_conversations__conversation_id__delete
+      parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Conversation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Delete Conversation Api V1 Conversations  Conversation Id  Delete
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/conversations/{conversation_id}/messages:
     post:
-      tags: [Chat]
-      summary: Send message
-      description: Send a message to the Architect agent and receive a response
-      operationId: sendMessage
+      tags:
+      - Conversations
+      summary: Send a message
+      description: Send a message in an existing conversation.
+      operationId: send_message_api_v1_conversations__conversation_id__messages_post
       parameters:
-        - name: conversation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Conversation Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MessageCreate'
+              $ref: '#/components/schemas/ChatRequest'
       responses:
         '200':
-          description: Agent response
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Message'
-
-  /api/v1/conversations/{conversation_id}/stream:
-    get:
-      tags: [Chat]
-      summary: Stream conversation (WebSocket)
-      description: |
-        WebSocket endpoint for streaming conversation with the Architect agent.
-        Send JSON messages, receive streamed responses.
-      operationId: streamConversation
-      parameters:
-        - name: conversation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '101':
-          description: WebSocket upgrade
-
-  # ============== Automations ==============
-  /api/v1/automations:
-    get:
-      tags: [Automations]
-      summary: List automations
-      operationId: listAutomations
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [draft, proposed, approved, deployed, rolled_back, archived]
-      responses:
-        '200':
-          description: List of automations
+                $ref: '#/components/schemas/ChatResponse'
+        '404':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AutomationList'
-
-  /api/v1/automations/{automation_id}:
-    get:
-      tags: [Automations]
-      summary: Get automation details
-      operationId: getAutomation
-      parameters:
-        - name: automation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Automation details
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Automation'
-
-  /api/v1/automations/{automation_id}/approve:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals:
+    get:
+      tags:
+      - Proposals
+      summary: List proposals
+      description: List automation proposals with optional status filter.
+      operationId: list_proposals_api_v1_proposals_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
-      tags: [Automations]
-      summary: Approve automation (HITL)
-      description: |
-        **Constitution Compliance**: This endpoint implements the HITL approval requirement.
-        Automations cannot be deployed without explicit approval through this endpoint.
-      operationId: approveAutomation
-      parameters:
-        - name: automation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      tags:
+      - Proposals
+      summary: Create proposal
+      description: Create a new automation proposal directly (without conversation).
+      operationId: create_proposal_api_v1_proposals_post
       requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/pending:
+    get:
+      tags:
+      - Proposals
+      summary: List pending proposals
+      description: List proposals awaiting approval.
+      operationId: list_pending_proposals_api_v1_proposals_pending_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}:
+    get:
+      tags:
+      - Proposals
+      summary: Get proposal details
+      description: Get a proposal with its YAML content.
+      operationId: get_proposal_api_v1_proposals__proposal_id__get
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalYAMLResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/approve:
+    post:
+      tags:
+      - Proposals
+      summary: Approve proposal
+      description: Approve a pending automation proposal.
+      operationId: approve_proposal_api_v1_proposals__proposal_id__approve_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ApprovalRequest'
       responses:
         '200':
-          description: Automation approved
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Automation'
+                $ref: '#/components/schemas/ProposalResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
         '400':
-          description: Cannot approve (wrong status)
-
-  /api/v1/automations/{automation_id}/reject:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/reject:
     post:
-      tags: [Automations]
-      summary: Reject automation
-      operationId: rejectAutomation
+      tags:
+      - Proposals
+      summary: Reject proposal
+      description: Reject a pending automation proposal.
+      operationId: reject_proposal_api_v1_proposals__proposal_id__reject_post
       parameters:
-        - name: automation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RejectionRequest'
       responses:
         '200':
-          description: Automation rejected
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Automation'
-
-  /api/v1/automations/{automation_id}/deploy:
-    post:
-      tags: [Automations]
-      summary: Deploy approved automation
-      description: Deploy an approved automation to Home Assistant
-      operationId: deployAutomation
-      parameters:
-        - name: automation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Automation deployed
+                $ref: '#/components/schemas/ProposalResponse'
+        '404':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Automation'
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
         '400':
-          description: Not approved (HITL violation)
-
-  /api/v1/automations/{automation_id}/rollback:
-    post:
-      tags: [Automations]
-      summary: Rollback deployed automation
-      description: Remove automation from Home Assistant
-      operationId: rollbackAutomation
-      parameters:
-        - name: automation_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Automation rolled back
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Automation'
-
-  # ============== Insights ==============
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/deploy:
+    post:
+      tags:
+      - Proposals
+      summary: Deploy proposal
+      description: Deploy an approved automation to Home Assistant.
+      operationId: deploy_proposal_api_v1_proposals__proposal_id__deploy_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/DeploymentRequest'
+              - type: 'null'
+              title: Deploy Data
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/rollback:
+    post:
+      tags:
+      - Proposals
+      summary: Rollback proposal
+      description: Rollback a deployed automation from Home Assistant.
+      operationId: rollback_proposal_api_v1_proposals__proposal_id__rollback_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/RollbackRequest'
+              - type: 'null'
+              title: Rollback Data
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/insights:
     get:
-      tags: [Insights]
+      tags:
+      - Insights
       summary: List insights
-      operationId: listInsights
+      description: List insights with optional type and status filters.
+      operationId: list_insights_api_v1_insights_get
       parameters:
-        - name: type
-          in: query
-          schema:
-            type: string
-            enum: [energy_optimization, pattern, anomaly, recommendation]
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [generated, reviewed, acted_upon, dismissed]
+      - name: type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Type
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
       responses:
         '200':
-          description: List of insights
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InsightList'
-
-  /api/v1/insights/{insight_id}:
-    get:
-      tags: [Insights]
-      summary: Get insight details
-      operationId: getInsight
-      parameters:
-        - name: insight_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Insight details with evidence
+                $ref: '#/components/schemas/InsightListResponse'
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Insight'
-
-  /api/v1/insights/analyze:
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
-      tags: [Insights]
-      summary: Request analysis
-      description: |
-        Request the Data Scientist agent to analyze specific aspects.
-        Generated scripts run in gVisor sandbox per Constitution.
-      operationId: requestAnalysis
+      tags:
+      - Insights
+      summary: Create insight
+      description: Create a new insight (typically done by Data Scientist agent).
+      operationId: create_insight_api_v1_insights_post
       requestBody:
         required: true
         content:
           application/json:
             schema:
+              $ref: '#/components/schemas/InsightCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insights/pending:
+    get:
+      tags:
+      - Insights
+      summary: List pending insights
+      description: List insights awaiting review.
+      operationId: list_pending_insights_api_v1_insights_pending_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insights/summary:
+    get:
+      tags:
+      - Insights
+      summary: Get insights summary
+      description: Get counts and statistics for insights.
+      operationId: get_insights_summary_api_v1_insights_summary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightSummary'
+  /api/v1/insights/{insight_id}:
+    get:
+      tags:
+      - Insights
+      summary: Get insight
+      description: Get a specific insight by ID.
+      operationId: get_insight_api_v1_insights__insight_id__get
+      parameters:
+      - name: insight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Insight Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Insights
+      summary: Delete insight
+      description: Delete an insight.
+      operationId: delete_insight_api_v1_insights__insight_id__delete
+      parameters:
+      - name: insight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Insight Id
+      responses:
+        '204':
+          description: Successful Response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insights/{insight_id}/review:
+    post:
+      tags:
+      - Insights
+      summary: Mark insight as reviewed
+      description: Mark an insight as reviewed by a user.
+      operationId: review_insight_api_v1_insights__insight_id__review_post
+      parameters:
+      - name: insight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Insight Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insights/{insight_id}/action:
+    post:
+      tags:
+      - Insights
+      summary: Mark insight as actioned
+      description: Mark an insight as actioned (user took action based on it).
+      operationId: action_insight_api_v1_insights__insight_id__action_post
+      parameters:
+      - name: insight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Insight Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insights/{insight_id}/dismiss:
+    post:
+      tags:
+      - Insights
+      summary: Dismiss insight
+      description: Dismiss an insight (not relevant or not actionable).
+      operationId: dismiss_insight_api_v1_insights__insight_id__dismiss_post
+      parameters:
+      - name: insight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Insight Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DismissRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insights/analyze:
+    post:
+      tags:
+      - Insights
+      summary: Start energy analysis
+      description: Start a new energy analysis job (async).
+      operationId: start_analysis_api_v1_insights_analyze_post
+      requestBody:
+        content:
+          application/json:
+            schema:
               $ref: '#/components/schemas/AnalysisRequest'
+        required: true
       responses:
         '202':
-          description: Analysis started
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnalysisJob'
-
-  # ============== Dashboards ==============
-  /api/v1/dashboards:
-    get:
-      tags: [Dashboards]
-      summary: List dashboards
-      operationId: listDashboards
-      responses:
-        '200':
-          description: List of dashboards
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DashboardList'
-
-  /api/v1/dashboards/{dashboard_id}:
-    get:
-      tags: [Dashboards]
-      summary: Get dashboard details
-      operationId: getDashboard
-      parameters:
-        - name: dashboard_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Dashboard configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Dashboard'
-
-  /api/v1/dashboards/{dashboard_id}/deploy:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimize:
     post:
-      tags: [Dashboards]
-      summary: Deploy dashboard to HA
-      operationId: deployDashboard
+      tags:
+      - Optimization
+      summary: Start Optimization
+      description: 'Run a full optimization analysis.
+
+
+        Triggers behavioral analysis in the background. Returns a job
+
+        that can be polled for completion.'
+      operationId: start_optimization_api_v1_optimize_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimize/{job_id}:
+    get:
+      tags:
+      - Optimization
+      summary: Get Optimization Status
+      description: Get the status of an optimization job.
+      operationId: get_optimization_status_api_v1_optimize__job_id__get
       parameters:
-        - name: dashboard_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
       responses:
         '200':
-          description: Dashboard deployed
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Dashboard'
-
-  # ============== System ==============
-  /api/v1/health:
+                $ref: '#/components/schemas/OptimizationResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimize/suggestions/list:
     get:
-      tags: [System]
-      summary: Health check
-      operationId: healthCheck
+      tags:
+      - Optimization
+      summary: List Suggestions
+      description: List all pending automation suggestions.
+      operationId: list_suggestions_api_v1_optimize_suggestions_list_get
       responses:
         '200':
-          description: System healthy
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthStatus'
-
-  /api/v1/status:
+                $ref: '#/components/schemas/SuggestionListResponse'
+  /api/v1/optimize/suggestions/{suggestion_id}/accept:
+    post:
+      tags:
+      - Optimization
+      summary: Accept Suggestion
+      description: Accept an automation suggestion and create a proposal.
+      operationId: accept_suggestion_api_v1_optimize_suggestions__suggestion_id__accept_post
+      parameters:
+      - name: suggestion_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Suggestion Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestionAcceptRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Accept Suggestion Api V1 Optimize Suggestions  Suggestion Id  Accept Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimize/suggestions/{suggestion_id}/reject:
+    post:
+      tags:
+      - Optimization
+      summary: Reject Suggestion
+      description: Reject an automation suggestion.
+      operationId: reject_suggestion_api_v1_optimize_suggestions__suggestion_id__reject_post
+      parameters:
+      - name: suggestion_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Suggestion Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestionRejectRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Reject Suggestion Api V1 Optimize Suggestions  Suggestion Id  Reject Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insight-schedules:
     get:
-      tags: [System]
-      summary: System status
-      description: Detailed system status including HA connection, agent states
-      operationId: systemStatus
+      tags:
+      - Insight Schedules
+      summary: List Schedules
+      description: List all insight schedules.
+      operationId: list_schedules_api_v1_insight_schedules_get
+      parameters:
+      - name: trigger_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trigger Type
+      - name: enabled_only
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Enabled Only
       responses:
         '200':
-          description: System status
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SystemStatus'
+                $ref: '#/components/schemas/InsightScheduleList'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Insight Schedules
+      summary: Create Schedule
+      description: 'Create a new insight schedule.
 
+
+        For cron triggers, the schedule is immediately registered with APScheduler.'
+      operationId: create_schedule_api_v1_insight_schedules_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsightScheduleCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightScheduleResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insight-schedules/{schedule_id}:
+    get:
+      tags:
+      - Insight Schedules
+      summary: Get Schedule
+      description: Get a single insight schedule by ID.
+      operationId: get_schedule_api_v1_insight_schedules__schedule_id__get
+      parameters:
+      - name: schedule_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Schedule Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightScheduleResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Insight Schedules
+      summary: Update Schedule
+      description: Update an insight schedule.
+      operationId: update_schedule_api_v1_insight_schedules__schedule_id__put
+      parameters:
+      - name: schedule_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Schedule Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsightScheduleUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightScheduleResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Insight Schedules
+      summary: Delete Schedule
+      description: Delete an insight schedule.
+      operationId: delete_schedule_api_v1_insight_schedules__schedule_id__delete
+      parameters:
+      - name: schedule_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Schedule Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/insight-schedules/{schedule_id}/run:
+    post:
+      tags:
+      - Insight Schedules
+      summary: Run Schedule Now
+      description: Manually trigger a scheduled insight analysis.
+      operationId: run_schedule_now_api_v1_insight_schedules__schedule_id__run_post
+      parameters:
+      - name: schedule_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Schedule Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Run Schedule Now Api V1 Insight Schedules  Schedule Id  Run Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/webhooks/ha:
+    post:
+      tags:
+      - Webhooks
+      summary: Receive Ha Webhook
+      description: "Receive a webhook from Home Assistant and trigger matching insight analyses.\n\nHA automation example\
+        \ (YAML):\n```yaml\nautomation:\n  trigger:\n    - platform: state\n      entity_id: sensor.grid_power\n      to:\
+        \ \"unavailable\"\n  action:\n    - service: rest_command.aether_webhook\n      data:\n        event_type: state_changed\n\
+        \        entity_id: sensor.grid_power\n        webhook_event: device_offline\n        data:\n          old_state:\
+        \ \"{{ trigger.from_state.state }}\"\n          new_state: \"{{ trigger.to_state.state }}\"\n```\n\nRate limited to\
+        \ 30/minute to prevent HA event storms."
+      operationId: receive_ha_webhook_api_v1_webhooks_ha_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HAWebhookPayload'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/traces/{trace_id}/spans:
+    get:
+      tags:
+      - Traces
+      summary: Get Trace Spans
+      description: 'Get the span tree for a trace, formatted for the Agent Activity panel.
+
+
+        Reads from MLflow''s trace storage and transforms the flat span list
+
+        into a nested tree with agent identification and relative timing.'
+      operationId: get_trace_spans_api_v1_traces__trace_id__spans_get
+      parameters:
+      - name: trace_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Trace Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models:
+    get:
+      tags:
+      - OpenAI Compatible
+      summary: List Models
+      description: 'List available LLM models.
+
+
+        Dynamically discovers available models from:
+
+        - Ollama (local models - if running)
+
+        - Configured provider (openrouter, openai, google)
+
+
+        Results are cached for 5 minutes.
+
+        All models power the Architect agent with Home Assistant tools.'
+      operationId: list_models_api_v1_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelsResponse'
+  /api/v1/feedback:
+    post:
+      tags:
+      - OpenAI Compatible
+      summary: Submit Feedback
+      description: 'Submit thumbs up/down feedback for a chat response.
+
+
+        Logs user sentiment against the MLflow trace for model evaluation.'
+      operationId: submit_feedback_api_v1_feedback_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/chat/completions:
+    post:
+      tags:
+      - OpenAI Compatible
+      summary: Create Chat Completion
+      description: 'Create a chat completion.
+
+
+        OpenAI-compatible endpoint for chat completions.
+
+        Supports both streaming and non-streaming modes.
+
+
+        Rate limited to 10/minute (LLM-backed).'
+      operationId: create_chat_completion_api_v1_chat_completions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    # ============== Entity Schemas ==============
-    Entity:
-      type: object
-      required: [id, ha_entity_id, domain, state]
+    ActionRequest:
       properties:
-        id:
+        actioned_by:
           type: string
-          format: uuid
-        ha_entity_id:
-          type: string
-          example: "light.living_room"
-        domain:
-          type: string
-          example: "light"
-        friendly_name:
-          type: string
-          example: "Living Room Light"
-        state:
-          type: string
-          example: "on"
-        attributes:
-          type: object
-          additionalProperties: true
-        capabilities:
-          type: array
-          items:
-            type: string
-        area:
-          $ref: '#/components/schemas/Area'
-        last_changed:
-          type: string
-          format: date-time
-
-    EntityList:
+          title: Actioned By
+          description: Who took action
+          default: user
+        action_taken:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Action Taken
+          description: What action was taken
+        create_automation:
+          type: boolean
+          title: Create Automation
+          description: Whether to create an automation from this insight
+          default: false
       type: object
+      title: ActionRequest
+      description: Schema for marking an insight as actioned.
+    AnalysisJob:
       properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Entity'
-        total:
-          type: integer
-        limit:
-          type: integer
-        offset:
-          type: integer
-
-    EntityQuery:
-      type: object
-      required: [query]
-      properties:
-        query:
+        job_id:
           type: string
-          example: "all lights in the living room that are currently on"
-
-    EntityQueryResult:
-      type: object
-      properties:
-        query:
-          type: string
-        interpretation:
-          type: string
-          description: How the query was understood
-        entities:
-          type: array
-          items:
-            $ref: '#/components/schemas/Entity'
-
-    Area:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        floor:
-          type: string
-
-    DiscoverySession:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
+          title: Job Id
+          description: Job UUID
         status:
           type: string
-          enum: [running, completed, failed]
+          title: Status
+          description: 'Job status: pending, running, completed, failed'
+        analysis_type:
+          type: string
+          title: Analysis Type
+          description: Type of analysis
+        progress:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Progress
+          description: Progress 0.0-1.0
         started_at:
           type: string
           format: date-time
-        entities_found:
-          type: integer
-
-    # ============== Conversation Schemas ==============
-    Conversation:
+          title: Started At
+          description: When started
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+          description: When completed
+        mlflow_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mlflow Run Id
+          description: MLflow run ID
+        insight_ids:
+          items:
+            type: string
+          type: array
+          title: Insight Ids
+          description: Generated insight IDs
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+          description: Error message if failed
       type: object
+      required:
+      - job_id
+      - status
+      - analysis_type
+      - progress
+      - started_at
+      title: AnalysisJob
+      description: Schema for an analysis job status.
+    AnalysisRequest:
+      properties:
+        analysis_type:
+          type: string
+          title: Analysis Type
+          description: 'Type of analysis: energy, anomaly, pattern'
+          default: energy
+        entity_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Entity Ids
+          description: Specific entity IDs to analyze (None = all energy sensors)
+        hours:
+          type: integer
+          maximum: 672.0
+          minimum: 1.0
+          title: Hours
+          description: Hours of history to analyze
+          default: 24
+        options:
+          additionalProperties: true
+          type: object
+          title: Options
+          description: Analysis-specific options
+      type: object
+      title: AnalysisRequest
+      description: Schema for requesting an energy analysis.
+    ApprovalRequest:
+      properties:
+        approved_by:
+          type: string
+          title: Approved By
+          description: Who is approving
+          default: user
+        comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comment
+          description: Optional approval comment
+      type: object
+      title: ApprovalRequest
+      description: Schema for approving a proposal.
+    AreaListResponse:
+      properties:
+        areas:
+          items:
+            $ref: '#/components/schemas/AreaResponse'
+          type: array
+          title: Areas
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - areas
+      - total
+      title: AreaListResponse
+      description: Response for area list.
+    AreaResponse:
+      properties:
+        ha_area_id:
+          type: string
+          title: Ha Area Id
+          description: HA area ID
+        name:
+          type: string
+          title: Name
+          description: Area name
+        id:
+          type: string
+          title: Id
+          description: Internal UUID
+        floor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Floor Id
+          description: Floor ID (if available)
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Icon
+        entity_count:
+          type: integer
+          title: Entity Count
+          default: 0
+        last_synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Synced At
+      type: object
+      required:
+      - ha_area_id
+      - name
+      - id
+      title: AreaResponse
+      description: Area response with all fields.
+    AutomationListResponse:
+      properties:
+        automations:
+          items:
+            $ref: '#/components/schemas/AutomationResponse'
+          type: array
+          title: Automations
+        total:
+          type: integer
+          title: Total
+        enabled_count:
+          type: integer
+          title: Enabled Count
+          description: Number of enabled automations
+          default: 0
+        disabled_count:
+          type: integer
+          title: Disabled Count
+          description: Number of disabled automations
+          default: 0
+      type: object
+      required:
+      - automations
+      - total
+      title: AutomationListResponse
+      description: Response for automation list.
+    AutomationResponse:
+      properties:
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Entity ID (automation.xxx)
+        alias:
+          type: string
+          title: Alias
+          description: Automation display name
+        state:
+          type: string
+          title: State
+          description: Current state (on/off)
+          default: 'on'
+        id:
+          type: string
+          title: Id
+          description: Internal UUID
+        ha_automation_id:
+          type: string
+          title: Ha Automation Id
+          description: HA automation ID
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        mode:
+          type: string
+          title: Mode
+          description: Execution mode
+          default: single
+        trigger_types:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Trigger Types
+        trigger_count:
+          type: integer
+          title: Trigger Count
+          default: 0
+        action_count:
+          type: integer
+          title: Action Count
+          default: 0
+        condition_count:
+          type: integer
+          title: Condition Count
+          default: 0
+        last_triggered:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Triggered
+        last_synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Synced At
+      type: object
+      required:
+      - entity_id
+      - alias
+      - id
+      - ha_automation_id
+      title: AutomationResponse
+      description: Automation response with all fields.
+    AutomationSuggestionResponse:
       properties:
         id:
           type: string
-          format: uuid
-        title:
+          title: Id
+          description: Suggestion UUID
+        pattern:
           type: string
+          title: Pattern
+          description: Description of the detected pattern
+        entities:
+          items:
+            type: string
+          type: array
+          title: Entities
+          description: Entity IDs involved
+        proposed_trigger:
+          type: string
+          title: Proposed Trigger
+          description: Suggested trigger
+        proposed_action:
+          type: string
+          title: Proposed Action
+          description: Suggested action
+        confidence:
+          type: number
+          title: Confidence
+          description: Confidence score 0.0-1.0
+        source_insight_type:
+          type: string
+          title: Source Insight Type
+          description: Analysis type that generated this
         status:
-          type: string
-          enum: [active, completed, archived]
+          $ref: '#/components/schemas/SuggestionStatus'
+          description: Current status
+          default: pending
         created_at:
           type: string
           format: date-time
+          title: Created At
+          description: When generated
+      type: object
+      required:
+      - id
+      - pattern
+      - entities
+      - proposed_trigger
+      - proposed_action
+      - confidence
+      - source_insight_type
+      - created_at
+      title: AutomationSuggestionResponse
+      description: Schema for an automation suggestion from the DS.
+    ChatCompletionRequest:
+      properties:
+        model:
+          type: string
+          title: Model
+          description: Model to use (always architect)
+          default: architect
+        messages:
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          type: array
+          title: Messages
+          description: Conversation messages
+        temperature:
+          anyOf:
+          - type: number
+            maximum: 2.0
+            minimum: 0.0
+          - type: 'null'
+          title: Temperature
+          default: 0.7
+        max_tokens:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Max Tokens
+        stream:
+          type: boolean
+          title: Stream
+          description: Whether to stream responses
+          default: false
+        user:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User
+          description: User identifier
+        conversation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Conversation Id
+          description: Existing conversation ID
+      type: object
+      required:
+      - messages
+      title: ChatCompletionRequest
+      description: OpenAI chat completion request.
+    ChatMessage:
+      properties:
+        role:
+          type: string
+          title: Role
+          description: 'Message role: system, user, assistant, tool'
+        content:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content
+          description: Message content
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Optional name for the message author
+        tool_calls:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Tool Calls
+          description: Tool calls
+        tool_call_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tool Call Id
+          description: Tool call ID for tool responses
+      type: object
+      required:
+      - role
+      title: ChatMessage
+      description: A chat message in OpenAI format.
+    ChatRequest:
+      properties:
+        message:
+          type: string
+          title: Message
+          description: User message content
+        context:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Context
+          description: Additional context for this message
+      type: object
+      required:
+      - message
+      title: ChatRequest
+      description: Schema for sending a chat message.
+    ChatResponse:
+      properties:
+        conversation_id:
+          type: string
+          title: Conversation Id
+          description: Conversation ID
+        message:
+          $ref: '#/components/schemas/MessageResponse'
+          description: Assistant's response
+        has_proposal:
+          type: boolean
+          title: Has Proposal
+          description: Whether a proposal was generated
+          default: false
+        proposal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Proposal Id
+          description: ID of generated proposal (if any)
+        status:
+          type: string
+          title: Status
+          description: Conversation status after this message
+      type: object
+      required:
+      - conversation_id
+      - message
+      - status
+      title: ChatResponse
+      description: Schema for chat response.
+    ComponentHealth:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Component name
+        status:
+          $ref: '#/components/schemas/HealthStatus'
+          description: Component health status
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+          description: Additional status message
+        latency_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latency Ms
+          description: Component response latency in milliseconds
+      type: object
+      required:
+      - name
+      - status
+      title: ComponentHealth
+      description: Health status for a single component.
+    ConversationCreate:
+      properties:
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+          description: Optional conversation title
+        initial_message:
+          type: string
+          title: Initial Message
+          description: Initial user message to start conversation
+        context:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Context
+          description: Optional initial context
+      type: object
+      required:
+      - initial_message
+      title: ConversationCreate
+      description: Schema for creating a conversation.
+    ConversationDetailResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Conversation UUID
+        agent_id:
+          type: string
+          title: Agent Id
+          description: Agent handling this conversation
+        user_id:
+          type: string
+          title: User Id
+          description: User identifier
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+          description: Conversation title
+        status:
+          type: string
+          title: Status
+          description: Conversation status
+        context:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Context
+          description: Conversation context
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: When started
         updated_at:
           type: string
           format: date-time
-
-    ConversationList:
-      type: object
-      properties:
-        items:
-          type: array
+          title: Updated At
+          description: Last activity
+        messages:
           items:
-            $ref: '#/components/schemas/Conversation'
-
-    ConversationCreate:
-      type: object
-      properties:
-        initial_message:
-          type: string
-          description: Optional first message to start the conversation
-
-    ConversationDetail:
-      allOf:
-        - $ref: '#/components/schemas/Conversation'
-        - type: object
-          properties:
-            messages:
-              type: array
-              items:
-                $ref: '#/components/schemas/Message'
-
-    Message:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        role:
-          type: string
-          enum: [user, assistant, system]
-        content:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-
-    MessageCreate:
-      type: object
-      required: [content]
-      properties:
-        content:
-          type: string
-
-    # ============== Automation Schemas ==============
-    Automation:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        description:
-          type: string
-        trigger:
-          type: object
-        conditions:
+            $ref: '#/components/schemas/MessageResponse'
           type: array
-          items:
-            type: object
-        actions:
-          type: array
-          items:
-            type: object
-        status:
-          type: string
-          enum: [draft, proposed, approved, deployed, rolled_back, archived]
-        proposed_at:
-          type: string
-          format: date-time
-        approved_at:
-          type: string
-          format: date-time
-        deployed_at:
-          type: string
-          format: date-time
-
-    AutomationList:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Automation'
-
-    ApprovalRequest:
-      type: object
-      properties:
-        comment:
-          type: string
-          description: Optional approval comment
-
-    RejectionRequest:
-      type: object
-      required: [reason]
-      properties:
-        reason:
-          type: string
-          description: Why the automation was rejected
-
-    # ============== Insight Schemas ==============
-    Insight:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          enum: [energy_optimization, pattern, anomaly, recommendation]
-        title:
-          type: string
-        description:
-          type: string
-        confidence:
-          type: number
-          minimum: 0
-          maximum: 1
-        impact:
-          type: string
-          enum: [low, medium, high]
-        evidence:
-          type: object
-        status:
-          type: string
-          enum: [generated, reviewed, acted_upon, dismissed]
-        created_at:
-          type: string
-          format: date-time
-
-    InsightList:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Insight'
-
-    AnalysisRequest:
-      type: object
-      required: [type]
-      properties:
-        type:
-          type: string
-          enum: [energy, patterns, anomalies]
-        time_range:
-          type: string
-          enum: [7d, 30d, 90d]
-          default: "30d"
-        entities:
-          type: array
+          title: Messages
+          description: Conversation messages
+        pending_approvals:
           items:
             type: string
-            format: uuid
-          description: Specific entities to analyze (empty = all)
-
-    AnalysisJob:
+          type: array
+          title: Pending Approvals
+          description: IDs of pending approval requests
       type: object
+      required:
+      - id
+      - agent_id
+      - user_id
+      - title
+      - status
+      - context
+      - created_at
+      - updated_at
+      title: ConversationDetailResponse
+      description: Schema for detailed conversation with messages.
+    ConversationListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ConversationResponse'
+          type: array
+          title: Items
+          description: Conversations
+        total:
+          type: integer
+          title: Total
+          description: Total count
+        limit:
+          type: integer
+          title: Limit
+          description: Page size
+        offset:
+          type: integer
+          title: Offset
+          description: Current offset
+      type: object
+      required:
+      - items
+      - total
+      - limit
+      - offset
+      title: ConversationListResponse
+      description: Schema for list of conversations.
+    ConversationResponse:
       properties:
         id:
           type: string
-          format: uuid
+          title: Id
+          description: Conversation UUID
+        agent_id:
+          type: string
+          title: Agent Id
+          description: Agent handling this conversation
+        user_id:
+          type: string
+          title: User Id
+          description: User identifier
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+          description: Conversation title
         status:
           type: string
-          enum: [queued, running, completed, failed]
+          title: Status
+          description: Conversation status
+        context:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Context
+          description: Conversation context
         created_at:
           type: string
           format: date-time
-
-    # ============== Dashboard Schemas ==============
-    Dashboard:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        description:
-          type: string
-        theme:
-          type: string
-        layout:
-          type: object
-          description: HA Lovelace configuration
-        status:
-          type: string
-          enum: [draft, approved, deployed, archived]
-        deployed_at:
+          title: Created At
+          description: When started
+        updated_at:
           type: string
           format: date-time
-
-    DashboardList:
+          title: Updated At
+          description: Last activity
       type: object
+      required:
+      - id
+      - agent_id
+      - user_id
+      - title
+      - status
+      - context
+      - created_at
+      - updated_at
+      title: ConversationResponse
+      description: Schema for conversation response.
+    DeploymentRequest:
       properties:
-        items:
-          type: array
+        force:
+          type: boolean
+          title: Force
+          description: Force deployment even if already deployed
+          default: false
+      type: object
+      title: DeploymentRequest
+      description: Schema for deploying an approved proposal.
+    DeploymentResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          description: Whether deployment succeeded
+        proposal_id:
+          type: string
+          title: Proposal Id
+          description: Proposal ID
+        ha_automation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha Automation Id
+          description: HA automation ID
+        method:
+          type: string
+          title: Method
+          description: Deployment method used
+        yaml_content:
+          type: string
+          title: Yaml Content
+          description: Deployed YAML
+        instructions:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Instructions
+          description: Manual instructions if needed
+        deployed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Deployed At
+          description: When deployed
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+          description: Error message if failed
+      type: object
+      required:
+      - success
+      - proposal_id
+      - ha_automation_id
+      - method
+      - yaml_content
+      - deployed_at
+      title: DeploymentResponse
+      description: Schema for deployment result.
+    DeviceListResponse:
+      properties:
+        devices:
           items:
-            $ref: '#/components/schemas/Dashboard'
-
-    # ============== System Schemas ==============
-    HealthStatus:
+            $ref: '#/components/schemas/DeviceResponse'
+          type: array
+          title: Devices
+        total:
+          type: integer
+          title: Total
       type: object
+      required:
+      - devices
+      - total
+      title: DeviceListResponse
+      description: Response for device list.
+    DeviceResponse:
       properties:
+        ha_device_id:
+          type: string
+          title: Ha Device Id
+          description: HA device ID
+        name:
+          type: string
+          title: Name
+          description: Device name
+        id:
+          type: string
+          title: Id
+          description: Internal UUID
+        area_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Area Id
+          description: Area ID
+        manufacturer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Manufacturer
+        model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
+        sw_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sw Version
+        entity_count:
+          type: integer
+          title: Entity Count
+          default: 0
+        last_synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Synced At
+      type: object
+      required:
+      - ha_device_id
+      - name
+      - id
+      title: DeviceResponse
+      description: Device response with all fields.
+    DismissRequest:
+      properties:
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: Why dismissed
+      type: object
+      title: DismissRequest
+      description: Schema for dismissing an insight.
+    EntityListResponse:
+      properties:
+        entities:
+          items:
+            $ref: '#/components/schemas/EntityResponse'
+          type: array
+          title: Entities
+        total:
+          type: integer
+          title: Total
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+      type: object
+      required:
+      - entities
+      - total
+      title: EntityListResponse
+      description: Response for entity list.
+    EntityQueryRequest:
+      properties:
+        query:
+          type: string
+          title: Query
+          description: Natural language query
+        limit:
+          type: integer
+          maximum: 100.0
+          minimum: 1.0
+          title: Limit
+          default: 20
+      type: object
+      required:
+      - query
+      title: EntityQueryRequest
+      description: Request for natural language entity query.
+    EntityQueryResult:
+      properties:
+        entities:
+          items:
+            $ref: '#/components/schemas/EntityResponse'
+          type: array
+          title: Entities
+        query:
+          type: string
+          title: Query
+        interpreted_as:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Interpreted As
+      type: object
+      required:
+      - entities
+      - query
+      title: EntityQueryResult
+      description: Result from entity query.
+    EntityResponse:
+      properties:
+        entity_id:
+          type: string
+          title: Entity Id
+          description: HA entity ID (e.g., light.living_room)
+        domain:
+          type: string
+          title: Domain
+          description: Entity domain
+        name:
+          type: string
+          title: Name
+          description: Display name
+        state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+          description: Current state
+        id:
+          type: string
+          title: Id
+          description: Internal UUID
+        attributes:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Attributes
+          description: Entity attributes
+        area_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Area Id
+          description: Area ID
+        device_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Id
+          description: Device ID
+        device_class:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Class
+        unit_of_measurement:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unit Of Measurement
+        supported_features:
+          type: integer
+          title: Supported Features
+          default: 0
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Icon
+        last_synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Synced At
+      type: object
+      required:
+      - entity_id
+      - domain
+      - name
+      - id
+      title: EntityResponse
+      description: Entity response with all fields.
+    EntitySyncRequest:
+      properties:
+        force:
+          type: boolean
+          title: Force
+          description: Force full re-sync
+          default: false
+      type: object
+      title: EntitySyncRequest
+      description: Request to trigger entity sync.
+    EntitySyncResponse:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
         status:
           type: string
-          enum: [healthy, degraded, unhealthy]
+          title: Status
+        entities_found:
+          type: integer
+          title: Entities Found
+        entities_added:
+          type: integer
+          title: Entities Added
+        entities_updated:
+          type: integer
+          title: Entities Updated
+        entities_removed:
+          type: integer
+          title: Entities Removed
+        duration_seconds:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Duration Seconds
+      type: object
+      required:
+      - session_id
+      - status
+      - entities_found
+      - entities_added
+      - entities_updated
+      - entities_removed
+      title: EntitySyncResponse
+      description: Response from entity sync.
+    ErrorDetail:
+      properties:
+        code:
+          type: integer
+          title: Code
+          description: HTTP status code
+        message:
+          type: string
+          title: Message
+          description: Human-readable error message
+        type:
+          $ref: '#/components/schemas/ErrorType'
+          description: Error type classification
+        details:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Details
+          description: Additional error details
+      type: object
+      required:
+      - code
+      - message
+      - type
+      title: ErrorDetail
+      description: Detailed error information.
+    ErrorResponse:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+      type: object
+      required:
+      - error
+      title: ErrorResponse
+      description: Standard error response wrapper.
+    ErrorType:
+      type: string
+      enum:
+      - http_error
+      - validation_error
+      - internal_error
+      - not_found
+      - unauthorized
+      - forbidden
+      - conflict
+      - service_unavailable
+      title: ErrorType
+      description: Standard error types.
+    FeedbackRequest:
+      properties:
+        trace_id:
+          type: string
+          title: Trace Id
+          description: MLflow trace ID to attach feedback to
+        sentiment:
+          type: string
+          title: Sentiment
+          description: 'Feedback sentiment: ''positive'' or ''negative'''
+      type: object
+      required:
+      - trace_id
+      - sentiment
+      title: FeedbackRequest
+      description: Request body for submitting feedback on a trace.
+    HARegistrySummary:
+      properties:
+        automations_count:
+          type: integer
+          title: Automations Count
+          default: 0
+        automations_enabled:
+          type: integer
+          title: Automations Enabled
+          default: 0
+        scripts_count:
+          type: integer
+          title: Scripts Count
+          default: 0
+        scenes_count:
+          type: integer
+          title: Scenes Count
+          default: 0
+        services_count:
+          type: integer
+          title: Services Count
+          default: 0
+        services_seeded:
+          type: integer
+          title: Services Seeded
+          default: 0
+        last_synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Synced At
+        mcp_gaps:
+          items:
+            type: string
+          type: array
+          title: Mcp Gaps
+          description: Known MCP capability gaps affecting this data
+      type: object
+      title: HARegistrySummary
+      description: Summary of HA registry (automations, scripts, scenes, services).
+    HAWebhookPayload:
+      properties:
+        event_type:
+          type: string
+          title: Event Type
+          description: HA event type, e.g. 'state_changed', 'automation_triggered', 'custom'
+        entity_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entity Id
+          description: HA entity ID that triggered the event
+        data:
+          additionalProperties: true
+          type: object
+          title: Data
+          description: 'Event data: old_state, new_state, attributes, etc.'
+        webhook_event:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Webhook Event
+          description: Custom event label to match against registered triggers (e.g. 'device_offline')
+      type: object
+      required:
+      - event_type
+      title: HAWebhookPayload
+      description: Payload from a Home Assistant webhook automation action.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
+          $ref: '#/components/schemas/HealthStatus'
+          description: Overall system health
         timestamp:
           type: string
           format: date-time
-
-    SystemStatus:
-      type: object
-      properties:
+          title: Timestamp
+          description: Health check timestamp
         version:
           type: string
-        uptime_seconds:
-          type: integer
-        ha_connected:
-          type: boolean
-        database_connected:
-          type: boolean
-        mlflow_connected:
-          type: boolean
-        agents:
+          title: Version
+          description: Application version
+          default: 0.1.0
+      type: object
+      required:
+      - status
+      title: HealthResponse
+      description: Health check response.
+    HealthStatus:
+      type: string
+      enum:
+      - healthy
+      - degraded
+      - unhealthy
+      title: HealthStatus
+      description: Health check status values.
+    InsightCreate:
+      properties:
+        type:
+          $ref: '#/components/schemas/InsightType'
+          description: Insight category
+        title:
+          type: string
+          title: Title
+          description: Brief summary
+        description:
+          type: string
+          title: Description
+          description: Detailed explanation (markdown supported)
+        evidence:
+          additionalProperties: true
           type: object
-          additionalProperties:
+          title: Evidence
+          description: Supporting data (charts, statistics, queries)
+        confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+          description: Confidence score 0.0-1.0
+        impact:
+          type: string
+          title: Impact
+          description: 'Potential impact: low, medium, high, critical'
+        entities:
+          items:
             type: string
-            enum: [idle, running, error]
-        entity_count:
+          type: array
+          title: Entities
+          description: Related entity IDs
+        script_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Script Path
+          description: Path to analysis script
+        script_output:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Script Output
+          description: Script execution results
+        mlflow_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mlflow Run Id
+          description: MLflow run ID for traceability
+      type: object
+      required:
+      - type
+      - title
+      - description
+      - evidence
+      - confidence
+      - impact
+      title: InsightCreate
+      description: Schema for creating an insight directly.
+    InsightListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/InsightResponse'
+          type: array
+          title: Items
+          description: Insights
+        total:
           type: integer
-        last_sync:
+          title: Total
+          description: Total count
+        limit:
+          type: integer
+          title: Limit
+          description: Page size
+        offset:
+          type: integer
+          title: Offset
+          description: Current offset
+      type: object
+      required:
+      - items
+      - total
+      - limit
+      - offset
+      title: InsightListResponse
+      description: Schema for list of insights.
+    InsightResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Insight UUID
+        type:
+          $ref: '#/components/schemas/InsightType'
+          description: Insight category
+        title:
+          type: string
+          title: Title
+          description: Brief summary
+        description:
+          type: string
+          title: Description
+          description: Detailed explanation
+        evidence:
+          additionalProperties: true
+          type: object
+          title: Evidence
+          description: Supporting data
+        confidence:
+          type: number
+          title: Confidence
+          description: Confidence score 0.0-1.0
+        impact:
+          type: string
+          title: Impact
+          description: Impact level
+        entities:
+          items:
+            type: string
+          type: array
+          title: Entities
+          description: Related entity IDs
+        script_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Script Path
+          description: Analysis script path
+        script_output:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Script Output
+          description: Script results
+        status:
+          $ref: '#/components/schemas/InsightStatus'
+          description: Current status
+        mlflow_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mlflow Run Id
+          description: MLflow run ID
+        created_at:
           type: string
           format: date-time
-
-    # ============== Error Schemas ==============
-    Error:
+          title: Created At
+          description: When generated
+        reviewed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Reviewed At
+          description: When reviewed
+        actioned_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Actioned At
+          description: When actioned
       type: object
-      required: [code, message]
+      required:
+      - id
+      - type
+      - title
+      - description
+      - evidence
+      - confidence
+      - impact
+      - entities
+      - script_path
+      - script_output
+      - status
+      - mlflow_run_id
+      - created_at
+      - reviewed_at
+      - actioned_at
+      title: InsightResponse
+      description: Schema for insight response.
+    InsightScheduleCreate:
       properties:
-        code:
+        name:
           type: string
+          maxLength: 255
+          minLength: 1
+          title: Name
+        analysis_type:
+          type: string
+          title: Analysis Type
+          description: energy, behavioral, anomaly, device_health, etc.
+        trigger_type:
+          type: string
+          pattern: ^(cron|webhook)$
+          title: Trigger Type
+          description: '''cron'' or ''webhook'''
+        enabled:
+          type: boolean
+          title: Enabled
+          default: true
+        entity_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Entity Ids
+        hours:
+          type: integer
+          maximum: 8760.0
+          minimum: 1.0
+          title: Hours
+          default: 24
+        options:
+          additionalProperties: true
+          type: object
+          title: Options
+        cron_expression:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cron Expression
+          description: Cron expression, e.g. '0 2 * * *'. Required for cron triggers.
+        webhook_event:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Webhook Event
+          description: Event label for matching, e.g. 'device_offline'. Required for webhook triggers.
+        webhook_filter:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Webhook Filter
+          description: 'Match criteria: {entity_id, event_type, to_state, from_state}'
+      type: object
+      required:
+      - name
+      - analysis_type
+      - trigger_type
+      title: InsightScheduleCreate
+      description: Request body for creating an insight schedule.
+    InsightScheduleList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/InsightScheduleResponse'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - items
+      - total
+      title: InsightScheduleList
+      description: Paginated list of insight schedules.
+    InsightScheduleResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        enabled:
+          type: boolean
+          title: Enabled
+        analysis_type:
+          type: string
+          title: Analysis Type
+        trigger_type:
+          type: string
+          title: Trigger Type
+        entity_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Entity Ids
+        hours:
+          type: integer
+          title: Hours
+        options:
+          additionalProperties: true
+          type: object
+          title: Options
+        cron_expression:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cron Expression
+        webhook_event:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Webhook Event
+        webhook_filter:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Webhook Filter
+        last_run_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Run At
+        last_result:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Result
+        last_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Error
+        run_count:
+          type: integer
+          title: Run Count
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - enabled
+      - analysis_type
+      - trigger_type
+      - entity_ids
+      - hours
+      - options
+      - cron_expression
+      - webhook_event
+      - webhook_filter
+      - last_run_at
+      - last_result
+      - last_error
+      - run_count
+      - created_at
+      - updated_at
+      title: InsightScheduleResponse
+      description: Response schema for an insight schedule.
+    InsightScheduleUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled
+        analysis_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Analysis Type
+        entity_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Entity Ids
+        hours:
+          anyOf:
+          - type: integer
+            maximum: 8760.0
+            minimum: 1.0
+          - type: 'null'
+          title: Hours
+        options:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Options
+        cron_expression:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cron Expression
+        webhook_event:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Webhook Event
+        webhook_filter:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Webhook Filter
+      type: object
+      title: InsightScheduleUpdate
+      description: Request body for updating an insight schedule (partial).
+    InsightStatus:
+      type: string
+      enum:
+      - pending
+      - reviewed
+      - actioned
+      - dismissed
+      title: InsightStatus
+      description: Insight lifecycle status.
+    InsightSummary:
+      properties:
+        total:
+          type: integer
+          title: Total
+          description: Total insights
+        by_type:
+          additionalProperties:
+            type: integer
+          type: object
+          title: By Type
+          description: Count by insight type
+        by_status:
+          additionalProperties:
+            type: integer
+          type: object
+          title: By Status
+          description: Count by status
+        pending_count:
+          type: integer
+          title: Pending Count
+          description: Insights awaiting review
+        high_impact_count:
+          type: integer
+          title: High Impact Count
+          description: High/critical impact insights
+      type: object
+      required:
+      - total
+      - by_type
+      - by_status
+      - pending_count
+      - high_impact_count
+      title: InsightSummary
+      description: Schema for insight summary/counts.
+    InsightType:
+      type: string
+      enum:
+      - energy_optimization
+      - anomaly_detection
+      - usage_pattern
+      - cost_saving
+      - maintenance_prediction
+      - automation_gap
+      - automation_inefficiency
+      - correlation
+      - device_health
+      - behavioral_pattern
+      title: InsightType
+      description: Types of insights.
+    MessageResponse:
+      properties:
+        role:
+          type: string
+          title: Role
+          description: 'Message role: user, assistant, system'
+        content:
+          type: string
+          title: Content
+          description: Message content
+        id:
+          type: string
+          title: Id
+          description: Message UUID
+        conversation_id:
+          type: string
+          title: Conversation Id
+          description: Parent conversation ID
+        tool_calls:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Tool Calls
+          description: Tool calls made by assistant
+        tool_results:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Tool Results
+          description: Results from tool calls
+        tokens_used:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Tokens Used
+          description: Token count
+        latency_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latency Ms
+          description: Response latency
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Message timestamp
+      type: object
+      required:
+      - role
+      - content
+      - id
+      - conversation_id
+      - created_at
+      title: MessageResponse
+      description: Schema for message response.
+    ModelInfo:
+      properties:
+        id:
+          type: string
+          title: Id
+        object:
+          type: string
+          title: Object
+          default: model
+        created:
+          type: integer
+          title: Created
+        owned_by:
+          type: string
+          title: Owned By
+          default: aether
+      type: object
+      required:
+      - id
+      title: ModelInfo
+      description: Model information.
+    ModelsResponse:
+      properties:
+        object:
+          type: string
+          title: Object
+          default: list
+        data:
+          items:
+            $ref: '#/components/schemas/ModelInfo'
+          type: array
+          title: Data
+      type: object
+      required:
+      - data
+      title: ModelsResponse
+      description: List models response.
+    OptimizationAnalysisType:
+      type: string
+      enum:
+      - behavior_analysis
+      - automation_analysis
+      - automation_gap_detection
+      - correlation_discovery
+      - device_health
+      - cost_optimization
+      title: OptimizationAnalysisType
+      description: Types of optimization analysis.
+    OptimizationRequest:
+      properties:
+        analysis_types:
+          items:
+            $ref: '#/components/schemas/OptimizationAnalysisType'
+          type: array
+          title: Analysis Types
+          description: Types of analysis to run
+          default:
+          - behavior_analysis
+        hours:
+          type: integer
+          maximum: 720.0
+          minimum: 1.0
+          title: Hours
+          description: 'Hours of history to analyze (default: 168 = 1 week)'
+          default: 168
+        entity_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Entity Ids
+          description: Specific entity IDs to focus on (None = all)
+        focus_areas:
+          items:
+            type: string
+          type: array
+          title: Focus Areas
+          description: Areas to focus on (e.g., 'kitchen', 'bedroom')
+      type: object
+      title: OptimizationRequest
+      description: Schema for requesting an optimization analysis.
+    OptimizationResult:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+          description: Job UUID
+        status:
+          type: string
+          title: Status
+          description: 'Job status: pending, running, completed, failed'
+        analysis_types:
+          items:
+            type: string
+          type: array
+          title: Analysis Types
+          description: Types of analysis run
+        hours_analyzed:
+          type: integer
+          title: Hours Analyzed
+          description: Hours of data analyzed
+        insight_count:
+          type: integer
+          title: Insight Count
+          description: Number of insights found
+        suggestion_count:
+          type: integer
+          title: Suggestion Count
+          description: Number of automation suggestions
+        insights:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Insights
+          description: Analysis insights
+        suggestions:
+          items:
+            $ref: '#/components/schemas/AutomationSuggestionResponse'
+          type: array
+          title: Suggestions
+          description: Automation suggestions
+        recommendations:
+          items:
+            type: string
+          type: array
+          title: Recommendations
+          description: Text recommendations
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+          description: When started
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+          description: When completed
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+          description: Error if failed
+      type: object
+      required:
+      - job_id
+      - status
+      - analysis_types
+      - hours_analyzed
+      - insight_count
+      - suggestion_count
+      - started_at
+      title: OptimizationResult
+      description: Schema for optimization analysis results.
+    ProposalCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Automation name
+        trigger:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          title: Trigger
+          description: HA trigger configuration
+        actions:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          title: Actions
+          description: HA action configuration
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          description: What the automation does
+        conditions:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          - type: 'null'
+          title: Conditions
+          description: HA conditions
+        mode:
+          type: string
+          title: Mode
+          description: 'Execution mode: single, restart, queued, parallel'
+          default: single
+      type: object
+      required:
+      - name
+      - trigger
+      - actions
+      title: ProposalCreate
+      description: Schema for creating a proposal directly (bypass conversation).
+    ProposalListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ProposalResponse'
+          type: array
+          title: Items
+          description: Proposals
+        total:
+          type: integer
+          title: Total
+          description: Total count
+        limit:
+          type: integer
+          title: Limit
+          description: Page size
+        offset:
+          type: integer
+          title: Offset
+          description: Current offset
+      type: object
+      required:
+      - items
+      - total
+      - limit
+      - offset
+      title: ProposalListResponse
+      description: Schema for list of proposals.
+    ProposalResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Proposal UUID
+        conversation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Conversation Id
+          description: Source conversation
+        name:
+          type: string
+          title: Name
+          description: Automation name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          description: Description
+        trigger:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          title: Trigger
+          description: Trigger configuration
+        conditions:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          - type: 'null'
+          title: Conditions
+          description: Conditions
+        actions:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          title: Actions
+          description: Actions
+        mode:
+          type: string
+          title: Mode
+          description: Execution mode
+        status:
+          type: string
+          title: Status
+          description: Proposal status
+        ha_automation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha Automation Id
+          description: HA automation ID if deployed
+        proposed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Proposed At
+          description: When proposed
+        approved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Approved At
+          description: When approved
+        approved_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Approved By
+          description: Who approved
+        deployed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Deployed At
+          description: When deployed
+        rolled_back_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Rolled Back At
+          description: When rolled back
+        rejection_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rejection Reason
+          description: Why rejected
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Record creation
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+          description: Last update
+      type: object
+      required:
+      - id
+      - conversation_id
+      - name
+      - description
+      - trigger
+      - conditions
+      - actions
+      - mode
+      - status
+      - ha_automation_id
+      - proposed_at
+      - approved_at
+      - approved_by
+      - deployed_at
+      - rolled_back_at
+      - rejection_reason
+      - created_at
+      - updated_at
+      title: ProposalResponse
+      description: Schema for proposal response.
+    ProposalYAMLResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Proposal UUID
+        conversation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Conversation Id
+          description: Source conversation
+        name:
+          type: string
+          title: Name
+          description: Automation name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          description: Description
+        trigger:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          title: Trigger
+          description: Trigger configuration
+        conditions:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          - type: 'null'
+          title: Conditions
+          description: Conditions
+        actions:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - items: {}
+            type: array
+          title: Actions
+          description: Actions
+        mode:
+          type: string
+          title: Mode
+          description: Execution mode
+        status:
+          type: string
+          title: Status
+          description: Proposal status
+        ha_automation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha Automation Id
+          description: HA automation ID if deployed
+        proposed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Proposed At
+          description: When proposed
+        approved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Approved At
+          description: When approved
+        approved_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Approved By
+          description: Who approved
+        deployed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Deployed At
+          description: When deployed
+        rolled_back_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Rolled Back At
+          description: When rolled back
+        rejection_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rejection Reason
+          description: Why rejected
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Record creation
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+          description: Last update
+        yaml_content:
+          type: string
+          title: Yaml Content
+          description: Generated HA automation YAML
+      type: object
+      required:
+      - id
+      - conversation_id
+      - name
+      - description
+      - trigger
+      - conditions
+      - actions
+      - mode
+      - status
+      - ha_automation_id
+      - proposed_at
+      - approved_at
+      - approved_by
+      - deployed_at
+      - rolled_back_at
+      - rejection_reason
+      - created_at
+      - updated_at
+      - yaml_content
+      title: ProposalYAMLResponse
+      description: Schema for proposal with YAML content.
+    RejectionRequest:
+      properties:
+        reason:
+          type: string
+          title: Reason
+          description: Why the proposal was rejected
+        rejected_by:
+          type: string
+          title: Rejected By
+          description: Who is rejecting
+          default: user
+      type: object
+      required:
+      - reason
+      title: RejectionRequest
+      description: Schema for rejecting a proposal.
+    ReviewRequest:
+      properties:
+        reviewed_by:
+          type: string
+          title: Reviewed By
+          description: Who reviewed
+          default: user
+        comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comment
+          description: Review comment
+      type: object
+      title: ReviewRequest
+      description: Schema for marking an insight as reviewed.
+    RollbackRequest:
+      properties:
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: Why rolling back
+      type: object
+      title: RollbackRequest
+      description: Schema for rollback request.
+    RollbackResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          description: Whether rollback succeeded
+        proposal_id:
+          type: string
+          title: Proposal Id
+          description: Proposal ID
+        ha_automation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha Automation Id
+          description: HA automation ID that was rolled back
+        rolled_back_at:
+          type: string
+          format: date-time
+          title: Rolled Back At
+          description: When rolled back
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+          description: Additional notes
+      type: object
+      required:
+      - success
+      - proposal_id
+      - ha_automation_id
+      - rolled_back_at
+      title: RollbackResponse
+      description: Schema for rollback result.
+    SceneListResponse:
+      properties:
+        scenes:
+          items:
+            $ref: '#/components/schemas/SceneResponse'
+          type: array
+          title: Scenes
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - scenes
+      - total
+      title: SceneListResponse
+      description: Response for scene list.
+    SceneResponse:
+      properties:
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Entity ID (scene.xxx)
+        name:
+          type: string
+          title: Name
+          description: Scene display name
+        id:
+          type: string
+          title: Id
+          description: Internal UUID
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Icon
+        last_synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Synced At
+        entity_states:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Entity States
+          description: Entity states in scene (null - MCP gap)
+      type: object
+      required:
+      - entity_id
+      - name
+      - id
+      title: SceneResponse
+      description: Scene response with all fields.
+    ScriptListResponse:
+      properties:
+        scripts:
+          items:
+            $ref: '#/components/schemas/ScriptResponse'
+          type: array
+          title: Scripts
+        total:
+          type: integer
+          title: Total
+        running_count:
+          type: integer
+          title: Running Count
+          description: Number of running scripts
+          default: 0
+      type: object
+      required:
+      - scripts
+      - total
+      title: ScriptListResponse
+      description: Response for script list.
+    ScriptResponse:
+      properties:
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Entity ID (script.xxx)
+        alias:
+          type: string
+          title: Alias
+          description: Script display name
+        state:
+          type: string
+          title: State
+          description: Current state (on=running, off=idle)
+          default: 'off'
+        id:
+          type: string
+          title: Id
+          description: Internal UUID
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        mode:
+          type: string
+          title: Mode
+          description: Execution mode
+          default: single
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Icon
+        last_triggered:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Triggered
+        last_synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Synced At
+        sequence:
+          anyOf:
+          - items: {}
+            type: array
+          - type: 'null'
+          title: Sequence
+          description: Script sequence (null - MCP gap)
+        fields:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Fields
+          description: Script input fields (null - MCP gap)
+      type: object
+      required:
+      - entity_id
+      - alias
+      - id
+      title: ScriptResponse
+      description: Script response with all fields.
+    ServiceCallRequest:
+      properties:
+        domain:
+          type: string
+          title: Domain
+          description: Service domain
+        service:
+          type: string
+          title: Service
+          description: Service name
+        data:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Data
+          description: Service call data (including target entity_id)
+      type: object
+      required:
+      - domain
+      - service
+      title: ServiceCallRequest
+      description: Request to call a service.
+    ServiceCallResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        domain:
+          type: string
+          title: Domain
+        service:
+          type: string
+          title: Service
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+      type: object
+      required:
+      - success
+      - domain
+      - service
+      title: ServiceCallResponse
+      description: Response from a service call.
+    ServiceListResponse:
+      properties:
+        services:
+          items:
+            $ref: '#/components/schemas/ServiceResponse'
+          type: array
+          title: Services
+        total:
+          type: integer
+          title: Total
+        domains:
+          items:
+            type: string
+          type: array
+          title: Domains
+          description: Unique domains in the list
+        seeded_count:
+          type: integer
+          title: Seeded Count
+          description: Number of seeded services
+          default: 0
+        discovered_count:
+          type: integer
+          title: Discovered Count
+          description: Number of discovered services
+          default: 0
+      type: object
+      required:
+      - services
+      - total
+      title: ServiceListResponse
+      description: Response for service list.
+    ServiceResponse:
+      properties:
+        domain:
+          type: string
+          title: Domain
+          description: Service domain (e.g., light)
+        service:
+          type: string
+          title: Service
+          description: Service name (e.g., turn_on)
+        id:
+          type: string
+          title: Id
+          description: Internal UUID
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        fields:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Fields
+          description: Service input fields schema
+        target:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Target
+          description: Target specification
+        is_seeded:
+          type: boolean
+          title: Is Seeded
+          description: Whether this is a seeded common service
+          default: false
+      type: object
+      required:
+      - domain
+      - service
+      - id
+      title: ServiceResponse
+      description: Service response with all fields.
+    SpanNode:
+      properties:
+        span_id:
+          type: string
+          title: Span Id
+        name:
+          type: string
+          title: Name
+        agent:
+          type: string
+          title: Agent
+        type:
+          type: string
+          title: Type
+        start_ms:
+          type: number
+          title: Start Ms
+        end_ms:
+          type: number
+          title: End Ms
+        duration_ms:
+          type: number
+          title: Duration Ms
+        status:
+          type: string
+          title: Status
+        attributes:
+          additionalProperties: true
+          type: object
+          title: Attributes
+          default: {}
+        children:
+          items:
+            $ref: '#/components/schemas/SpanNode'
+          type: array
+          title: Children
+          default: []
+      type: object
+      required:
+      - span_id
+      - name
+      - agent
+      - type
+      - start_ms
+      - end_ms
+      - duration_ms
+      - status
+      title: SpanNode
+      description: A single span in the trace tree.
+    SuggestionAcceptRequest:
+      properties:
+        comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comment
+          description: Optional comment
+      type: object
+      title: SuggestionAcceptRequest
+      description: Schema for accepting a suggestion.
+    SuggestionListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/AutomationSuggestionResponse'
+          type: array
+          title: Items
+          description: Suggestions
+        total:
+          type: integer
+          title: Total
+          description: Total count
+      type: object
+      required:
+      - items
+      - total
+      title: SuggestionListResponse
+      description: Schema for list of suggestions.
+    SuggestionRejectRequest:
+      properties:
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: Reason for rejection
+      type: object
+      title: SuggestionRejectRequest
+      description: Schema for rejecting a suggestion.
+    SuggestionStatus:
+      type: string
+      enum:
+      - pending
+      - accepted
+      - rejected
+      title: SuggestionStatus
+      description: Status of an automation suggestion.
+    SystemStatus:
+      properties:
+        status:
+          $ref: '#/components/schemas/HealthStatus'
+          description: Overall system health
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+          description: Status check timestamp
+        version:
+          type: string
+          title: Version
+          description: Application version
+          default: 0.1.0
+        environment:
+          type: string
+          title: Environment
+          description: Current environment
+        components:
+          items:
+            $ref: '#/components/schemas/ComponentHealth'
+          type: array
+          title: Components
+          description: Individual component health statuses
+        uptime_seconds:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Uptime Seconds
+          description: Application uptime in seconds
+      type: object
+      required:
+      - status
+      - environment
+      title: SystemStatus
+      description: Detailed system status response.
+    TraceResponse:
+      properties:
+        trace_id:
+          type: string
+          title: Trace Id
+        status:
+          type: string
+          title: Status
+        duration_ms:
+          type: number
+          title: Duration Ms
+        root_span:
+          anyOf:
+          - $ref: '#/components/schemas/SpanNode'
+          - type: 'null'
+        agents_involved:
+          items:
+            type: string
+          type: array
+          title: Agents Involved
+          default: []
+        span_count:
+          type: integer
+          title: Span Count
+          default: 0
+      type: object
+      required:
+      - trace_id
+      - status
+      - duration_ms
+      title: TraceResponse
+      description: Full trace tree for the activity panel.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WebhookResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        matched_schedules:
+          type: integer
+          title: Matched Schedules
         message:
           type: string
-        details:
-          type: object
-
-  responses:
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-
-security:
-  - bearerAuth: []
+          title: Message
+      type: object
+      required:
+      - status
+      - matched_schedules
+      - message
+      title: WebhookResponse
+      description: Response after processing a webhook.
+servers:
+- url: http://localhost:8000
+  description: Local development
+- url: http://aether.local:8000
+  description: Home network
