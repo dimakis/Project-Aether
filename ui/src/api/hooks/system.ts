@@ -76,6 +76,14 @@ export function useCreateModelRating() {
   });
 }
 
+export function useModelPerformance(agentRole?: string, hours = 168) {
+  return useQuery({
+    queryKey: ["model-performance", agentRole, hours],
+    queryFn: () => modelRatings.performance(agentRole, hours),
+    staleTime: 60_000,
+  });
+}
+
 // ─── Diagnostics ────────────────────────────────────────────────────────────
 
 export function useHAHealth() {

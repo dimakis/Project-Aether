@@ -207,6 +207,19 @@ export interface ModelRatingCreatePayload {
   config_snapshot?: Record<string, unknown> | null;
 }
 
+export interface ModelPerformanceItem {
+  model: string;
+  agent_role: string | null;
+  call_count: number;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number | null;
+  avg_cost_per_call: number | null;
+}
+
 export const modelRatings = {
   list: (modelName?: string, agentRole?: string) => {
     const params = new URLSearchParams();
@@ -225,5 +238,12 @@ export const modelRatings = {
   summary: (agentRole?: string) => {
     const qs = agentRole ? `?agent_role=${agentRole}` : "";
     return request<ModelSummaryItem[]>(`/models/summary${qs}`);
+  },
+
+  performance: (agentRole?: string, hours = 168) => {
+    const params = new URLSearchParams();
+    if (agentRole) params.set("agent_role", agentRole);
+    params.set("hours", String(hours));
+    return request<ModelPerformanceItem[]>(`/models/performance?${params.toString()}`);
   },
 };

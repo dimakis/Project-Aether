@@ -66,6 +66,7 @@ export {
   useModelRatings,
   useModelSummary,
   useCreateModelRating,
+  useModelPerformance,
   useHAHealth,
   useErrorLog,
   useConfigCheck,

@@ -28,4 +28,5 @@ export type {
   ModelRatingListResponse,
   ModelSummaryItem,
   ModelRatingCreatePayload,
+  ModelPerformanceItem,
 } from "./system";
