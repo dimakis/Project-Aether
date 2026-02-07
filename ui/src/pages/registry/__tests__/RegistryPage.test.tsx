@@ -19,6 +19,8 @@ const mockSummary = {
   services_seeded: 8,
 };
 
+const mockSyncMutate = vi.fn();
+
 // Mock all registry hooks
 vi.mock("@/api/hooks", () => ({
   useRegistryAutomations: vi.fn(() => ({ data: null, isLoading: false })),
@@ -26,6 +28,7 @@ vi.mock("@/api/hooks", () => ({
   useRegistryScenes: vi.fn(() => ({ data: null, isLoading: false })),
   useRegistryServices: vi.fn(() => ({ data: null, isLoading: false })),
   useRegistrySummary: vi.fn(() => ({ data: mockSummary, isLoading: false })),
+  useSyncRegistry: vi.fn(() => ({ mutate: mockSyncMutate, isPending: false })),
 }));
 
 // Mock child tab components to isolate RegistryPage tests
@@ -127,6 +130,20 @@ describe("RegistryPage", () => {
       const badge = automationsTab.querySelector(".rounded-full");
       expect(badge).toBeInTheDocument();
       expect(badge?.textContent).toBe("12");
+    });
+  });
+
+  describe("sync button", () => {
+    it("renders sync registry button in the header", () => {
+      render(<RegistryPage />);
+      expect(screen.getByRole("button", { name: /sync registry/i })).toBeInTheDocument();
+    });
+
+    it("calls sync mutate when sync button is clicked", async () => {
+      const user = userEvent.setup();
+      render(<RegistryPage />);
+      await user.click(screen.getByRole("button", { name: /sync registry/i }));
+      expect(mockSyncMutate).toHaveBeenCalled();
     });
   });
 
