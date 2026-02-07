@@ -285,6 +285,11 @@ class ArchitectAgent(BaseAgent):
         "get_entity_history",
         "diagnose_issue",
         "analyze_behavior",
+        # Specialist delegation tools (DS team)
+        "consult_energy_analyst",
+        "consult_behavioral_analyst",
+        "consult_diagnostic_analyst",
+        "request_synthesis_review",
         # Analysis tools
         "run_custom_analysis",
         # Scheduling (creates config, no HA mutation)

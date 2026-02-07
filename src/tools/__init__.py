@@ -37,6 +37,13 @@ from src.tools.insight_schedule_tools import (
     create_insight_schedule,
     get_insight_schedule_tools,
 )
+from src.tools.specialist_tools import (
+    consult_behavioral_analyst,
+    consult_diagnostic_analyst,
+    consult_energy_analyst,
+    get_specialist_tools,
+    request_synthesis_review,
+)
 
 
 def get_all_tools() -> list:
@@ -56,6 +63,7 @@ def get_all_tools() -> list:
         + get_approval_tools()
         + get_insight_schedule_tools()
         + get_analysis_tools()
+        + get_specialist_tools()
     )
 
 
@@ -91,6 +99,12 @@ __all__ = [
     # Custom Analysis Tools
     "run_custom_analysis",
     "get_analysis_tools",
+    # Specialist Tools
+    "consult_energy_analyst",
+    "consult_behavioral_analyst",
+    "consult_diagnostic_analyst",
+    "request_synthesis_review",
+    "get_specialist_tools",
     # Combined
     "get_all_tools",
 ]
