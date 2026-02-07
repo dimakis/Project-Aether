@@ -71,9 +71,11 @@ async def sync_registry(
         result = await run_registry_sync(session=session)
         return RegistrySyncResponse(**result)
     except Exception as e:
+        from src.api.utils import sanitize_error
+
         raise HTTPException(
             status_code=500,
-            detail=f"Registry sync failed: {e!s}",
+            detail=sanitize_error(e, context="Registry sync"),
         ) from e
 
 
@@ -179,28 +181,52 @@ async def get_automation_config(
     if not automation:
         raise HTTPException(status_code=404, detail="Automation not found")
 
+    import logging
+    logger = logging.getLogger(__name__)
+
     ha_id = automation.ha_automation_id or automation_id
+    logger.debug(
+        "Fetching automation config: db_id=%s, ha_automation_id=%s, entity_id=%s, resolved_ha_id=%s",
+        automation.id, automation.ha_automation_id, automation.entity_id, ha_id,
+    )
 
     try:
         mcp = get_mcp_client()
         config = await mcp.get_automation_config(ha_id)
+
         if not config:
-            raise HTTPException(
-                status_code=404,
-                detail="Automation config not available from Home Assistant",
-            )
+            # Fallback: check if config is stored in the DB entity
+            if automation.config:
+                logger.info("HA config API returned None; using cached DB config for %s", ha_id)
+                config = automation.config
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"Automation config not available from Home Assistant "
+                        f"(ha_id={ha_id}, entity_id={automation.entity_id}). "
+                        f"Try re-syncing the registry."
+                    ),
+                )
+
         return {
             "automation_id": str(automation.id),
             "ha_automation_id": ha_id,
+            "entity_id": automation.entity_id,
             "config": config,
             "yaml": pyyaml.dump(config, default_flow_style=False, sort_keys=False),
         }
     except HTTPException:
         raise
     except Exception as e:
+        from src.api.utils import sanitize_error
+
+        logger.warning(
+            "Failed to fetch automation config for ha_id=%s: %s", ha_id, e,
+        )
         raise HTTPException(
             status_code=502,
-            detail=f"Failed to fetch config from Home Assistant: {e}",
+            detail=sanitize_error(e, context="Fetch automation config from HA"),
         )
 
 
@@ -416,20 +442,43 @@ async def get_service(
 
 
 @router.post("/services/call", response_model=ServiceCallResponse)
+@limiter.limit("10/minute")
 async def call_service(
+    http_request: Request,
     request: ServiceCallRequest,
     session: AsyncSession = Depends(get_db),
 ) -> ServiceCallResponse:
     """Call a Home Assistant service via MCP.
 
+    Rate limited to 10/minute. Domain validation prevents calls to
+    dangerous domains that should only go through the HITL approval flow.
+
     Args:
+        http_request: FastAPI request (for rate limiter)
         request: Service call request
         session: Database session
 
     Returns:
         Service call result
     """
+    from src.api.utils import sanitize_error
     from src.mcp import get_mcp_client
+
+    # Block dangerous domains that must go through HITL approval
+    BLOCKED_DOMAINS = frozenset({
+        "homeassistant",  # restart, stop, reload
+        "persistent_notification",  # handled via notification system
+        "system_log",  # log manipulation
+        "recorder",  # DB manipulation
+        "hassio",  # supervisor control
+    })
+    if request.domain in BLOCKED_DOMAINS:
+        return ServiceCallResponse(
+            success=False,
+            domain=request.domain,
+            service=request.service,
+            message=f"Domain '{request.domain}' is restricted. Use the chat interface for this operation.",
+        )
 
     try:
         mcp = get_mcp_client()
@@ -451,12 +500,14 @@ async def call_service(
             success=False,
             domain=request.domain,
             service=request.service,
-            message=f"Service call failed: {e}",
+            message=sanitize_error(e, context="Service call"),
         )
 
 
 @router.post("/services/seed")
+@limiter.limit("5/minute")
 async def seed_services(
+    request: Request,
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, int]:
     """Seed common services into the database.
