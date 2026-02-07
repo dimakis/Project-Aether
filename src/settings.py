@@ -98,6 +98,16 @@ class Settings(BaseSettings):
         description="Override temperature for Data Scientist agent",
     )
 
+    # LLM Failover (optional)
+    llm_fallback_provider: str | None = Field(
+        default=None,
+        description="Fallback LLM provider (e.g., 'ollama') when primary is unavailable",
+    )
+    llm_fallback_model: str | None = Field(
+        default=None,
+        description="Fallback model name (e.g., 'llama3') when primary is unavailable",
+    )
+
     # Google Gemini (separate SDK, not OpenAI-compatible)
     google_api_key: SecretStr = Field(
         default=SecretStr(""),
