@@ -62,6 +62,12 @@ Works with OpenAI, OpenRouter (100+ models), Google Gemini, Ollama (local/free),
 ### Full Observability
 Every agent operation is traced via MLflow with parent-child span relationships, token usage, and latency metrics. View traces at `http://localhost:5002`.
 
+### API Security & Resilience
+API key authentication (via header or query param), centralized exception hierarchy with correlation IDs for request tracing, and operational metrics collection (request rates, latency, error tracking).
+
+### LLM Resilience
+Circuit breaker pattern with automatic provider failover. When your primary LLM provider fails, Aether retries with exponential backoff and falls back to a configured secondary provider.
+
 ---
 
 ## How It Works
@@ -106,11 +112,11 @@ Every agent operation is traced via MLflow with parent-child span relationships,
 ┌─────────────────────────────┼───────────────────────────────────────────────┐
 │                       Data Layer                                            │
 │         ┌───────────────────┼───────────────────┐                           │
-│         ▼                   ▼                   ▼                           │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │ PostgreSQL  │    │   MLflow    │    │   Redis     │                     │
-│  │  (State)    │    │  (Traces)   │    │  (Cache)    │                     │
-│  └─────────────┘    └─────────────┘    └─────────────┘                     │
+│         ▼                   ▼                                                 │
+│  ┌─────────────┐    ┌─────────────┐                                         │
+│  │ PostgreSQL  │    │   MLflow    │                                         │
+│  │  (State)    │    │  (Traces)   │                                         │
+│  └─────────────┘    └─────────────┘                                         │
 └──────────────────────────────────────────┬──────────────────────────────────┘
                                            │
 ┌──────────────────────────────────────────┼──────────────────────────────────┐
@@ -373,7 +379,7 @@ Webhook triggers work similarly — configure an HA automation to POST to `/api/
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- [Podman](https://podman.io/) or Docker (for PostgreSQL, MLflow, Redis)
+- [Podman](https://podman.io/) or Docker (for PostgreSQL, MLflow)
 - Node.js 18+ (for the UI)
 - A Home Assistant instance with a [long-lived access token](https://www.home-assistant.io/docs/authentication/)
 - An LLM API key (OpenAI, OpenRouter, or other — see [LLM Configuration](#llm-configuration))
@@ -435,7 +441,6 @@ That's it. The UI connects to the API at `localhost:8000`, which talks to your H
 | Aether API | `8000` | FastAPI backend (OpenAI-compatible + native API) |
 | MLflow | `5002` | Trace viewer for agent observability |
 | PostgreSQL | `5432` | State, conversations, entities, insights |
-| Redis | `6379` | Entity cache |
 
 ---
 
@@ -499,6 +504,23 @@ DATA_SCIENTIST_TEMPERATURE=0.3
 
 Resolution order: **UI model selection > per-agent `.env` setting > global default**.
 
+### LLM Failover
+
+Configure a fallback provider for resilience:
+
+```bash
+# Primary provider
+LLM_PROVIDER=openrouter
+LLM_API_KEY=sk-or-v1-your-key
+LLM_MODEL=anthropic/claude-sonnet-4
+
+# Fallback provider (used when primary fails after retries)
+LLM_FALLBACK_PROVIDER=openai
+LLM_FALLBACK_MODEL=gpt-4o
+```
+
+The circuit breaker opens after 5 consecutive failures and retries after a 60-second cooldown.
+
 ---
 
 ## Architecture
@@ -553,7 +575,6 @@ Two trigger mechanisms feed into the same analysis pipeline:
 |-------|---------|
 | **PostgreSQL** | Conversations, messages, entities, devices, areas, automation proposals, insights, insight schedules, discovery sessions, LangGraph checkpoints |
 | **MLflow** | Agent traces with parent-child spans, token usage, latency metrics |
-| **Redis** | Entity query cache |
 
 ### Observability
 
@@ -605,65 +626,81 @@ The React frontend provides a modern interface for interacting with Aether:
 
 ## API Reference
 
+All endpoints require API key authentication via `X-API-Key` header or `api_key` query parameter (except health/status).
+
 ### OpenAI-Compatible Endpoints
 
-These endpoints allow any OpenAI-compatible client (including Open WebUI) to work with Aether:
+These endpoints allow any OpenAI-compatible client to work with Aether:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/v1/models` | List available agents as "models" |
-| `POST` | `/v1/chat/completions` | Chat with agents (supports `stream: true`) |
+| `GET` | `/api/v1/models` | List available agents as "models" |
+| `POST` | `/api/v1/chat/completions` | Chat with agents (supports `stream: true`) |
+| `POST` | `/api/v1/feedback` | Submit feedback on responses |
 
 ### Native API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| **Conversations** | | |
-| `GET` | `/api/conversations` | List conversations |
-| `POST` | `/api/conversations` | Start new conversation |
-| `GET` | `/api/conversations/{id}` | Get conversation with messages |
-| `POST` | `/api/conversations/{id}/messages` | Send a message |
-| **Entities** | | |
-| `GET` | `/api/entities` | List entities (with filtering) |
-| `GET` | `/api/entities/{id}` | Get entity details |
-| `POST` | `/api/entities/query` | Natural language entity query |
-| `POST` | `/api/entities/sync` | Trigger entity sync from HA |
-| **Devices & Areas** | | |
-| `GET` | `/api/devices` | List devices |
-| `GET` | `/api/areas` | List areas |
-| **Insights** | | |
-| `GET` | `/api/insights` | List insights |
-| `GET` | `/api/insights/{id}` | Get insight details |
-| `POST` | `/api/insights/analyze` | Trigger analysis |
-| **Insight Schedules** | | |
-| `GET` | `/api/insight-schedules` | List schedules |
-| `POST` | `/api/insight-schedules` | Create schedule |
-| `PUT` | `/api/insight-schedules/{id}` | Update schedule |
-| `DELETE` | `/api/insight-schedules/{id}` | Delete schedule |
-| `POST` | `/api/insight-schedules/{id}/run` | Manual trigger |
-| **Proposals** | | |
-| `GET` | `/api/proposals` | List automation proposals (filterable by status) |
-| `GET` | `/api/proposals/pending` | List proposals awaiting approval |
-| `GET` | `/api/proposals/{id}` | Get proposal details with YAML |
-| `POST` | `/api/proposals` | Create a new proposal directly |
-| `POST` | `/api/proposals/{id}/approve` | Approve proposal |
-| `POST` | `/api/proposals/{id}/reject` | Reject proposal |
-| `POST` | `/api/proposals/{id}/deploy` | Deploy approved proposal to HA via REST API |
-| `POST` | `/api/proposals/{id}/rollback` | Rollback deployed proposal |
-| **HA Registry** | | |
-| `GET` | `/api/automations` | List HA automations |
-| `GET` | `/api/scripts` | List HA scripts |
-| `GET` | `/api/scenes` | List HA scenes |
-| `GET` | `/api/services` | List known services |
-| **Webhooks** | | |
-| `POST` | `/api/v1/webhooks/ha` | Receive HA automation webhook events |
-| **Traces** | | |
-| `GET` | `/v1/traces/{trace_id}/spans` | Get MLflow trace tree for visualization |
 | **System** | | |
-| `GET` | `/api/v1/health` | Health check |
-| `GET` | `/api/v1/status` | System status |
+| `GET` | `/api/v1/health` | Health check (no auth required) |
+| `GET` | `/api/v1/status` | System status with component health (no auth required) |
+| `GET` | `/api/v1/metrics` | Operational metrics (request rates, latency, errors) |
+| **Conversations** | | |
+| `POST` | `/api/v1/conversations` | Start new conversation |
+| `GET` | `/api/v1/conversations` | List conversations |
+| `GET` | `/api/v1/conversations/{id}` | Get conversation with messages |
+| `POST` | `/api/v1/conversations/{id}/messages` | Send a message |
+| `DELETE` | `/api/v1/conversations/{id}` | Delete conversation |
+| **Entities** | | |
+| `GET` | `/api/v1/entities` | List entities (with filtering) |
+| `GET` | `/api/v1/entities/{id}` | Get entity details |
+| `POST` | `/api/v1/entities/query` | Natural language entity query |
+| `POST` | `/api/v1/entities/sync` | Trigger entity sync from HA |
+| `GET` | `/api/v1/entities/domains/summary` | Domain counts |
+| **Devices & Areas** | | |
+| `GET` | `/api/v1/devices` | List devices |
+| `GET` | `/api/v1/areas` | List areas |
+| **Insights** | | |
+| `GET` | `/api/v1/insights` | List insights |
+| `GET` | `/api/v1/insights/{id}` | Get insight details |
+| `POST` | `/api/v1/insights/analyze` | Trigger analysis |
+| **Insight Schedules** | | |
+| `GET` | `/api/v1/insight-schedules` | List schedules |
+| `POST` | `/api/v1/insight-schedules` | Create schedule |
+| `PUT` | `/api/v1/insight-schedules/{id}` | Update schedule |
+| `DELETE` | `/api/v1/insight-schedules/{id}` | Delete schedule |
+| `POST` | `/api/v1/insight-schedules/{id}/run` | Manual trigger |
+| **Proposals** | | |
+| `GET` | `/api/v1/proposals` | List automation proposals (filterable by status) |
+| `GET` | `/api/v1/proposals/pending` | List proposals awaiting approval |
+| `GET` | `/api/v1/proposals/{id}` | Get proposal details with YAML |
+| `POST` | `/api/v1/proposals` | Create a new proposal directly |
+| `POST` | `/api/v1/proposals/{id}/approve` | Approve proposal |
+| `POST` | `/api/v1/proposals/{id}/reject` | Reject proposal |
+| `POST` | `/api/v1/proposals/{id}/deploy` | Deploy approved proposal to HA |
+| `POST` | `/api/v1/proposals/{id}/rollback` | Rollback deployed proposal |
+| **Optimization** | | |
+| `POST` | `/api/v1/optimize` | Run optimization analysis |
+| `GET` | `/api/v1/optimize/{job_id}` | Get optimization status |
+| `GET` | `/api/v1/optimize/suggestions/list` | List automation suggestions |
+| `POST` | `/api/v1/optimize/suggestions/{id}/accept` | Accept suggestion |
+| `POST` | `/api/v1/optimize/suggestions/{id}/reject` | Reject suggestion |
+| **HA Registry** | | |
+| `GET` | `/api/v1/registry/automations` | List HA automations |
+| `GET` | `/api/v1/registry/scripts` | List HA scripts |
+| `GET` | `/api/v1/registry/scenes` | List HA scenes |
+| `GET` | `/api/v1/registry/services` | List known services |
+| `POST` | `/api/v1/registry/services/call` | Call an HA service |
+| `GET` | `/api/v1/registry/summary` | Registry summary |
+| **Webhooks** | | |
+| `POST` | `/api/v1/webhooks/ha` | Receive HA webhook events |
+| **Traces** | | |
+| `GET` | `/api/v1/traces/{trace_id}/spans` | Get trace span tree for visualization |
 
-Interactive API docs available at `http://localhost:8000/docs` when running.
+Interactive API docs available at `http://localhost:8000/api/docs` when running in debug mode.
+
+Full OpenAPI spec: [`specs/001-project-aether/contracts/api.yaml`](specs/001-project-aether/contracts/api.yaml)
 
 ---
 
@@ -723,7 +760,7 @@ uv sync
 # Install UI dependencies
 cd ui && npm install && cd ..
 
-# Start infrastructure (PostgreSQL, MLflow, Redis)
+# Start infrastructure (PostgreSQL, MLflow)
 make up
 
 # Run migrations
@@ -784,29 +821,54 @@ src/
 │   ├── data_scientist.py# Energy analysis, behavioral patterns, diagnostics
 │   ├── librarian.py     # Entity discovery and cataloging
 │   ├── developer.py     # Automation deployment (HITL)
-│   └── model_context.py # Model routing and per-agent overrides
+│   ├── model_context.py # Model routing and per-agent overrides
+│   └── prompts/         # Externalized prompt templates (markdown)
 ├── api/                 # FastAPI application
 │   ├── routes/          # API endpoints (chat, entities, insights, proposals, etc.)
 │   ├── schemas/         # Pydantic request/response models
-│   └── services/        # Business logic services
+│   ├── auth.py          # API key authentication dependency
+│   ├── metrics.py       # In-memory operational metrics collector
+│   ├── middleware.py    # Request tracing middleware
+│   └── main.py          # App factory with lazy initialization
+├── cli/                 # Typer CLI application
+│   ├── main.py          # CLI entry point and top-level commands
+│   └── commands/        # Subcommands (chat, discover, analyze, serve, etc.)
 ├── dal/                 # Data Access Layer (repositories)
+│   ├── base.py          # Generic BaseRepository[T] for common CRUD
+│   ├── entities.py      # Entity repository
+│   ├── areas.py         # Area repository
+│   ├── devices.py       # Device repository
+│   └── ...              # Other domain repositories
 ├── diagnostics/         # HA diagnostic modules (log parser, entity health, etc.)
 ├── graph/               # LangGraph workflows and state management
+│   ├── nodes/           # Domain-specific nodes (discovery, conversation, analysis)
+│   └── workflows.py     # Workflow graph definitions
 ├── mcp/                 # MCP client for Home Assistant communication
+│   ├── base.py          # Base HTTP client
+│   ├── entities.py      # Entity operations
+│   ├── automations.py   # Automation/script/scene management
+│   ├── diagnostics.py   # Diagnostic operations
+│   └── client.py        # Thin facade
 ├── sandbox/             # gVisor sandbox runner for script execution
 ├── scheduler/           # APScheduler for cron/webhook insight triggers
 ├── storage/             # SQLAlchemy models and database setup
 │   └── entities/        # Domain models (entity, device, area, conversation, etc.)
 ├── tools/               # Agent tool definitions (HA tools, diagnostic tools)
 ├── tracing/             # MLflow tracing integration
-├── cli/                 # Typer CLI application
-├── llm.py               # Multi-provider LLM abstraction
+├── exceptions.py        # Centralized exception hierarchy (AetherError + subtypes)
+├── llm.py               # Multi-provider LLM factory with circuit breaker & failover
 ├── settings.py          # Pydantic settings (environment variables)
 └── logging_config.py    # Structured logging (structlog)
 
 ui/
 ├── src/
-│   ├── pages/           # React pages (dashboard, chat, proposals, insights, etc.)
+│   ├── pages/           # React pages (each split into sub-components)
+│   │   ├── chat/        # Chat page (ChatInput, MessageBubble, ModelPicker, etc.)
+│   │   ├── insights/    # Insights page (InsightCard, EvidencePanel, Filters, etc.)
+│   │   ├── proposals/   # Proposals page (ProposalCard, ProposalDetail, etc.)
+│   │   ├── registry/    # Registry page (AutomationTab, SceneTab, etc.)
+│   │   ├── dashboard.tsx
+│   │   └── entities.tsx
 │   ├── components/      # Reusable UI components
 │   │   ├── chat/        # Chat-specific (markdown renderer, thinking, agent activity)
 │   │   └── ui/          # Base components (button, card, badge, etc.)
@@ -822,7 +884,7 @@ tests/
 
 infrastructure/
 ├── podman/
-│   ├── compose.yaml     # Podman Compose (PostgreSQL, MLflow, Redis, app, UI)
+│   ├── compose.yaml     # Podman Compose (PostgreSQL, MLflow, app, UI)
 │   ├── Containerfile    # API container image
 │   ├── Containerfile.ui # UI container image
 │   └── Containerfile.sandbox  # Data science sandbox image
@@ -854,6 +916,7 @@ Project Aether follows a constitution with five core principles:
 - [Code Healthcheck](docs/code-healthcheck.md) — Architecture health and technical debt tracking
 - [Data Model](specs/001-project-aether/data-model.md) — Database schema reference
 - [Feature Specs](specs/001-project-aether/features/) — Individual feature specifications
+- [OpenAPI Specification](specs/001-project-aether/contracts/api.yaml) — Full API contract (auto-generated)
 - [API Documentation](http://localhost:8000/docs) — Interactive Swagger UI (when running)
 - [MLflow Traces](http://localhost:5002) — Agent trace viewer (when running)
 

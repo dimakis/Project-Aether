@@ -11,7 +11,7 @@ Project Aether is an agentic home automation system that provides conversational
 │                              User Interfaces                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────────┐  │
-│  │   CLI       │    │  REST API   │    │         Open WebUI              │  │
+│  │   CLI       │    │  REST API   │    │      Chat UI (React)            │  │
 │  │  (aether)   │    │  (FastAPI)  │    │  (Chat UI with streaming)       │  │
 │  └──────┬──────┘    └──────┬──────┘    └───────────────┬─────────────────┘  │
 │         │                  │                           │                     │
@@ -53,11 +53,11 @@ Project Aether is an agentic home automation system that provides conversational
 ├─────────────────────────────┼───────────────────────────────────────────────┤
 │         ┌───────────────────┼───────────────────┐                           │
 │         │                   │                   │                           │
-│         ▼                   ▼                   ▼                           │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │ PostgreSQL  │    │   MLflow    │    │   Redis     │                     │
-│  │  (State)    │    │  (Traces)   │    │  (Cache)    │                     │
-│  └─────────────┘    └─────────────┘    └─────────────┘                     │
+│         ▼                   ▼                                                   │
+│  ┌─────────────┐    ┌─────────────┐                                           │
+│  │ PostgreSQL  │    │   MLflow    │                                           │
+│  │  (State)    │    │  (Traces)   │                                           │
+│  └─────────────┘    └─────────────┘                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────┼───────────────────────────────────────────────┐
@@ -66,7 +66,7 @@ Project Aether is an agentic home automation system that provides conversational
 │         ┌───────────────────┴───────────────────┐                           │
 │         ▼                                       ▼                           │
 │  ┌─────────────────┐                    ┌─────────────────┐                 │
-│  │ Home Assistant  │                    │   OpenAI API    │                 │
+│  │ Home Assistant  │                    │  LLM Provider   │                 │
 │  │    (MCP)        │                    │   (LLM)         │                 │
 │  └─────────────────┘                    └─────────────────┘                 │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -76,7 +76,7 @@ Project Aether is an agentic home automation system that provides conversational
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | analyze_energy, discover_entities, get_entity_history, diagnose_issue, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, HA tools |
+| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | analyze_energy, discover_entities, get_entity_history, diagnose_issue, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, seek_approval, HA tools |
 | **Data Scientist** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode |
 | **Librarian** | Entity discovery, catalog maintenance | MCP list_entities, domain_summary |
 | **Developer** | Automation creation, YAML generation | deploy_automation (with HITL) |
@@ -143,10 +143,10 @@ Provides structured analysis of HA system health, used by agent diagnostic tools
                              │
 ┌────────────────────────────┼────────────────────────────────────┐
 │               Podman Containers                                  │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ PostgreSQL  │  │   MLflow    │  │   Redis     │              │
-│  │   :5432     │  │   :5002     │  │   :6379     │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│  ┌─────────────┐  ┌─────────────┐                              │
+│  │ PostgreSQL  │  │   MLflow    │                              │
+│  │   :5432     │  │   :5002     │                              │
+│  └─────────────┘  └─────────────┘                              │
 └─────────────────────────────────────────────────────────────────┘
 
 Command: make run
@@ -165,8 +165,8 @@ Command: make run
 ┌────────────────────────────┼─────────────────┼──────────────────┐
 │               Podman Containers              │                   │
 │  ┌─────────────┐  ┌─────────────┐  ┌────────┴────┐              │
-│  │ PostgreSQL  │  │   MLflow    │  │ Open WebUI  │              │
-│  │   :5432     │  │   :5002     │  │   :3000     │              │
+│  │ PostgreSQL  │  │   MLflow    │  │ Chat UI     │              │
+│  │   :5432     │  │   :5002     │  │ (React)      │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -180,17 +180,17 @@ Command: make run-ui
 │                   Podman Containers                              │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Open WebUI :3000                      │    │
+│  │              Chat UI (React) :3000                      │    │
 │  └────────────────────────────┬────────────────────────────┘    │
 │                               │                                  │
 │  ┌────────────────────────────▼────────────────────────────┐    │
 │  │                   Aether API :8000                       │    │
 │  └────────────────────────────┬────────────────────────────┘    │
 │                               │                                  │
-│  ┌─────────────┐  ┌───────────┴─┐  ┌─────────────┐              │
-│  │ PostgreSQL  │  │   MLflow    │  │   Redis     │              │
-│  │   :5432     │  │   :5002     │  │   :6379     │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│  ┌─────────────┐  ┌───────────┴─┐                              │
+│  │ PostgreSQL  │  │   MLflow    │                              │
+│  │   :5432     │  │   :5002     │                              │
+│  └─────────────┘  └─────────────┘                              │
 └─────────────────────────────────────────────────────────────────┘
 
 Command: make run-prod
@@ -210,21 +210,20 @@ make down
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ Ingress Controller (nginx/traefik)                       │    │
-│  │   ├─ /         → open-webui-service                      │    │
+│  │   ├─ /         → chat-ui-service                         │    │
 │  │   ├─ /api      → aether-api-service                      │    │
 │  │   └─ /mlflow   → mlflow-service                          │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ open-webui  │  │ aether-api  │  │  mlflow     │              │
+│  │  chat-ui    │  │ aether-api  │  │  mlflow     │              │
 │  │ Deployment  │  │ Deployment  │  │ Deployment  │              │
 │  │ (replicas:2)│  │ (replicas:3)│  │ (replicas:1)│              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ StatefulSets                                             │    │
-│  │  ├─ PostgreSQL (1 replica + PVC)                        │    │
-│  │  └─ Redis (1 replica + PVC)                             │    │
+│  │  └─ PostgreSQL (1 replica + PVC)                        │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐    │
@@ -244,25 +243,41 @@ Migration:
 
 ## API Endpoints
 
-### OpenAI-Compatible (for Open WebUI)
+All endpoints require API key authentication via `X-API-Key` header (except health/status).
+
+### OpenAI-Compatible
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/v1/models` | GET | List available agents (architect, data-scientist) |
-| `/v1/chat/completions` | POST | Chat with agents (supports streaming) |
+| `/api/v1/models` | GET | List available agents as "models" |
+| `/api/v1/chat/completions` | POST | Chat with agents (supports streaming) |
+| `/api/v1/feedback` | POST | Submit response feedback |
 
 ### Native API
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/conversations` | POST | Start new conversation |
-| `/api/conversations/{id}/messages` | POST | Continue conversation |
-| `/api/entities` | GET | List entities |
-| `/api/entities/query` | POST | Natural language query |
-| `/api/insights` | GET/POST | Manage insights |
-| `/api/insights/analyze` | POST | Trigger analysis |
-| `/api/proposals` | GET | List automation proposals |
-| `/api/proposals/{id}/approve` | POST | Approve automation (HITL) |
+| `/api/v1/health` | GET | Health check |
+| `/api/v1/status` | GET | System status with component health |
+| `/api/v1/metrics` | GET | Operational metrics (requests, latency, errors) |
+| `/api/v1/conversations` | POST | Start new conversation |
+| `/api/v1/conversations/{id}/messages` | POST | Continue conversation |
+| `/api/v1/entities` | GET | List entities |
+| `/api/v1/entities/query` | POST | Natural language query |
+| `/api/v1/entities/sync` | POST | Trigger entity sync from HA |
+| `/api/v1/insights` | GET/POST | Manage insights |
+| `/api/v1/insights/analyze` | POST | Trigger analysis |
+| `/api/v1/insight-schedules` | GET/POST | Manage insight schedules |
+| `/api/v1/proposals` | GET/POST | List/create automation proposals |
+| `/api/v1/proposals/{id}/approve` | POST | Approve automation (HITL) |
+| `/api/v1/proposals/{id}/deploy` | POST | Deploy to Home Assistant |
+| `/api/v1/proposals/{id}/rollback` | POST | Rollback deployment |
+| `/api/v1/optimize` | POST | Run optimization analysis |
+| `/api/v1/registry/automations` | GET | List HA automations |
+| `/api/v1/registry/services` | GET | List HA services |
+| `/api/v1/registry/services/call` | POST | Call an HA service |
+| `/api/v1/webhooks/ha` | POST | Receive HA webhook events |
+| `/api/v1/traces/{trace_id}/spans` | GET | Get trace span tree |
 
 ## Data Flow
 
@@ -273,8 +288,8 @@ User Message
      │
      ▼
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│ Open WebUI  │───▶│  /v1/chat   │───▶│  Architect  │
-│             │    │ /completions│    │   Agent     │
+│ Chat UI     │───▶│  /v1/chat   │───▶│  Architect  │
+│ (React)     │    │ /completions│    │   Agent     │
 └─────────────┘    └─────────────┘    └──────┬──────┘
                                              │
                         ┌────────────────────┼────────────────────┐
@@ -411,6 +426,25 @@ Session: conv-12345
 
 View traces: `make mlflow` → http://localhost:5002
 
+## Middleware & Cross-Cutting Concerns
+
+### Request Pipeline
+
+```
+Request → CORS → Correlation ID → Rate Limiting → API Key Auth → Route Handler
+                                                                        │
+Response ← Tracing Middleware ← Exception Handler ← ─────────────────────
+```
+
+| Layer | Description |
+|-------|-------------|
+| **Correlation ID** | UUID generated per request, propagated through context vars to all logs and error responses |
+| **API Key Auth** | Validates `X-API-Key` header or `api_key` query param; bypasses for health endpoints |
+| **Rate Limiting** | SlowAPI-based limits on LLM-backed and resource-intensive endpoints |
+| **Request Tracing** | Logs method, path, status, duration, correlation ID for every request |
+| **Metrics Collection** | In-memory counters for request rates, latency percentiles, error rates, active connections |
+| **Exception Hierarchy** | `AetherError` → `AgentError`, `DALError`, `MCPError`, `SandboxError`, `LLMError`, `ConfigurationError`, `ValidationError` — all include correlation IDs |
+
 ## Configuration
 
 ### Environment Variables
@@ -421,18 +455,22 @@ View traces: `make mlflow` → http://localhost:5002
 | `MLFLOW_TRACKING_URI` | `http://localhost:5002` | MLflow server URL |
 | `HA_URL` | - | Home Assistant URL |
 | `HA_TOKEN` | - | Home Assistant long-lived access token |
-| `OPENAI_API_KEY` | - | OpenAI API key |
+| `LLM_PROVIDER` | `openrouter` | LLM provider (openrouter, openai, google, ollama, together, groq) |
+| `LLM_API_KEY` | - | LLM API key |
+| `LLM_MODEL` | `anthropic/claude-sonnet-4` | Default LLM model |
+| `LLM_FALLBACK_PROVIDER` | - | Fallback LLM provider |
+| `LLM_FALLBACK_MODEL` | - | Fallback LLM model |
+| `API_KEY` | - | API authentication key (empty = auth disabled) |
+| `ENVIRONMENT` | `development` | Environment (development, staging, production, testing) |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `API_PORT` | `8000` | API server port |
-| `WEBUI_PORT` | `3000` | Open WebUI port |
-| `MLFLOW_PORT` | `5002` | MLflow UI port |
 
 ### Deployment Commands
 
 | Command | Description |
 |---------|-------------|
 | `make run` | Development mode (API on host with hot-reload) |
-| `make run-ui` | Development + Open WebUI chat interface |
+| `make run-ui` | Development + Chat UI (React) interface |
 | `make run-prod` | Production mode (everything containerized) |
 | `make down` | Stop all services |
 
@@ -440,7 +478,7 @@ View traces: `make mlflow` → http://localhost:5002
 
 | Profile | Services Added | Use Case |
 |---------|----------------|----------|
-| (none) | postgres, mlflow, redis | Infrastructure only |
-| `ui` | + open-webui | Add chat UI |
+| (none) | postgres, mlflow | Infrastructure only |
+| `ui` | + chat-ui | Add React UI |
 | `full` | + aether-app | Containerized API |
 | `full` + `ui` | All services | Production stack |

@@ -7,11 +7,9 @@ info:
     ## Architecture
 
 
-    Aether uses a multi-agent system (Architect, Data Scientist, Librarian, Developer) orchestrated
-
-    via LangGraph workflows and traced via MLflow. The Architect agent handles user conversations,
-
-    delegates to specialists, and proposes Home Assistant automations.
+    Aether uses a multi-agent system (Architect, Data Scientist, Librarian, Developer) orchestrated via LangGraph workflows
+    and traced via MLflow. The Architect agent handles user conversations, delegates to specialists, and proposes Home Assistant
+    automations.
 
 
     ## Constitution Compliance
@@ -26,20 +24,10 @@ info:
     - **State**: LangGraph + PostgreSQL for persistent state management
 
 
-    ## Authentication
-
-
-    The API does not require authentication by default in local mode.
-
-    The OpenAI-compatible endpoints (/v1/*) accept optional Bearer tokens.
-
-
     ## OpenAI Compatibility
 
 
-    The /v1/chat/completions and /v1/models endpoints are OpenAI-compatible,
-
-    allowing integration with tools like Open WebUI.
+    The /v1/chat/completions and /v1/models endpoints are OpenAI-compatible, allowing integration with tools like Open WebUI.
 
     '
   version: 0.4.0
@@ -55,6 +43,17 @@ paths:
       summary: Health Check
       description: Simple health check for load balancers. Returns 200 if the service is running.
       operationId: health_check_api_v1_health_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -62,6 +61,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/metrics:
+    get:
+      tags:
+      - System
+      summary: Operational Metrics
+      description: Returns current operational metrics including request rates, latency percentiles, error counts, and agent
+        invocations.
+      operationId: get_metrics_api_v1_metrics_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Metrics Api V1 Metrics Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/status:
     get:
       tags:
@@ -69,6 +108,17 @@ paths:
       summary: System Status
       description: Detailed system status including component health checks.
       operationId: system_status_api_v1_status_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -76,6 +126,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemStatus'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/entities:
     get:
       tags:
@@ -131,6 +187,16 @@ paths:
           minimum: 0
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -158,6 +224,16 @@ paths:
         schema:
           type: string
           title: Entity Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -190,12 +266,23 @@ paths:
 
         - "devices that are on"'
       operationId: query_entities_api_v1_entities_query_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EntityQueryRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -219,12 +306,23 @@ paths:
 
         Rate limited to 5/minute (expensive MCP + DB operation).'
       operationId: sync_entities_api_v1_entities_sync_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EntitySyncRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -245,16 +343,33 @@ paths:
       summary: Get Domain Summary
       description: Get entity count per domain.
       operationId: get_domain_summary_api_v1_entities_domains_summary_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
+                type: object
                 additionalProperties:
                   type: integer
-                type: object
                 title: Response Get Domain Summary Api V1 Entities Domains Summary Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/areas:
     get:
       tags:
@@ -290,6 +405,16 @@ paths:
           minimum: 0
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -317,6 +442,16 @@ paths:
         schema:
           type: string
           title: Area Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -375,6 +510,16 @@ paths:
           minimum: 0
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -402,6 +547,16 @@ paths:
         schema:
           type: string
           title: Device Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -447,6 +602,16 @@ paths:
           type: integer
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -475,6 +640,16 @@ paths:
         schema:
           type: string
           title: Automation Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -482,6 +657,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AutomationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/registry/automations/{automation_id}/config:
+    get:
+      tags:
+      - HA Registry
+      summary: Get Automation Config
+      description: "Get an automation's raw YAML configuration from Home Assistant.\n\nArgs:\n    automation_id: Internal\
+        \ UUID, HA automation ID, or entity ID slug\n    session: Database session\n\nReturns:\n    Automation config dict\
+        \ from HA"
+      operationId: get_automation_config_api_v1_registry_automations__automation_id__config_get
+      parameters:
+      - name: automation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Automation Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Automation Config Api V1 Registry Automations  Automation Id  Config Get
         '422':
           description: Validation Error
           content:
@@ -519,6 +735,16 @@ paths:
           type: integer
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -547,6 +773,16 @@ paths:
         schema:
           type: string
           title: Script Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -583,6 +819,16 @@ paths:
           type: integer
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -611,6 +857,16 @@ paths:
         schema:
           type: string
           title: Scene Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -655,6 +911,16 @@ paths:
           type: integer
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -683,6 +949,16 @@ paths:
         schema:
           type: string
           title: Service Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -704,12 +980,23 @@ paths:
       description: "Call a Home Assistant service via MCP.\n\nArgs:\n    request: Service call request\n    session: Database\
         \ session\n\nReturns:\n    Service call result"
       operationId: call_service_api_v1_registry_services_call_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ServiceCallRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -731,16 +1018,33 @@ paths:
       description: "Seed common services into the database.\n\nThis populates the service registry with known common services\n\
         that agents can use for automation proposals.\n\nArgs:\n    session: Database session\n\nReturns:\n    Seeding statistics"
       operationId: seed_services_api_v1_registry_services_seed_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
+                type: object
                 additionalProperties:
                   type: integer
-                type: object
                 title: Response Seed Services Api V1 Registry Services Seed Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/registry/summary:
     get:
       tags:
@@ -749,6 +1053,17 @@ paths:
       description: "Get a summary of the HA registry.\n\nProvides counts and status of automations, scripts, scenes, and services.\n\
         \nArgs:\n    session: Database session\n\nReturns:\n    Registry summary with MCP gaps"
       operationId: get_registry_summary_api_v1_registry_summary_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -756,6 +1071,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HARegistrySummary'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/conversations:
     post:
       tags:
@@ -763,6 +1084,17 @@ paths:
       summary: Start a new conversation
       description: Create a new conversation and send the initial message.
       operationId: create_conversation_api_v1_conversations_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -817,6 +1149,16 @@ paths:
           type: integer
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -844,6 +1186,16 @@ paths:
         schema:
           type: string
           title: Conversation Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -876,6 +1228,16 @@ paths:
         schema:
           type: string
           title: Conversation Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -911,6 +1273,16 @@ paths:
         schema:
           type: string
           title: Conversation Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -966,6 +1338,16 @@ paths:
           type: integer
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -985,6 +1367,17 @@ paths:
       summary: Create proposal
       description: Create a new automation proposal directly (without conversation).
       operationId: create_proposal_api_v1_proposals_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1019,6 +1412,16 @@ paths:
           type: integer
           default: 50
           title: Limit
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1046,6 +1449,16 @@ paths:
         schema:
           type: string
           title: Proposal Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1079,6 +1492,16 @@ paths:
         schema:
           type: string
           title: Proposal Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1124,6 +1547,16 @@ paths:
         schema:
           type: string
           title: Proposal Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1169,6 +1602,16 @@ paths:
         schema:
           type: string
           title: Proposal Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         content:
           application/json:
@@ -1216,6 +1659,16 @@ paths:
         schema:
           type: string
           title: Proposal Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         content:
           application/json:
@@ -1287,6 +1740,16 @@ paths:
           type: integer
           default: 0
           title: Offset
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1306,6 +1769,17 @@ paths:
       summary: Create insight
       description: Create a new insight (typically done by Data Scientist agent).
       operationId: create_insight_api_v1_insights_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1340,6 +1814,16 @@ paths:
           type: integer
           default: 50
           title: Limit
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1360,6 +1844,17 @@ paths:
       summary: Get insights summary
       description: Get counts and statistics for insights.
       operationId: get_insights_summary_api_v1_insights_summary_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1367,6 +1862,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InsightSummary'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/insights/{insight_id}:
     get:
       tags:
@@ -1381,6 +1882,16 @@ paths:
         schema:
           type: string
           title: Insight Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1413,6 +1924,16 @@ paths:
         schema:
           type: string
           title: Insight Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '204':
           description: Successful Response
@@ -1442,6 +1963,16 @@ paths:
         schema:
           type: string
           title: Insight Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1481,6 +2012,16 @@ paths:
         schema:
           type: string
           title: Insight Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1520,6 +2061,16 @@ paths:
         schema:
           type: string
           title: Insight Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1552,12 +2103,23 @@ paths:
       summary: Start energy analysis
       description: Start a new energy analysis job (async).
       operationId: start_analysis_api_v1_insights_analyze_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AnalysisRequest'
-        required: true
       responses:
         '202':
           description: Successful Response
@@ -1583,12 +2145,23 @@ paths:
 
         that can be polled for completion.'
       operationId: start_optimization_api_v1_optimize_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/OptimizationRequest'
-        required: true
       responses:
         '202':
           description: Successful Response
@@ -1616,6 +2189,16 @@ paths:
         schema:
           type: string
           title: Job Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1636,6 +2219,17 @@ paths:
       summary: List Suggestions
       description: List all pending automation suggestions.
       operationId: list_suggestions_api_v1_optimize_suggestions_list_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1643,6 +2237,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuggestionListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/optimize/suggestions/{suggestion_id}/accept:
     post:
       tags:
@@ -1657,6 +2257,16 @@ paths:
         schema:
           type: string
           title: Suggestion Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1692,6 +2302,16 @@ paths:
         schema:
           type: string
           title: Suggestion Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1736,6 +2356,16 @@ paths:
           type: boolean
           default: false
           title: Enabled Only
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1758,6 +2388,17 @@ paths:
 
         For cron triggers, the schedule is immediately registered with APScheduler.'
       operationId: create_schedule_api_v1_insight_schedules_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1791,6 +2432,16 @@ paths:
         schema:
           type: string
           title: Schedule Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1817,6 +2468,16 @@ paths:
         schema:
           type: string
           title: Schedule Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
         required: true
         content:
@@ -1849,6 +2510,16 @@ paths:
         schema:
           type: string
           title: Schedule Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '204':
           description: Successful Response
@@ -1872,6 +2543,16 @@ paths:
         schema:
           type: string
           title: Schedule Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1899,12 +2580,23 @@ paths:
         \ \"{{ trigger.from_state.state }}\"\n          new_state: \"{{ trigger.to_state.state }}\"\n```\n\nRate limited to\
         \ 30/minute to prevent HA event storms."
       operationId: receive_ha_webhook_api_v1_webhooks_ha_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/HAWebhookPayload'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -1937,6 +2629,16 @@ paths:
         schema:
           type: string
           title: Trace Id
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1969,6 +2671,17 @@ paths:
 
         All models power the Architect agent with Home Assistant tools.'
       operationId: list_models_api_v1_models_get
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       responses:
         '200':
           description: Successful Response
@@ -1976,6 +2689,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ModelsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/feedback:
     post:
       tags:
@@ -1986,12 +2705,23 @@ paths:
 
         Logs user sentiment against the MLflow trace for model evaluation.'
       operationId: submit_feedback_api_v1_feedback_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/FeedbackRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -2019,12 +2749,23 @@ paths:
 
         Rate limited to 10/minute (LLM-backed).'
       operationId: create_chat_completion_api_v1_chat_completions_post
+      parameters:
+      - name: args
+        in: query
+        required: true
+        schema:
+          title: Args
+      - name: kwargs
+        in: query
+        required: true
+        schema:
+          title: Kwargs
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ChatCompletionRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -3930,11 +4671,21 @@ components:
           title: Mode
           description: 'Execution mode: single, restart, queued, parallel'
           default: single
+        proposal_type:
+          type: string
+          title: Proposal Type
+          description: 'Type: automation, entity_command, script, scene'
+          default: automation
+        service_call:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Service Call
+          description: Service call details for entity_command type (domain, service, entity_id, data)
       type: object
       required:
       - name
-      - trigger
-      - actions
       title: ProposalCreate
       description: Schema for creating a proposal directly (bypass conversation).
     ProposalListResponse:
@@ -3971,6 +4722,11 @@ components:
           type: string
           title: Id
           description: Proposal UUID
+        proposal_type:
+          type: string
+          title: Proposal Type
+          description: 'Type: automation, entity_command, script, scene'
+          default: automation
         conversation_id:
           anyOf:
           - type: string
@@ -4016,6 +4772,13 @@ components:
           type: string
           title: Mode
           description: Execution mode
+        service_call:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Service Call
+          description: Service call details for entity_command type
         status:
           type: string
           title: Status
@@ -4104,6 +4867,11 @@ components:
           type: string
           title: Id
           description: Proposal UUID
+        proposal_type:
+          type: string
+          title: Proposal Type
+          description: 'Type: automation, entity_command, script, scene'
+          default: automation
         conversation_id:
           anyOf:
           - type: string
@@ -4149,6 +4917,13 @@ components:
           type: string
           title: Mode
           description: Execution mode
+        service_call:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Service Call
+          description: Service call details for entity_command type
         status:
           type: string
           title: Status

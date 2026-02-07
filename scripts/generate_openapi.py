@@ -15,8 +15,20 @@ from pathlib import Path
 # Ensure project root is in path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import os  # noqa: E402
+
 import yaml  # noqa: E402
-from src.api.main import app  # noqa: E402
+
+# Set testing environment to skip DB/MLflow initialization
+os.environ.setdefault("ENVIRONMENT", "testing")
+os.environ.setdefault("HA_URL", "http://localhost:8123")
+os.environ.setdefault("HA_TOKEN", "dummy")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
+os.environ.setdefault("OPENAI_API_KEY", "dummy")
+
+from src.api.main import create_app  # noqa: E402
+
+app = create_app()
 
 OUTPUT = Path("specs/001-project-aether/contracts/api.yaml")
 
