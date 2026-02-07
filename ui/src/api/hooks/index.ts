@@ -45,6 +45,7 @@ export {
   useUpdateAgentStatus,
   useSeedAgents,
   useCloneAgent,
+  useQuickModelSwitch,
   useCreateConfigVersion,
   usePromoteConfigVersion,
   useRollbackConfig,

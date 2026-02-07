@@ -25,6 +25,12 @@ export const agents = {
       method: "POST",
     }),
 
+  quickModelSwitch: (name: string, modelName: string) =>
+    request<import("@/lib/types").AgentDetail>(`/agents/${name}/model`, {
+      method: "PATCH",
+      body: JSON.stringify({ model_name: modelName }),
+    }),
+
   // Config versions
   listConfigVersions: (name: string) =>
     request<import("@/lib/types").ConfigVersion[]>(

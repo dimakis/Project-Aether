@@ -16,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useUpdateAgentStatus, useCloneAgent } from "@/api/hooks";
+import { useUpdateAgentStatus, useCloneAgent, useQuickModelSwitch, useModels } from "@/api/hooks";
 import type { AgentDetail, AgentStatusValue } from "@/lib/types";
 import { AGENT_LABELS, STATUS_COLORS, type Tab } from "./constants";
 import { OverviewTab } from "./OverviewTab";
@@ -36,9 +36,13 @@ export function AgentCard({
   onToggle: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [showModelPicker, setShowModelPicker] = useState(false);
   const statusMutation = useUpdateAgentStatus();
   const cloneMutation = useCloneAgent();
+  const modelSwitchMutation = useQuickModelSwitch();
+  const { data: modelsData } = useModels();
   const isDisabled = agent.status === "disabled";
+  const availableModels = modelsData?.data ?? [];
 
   const handleStatusChange = (status: AgentStatusValue) => {
     statusMutation.mutate({ name: agent.name, status });
@@ -79,11 +83,41 @@ export function AgentCard({
           <p className="text-xs text-muted-foreground">{agent.description}</p>
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          {agent.active_config?.model_name && (
-            <span className="flex items-center gap-1">
+          {agent.active_config?.model_name && !showModelPicker && (
+            <button
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-accent"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowModelPicker(true);
+              }}
+              title="Click to switch model"
+            >
               <Cpu className="h-3 w-3" />
               {agent.active_config.model_name}
-            </span>
+            </button>
+          )}
+          {showModelPicker && (
+            <select
+              className="h-7 rounded border border-border bg-background px-2 text-xs"
+              value={agent.active_config?.model_name ?? ""}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                e.stopPropagation();
+                const newModel = e.target.value;
+                if (newModel && newModel !== agent.active_config?.model_name) {
+                  modelSwitchMutation.mutate({ name: agent.name, modelName: newModel });
+                }
+                setShowModelPicker(false);
+              }}
+              onBlur={() => setShowModelPicker(false)}
+              autoFocus
+            >
+              {availableModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id}
+                </option>
+              ))}
+            </select>
           )}
           {agent.active_config?.temperature != null && (
             <span className="flex items-center gap-1">

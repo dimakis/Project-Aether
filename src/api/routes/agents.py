@@ -73,6 +73,12 @@ class AgentStatusUpdate(BaseModel):
     status: str = Field(..., max_length=20, pattern="^(disabled|enabled|primary)$")
 
 
+class QuickModelSwitch(BaseModel):
+    """Request body for quick model switch (create + promote in one step)."""
+
+    model_name: str = Field(..., min_length=1, max_length=100)
+
+
 class ConfigVersionResponse(BaseModel):
     """Response schema for a config version."""
 
@@ -352,6 +358,61 @@ async def clone_agent(agent_name: str) -> AgentResponse:
                 cloned,
                 cloned.active_config_version,
                 cloned.active_prompt_version,
+            )
+        )
+
+
+@router.patch("/{agent_name}/model", response_model=AgentResponse)
+async def quick_model_switch(
+    agent_name: str,
+    body: QuickModelSwitch,
+) -> AgentResponse:
+    """Quick model switch: create a new config version and promote in one step.
+
+    Creates a draft config version with the new model (copying temperature
+    and other settings from the current active config), then auto-promotes it.
+    """
+    from src.agents.config_cache import invalidate_agent_config
+
+    async with get_session() as session:
+        agent_repo = AgentRepository(session)
+        config_repo = AgentConfigVersionRepository(session)
+
+        agent = await agent_repo.get_by_name(agent_name)
+        if not agent:
+            raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+        # Get current config to copy settings
+        current = agent.active_config_version
+        temp = current.temperature if current else None
+        fallback = current.fallback_model if current else None
+        tools = current.tools_enabled if current else None
+
+        try:
+            version = await config_repo.create_draft(
+                agent_id=agent.id,
+                model_name=body.model_name,
+                temperature=temp,
+                fallback_model=fallback,
+                tools_enabled=tools,
+                change_summary=f"Quick switch to {body.model_name}",
+            )
+            await session.flush()
+
+            await config_repo.promote(version.id, agent.id)
+            await session.flush()
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+
+        await session.commit()
+        invalidate_agent_config(agent_name)
+
+        await session.refresh(agent)
+        return AgentResponse(
+            **_serialize_agent(
+                agent,
+                agent.active_config_version,
+                agent.active_prompt_version,
             )
         )
 

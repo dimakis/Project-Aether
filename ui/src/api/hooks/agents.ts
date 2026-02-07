@@ -65,6 +65,19 @@ export function useCloneAgent() {
   });
 }
 
+export function useQuickModelSwitch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, modelName }: { name: string; modelName: string }) =>
+      agents.quickModelSwitch(name, modelName),
+    onSuccess: (_data, { name }) => {
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: ["agents", name] });
+      qc.invalidateQueries({ queryKey: ["agents", name, "config", "versions"] });
+    },
+  });
+}
+
 export function useCreateConfigVersion() {
   const qc = useQueryClient();
   return useMutation({
