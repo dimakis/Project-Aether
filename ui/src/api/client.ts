@@ -470,4 +470,51 @@ export const system = {
     request<import("@/lib/types").SystemStatus>("/status"),
 };
 
+// ─── Usage ──────────────────────────────────────────────────────────────────
+
+export const usage = {
+  summary: (days = 30) =>
+    request<{
+      period_days: number;
+      total_calls: number;
+      total_input_tokens: number;
+      total_output_tokens: number;
+      total_tokens: number;
+      total_cost_usd: number;
+      by_model: Array<{
+        model: string;
+        provider: string;
+        calls: number;
+        tokens: number;
+        cost_usd: number;
+      }>;
+    }>(`/usage/summary?days=${days}`),
+
+  daily: (days = 30) =>
+    request<{
+      days: number;
+      data: Array<{
+        date: string;
+        calls: number;
+        tokens: number;
+        cost_usd: number;
+      }>;
+    }>(`/usage/daily?days=${days}`),
+
+  models: (days = 30) =>
+    request<{
+      days: number;
+      models: Array<{
+        model: string;
+        provider: string;
+        calls: number;
+        input_tokens: number;
+        output_tokens: number;
+        tokens: number;
+        cost_usd: number;
+        avg_latency_ms: number | null;
+      }>;
+    }>(`/usage/models?days=${days}`),
+};
+
 export { ApiError };

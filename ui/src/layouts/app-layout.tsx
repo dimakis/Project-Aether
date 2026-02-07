@@ -9,6 +9,7 @@ import {
   Activity,
   Zap,
   Clock,
+  BarChart3,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const navItems = [
   { to: "/entities", icon: Cpu, label: "Entities" },
   { to: "/registry", icon: BookOpen, label: "Registry" },
   { to: "/schedules", icon: Clock, label: "Schedules" },
+  { to: "/usage", icon: BarChart3, label: "LLM Usage" },
   { to: "/diagnostics", icon: Activity, label: "Diagnostics" },
 ];
 

@@ -12,6 +12,7 @@ import { EntitiesPage } from "@/pages/entities";
 import { RegistryPage } from "@/pages/registry";
 import { DiagnosticsPage } from "@/pages/diagnostics";
 import { SchedulesPage } from "@/pages/schedules";
+import { UsagePage } from "@/pages/usage";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -58,8 +59,9 @@ export default function App() {
                   <Route path="insights" element={<InsightsPage />} />
                   <Route path="entities" element={<EntitiesPage />} />
                   <Route path="registry" element={<RegistryPage />} />
-                  <Route path="schedules" element={<SchedulesPage />} />
-                  <Route path="diagnostics" element={<DiagnosticsPage />} />
+              <Route path="schedules" element={<SchedulesPage />} />
+              <Route path="usage" element={<UsagePage />} />
+              <Route path="diagnostics" element={<DiagnosticsPage />} />
                 </Route>
               </Route>
             </Routes>

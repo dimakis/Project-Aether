@@ -10,6 +10,7 @@ import {
   registry,
   system,
   traces,
+  usage,
 } from "./client";
 
 // ─── Keys ───────────────────────────────────────────────────────────────────
@@ -407,5 +408,31 @@ export function useSystemStatus() {
     queryKey: queryKeys.systemStatus,
     queryFn: () => system.status(),
     refetchInterval: 60_000, // Poll every minute
+  });
+}
+
+// ─── Usage ──────────────────────────────────────────────────────────────────
+
+export function useUsageSummary(days = 30) {
+  return useQuery({
+    queryKey: ["usage", "summary", days],
+    queryFn: () => usage.summary(days),
+    staleTime: 60_000,
+  });
+}
+
+export function useUsageDaily(days = 30) {
+  return useQuery({
+    queryKey: ["usage", "daily", days],
+    queryFn: () => usage.daily(days),
+    staleTime: 60_000,
+  });
+}
+
+export function useUsageByModel(days = 30) {
+  return useQuery({
+    queryKey: ["usage", "models", days],
+    queryFn: () => usage.models(days),
+    staleTime: 60_000,
   });
 }
