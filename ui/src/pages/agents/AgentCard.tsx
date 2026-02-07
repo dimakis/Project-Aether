@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot,
@@ -11,6 +12,7 @@ import {
   History,
   Ban,
   Copy,
+  BarChart3,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,7 @@ export function AgentCard({
   isProgrammatic?: boolean;
   onToggle: () => void;
 }) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [showModelPicker, setShowModelPicker] = useState(false);
   const statusMutation = useUpdateAgentStatus();
@@ -126,19 +129,33 @@ export function AgentCard({
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-2 h-7 px-2 text-muted-foreground hover:text-foreground"
-          onClick={(e) => {
-            e.stopPropagation();
-            cloneMutation.mutate(agent.name);
-          }}
-          disabled={cloneMutation.isPending}
-          title="Clone agent"
-        >
-          <Copy className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1 ml-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/agents/registry?agent_role=${agent.name}`);
+            }}
+            title="View performance"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              cloneMutation.mutate(agent.name);
+            }}
+            disabled={cloneMutation.isPending}
+            title="Clone agent"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </button>
 
       {/* Expanded Detail */}

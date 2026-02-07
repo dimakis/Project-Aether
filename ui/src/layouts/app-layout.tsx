@@ -40,7 +40,7 @@ const navItems = [
   { to: "/diagnostics", icon: Activity, label: "Diagnostics" },
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/architecture", icon: Network, label: "Architecture" },
-  { to: "/agents/registry", icon: Star, label: "Model Registry" },
+  { to: "/agents/registry", icon: Star, label: "Model Performance" },
 ];
 
 const AGENT_LABELS: Record<string, string> = {
