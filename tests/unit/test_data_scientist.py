@@ -14,10 +14,12 @@ from uuid import uuid4
 import pytest
 
 from src.agents.data_scientist import (
-    DATA_SCIENTIST_SYSTEM_PROMPT,
     DataScientistAgent,
     DataScientistWorkflow,
 )
+from src.agents.prompts import load_prompt
+
+DATA_SCIENTIST_SYSTEM_PROMPT = load_prompt("data_scientist_system")
 from src.graph.state import AnalysisState, AnalysisType, AgentRole
 from src.sandbox.runner import SandboxResult
 

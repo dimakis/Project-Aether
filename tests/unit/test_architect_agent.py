@@ -143,7 +143,8 @@ Would you like me to adjust anything?"""
     @pytest.mark.asyncio
     async def test_build_messages_includes_system_prompt(self):
         """Test that message building includes system prompt."""
-        from src.agents.architect import ArchitectAgent, ARCHITECT_SYSTEM_PROMPT
+        from src.agents.architect import ArchitectAgent
+        from src.agents.prompts import load_prompt
         from src.graph.state import ConversationState
 
         agent = ArchitectAgent()
@@ -154,6 +155,7 @@ Would you like me to adjust anything?"""
         messages = agent._build_messages(state)
 
         # First message should be system prompt
+        ARCHITECT_SYSTEM_PROMPT = load_prompt("architect_system")
         assert len(messages) >= 2
         assert messages[0].content == ARCHITECT_SYSTEM_PROMPT
         assert messages[1].content == "Test message"

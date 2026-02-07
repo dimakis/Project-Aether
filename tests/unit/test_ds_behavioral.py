@@ -12,9 +12,11 @@ import pytest
 
 from src.agents.data_scientist import (
     BEHAVIORAL_ANALYSIS_TYPES,
-    DATA_SCIENTIST_BEHAVIORAL_PROMPT,
     DataScientistAgent,
 )
+from src.agents.prompts import load_prompt
+
+DATA_SCIENTIST_BEHAVIORAL_PROMPT = load_prompt("data_scientist_behavioral")
 from src.graph.state import AnalysisState, AnalysisType, AutomationSuggestion
 
 

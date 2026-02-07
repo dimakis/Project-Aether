@@ -20,6 +20,8 @@ class TestGetLLM:
         settings.llm_temperature = 0.7
         settings.llm_api_key.get_secret_value.return_value = "sk-or-test-key"
         settings.llm_base_url = None
+        settings.llm_fallback_provider = None
+        settings.llm_fallback_model = None
         return settings
 
     @pytest.fixture
@@ -31,6 +33,8 @@ class TestGetLLM:
         settings.llm_temperature = 0.5
         settings.llm_api_key.get_secret_value.return_value = "sk-openai-test"
         settings.llm_base_url = None
+        settings.llm_fallback_provider = None
+        settings.llm_fallback_model = None
         return settings
 
     @pytest.fixture
@@ -41,6 +45,8 @@ class TestGetLLM:
         settings.llm_model = "gemini-2.0-flash"
         settings.llm_temperature = 0.7
         settings.google_api_key.get_secret_value.return_value = "google-test-key"
+        settings.llm_fallback_provider = None
+        settings.llm_fallback_model = None
         return settings
 
     @pytest.fixture
@@ -52,6 +58,8 @@ class TestGetLLM:
         settings.llm_temperature = 0.8
         settings.llm_api_key.get_secret_value.return_value = "custom-key"
         settings.llm_base_url = "https://custom-api.example.com/v1"
+        settings.llm_fallback_provider = None
+        settings.llm_fallback_model = None
         return settings
 
     def test_openrouter_provider(self, mock_settings_openrouter):
@@ -140,6 +148,8 @@ class TestGetLLM:
         settings.llm_temperature = 0.7
         settings.llm_api_key.get_secret_value.return_value = ""
         settings.llm_base_url = None
+        settings.llm_fallback_provider = None
+        settings.llm_fallback_model = None
 
         with patch("src.llm.get_settings", return_value=settings):
             from src.llm import get_llm
@@ -155,6 +165,8 @@ class TestGetLLM:
         settings.llm_temperature = 0.7
         settings.llm_api_key.get_secret_value.return_value = ""
         settings.llm_base_url = None
+        settings.llm_fallback_provider = None
+        settings.llm_fallback_model = None
 
         with patch("src.llm.get_settings", return_value=settings):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
