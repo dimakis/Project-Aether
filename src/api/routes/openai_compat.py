@@ -582,6 +582,142 @@ def _format_sse_error(error: str) -> str:
     return f"data: {json.dumps(error_data)}\n\n"
 
 
+def _build_trace_events(
+    messages: list,
+    tool_calls_used: list[str],
+) -> list[dict[str, Any]]:
+    """Build a sequence of trace events from completed workflow state.
+
+    Emitted before text chunks so the UI can show real-time agent activity.
+    Each event has: type, agent, event, (optional) tool, ts, and (optional) agents.
+
+    Mapping rules:
+    - analyze_energy, run_custom_analysis, diagnose_issue -> data_scientist
+    - create_insight_schedule, seek_approval, execute_service -> system
+    - Everything else stays under architect (no separate agent events)
+
+    Args:
+        messages: LangChain messages from the completed ConversationState.
+        tool_calls_used: Deduplicated list of tool names invoked.
+
+    Returns:
+        Ordered list of trace event dicts ready for SSE emission.
+    """
+    # --- Agent mapping for tool calls ---
+    TOOL_AGENT_MAP: dict[str, str] = {
+        # Data Scientist tools
+        "analyze_energy": "data_scientist",
+        "run_custom_analysis": "data_scientist",
+        "diagnose_issue": "data_scientist",
+        # System tools
+        "create_insight_schedule": "system",
+        "seek_approval": "system",
+        "execute_service": "system",
+    }
+
+    events: list[dict[str, Any]] = []
+    base_ts = time.time()
+    offset = 0.0
+
+    def _ts() -> float:
+        nonlocal offset
+        offset += 0.05
+        return base_ts + offset
+
+    # 1. Architect always starts
+    events.append({
+        "type": "trace",
+        "agent": "architect",
+        "event": "start",
+        "ts": _ts(),
+    })
+
+    # 2. Walk messages looking for AIMessage tool_calls and ToolMessage results
+    from langchain_core.messages import AIMessage as _AI, ToolMessage as _TM
+
+    # Track which delegated agents were encountered
+    delegated_agents: set[str] = set()
+    # Track which delegated agents are currently "active" (started but not ended)
+    active_delegated: str | None = None
+
+    for msg in messages:
+        if isinstance(msg, _AI) and hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                tool_name = tc.get("name", "")
+                if not tool_name:
+                    continue
+
+                target_agent = TOOL_AGENT_MAP.get(tool_name)
+
+                if target_agent:
+                    # End any previous delegated agent
+                    if active_delegated and active_delegated != target_agent:
+                        events.append({
+                            "type": "trace",
+                            "agent": active_delegated,
+                            "event": "end",
+                            "ts": _ts(),
+                        })
+
+                    # Start new delegated agent if not already active
+                    if active_delegated != target_agent:
+                        events.append({
+                            "type": "trace",
+                            "agent": target_agent,
+                            "event": "start",
+                            "ts": _ts(),
+                        })
+                        active_delegated = target_agent
+                        delegated_agents.add(target_agent)
+
+                # Emit tool_call event (under current agent)
+                events.append({
+                    "type": "trace",
+                    "agent": target_agent or "architect",
+                    "event": "tool_call",
+                    "tool": tool_name,
+                    "ts": _ts(),
+                })
+
+        elif isinstance(msg, _TM):
+            # Tool result - emit tool_result event
+            current_agent = active_delegated or "architect"
+            events.append({
+                "type": "trace",
+                "agent": current_agent,
+                "event": "tool_result",
+                "ts": _ts(),
+            })
+
+    # End any remaining delegated agent
+    if active_delegated:
+        events.append({
+            "type": "trace",
+            "agent": active_delegated,
+            "event": "end",
+            "ts": _ts(),
+        })
+
+    # 3. Architect end
+    events.append({
+        "type": "trace",
+        "agent": "architect",
+        "event": "end",
+        "ts": _ts(),
+    })
+
+    # 4. Complete event listing all agents involved
+    all_agents = ["architect"] + sorted(delegated_agents)
+    events.append({
+        "type": "trace",
+        "event": "complete",
+        "agents": all_agents,
+        "ts": _ts(),
+    })
+
+    return events
+
+
 def _is_background_request(messages: list[ChatMessage]) -> bool:
     """Detect if this is a background request (title generation, suggestions).
 
