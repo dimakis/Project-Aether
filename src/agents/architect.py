@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -861,9 +861,214 @@ class ArchitectWorkflow:
 
         return state
 
+    async def stream_conversation(
+        self,
+        state: ConversationState,
+        user_message: str,
+        session: AsyncSession | None = None,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream a conversation turn, yielding token and tool events.
+
+        Provides real LLM token streaming instead of batched responses.
+        Yields ``StreamEvent`` dicts:
+        - ``{"type": "token", "content": "..."}`` for each LLM token
+        - ``{"type": "tool_start", "tool": "...", "agent": "..."}``
+        - ``{"type": "tool_end", "tool": "...", "result": "..."}``
+        - ``{"type": "state", "state": ConversationState}`` final state
+
+        Args:
+            state: Current conversation state.
+            user_message: New user message.
+            session: Database session.
+
+        Yields:
+            StreamEvent dicts.
+        """
+        import mlflow
+
+        state.messages.append(HumanMessage(content=user_message))
+        turn_number = (len(state.messages) + 1) // 2
+
+        # Capture trace ID
+        try:
+            mlflow.set_tag("session.id", state.conversation_id)
+            span = mlflow.get_current_active_span()
+            if span:
+                request_id = getattr(span, "request_id", None)
+                if request_id:
+                    state.last_trace_id = str(request_id)
+        except Exception:
+            pass
+
+        # Build messages for LLM
+        messages = self.agent._build_messages(state)
+
+        # Add entity context if session available
+        if session:
+            entity_context = await self.agent._get_entity_context(session, state)
+            if entity_context:
+                messages.insert(1, SystemMessage(content=entity_context))
+
+        # Get tools and bind them
+        tools = self.agent._get_ha_tools()
+        tool_lookup = {tool.name: tool for tool in tools}
+        llm = self.agent.llm
+        tool_llm = llm.bind_tools(tools) if tools else llm
+
+        # Stream tokens from the LLM
+        collected_content = ""
+        tool_calls_buffer: list[dict] = []
+        full_tool_calls: list[dict] = []
+
+        async for chunk in tool_llm.astream(messages):
+            # Token content
+            if chunk.content:
+                token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                collected_content += token
+                yield StreamEvent(type="token", content=token)
+
+            # Tool call chunks (accumulated across multiple stream chunks)
+            if hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks:
+                for tc_chunk in chunk.tool_call_chunks:
+                    # Merge into buffer by index
+                    idx = tc_chunk.get("index", 0)
+                    while len(tool_calls_buffer) <= idx:
+                        tool_calls_buffer.append({"name": "", "args": "", "id": ""})
+                    buf = tool_calls_buffer[idx]
+                    if tc_chunk.get("name"):
+                        buf["name"] = tc_chunk["name"]
+                    if tc_chunk.get("args"):
+                        buf["args"] += tc_chunk["args"]
+                    if tc_chunk.get("id"):
+                        buf["id"] = tc_chunk["id"]
+
+        # Process tool calls if any were accumulated
+        if tool_calls_buffer:
+            import json as _json
+
+            tool_results: dict[str, str] = {}  # tool_call_id -> result
+
+            for tc_buf in tool_calls_buffer:
+                tool_name = tc_buf["name"]
+                tool_call_id = tc_buf["id"]
+                try:
+                    args = _json.loads(tc_buf["args"]) if tc_buf["args"] else {}
+                except _json.JSONDecodeError:
+                    args = {}
+
+                full_tool_calls.append({
+                    "name": tool_name,
+                    "args": args,
+                    "id": tool_call_id,
+                })
+
+                # Check mutating
+                if self.agent._is_mutating_tool(tool_name):
+                    yield StreamEvent(
+                        type="approval_required",
+                        tool=tool_name,
+                        content=f"Approval needed: {tool_name}({args})",
+                    )
+                    tool_results[tool_call_id] = "Requires user approval"
+                    continue
+
+                yield StreamEvent(type="tool_start", tool=tool_name, agent="architect")
+
+                tool = tool_lookup.get(tool_name)
+                if tool:
+                    try:
+                        result = await tool.ainvoke(args)
+                        result_str = str(result)
+                        tool_results[tool_call_id] = result_str
+                        yield StreamEvent(
+                            type="tool_end",
+                            tool=tool_name,
+                            result=result_str[:500],
+                        )
+                    except Exception as e:
+                        result_str = f"Error: {e}"
+                        tool_results[tool_call_id] = result_str
+                        yield StreamEvent(
+                            type="tool_end",
+                            tool=tool_name,
+                            result=result_str,
+                        )
+                else:
+                    tool_results[tool_call_id] = f"Tool {tool_name} not found"
+
+            # Build AI message with tool_calls + ToolMessages from cached results
+            ai_msg = AIMessage(
+                content=collected_content,
+                tool_calls=full_tool_calls,
+            )
+            tool_messages = [
+                ToolMessage(
+                    content=tool_results.get(tc["id"], ""),
+                    tool_call_id=tc.get("id", ""),
+                )
+                for tc in full_tool_calls
+                if not self.agent._is_mutating_tool(tc["name"])
+            ]
+
+            # Get follow-up response by streaming
+            follow_up_messages = messages + [ai_msg] + tool_messages
+            follow_up_content = ""
+            async for chunk in llm.astream(follow_up_messages):
+                if chunk.content:
+                    token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                    follow_up_content += token
+                    yield StreamEvent(type="token", content=token)
+
+            # Update state with all messages
+            new_messages: list[BaseMessage] = [ai_msg, *tool_messages]
+            if follow_up_content:
+                new_messages.append(AIMessage(content=follow_up_content))
+            state.messages.extend(new_messages)
+        else:
+            # No tool calls — just the response
+            if collected_content:
+                state.messages.append(AIMessage(content=collected_content))
+
+        # Yield final state
+        yield StreamEvent(type="state", state=state)
+
+
+class StreamEvent(dict):
+    """A typed dict for streaming events from the workflow.
+
+    Attributes:
+        type: Event type (token, tool_start, tool_end, state, approval_required)
+        content: Text content (for token events)
+        tool: Tool name (for tool events)
+        agent: Agent name (for tool events)
+        result: Tool result (for tool_end events)
+        state: Final conversation state (for state events)
+    """
+
+    def __init__(
+        self,
+        type: str,
+        content: str | None = None,
+        tool: str | None = None,
+        agent: str | None = None,
+        result: str | None = None,
+        state: ConversationState | None = None,
+        **kwargs: object,
+    ):
+        super().__init__(
+            type=type,
+            content=content,
+            tool=tool,
+            agent=agent,
+            result=result,
+            state=state,
+            **kwargs,
+        )
+
 
 # Exports
 __all__ = [
     "ArchitectAgent",
     "ArchitectWorkflow",
+    "StreamEvent",
 ]
