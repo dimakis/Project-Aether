@@ -4,7 +4,7 @@
 
 **How to use**: Tell the assistant: *"Run the code healthcheck at `docs/code-healthcheck.md`"*
 
-**Last run**: 2026-02-06 (post-fix) | **Branch**: `001-project-aether` | **Overall**: GOOD
+**Last run**: 2026-02-07 | **Branch**: `001-project-aether` | **Overall**: GOOD
 
 ---
 
@@ -59,22 +59,47 @@
 
 | Module | `except Exception as e` (logged) | `except Exception:` (debug-logged) | `except Exception:` (silent) | Total |
 |--------|-----------------------------------|-------------------------------------|------------------------------|-------|
-| `src/agents/__init__.py` | 1 | 11 | 0 | 12 |
 | `src/tracing/mlflow.py` | 10 | 0 | 5 | 15 |
 | `src/tools/ha_tools.py` | 12 | 0 | 0 | 12 |
-| `src/tools/agent_tools.py` | 4 | 0 | 0 | 4 |
-| `src/sandbox/runner.py` | 2 | 0 | 2 | 4 |
-| `src/agents/data_scientist.py` | 3 | 0 | 1 | 4 |
+| `src/agents/__init__.py` | 1 | 11 | 0 | 12 |
+| `src/cli/main.py` | 7 | 0 | 0 | 7 |
+| `src/tools/agent_tools.py` | 4 | 0 | 4 | 8 |
+| `src/sandbox/runner.py` | 2 | 0 | 3 | 5 |
+| `src/agents/data_scientist.py` | 3 | 0 | 2 | 5 |
+| `src/graph/nodes.py` | 1 | 0 | 3 | 4 |
 | `src/api/routes/system.py` | 3 | 0 | 0 | 3 |
-| `src/graph/nodes.py` | 1 | 0 | 1 | 2 |
-| `src/cli/main.py` | 6 | 0 | 0 | 6 |
+| `src/agents/architect.py` | 1 | 0 | 2 | 3 |
 | `src/agents/developer.py` | 1 | 0 | 1 | 2 |
-| Other (8 files) | 8 | 0 | 0 | 8 |
-| **TOTAL** | **51** | **11** | **10** | **72** |
+| `src/tools/approval_tools.py` | 4 | 0 | 1 | 5 |
+| `src/api/routes/openai_compat.py` | 2 | 0 | 1 | 3 |
+| `src/api/routes/ha_registry.py` | 2 | 0 | 0 | 2 |
+| `src/mcp/client.py` | 3 | 0 | 0 | 3 |
+| `src/scheduler/service.py` | 2 | 0 | 0 | 2 |
+| `src/api/routes/webhooks.py` | 1 | 0 | 0 | 1 |
+| `src/api/routes/traces.py` | 2 | 0 | 1 | 3 |
+| `src/api/routes/optimization.py` | 2 | 0 | 0 | 2 |
+| `src/graph/workflows.py` | 2 | 0 | 0 | 2 |
+| `src/tools/diagnostic_tools.py` | 6 | 0 | 2 | 8 |
+| `src/api/routes/chat.py` | 1 | 0 | 0 | 1 |
+| `src/api/routes/insights.py` | 1 | 0 | 0 | 1 |
+| `src/api/routes/entities.py` | 1 | 0 | 0 | 1 |
+| `src/mcp/automation_deploy.py` | 1 | 0 | 0 | 1 |
+| `src/agents/librarian.py` | 1 | 0 | 0 | 1 |
+| `src/dal/sync.py` | 1 | 0 | 0 | 1 |
+| `src/mcp/behavioral.py` | 0 | 0 | 1 | 1 |
+| `src/mcp/history.py` | 0 | 0 | 1 | 1 |
+| `src/api/services/model_discovery.py` | 1 | 0 | 0 | 1 |
+| **TOTAL** | **75** | **11** | **26** | **112** |
 
-**Severity**: OK — `src/agents/__init__.py` silent catches now all use `logger.debug()` with `exc_info=True`. Remaining 10 silent catches are in `tracing/mlflow.py` (5, by design), `sandbox/runner.py` (2), and scattered agent code (3) — tracing/observability code where crashes must be suppressed.
+**Severity**: OK — `src/agents/__init__.py` silent catches all use `logger.debug()` with `exc_info=True`. Remaining 26 silent catches are primarily in:
+- `tracing/mlflow.py` (5, by design — tracing should never crash the app)
+- `sandbox/runner.py` (3, defensive cleanup)
+- `tools/agent_tools.py` (4, span context fallbacks)
+- `graph/nodes.py` (3, file cleanup)
+- `agents/data_scientist.py` (2, cleanup)
+- Other scattered defensive catches (9)
 
-**Guidance**: Silent catches in `tracing/mlflow.py` are acceptable by design (tracing should never crash the app). The remaining few in `sandbox/runner.py` and agents should be reviewed if they cause debugging difficulty.
+**Guidance**: Silent catches in `tracing/mlflow.py` are acceptable by design. Most others are defensive cleanup/fallback patterns. Consider adding debug logging to silent catches if debugging becomes difficult.
 
 **Task Reference**: T204 (partially resolved for `agents/__init__.py`)
 
@@ -95,17 +120,31 @@
 |--------|-------------|-------|
 | `src/graph/nodes.py` | 16 | Highest — LangGraph state dicts |
 | `src/graph/workflows.py` | 14 | LangGraph compiled graph types |
+| `src/api/routes/traces.py` | 11 | MLflow trace object handling |
 | `src/agents/developer.py` | 7 | MCP response handling |
 | `src/tracing/mlflow.py` | 7 | MLflow API flexibility |
 | `src/agents/architect.py` | 6 | LLM response parsing |
 | `src/agents/data_scientist.py` | 5 | Script output parsing |
 | `src/agents/__init__.py` | 5 | Base agent generics |
 | `src/dal/queries.py` | 4 | Dynamic query building |
-| `src/tools/agent_tools.py` | 3 | Tool return types |
-| Other (6 files) | 6 | 1 each |
-| **TOTAL** | **73** | — |
+| `src/tools/agent_tools.py` | 4 | Tool return types |
+| `src/storage/entities/automation_proposal.py` | 2 | Trigger/action unwrapping |
+| `src/api/routes/insight_schedules.py` | 2 | Schedule serialization |
+| `src/dal/insight_schedules.py` | 1 | Dynamic fields |
+| `src/mcp/behavioral.py` | 1 | MCP client type |
+| `src/mcp/logbook.py` | 1 | MCP client type |
+| `src/diagnostics/config_validator.py` | 1 | MCP client type |
+| `src/diagnostics/integration_health.py` | 1 | MCP client type |
+| `src/diagnostics/entity_health.py` | 1 | Response parsing |
+| `src/mcp/automation_deploy.py` | 1 | Dynamic kwargs |
+| `src/tools/ha_tools.py` | 1 | Response extraction |
+| `src/llm.py` | 1 | Dynamic kwargs |
+| `src/graph/__init__.py` | 1 | Dynamic kwargs |
+| `src/api/schemas/ha_automations.py` | 1 | Example field |
+| `src/storage/checkpoints.py` | 1 | Value serialization |
+| **TOTAL** | **87** | — |
 
-**Severity**: WARN — 73 `Any` annotations. `graph/nodes.py` and `graph/workflows.py` account for 30 (LangGraph's loosely-typed interfaces make this partially unavoidable).
+**Severity**: WARN — 87 `Any` annotations (up from 73). `graph/nodes.py` and `graph/workflows.py` account for 30 (LangGraph's loosely-typed interfaces make this partially unavoidable). `api/routes/traces.py` added 11 for MLflow trace object handling.
 
 **Task Reference**: T193, T205
 
@@ -126,10 +165,11 @@
 |-----------|------|----------|--------|
 | `_engine` / `_session_factory` | `src/storage/__init__.py` | YES (`threading.Lock` + double-checked locking) | PASS |
 | `get_mcp_client()` | `src/mcp/client.py` | YES (`threading.Lock` + double-checked locking) | PASS |
-| `_discovery_instance` | `src/api/services/model_discovery.py` | YES (`asyncio.Lock`) | PASS |
+| `_discovery_instance` | `src/api/services/model_discovery.py` | NO (class has internal `asyncio.Lock` but singleton getter unprotected) | WARN |
+| `SchedulerService._instance` | `src/scheduler/service.py` | NO (set during startup, no concurrent access expected) | PASS |
 | `_app` | `src/api/main.py` | NO (acceptable — single-threaded startup) | PASS |
 
-**Severity**: PASS — All singletons with concurrent access are properly protected with locks.
+**Severity**: WARN — `_discovery_instance` singleton getter in `model_discovery.py` lacks lock protection. The `ModelDiscovery` class has an internal `asyncio.Lock` for its methods, but the singleton getter itself is not thread-safe. However, it's only accessed during startup, so risk is low.
 
 **Task Reference**: T186 (resolved), T201
 
@@ -191,7 +231,7 @@
 
 ### Last Findings
 
-**Source modules**: 78 files | **Test files**: 43 (excluding conftest/factories/mocks)
+**Source modules**: 98 files (excluding `__init__.py`) | **Test files**: 71 (excluding conftest/factories/mocks)
 
 #### Modules WITH Tests
 
@@ -221,6 +261,20 @@
 | `src/graph/state.py` | `test_approval_state.py` (partial) |
 | `src/llm.py` | `test_llm.py` |
 | `src/agents/model_context.py` | `test_model_context.py`, `test_model_propagation.py`, `test_insight_suggestions.py` |
+| `src/tools/approval_tools.py` | `test_seek_approval_tool.py`, `test_architect_seek_approval.py` |
+| `src/tools/diagnostic_tools.py` | `test_diagnostic_tools.py`, `test_mcp_client_diagnostics.py` |
+| `src/diagnostics/*.py` | `test_config_validator.py`, `test_integration_health.py`, `test_entity_health.py`, `test_error_patterns.py`, `test_log_parser.py` |
+| `src/mcp/logbook.py` | `test_mcp_logbook.py` |
+| `src/api/routes/openai_compat.py` | `test_openai_compat.py` |
+| `src/api/routes/optimization.py` | `test_optimization_flow.py`, `test_optimization_api.py` |
+| `src/api/routes/chat.py` | `test_api_chat.py` |
+| `src/api/routes/entities.py` | `test_api_entities.py` |
+| `src/api/routes/insights.py` | `test_api_insights.py` |
+| `src/graph/workflows.py` | `test_discovery_workflow.py`, `test_conversation_workflow.py`, `test_analysis_workflow.py`, `test_behavioral_workflow.py` |
+| `src/graph/nodes.py` | Covered via integration/workflow tests |
+| `src/storage/entities/message.py` | `test_storage_conversations.py` |
+| `src/storage/entities/conversation.py` | `test_storage_conversations.py` |
+| `src/storage/checkpoints.py` | Covered via integration tests |
 
 #### Modules WITHOUT Dedicated Tests
 
@@ -229,21 +283,29 @@
 | `src/dal/sync.py` | HIGH | Orchestrates HA sync — critical path |
 | `src/dal/automations.py` | MEDIUM | Automation repository CRUD |
 | `src/dal/services.py` | MEDIUM | Service registry |
-| `src/graph/nodes.py` | MEDIUM | Covered via integration/workflow tests |
-| `src/graph/workflows.py` | MEDIUM | Covered via integration tests |
 | `src/mcp/gaps.py` | LOW | Diagnostic utility |
 | `src/mcp/constants.py` | LOW | Static data |
 | `src/tracing/mlflow.py` | LOW | Observability (non-critical path) |
 | `src/tracing/context.py` | LOW | Session context management |
 | `src/settings.py` | LOW | Pydantic settings (self-validating) |
 | `src/logging_config.py` | LOW | Logging setup |
-| `src/api/routes/*.py` | MEDIUM | Partially covered by integration API tests |
+| `src/api/routes/*.py` (remaining) | MEDIUM | Partially covered by integration API tests |
 | `src/api/services/model_discovery.py` | LOW | Model listing utility |
 | `src/cli/main.py` | MEDIUM | CLI commands — manual testing common |
 | `src/sandbox/policies.py` | LOW | Static policy definitions |
 | `src/storage/__init__.py` | LOW | DB init (covered transitively) |
+| `src/scheduler/service.py` | MEDIUM | Scheduler service — covered via integration tests |
+| `src/api/routes/proposals.py` | MEDIUM | Covered via `test_seek_approval_deploy.py` |
+| `src/api/routes/webhooks.py` | MEDIUM | Covered via integration tests |
+| `src/api/routes/traces.py` | LOW | Trace viewing endpoint |
+| `src/api/routes/system.py` | LOW | System info endpoint |
+| `src/api/routes/ha_registry.py` | MEDIUM | HA registry sync — covered via integration tests |
+| `src/api/routes/insight_schedules.py` | MEDIUM | Covered via integration tests |
+| `src/api/routes/devices.py` | MEDIUM | Covered via `test_dal_devices.py` |
+| `src/api/routes/areas.py` | MEDIUM | Covered via `test_dal_areas.py` |
+| `src/mcp/behavioral.py` | MEDIUM | Covered via `test_behavioral_analysis.py`, `test_ds_behavioral.py` |
 
-**Severity**: WARN — `src/dal/sync.py` is the highest-risk untested module (critical sync path).
+**Severity**: WARN — `src/dal/sync.py` is the highest-risk untested module (critical sync path). Test coverage has improved with additional test files for diagnostics, optimization, and API routes.
 
 **Task Reference**: T136, T208
 
@@ -349,16 +411,20 @@ uv lock --check
 |-------|--------|---------|
 | Limiter configured | PASS | `slowapi.Limiter` in `src/api/rate_limit.py` with 60/min default |
 | Limiter added to app | PASS | `app.state.limiter` and `RateLimitExceeded` handler registered in `main.py` |
-| `POST /entities/sync` | PASS | `@limiter.limit("5/minute")` |
-| `POST /entities/query` | PASS | `@limiter.limit("10/minute")` |
-| `POST /conversations` | PASS | `@limiter.limit("10/minute")` |
-| `POST /conversations/{id}/messages` | PASS | `@limiter.limit("10/minute")` |
-| `POST /insights/analyze` | PASS | `@limiter.limit("5/minute")` |
 | `POST /proposals/{id}/deploy` | PASS | `@limiter.limit("5/minute")` |
 | `POST /proposals/{id}/rollback` | PASS | `@limiter.limit("5/minute")` |
 | `POST /v1/chat/completions` | PASS | `@limiter.limit("10/minute")` |
+| `POST /optimization/run` | PASS | `@limiter.limit("5/minute")` |
+| `POST /optimization/analyze` | PASS | `@limiter.limit("10/minute")` |
+| `POST /optimization/energy` | PASS | `@limiter.limit("10/minute")` |
+| `POST /chat` | PASS | `@limiter.limit("10/minute")` |
+| `POST /chat/stream` | PASS | `@limiter.limit("10/minute")` |
+| `POST /insights/analyze` | PASS | `@limiter.limit("5/minute")` |
+| `POST /entities/query` | PASS | `@limiter.limit("10/minute")` |
+| `POST /entities/sync` | PASS | `@limiter.limit("5/minute")` |
+| `POST /webhooks/{schedule_id}` | PASS | `@limiter.limit("30/minute")` |
 
-**Severity**: PASS — All expensive endpoints rate-limited.
+**Severity**: PASS — All expensive endpoints rate-limited. Coverage expanded to include optimization and webhook endpoints.
 
 **Task Reference**: T188 (resolved)
 
@@ -374,12 +440,12 @@ uv lock --check
 | TD002 | Deprecated `datetime.utcnow()` | `graph/state.py`, `sandbox/runner.py`, `api/schemas/__init__.py` | Medium | **Resolved** | T187 |
 | TD003 | N+1 queries in Architect | `agents/architect.py` | High | **Resolved** | T190 |
 | TD004 | Rate limiting not applied to routes | `api/routes/*.py` | High | **Resolved** | T188 |
-| TD005 | Silent exception handling | `agents/__init__.py` (now debug-logged), `tracing/mlflow.py` (5 remain) | Low | **Partial** | T204 |
+| TD005 | Silent exception handling | `agents/__init__.py` (debug-logged), `tracing/mlflow.py` (5), others (21) | Low | **Partial** | T204 |
 | TD006 | Dead CLI chat stubs | `cli/main.py` | Medium | **Resolved** (removed) | — |
 | TD007 | Missing database indexes | `storage/entities/*.py` | Medium | **Resolved** (migration 006) | T191 |
 | TD008 | Missing `sync.py` unit tests | `dal/sync.py` | High | Open | T183 |
 | TD009 | Untracked TODO in ha_registry | `api/routes/ha_registry.py:440` | Low | **Resolved** (tagged T170) | — |
-| TD010 | 73 `Any` type annotations | Multiple modules | Medium | Open | T193 |
+| TD010 | 87 `Any` type annotations | Multiple modules (up from 73) | Medium | Open | T193 |
 | TD011 | `pg_trgm` GIN index for search | `dal/entities.py` | Low | Open | T192 |
 | TD012 | `MessageRepository.get_last_n()` subquery | `dal/conversations.py` | Low | Open | T194 |
 
@@ -468,6 +534,7 @@ After updating, identify the top 3-5 highest-priority items and propose them as 
 
 | Date | Branch | Run By | Key Changes |
 |------|--------|--------|-------------|
+| 2026-02-07 | `001-project-aether` | Healthcheck run | Updated all 13 sections with fresh data. Error handling: 112 total exceptions (75 logged, 11 debug-logged, 26 silent). Type safety: 87 `Any` annotations (up from 73, +11 in traces.py). Thread safety: `_discovery_instance` singleton getter lacks lock (low risk). Rate limiting: Expanded coverage (14 endpoints). Test coverage: 98 source modules, 71 test files. All other sections verified. |
 | 2026-02-07 | `001-project-aether` | Feature update | Added: model context propagation (`src/agents/model_context.py`), per-agent model settings, inter-agent trace linking, automation suggestion reverse communication. Tests: +33 (test_model_context, test_model_propagation, test_insight_suggestions). Feature: `08-C-model-routing-multi-agent`. Updated T173-T177 scope. |
 | 2026-02-06 | `001-project-aether` | Post-fix update | Fixed: datetime.utcnow (T187), rate limiting (T188), N+1 query (T190), DB indexes (T191), silent catches in agents/__init__.py, dead CLI stubs (TD006), untracked TODO (TD009). Corrected: thread safety was already PASS (T186). |
 | 2026-02-06 | `001-project-aether` | Initial creation | Baseline healthcheck with all sections populated |
