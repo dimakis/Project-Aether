@@ -20,6 +20,7 @@ import {
   History,
   Settings2,
   Sparkles,
+  Workflow,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,14 @@ export function AgentsPage() {
 
   const agentsList = data?.agents ?? [];
 
+  // Split into LLM-backed agents (have a model configured) and programmatic agents
+  const llmAgents = agentsList.filter(
+    (a) => a.active_config?.model_name,
+  );
+  const programmaticAgents = agentsList.filter(
+    (a) => !a.active_config?.model_name,
+  );
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -146,21 +155,56 @@ export function AgentsPage() {
         </Card>
       )}
 
-      {/* Agent Cards */}
-      <div className="space-y-3">
-        {agentsList.map((agent) => (
-          <AgentCard
-            key={agent.name}
-            agent={agent}
-            isSelected={selectedAgent === agent.name}
-            onToggle={() =>
-              setSelectedAgent(
-                selectedAgent === agent.name ? null : agent.name,
-              )
-            }
-          />
-        ))}
-      </div>
+      {/* LLM Agents */}
+      {llmAgents.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary" />
+            <h2 className="text-lg font-semibold">LLM Agents</h2>
+            <span className="text-xs text-muted-foreground">
+              Backed by language models
+            </span>
+          </div>
+          {llmAgents.map((agent) => (
+            <AgentCard
+              key={agent.name}
+              agent={agent}
+              isSelected={selectedAgent === agent.name}
+              onToggle={() =>
+                setSelectedAgent(
+                  selectedAgent === agent.name ? null : agent.name,
+                )
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Programmatic Agents */}
+      {programmaticAgents.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Workflow className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Programmatic Agents</h2>
+            <span className="text-xs text-muted-foreground">
+              Rule-based, no LLM required
+            </span>
+          </div>
+          {programmaticAgents.map((agent) => (
+            <AgentCard
+              key={agent.name}
+              agent={agent}
+              isSelected={selectedAgent === agent.name}
+              isProgrammatic
+              onToggle={() =>
+                setSelectedAgent(
+                  selectedAgent === agent.name ? null : agent.name,
+                )
+              }
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -170,10 +214,12 @@ export function AgentsPage() {
 function AgentCard({
   agent,
   isSelected,
+  isProgrammatic,
   onToggle,
 }: {
   agent: AgentDetail;
   isSelected: boolean;
+  isProgrammatic?: boolean;
   onToggle: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -243,12 +289,16 @@ function AgentCard({
               {/* Tab navigation */}
               <div className="flex gap-1 border-b border-border px-6 pt-2">
                 {(
-                  [
-                    { key: "overview", label: "Overview", icon: Settings2 },
-                    { key: "config", label: "Config", icon: Cpu },
-                    { key: "prompt", label: "Prompt", icon: FileText },
-                    { key: "history", label: "History", icon: History },
-                  ] as const
+                  isProgrammatic
+                    ? [
+                        { key: "overview" as const, label: "Overview", icon: Settings2 },
+                      ]
+                    : [
+                        { key: "overview" as const, label: "Overview", icon: Settings2 },
+                        { key: "config" as const, label: "Config", icon: Cpu },
+                        { key: "prompt" as const, label: "Prompt", icon: FileText },
+                        { key: "history" as const, label: "History", icon: History },
+                      ]
                 ).map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
