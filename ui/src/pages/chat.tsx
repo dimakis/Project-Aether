@@ -17,6 +17,9 @@ import {
   Home,
   Settings,
   Trash2,
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
@@ -24,18 +27,17 @@ import { ThinkingIndicator } from "@/components/ui/thinking-indicator";
 import { ThinkingDisclosure } from "@/components/chat/thinking-disclosure";
 import { cn } from "@/lib/utils";
 import { usePersistedState } from "@/hooks/use-persisted-state";
-import { STORAGE_KEYS } from "@/lib/storage";
+import {
+  STORAGE_KEYS,
+  generateSessionId,
+  autoTitle,
+  type DisplayMessage,
+  type ChatSession,
+} from "@/lib/storage";
 import { parseThinkingContent } from "@/lib/thinking-parser";
 import { useModels, useConversations } from "@/api/hooks";
-import { streamChat } from "@/api/client";
+import { streamChat, submitFeedback } from "@/api/client";
 import type { ChatMessage } from "@/lib/types";
-
-interface DisplayMessage {
-  role: "user" | "assistant";
-  content: string;
-  isStreaming?: boolean;
-  timestamp?: string; // ISO string for serialization
-}
 
 const SUGGESTIONS = [
   {
@@ -102,17 +104,27 @@ const suggestionVariants = {
 };
 
 export function ChatPage() {
-  // ─── Persisted state ─────────────────────────────────────────────
-  const [messages, setMessages] = usePersistedState<DisplayMessage[]>(
-    STORAGE_KEYS.chatMessages,
+  // ─── Multi-session persisted state ──────────────────────────────────
+  const [sessions, setSessions] = usePersistedState<ChatSession[]>(
+    STORAGE_KEYS.chatSessions,
     [],
   );
+  const [activeSessionId, setActiveSessionId] = usePersistedState<
+    string | null
+  >(STORAGE_KEYS.activeSessionId, null);
   const [selectedModel, setSelectedModel] = usePersistedState<string>(
     STORAGE_KEYS.selectedModel,
     "gpt-4o-mini",
   );
 
-  // ─── Ephemeral state ─────────────────────────────────────────────
+  // ─── Derive active session ─────────────────────────────────────────
+  const activeSession = useMemo(
+    () => sessions.find((s) => s.id === activeSessionId) ?? null,
+    [sessions, activeSessionId],
+  );
+  const messages = activeSession?.messages ?? [];
+
+  // ─── Ephemeral state ───────────────────────────────────────────────
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -127,6 +139,76 @@ export function ChatPage() {
 
   const availableModels = modelsData?.data ?? [];
   const recentConversations = conversationsData?.items?.slice(0, 10) ?? [];
+
+  // ─── Session helpers ───────────────────────────────────────────────
+
+  /** Update messages in the active session */
+  const setMessages = useCallback(
+    (
+      updater:
+        | DisplayMessage[]
+        | ((prev: DisplayMessage[]) => DisplayMessage[]),
+    ) => {
+      setSessions((prev) => {
+        const idx = prev.findIndex((s) => s.id === activeSessionId);
+        if (idx === -1) return prev;
+        const session = prev[idx];
+        const newMessages =
+          typeof updater === "function"
+            ? updater(session.messages)
+            : updater;
+        const updated = { ...session, messages: newMessages, updatedAt: new Date().toISOString() };
+        // Auto-title from first user message if still default
+        if (updated.title === "New Chat") {
+          updated.title = autoTitle(newMessages);
+        }
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      });
+    },
+    [activeSessionId, setSessions],
+  );
+
+  /** Create a new session and make it active */
+  const startNewChat = useCallback(() => {
+    const id = generateSessionId();
+    const now = new Date().toISOString();
+    const newSession: ChatSession = {
+      id,
+      title: "New Chat",
+      messages: [],
+      model: selectedModel,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setSessions((prev) => [newSession, ...prev]);
+    setActiveSessionId(id);
+    setInput("");
+    inputRef.current?.focus();
+  }, [selectedModel, setSessions, setActiveSessionId]);
+
+  /** Switch to a session */
+  const switchSession = useCallback(
+    (sessionId: string) => {
+      setActiveSessionId(sessionId);
+      setInput("");
+    },
+    [setActiveSessionId],
+  );
+
+  /** Delete a session */
+  const deleteSession = useCallback(
+    (sessionId: string) => {
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (activeSessionId === sessionId) {
+        setActiveSessionId(null);
+      }
+    },
+    [activeSessionId, setSessions, setActiveSessionId],
+  );
+
+  // ─── Scrolling & resize ────────────────────────────────────────────
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -157,8 +239,28 @@ export function ChatPage() {
     return () => clearInterval(interval);
   }, [streamStartTime]);
 
+  // ─── Send message ──────────────────────────────────────────────────
+
   const sendMessage = async (content: string) => {
     if (!content.trim() || isStreaming) return;
+
+    // If no active session, create one
+    let sessionId = activeSessionId;
+    if (!sessionId) {
+      const id = generateSessionId();
+      const now = new Date().toISOString();
+      const newSession: ChatSession = {
+        id,
+        title: "New Chat",
+        messages: [],
+        model: selectedModel,
+        createdAt: now,
+        updatedAt: now,
+      };
+      setSessions((prev) => [newSession, ...prev]);
+      setActiveSessionId(id);
+      sessionId = id;
+    }
 
     const now = new Date().toISOString();
     const userMsg: DisplayMessage = {
@@ -173,14 +275,39 @@ export function ChatPage() {
       timestamp: now,
     };
 
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    // Use direct session update since setMessages uses activeSessionId which may have just been set
+    const updateSessionMessages = (
+      updater: (prev: DisplayMessage[]) => DisplayMessage[],
+    ) => {
+      setSessions((prev) => {
+        const idx = prev.findIndex((s) => s.id === sessionId);
+        if (idx === -1) return prev;
+        const session = prev[idx];
+        const newMessages = updater(session.messages);
+        const updated = {
+          ...session,
+          messages: newMessages,
+          updatedAt: new Date().toISOString(),
+        };
+        if (updated.title === "New Chat") {
+          updated.title = autoTitle(newMessages);
+        }
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      });
+    };
+
+    updateSessionMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInput("");
     setIsStreaming(true);
     setStreamStartTime(Date.now());
 
-    // Build OpenAI message history (send raw content, thinking included)
+    // Build OpenAI message history
+    // Get current messages for this session (we need to read from state at this point)
+    const currentMessages = sessions.find((s) => s.id === sessionId)?.messages ?? [];
     const chatHistory: ChatMessage[] = [
-      ...messages.map((m) => ({
+      ...currentMessages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
@@ -189,9 +316,16 @@ export function ChatPage() {
 
     try {
       let fullContent = "";
+      let traceId: string | undefined;
+
       for await (const chunk of streamChat(selectedModel, chatHistory)) {
-        fullContent += chunk;
-        setMessages((prev) => {
+        if (typeof chunk === "object" && "type" in chunk && chunk.type === "metadata") {
+          traceId = chunk.trace_id;
+          continue;
+        }
+        const text = typeof chunk === "string" ? chunk : "";
+        fullContent += text;
+        updateSessionMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
             role: "assistant",
@@ -204,18 +338,19 @@ export function ChatPage() {
       }
 
       // Mark streaming as done
-      setMessages((prev) => {
+      updateSessionMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: "assistant",
           content: fullContent,
           isStreaming: false,
           timestamp: assistantMsg.timestamp,
+          traceId,
         };
         return updated;
       });
     } catch {
-      setMessages((prev) => {
+      updateSessionMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: "assistant",
@@ -250,6 +385,28 @@ export function ChatPage() {
     setTimeout(() => sendMessage(lastUserMsg.content), 100);
   };
 
+  const handleFeedback = useCallback(
+    async (index: number, sentiment: "positive" | "negative") => {
+      // Update local state immediately
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], feedback: sentiment };
+        return updated;
+      });
+
+      // Send to backend if we have a trace ID
+      const msg = messages[index];
+      if (msg?.traceId) {
+        try {
+          await submitFeedback(msg.traceId, sentiment);
+        } catch {
+          // Feedback is best-effort; don't disturb the user
+        }
+      }
+    },
+    [messages, setMessages],
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -257,13 +414,13 @@ export function ChatPage() {
     }
   };
 
-  const startNewChat = () => {
-    setMessages([]);
-    setInput("");
-    inputRef.current?.focus();
-  };
-
   const isEmpty = messages.length === 0;
+
+  // Sort sessions by updatedAt descending
+  const sortedSessions = useMemo(
+    () => [...sessions].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [sessions],
+  );
 
   return (
     <div className="flex h-full">
@@ -278,42 +435,69 @@ export function ChatPage() {
           </Button>
         </div>
         <div className="flex-1 overflow-auto p-2">
-          {/* Show current session if messages exist */}
-          {messages.length > 0 && (
-            <div className="mb-2">
-              <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2 border border-primary/20">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-primary">
-                    Current Chat
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {messages.filter((m) => m.role === "user").length} messages
-                  </p>
-                </div>
+          {/* Local sessions */}
+          {sortedSessions.length > 0 && (
+            <div className="mb-3">
+              {sortedSessions.map((session) => (
                 <button
-                  onClick={startNewChat}
-                  className="ml-2 rounded p-1 text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive transition-colors"
-                  title="Clear chat"
+                  key={session.id}
+                  onClick={() => switchSession(session.id)}
+                  className={cn(
+                    "group/item flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+                    session.id === activeSessionId &&
+                      "bg-primary/5 border border-primary/20 text-primary",
+                  )}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">
+                      {session.title}
+                    </p>
+                    <p className="truncate text-[10px] text-muted-foreground/60">
+                      {session.messages.filter((m) => m.role === "user").length} message{session.messages.filter((m) => m.role === "user").length !== 1 ? "s" : ""} &middot;{" "}
+                      {new Date(session.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSession(session.id);
+                    }}
+                    className="ml-1 shrink-0 rounded p-1 text-muted-foreground/30 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover/item:opacity-100"
+                    title="Delete chat"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </button>
-              </div>
+              ))}
             </div>
           )}
-          {recentConversations.map((conv) => (
-            <button
-              key={conv.id}
-              className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <div className="truncate">
-                {conv.title || "Untitled conversation"}
+
+          {/* Server-side conversations (if any) */}
+          {recentConversations.length > 0 && (
+            <>
+              <div className="mb-2 mt-1 px-3">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                  Server History
+                </p>
               </div>
-              <div className="mt-0.5 text-xs opacity-60">
-                {new Date(conv.updated_at).toLocaleDateString()}
-              </div>
-            </button>
-          ))}
-          {recentConversations.length === 0 && messages.length === 0 && (
+              {recentConversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <div className="truncate">
+                    {conv.title || "Untitled conversation"}
+                  </div>
+                  <div className="mt-0.5 text-xs opacity-60">
+                    {new Date(conv.updated_at).toLocaleDateString()}
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {sortedSessions.length === 0 && recentConversations.length === 0 && (
             <p className="px-3 py-8 text-center text-xs text-muted-foreground">
               No conversations yet
             </p>
@@ -409,7 +593,11 @@ export function ChatPage() {
                 <motion.div
                   className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"
                   animate={{ rotate: [0, 5, -5, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                 >
                   <Zap className="h-8 w-8 text-primary" />
                 </motion.div>
@@ -447,14 +635,15 @@ export function ChatPage() {
             <div className="mx-auto max-w-3xl space-y-1 px-4 py-6">
               <AnimatePresence initial={false}>
                 {messages.map((msg, i) => (
-                  <ChatMessage
-                    key={i}
+                  <ChatMessageComponent
+                    key={`${activeSessionId}-${i}`}
                     msg={msg}
                     index={i}
                     isLast={i === messages.length - 1}
                     copiedIdx={copiedIdx}
                     onCopy={handleCopyMessage}
                     onRetry={handleRetry}
+                    onFeedback={handleFeedback}
                   />
                 ))}
               </AnimatePresence>
@@ -494,8 +683,8 @@ export function ChatPage() {
               </Button>
             </motion.div>
             <p className="mt-2 text-center text-xs text-muted-foreground">
-              Aether can make mistakes. Always review automation proposals before
-              deploying.
+              Aether can make mistakes. Always review automation proposals
+              before deploying.
             </p>
           </div>
         </div>
@@ -506,16 +695,25 @@ export function ChatPage() {
 
 // ─── Message Component ───────────────────────────────────────────────────────
 
-interface ChatMessageProps {
+interface ChatMessageComponentProps {
   msg: DisplayMessage;
   index: number;
   isLast: boolean;
   copiedIdx: number | null;
   onCopy: (content: string, idx: number) => void;
   onRetry: () => void;
+  onFeedback: (index: number, sentiment: "positive" | "negative") => void;
 }
 
-function ChatMessage({ msg, index, isLast, copiedIdx, onCopy, onRetry }: ChatMessageProps) {
+function ChatMessageComponent({
+  msg,
+  index,
+  isLast,
+  copiedIdx,
+  onCopy,
+  onRetry,
+  onFeedback,
+}: ChatMessageComponentProps) {
   // Parse thinking content for assistant messages
   const parsed = useMemo(() => {
     if (msg.role !== "assistant") return null;
@@ -576,7 +774,8 @@ function ChatMessage({ msg, index, isLast, copiedIdx, onCopy, onRetry }: ChatMes
         {msg.role === "assistant" ? (
           <div className="text-sm">
             {/* Thinking disclosure (if model had thinking content) */}
-            {(thinkingBlocks.length > 0 || (isModelThinking && msg.isStreaming)) && (
+            {(thinkingBlocks.length > 0 ||
+              (isModelThinking && msg.isStreaming)) && (
               <ThinkingDisclosure
                 thinking={thinkingBlocks}
                 isActive={isModelThinking && !!msg.isStreaming}
@@ -593,6 +792,42 @@ function ChatMessage({ msg, index, isLast, copiedIdx, onCopy, onRetry }: ChatMes
             ) : msg.isStreaming ? (
               <ThinkingIndicator />
             ) : null}
+
+            {/* Feedback buttons (thumbs up/down) */}
+            {!msg.isStreaming && visibleContent && (
+              <div className="mt-2 flex items-center gap-1">
+                <button
+                  onClick={() => onFeedback(index, "positive")}
+                  disabled={!!msg.feedback}
+                  className={cn(
+                    "rounded-md p-1.5 transition-colors",
+                    msg.feedback === "positive"
+                      ? "text-emerald-400 bg-emerald-400/10"
+                      : msg.feedback
+                        ? "text-muted-foreground/20 cursor-not-allowed"
+                        : "text-muted-foreground/40 hover:bg-emerald-400/10 hover:text-emerald-400",
+                  )}
+                  title="Good response"
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => onFeedback(index, "negative")}
+                  disabled={!!msg.feedback}
+                  className={cn(
+                    "rounded-md p-1.5 transition-colors",
+                    msg.feedback === "negative"
+                      ? "text-red-400 bg-red-400/10"
+                      : msg.feedback
+                        ? "text-muted-foreground/20 cursor-not-allowed"
+                        : "text-muted-foreground/40 hover:bg-red-400/10 hover:text-red-400",
+                  )}
+                  title="Bad response"
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <MarkdownRenderer content={msg.content} className="text-sm" />

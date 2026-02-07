@@ -67,10 +67,15 @@ export const conversations = {
 
 // ─── Chat (OpenAI-compatible, streaming) ────────────────────────────────────
 
+/** A chunk from the SSE stream — either a text delta or a metadata event */
+export type StreamChunk =
+  | string
+  | { type: "metadata"; trace_id?: string; conversation_id?: string };
+
 export async function* streamChat(
   model: string,
   messages: import("@/lib/types").ChatMessage[],
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamChunk> {
   const url = `${env.API_URL}/v1/chat/completions`;
   const response = await fetch(url, {
     method: "POST",
@@ -112,6 +117,13 @@ export async function* streamChat(
         if (parsed.error) {
           throw new ApiError(500, parsed.error.message);
         }
+
+        // Handle metadata events (trace_id, conversation_id)
+        if (parsed.type === "metadata") {
+          yield { type: "metadata", trace_id: parsed.trace_id, conversation_id: parsed.conversation_id };
+          continue;
+        }
+
         const content = parsed.choices?.[0]?.delta?.content;
         if (content) yield content;
       } catch (e) {
@@ -119,6 +131,24 @@ export async function* streamChat(
         // Skip malformed chunks
       }
     }
+  }
+}
+
+// ─── Feedback ────────────────────────────────────────────────────────────────
+
+export async function submitFeedback(
+  traceId: string,
+  sentiment: "positive" | "negative",
+): Promise<void> {
+  const url = `${env.API_URL}/v1/feedback`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trace_id: traceId, sentiment }),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText);
   }
 }
 

@@ -108,6 +108,13 @@ class ModelsResponse(BaseModel):
     data: list[ModelInfo]
 
 
+class FeedbackRequest(BaseModel):
+    """Request body for submitting feedback on a trace."""
+
+    trace_id: str = Field(..., description="MLflow trace ID to attach feedback to")
+    sentiment: str = Field(..., description="Feedback sentiment: 'positive' or 'negative'")
+
+
 # --- Endpoints ---
 
 
@@ -136,6 +143,42 @@ async def list_models() -> ModelsResponse:
             for model in models
         ]
     )
+
+
+@router.post("/feedback")
+async def submit_feedback(body: FeedbackRequest):
+    """Submit thumbs up/down feedback for a chat response.
+
+    Logs user sentiment against the MLflow trace for model evaluation.
+    """
+    import mlflow
+
+    if body.sentiment not in ("positive", "negative"):
+        raise HTTPException(
+            status_code=400,
+            detail="sentiment must be 'positive' or 'negative'",
+        )
+
+    try:
+        mlflow.log_feedback(
+            trace_id=body.trace_id,
+            name="user_sentiment",
+            value=body.sentiment,
+            source="human",
+        )
+    except Exception:
+        # mlflow.log_feedback may not be available in older MLflow versions.
+        # Fall back to updating the trace tags directly.
+        try:
+            client = mlflow.MlflowClient()
+            client.set_trace_tag(body.trace_id, "user_sentiment", body.sentiment)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to log feedback: {e}",
+            ) from e
+
+    return {"status": "ok"}
 
 
 @router.post("/chat/completions", response_model=None)
@@ -234,9 +277,18 @@ async def _create_chat_completion(
                 # Strip thinking/reasoning tags from output
                 assistant_content = _strip_thinking_tags(assistant_content)
 
+                # Capture trace ID for feedback
+                trace_id = None
+                try:
+                    last_trace = mlflow.get_last_active_trace()
+                    if last_trace:
+                        trace_id = last_trace.info.trace_id
+                except Exception:
+                    pass
+
                 await session.commit()
 
-        return ChatCompletionResponse(
+        response = ChatCompletionResponse(
             model=request.model,
             choices=[
                 ChatChoice(
@@ -249,6 +301,11 @@ async def _create_chat_completion(
                 )
             ],
         )
+        # Include trace_id as extra metadata in the response
+        result = response.model_dump()
+        if trace_id:
+            result["trace_id"] = trace_id
+        return result
 
 
 async def _stream_chat_completion(
@@ -328,6 +385,15 @@ async def _stream_chat_completion(
                     # Strip thinking/reasoning tags from output
                     assistant_content = _strip_thinking_tags(assistant_content)
 
+                    # Capture trace ID for frontend feedback
+                    trace_id = None
+                    try:
+                        last_trace = mlflow.get_last_active_trace()
+                        if last_trace:
+                            trace_id = last_trace.info.trace_id
+                    except Exception:
+                        pass  # trace capture is best-effort
+
                     # Stream the response in chunks
                     # In a real implementation, we'd use the LLM's streaming capability
                     # For now, we simulate streaming by chunking the response
@@ -367,6 +433,16 @@ async def _stream_chat_completion(
                         ],
                     }
                     yield f"data: {json.dumps(final_chunk)}\n\n"
+
+                    # Send metadata event with trace_id before DONE
+                    if trace_id:
+                        metadata = {
+                            "type": "metadata",
+                            "trace_id": trace_id,
+                            "conversation_id": conversation_id,
+                        }
+                        yield f"data: {json.dumps(metadata)}\n\n"
+
                     yield "data: [DONE]\n\n"
 
                     await session.commit()
