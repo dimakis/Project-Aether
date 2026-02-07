@@ -25,6 +25,7 @@ from src.api.routes.diagnostics import router as diagnostics_router
 from src.api.routes.model_ratings import router as model_ratings_router
 from src.api.routes.usage import router as usage_router
 from src.api.routes.webhooks import router as webhooks_router
+from src.api.routes.workflows import router as workflows_router
 
 # Main API router
 api_router = APIRouter()
@@ -58,6 +59,8 @@ api_router.include_router(agents_router)
 api_router.include_router(model_ratings_router)
 # Diagnostics – HA health, error logs, config check, traces
 api_router.include_router(diagnostics_router)
+# Workflow presets
+api_router.include_router(workflows_router)
 # OpenAI-compatible API for Open WebUI
 api_router.include_router(openai_router)
 
