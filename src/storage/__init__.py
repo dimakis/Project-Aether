@@ -2,8 +2,12 @@
 
 Provides async SQLAlchemy engine, session factory, and connection utilities.
 Uses asyncpg for PostgreSQL async support (Constitution: State).
+
+Thread-safety: All singleton access is protected by threading.Lock to prevent
+race conditions during concurrent initialization (T186).
 """
 
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
@@ -24,10 +28,14 @@ if TYPE_CHECKING:
 # Module-level engine and session factory (initialized lazily)
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+_init_lock = threading.Lock()
 
 
 def get_engine(settings: Settings | None = None) -> AsyncEngine:
     """Get or create the async database engine.
+
+    Thread-safe: Uses double-checked locking to prevent concurrent
+    engine creation in multi-threaded environments (e.g., uvicorn workers).
 
     Args:
         settings: Optional settings override. Uses get_settings() if not provided.
@@ -38,21 +46,26 @@ def get_engine(settings: Settings | None = None) -> AsyncEngine:
     global _engine  # noqa: PLW0603
 
     if _engine is None:
-        settings = settings or get_settings()
-        _engine = create_async_engine(
-            str(settings.database_url),
-            pool_size=settings.database_pool_size,
-            max_overflow=settings.database_max_overflow,
-            pool_timeout=settings.database_pool_timeout,
-            pool_pre_ping=True,  # Verify connections before use
-            echo=settings.debug,  # Log SQL in debug mode
-        )
+        with _init_lock:
+            if _engine is None:
+                settings = settings or get_settings()
+                _engine = create_async_engine(
+                    str(settings.database_url),
+                    pool_size=settings.database_pool_size,
+                    max_overflow=settings.database_max_overflow,
+                    pool_timeout=settings.database_pool_timeout,
+                    pool_pre_ping=True,  # Verify connections before use
+                    echo=settings.debug,  # Log SQL in debug mode
+                )
 
     return _engine
 
 
 def get_session_factory(settings: Settings | None = None) -> async_sessionmaker[AsyncSession]:
     """Get or create the async session factory.
+
+    Thread-safe: Uses double-checked locking to prevent concurrent
+    session factory creation.
 
     Args:
         settings: Optional settings override. Uses get_settings() if not provided.
@@ -63,14 +76,16 @@ def get_session_factory(settings: Settings | None = None) -> async_sessionmaker[
     global _session_factory  # noqa: PLW0603
 
     if _session_factory is None:
-        engine = get_engine(settings)
-        _session_factory = async_sessionmaker(
-            bind=engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autocommit=False,
-            autoflush=False,
-        )
+        with _init_lock:
+            if _session_factory is None:
+                engine = get_engine(settings)
+                _session_factory = async_sessionmaker(
+                    bind=engine,
+                    class_=AsyncSession,
+                    expire_on_commit=False,
+                    autocommit=False,
+                    autoflush=False,
+                )
 
     return _session_factory
 
@@ -123,13 +138,15 @@ async def close_db() -> None:
     """Close database connections.
 
     Call this at application shutdown to cleanly close all connections.
+    Thread-safe: Acquires lock before modifying singletons.
     """
     global _engine, _session_factory  # noqa: PLW0603
 
-    if _engine is not None:
-        await _engine.dispose()
-        _engine = None
-        _session_factory = None
+    with _init_lock:
+        if _engine is not None:
+            await _engine.dispose()
+            _engine = None
+            _session_factory = None
 
 
 # Public API

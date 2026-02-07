@@ -3,7 +3,7 @@
 T100: Deploy and rollback flow tests.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -81,7 +81,7 @@ class TestAutomationRollback:
             mode="single",
             status=ProposalStatus.DEPLOYED,
             ha_automation_id="automation.test",
-            deployed_at=datetime.utcnow(),
+            deployed_at=datetime.now(timezone.utc),
         )
 
         # Rollback deployed automation
@@ -218,7 +218,7 @@ class TestRollbackEndToEnd:
             actions=[{}],
             mode="single",
             status=ProposalStatus.ROLLED_BACK,
-            rolled_back_at=datetime.utcnow(),
+            rolled_back_at=datetime.now(timezone.utc),
         )
 
         # Archive the rolled-back proposal

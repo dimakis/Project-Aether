@@ -1,7 +1,9 @@
 """Entity API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.api.rate_limit import limiter
 
 from src.api.schemas.entities import (
     EntityListResponse,
@@ -67,11 +69,15 @@ async def get_entity(
 
 
 @router.post("/query", response_model=EntityQueryResult)
+@limiter.limit("10/minute")
 async def query_entities(
-    request: EntityQueryRequest,
+    request: Request,
+    data: EntityQueryRequest,
     session: AsyncSession = Depends(get_db),
 ) -> EntityQueryResult:
     """Query entities using natural language.
+
+    Rate limited to 10/minute (LLM-backed).
 
     Examples:
     - "all lights in the living room"
@@ -81,21 +87,26 @@ async def query_entities(
     repo = EntityRepository(session)
 
     # Simple search for now - would use LLM for NL parsing
-    entities = await repo.search(request.query, limit=request.limit)
+    entities = await repo.search(data.query, limit=data.limit)
 
     return EntityQueryResult(
         entities=[EntityResponse.model_validate(e) for e in entities],
-        query=request.query,
-        interpreted_as=f"Search for '{request.query}'",
+        query=data.query,
+        interpreted_as=f"Search for '{data.query}'",
     )
 
 
 @router.post("/sync", response_model=EntitySyncResponse)
+@limiter.limit("5/minute")
 async def sync_entities(
-    request: EntitySyncRequest,
+    request: Request,
+    data: EntitySyncRequest,
     session: AsyncSession = Depends(get_db),
 ) -> EntitySyncResponse:
-    """Trigger entity discovery and sync from Home Assistant."""
+    """Trigger entity discovery and sync from Home Assistant.
+
+    Rate limited to 5/minute (expensive MCP + DB operation).
+    """
     try:
         discovery = await run_discovery(
             session=session,

@@ -1,6 +1,6 @@
 """Device repository for HA device CRUD operations."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -102,7 +102,7 @@ class DeviceRepository:
         device = Device(
             id=str(uuid4()),
             **data,
-            last_synced_at=datetime.utcnow(),
+            last_synced_at=datetime.now(timezone.utc),
         )
         self.session.add(device)
         await self.session.flush()
@@ -126,7 +126,7 @@ class DeviceRepository:
             for key, value in data.items():
                 if hasattr(existing, key) and key != "id":
                     setattr(existing, key, value)
-            existing.last_synced_at = datetime.utcnow()
+            existing.last_synced_at = datetime.now(timezone.utc)
             await self.session.flush()
             return existing, False
         else:

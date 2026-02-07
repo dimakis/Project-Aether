@@ -4,7 +4,7 @@ Provides Pydantic models for graph state management.
 All graphs use these models to maintain typed, validated state.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Annotated, Any
 from uuid import uuid4
@@ -61,7 +61,7 @@ class BaseState(BaseModel):
         description="Unique identifier for this graph run",
     )
     started_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When this graph run started",
     )
     current_agent: AgentRole | None = Field(
@@ -142,7 +142,7 @@ class HITLApproval(BaseModel):
     request_type: str  # "automation", "script", "scene"
     description: str
     yaml_content: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     approved: bool | None = None  # None = pending
     approved_by: str | None = None
     approved_at: datetime | None = None
@@ -200,7 +200,7 @@ class ApprovalState(BaseModel):
         """
         self.user_decision = ApprovalDecision.APPROVED
         self.decided_by = approved_by
-        self.decided_at = datetime.utcnow()
+        self.decided_at = datetime.now(timezone.utc)
         self.comment = comment
 
     def reject(self, rejected_by: str, reason: str) -> None:
@@ -212,7 +212,7 @@ class ApprovalState(BaseModel):
         """
         self.user_decision = ApprovalDecision.REJECTED
         self.decided_by = rejected_by
-        self.decided_at = datetime.utcnow()
+        self.decided_at = datetime.now(timezone.utc)
         self.rejection_reason = reason
 
     @property
@@ -277,7 +277,7 @@ class ScriptExecution(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     script_content: str
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
     exit_code: int | None = None
     stdout: str | None = None

@@ -6,7 +6,7 @@ of all domain models.
 Constitution: Reliability & Quality - consistent test data.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -25,8 +25,8 @@ class BaseFactory(factory.Factory):
         abstract = True
 
     id = LazyFunction(lambda: str(uuid4()))
-    created_at = LazyFunction(datetime.utcnow)
-    updated_at = LazyFunction(datetime.utcnow)
+    created_at = LazyFunction(lambda: datetime.now(timezone.utc))
+    updated_at = LazyFunction(lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -143,7 +143,7 @@ class ConversationFactory(BaseFactory):
         model = dict
 
     status = "active"
-    started_at = LazyFunction(datetime.utcnow)
+    started_at = LazyFunction(lambda: datetime.now(timezone.utc))
     ended_at = None
     message_count = 0
     summary = None
@@ -222,7 +222,7 @@ class DiscoverySessionFactory(BaseFactory):
     class Meta:
         model = dict
 
-    started_at = LazyFunction(datetime.utcnow)
+    started_at = LazyFunction(lambda: datetime.now(timezone.utc))
     completed_at = LazyAttribute(
         lambda o: o.started_at + timedelta(seconds=factory.Faker("random_int", min=5, max=60).generate())
     )

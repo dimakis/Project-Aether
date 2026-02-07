@@ -1,6 +1,6 @@
 """Discovery sync service for orchestrating HA synchronization."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -62,7 +62,7 @@ class DiscoverySyncService:
         # Create session record
         discovery = DiscoverySession(
             id=str(uuid4()),
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             status=DiscoveryStatus.RUNNING,
             triggered_by=triggered_by,
             mlflow_run_id=mlflow_run_id,
@@ -109,7 +109,7 @@ class DiscoverySyncService:
 
             # Mark complete
             discovery.status = DiscoveryStatus.COMPLETED
-            discovery.completed_at = datetime.utcnow()
+            discovery.completed_at = datetime.now(timezone.utc)
 
             # Record MCP gaps encountered
             discovery.mcp_gaps_encountered = {
@@ -124,7 +124,7 @@ class DiscoverySyncService:
         except Exception as e:
             discovery.status = DiscoveryStatus.FAILED
             discovery.error_message = str(e)
-            discovery.completed_at = datetime.utcnow()
+            discovery.completed_at = datetime.now(timezone.utc)
             raise
 
         await self.session.commit()

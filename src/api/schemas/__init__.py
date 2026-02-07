@@ -4,7 +4,7 @@ Provides reusable schema definitions for consistent
 API responses across all endpoints.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any, Generic, TypeVar
 
@@ -133,7 +133,7 @@ class HealthResponse(BaseModel):
 
     status: HealthStatus = Field(..., description="Overall system health")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Health check timestamp",
     )
     version: str = Field(default="0.1.0", description="Application version")
@@ -144,7 +144,7 @@ class SystemStatus(BaseModel):
 
     status: HealthStatus = Field(..., description="Overall system health")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Status check timestamp",
     )
     version: str = Field(default="0.1.0", description="Application version")

@@ -9,7 +9,7 @@ Constitution: Isolation - All analysis scripts run in sandbox.
 import asyncio
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,7 @@ class SandboxResult(BaseModel):
     duration_seconds: float = Field(..., description="Execution time")
     timed_out: bool = Field(default=False, description="Whether execution timed out")
     policy_name: str = Field(..., description="Policy used for execution")
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 
     # Resource usage (if available)
@@ -105,7 +105,7 @@ class SandboxRunner:
         if not settings.sandbox_enabled:
             return await self._run_unsandboxed(script, policy)
 
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         start_time = asyncio.get_event_loop().time()
 
         # Create temp file for the script
@@ -161,7 +161,7 @@ class SandboxRunner:
                     duration_seconds=0,
                     policy_name=policy.name,
                     started_at=started_at,
-                    completed_at=datetime.utcnow(),
+                    completed_at=datetime.now(timezone.utc),
                 )
 
             except Exception as e:
@@ -172,11 +172,11 @@ class SandboxRunner:
                     duration_seconds=asyncio.get_event_loop().time() - start_time,
                     policy_name=policy.name,
                     started_at=started_at,
-                    completed_at=datetime.utcnow(),
+                    completed_at=datetime.now(timezone.utc),
                 )
 
             duration = asyncio.get_event_loop().time() - start_time
-            completed_at = datetime.utcnow()
+            completed_at = datetime.now(timezone.utc)
 
             return SandboxResult(
                 success=exit_code == 0 and not timed_out,
@@ -353,7 +353,7 @@ class SandboxRunner:
         """
         import sys
 
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         start_time = asyncio.get_event_loop().time()
 
         with tempfile.NamedTemporaryFile(
@@ -396,7 +396,7 @@ class SandboxRunner:
                 timed_out=timed_out,
                 policy_name=f"{policy.name}:unsandboxed",
                 started_at=started_at,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
             )
 
         finally:

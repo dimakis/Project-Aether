@@ -3,9 +3,11 @@
 User Story 2: HITL approval for automation proposals.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+
+from src.api.rate_limit import limiter
 
 from src.api.schemas import (
     ApprovalRequest,
@@ -345,11 +347,16 @@ async def reject_proposal(
     summary="Deploy proposal",
     description="Deploy an approved automation to Home Assistant.",
 )
+@limiter.limit("5/minute")
 async def deploy_proposal(
+    request: Request,
     proposal_id: str,
-    request: DeploymentRequest | None = None,
+    deploy_data: DeploymentRequest | None = None,
 ) -> DeploymentResponse:
-    """Deploy an approved proposal."""
+    """Deploy an approved proposal.
+
+    Rate limited to 5/minute (critical HA state change).
+    """
     async with get_session() as session:
         repo = ProposalRepository(session)
         proposal = await repo.get_by_id(proposal_id)
@@ -357,7 +364,7 @@ async def deploy_proposal(
         if not proposal:
             raise HTTPException(status_code=404, detail="Proposal not found")
 
-        force = request.force if request else False
+        force = deploy_data.force if deploy_data else False
 
         if proposal.status == ProposalStatus.DEPLOYED and not force:
             raise HTTPException(
@@ -387,7 +394,7 @@ async def deploy_proposal(
                 method=result.get("deployment_method", "manual"),
                 yaml_content=result.get("yaml_content", ""),
                 instructions=result.get("instructions"),
-                deployed_at=datetime.utcnow(),
+                deployed_at=datetime.now(timezone.utc),
                 error=None,
             )
 
@@ -414,11 +421,16 @@ async def deploy_proposal(
     summary="Rollback proposal",
     description="Rollback a deployed automation from Home Assistant.",
 )
+@limiter.limit("5/minute")
 async def rollback_proposal(
+    request: Request,
     proposal_id: str,
-    request: RollbackRequest | None = None,
+    rollback_data: RollbackRequest | None = None,
 ) -> RollbackResponse:
-    """Rollback a deployed proposal."""
+    """Rollback a deployed proposal.
+
+    Rate limited to 5/minute (critical HA state change).
+    """
     async with get_session() as session:
         repo = ProposalRepository(session)
         proposal = await repo.get_by_id(proposal_id)
@@ -445,7 +457,7 @@ async def rollback_proposal(
                 success=result.get("rolled_back", False),
                 proposal_id=proposal_id,
                 ha_automation_id=result.get("ha_automation_id"),
-                rolled_back_at=datetime.utcnow(),
+                rolled_back_at=datetime.now(timezone.utc),
                 note=result.get("note"),
             )
 

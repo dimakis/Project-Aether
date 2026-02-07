@@ -5,7 +5,7 @@ all Home Assistant entities, inferring relationships, and
 maintaining the entity database.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from src.dal import DiscoverySyncService
@@ -127,7 +127,7 @@ class LibrarianWorkflow:
                 "session_id": state.run_id,
                 "triggered_by": triggered_by,
                 "domain_filter": domain_filter,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "status": state.status.value,
                 "summary": {
                     "entities_found": len(state.entities_found),

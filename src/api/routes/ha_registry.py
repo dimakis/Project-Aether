@@ -4,7 +4,7 @@ Provides endpoints for accessing Home Assistant registry data
 including automations, scripts, scenes, and the service registry.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -437,6 +437,6 @@ async def get_registry_summary(
         scenes_count=scenes_count,
         services_count=services_count,
         services_seeded=seeded_count,
-        last_synced_at=datetime.utcnow(),  # TODO: Get from last discovery session
+        last_synced_at=datetime.now(timezone.utc),  # TODO(T170): Get from last discovery session
         mcp_gaps=mcp_gaps,
     )

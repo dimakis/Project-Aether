@@ -25,7 +25,7 @@ import warnings
 from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generator, ParamSpec, TypeVar
 
 from src.settings import get_settings
@@ -342,7 +342,7 @@ def start_run(
 
         # Log standard tags
         mlflow.set_tag("aether.version", "0.1.0")
-        mlflow.set_tag("aether.started_at", datetime.utcnow().isoformat())
+        mlflow.set_tag("aether.started_at", datetime.now(timezone.utc).isoformat())
 
         # Log session ID if available
         from src.tracing.context import get_session_id

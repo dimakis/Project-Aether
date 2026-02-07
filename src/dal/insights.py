@@ -6,7 +6,7 @@ Provides CRUD operations for managing insights generated
 by the Data Scientist agent's energy analysis.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -255,11 +255,7 @@ class InsightRepository:
         Returns:
             List of recent insights
         """
-        cutoff = datetime.utcnow() - datetime.timedelta(hours=hours) if hasattr(datetime, 'timedelta') else None
-        
-        # Use timedelta from datetime module
-        from datetime import timedelta
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         
         query = select(Insight).where(Insight.created_at >= cutoff)
 

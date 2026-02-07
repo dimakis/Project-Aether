@@ -1,6 +1,6 @@
 """Automation, Script, and Scene repositories for CRUD operations."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -119,7 +119,7 @@ class AutomationRepository:
         automation = HAAutomation(
             id=str(uuid4()),
             **data,
-            last_synced_at=datetime.utcnow(),
+            last_synced_at=datetime.now(timezone.utc),
         )
         self.session.add(automation)
         await self.session.flush()
@@ -143,7 +143,7 @@ class AutomationRepository:
             for key, value in data.items():
                 if hasattr(existing, key) and key != "id":
                     setattr(existing, key, value)
-            existing.last_synced_at = datetime.utcnow()
+            existing.last_synced_at = datetime.now(timezone.utc)
             await self.session.flush()
             return existing, False
         else:
@@ -265,7 +265,7 @@ class ScriptRepository:
         script = Script(
             id=str(uuid4()),
             **data,
-            last_synced_at=datetime.utcnow(),
+            last_synced_at=datetime.now(timezone.utc),
         )
         self.session.add(script)
         await self.session.flush()
@@ -289,7 +289,7 @@ class ScriptRepository:
             for key, value in data.items():
                 if hasattr(existing, key) and key != "id":
                     setattr(existing, key, value)
-            existing.last_synced_at = datetime.utcnow()
+            existing.last_synced_at = datetime.now(timezone.utc)
             await self.session.flush()
             return existing, False
         else:
@@ -404,7 +404,7 @@ class SceneRepository:
         scene = Scene(
             id=str(uuid4()),
             **data,
-            last_synced_at=datetime.utcnow(),
+            last_synced_at=datetime.now(timezone.utc),
         )
         self.session.add(scene)
         await self.session.flush()
@@ -428,7 +428,7 @@ class SceneRepository:
             for key, value in data.items():
                 if hasattr(existing, key) and key != "id":
                     setattr(existing, key, value)
-            existing.last_synced_at = datetime.utcnow()
+            existing.last_synced_at = datetime.now(timezone.utc)
             await self.session.flush()
             return existing, False
         else:

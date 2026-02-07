@@ -5,7 +5,7 @@ detailed status for monitoring dashboards.
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
@@ -40,7 +40,7 @@ async def health_check() -> HealthResponse:
     """
     return HealthResponse(
         status=HealthStatus.HEALTHY,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         version="0.1.0",
     )
 
@@ -80,7 +80,7 @@ async def system_status() -> SystemStatus:
 
     return SystemStatus(
         status=overall_status,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         version="0.1.0",
         environment=settings.environment,
         components=components,

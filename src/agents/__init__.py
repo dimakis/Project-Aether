@@ -4,12 +4,15 @@ Provides the foundation for all agents in the system with
 consistent tracing, error handling, and state management.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 from src.graph.state import AgentRole, BaseState
 from src.settings import get_settings
@@ -80,7 +83,7 @@ class BaseAgent(ABC):
         span_metadata: dict[str, Any] = {
             "agent_role": self.role.value,
             "operation": operation,
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
         }
 
         if state:
@@ -102,7 +105,7 @@ class BaseAgent(ABC):
             if session_id:
                 span_metadata["session_id"] = session_id
         except Exception:
-            pass
+            logger.debug("Failed to get session ID for trace correlation", exc_info=True)
 
         # Log state context (session, messages, etc.)
         self._log_state_context(state)
@@ -118,7 +121,7 @@ class BaseAgent(ABC):
             mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
             mlflow_available = True
         except Exception:
-            pass
+            logger.debug("MLflow not available, tracing disabled", exc_info=True)
 
         if mlflow_available:
             try:
@@ -150,13 +153,14 @@ class BaseAgent(ABC):
                             metadata={"mlflow.trace.session": session_id}
                         )
                     except Exception:
-                        pass
+                        logger.debug("Failed to update trace session metadata", exc_info=True)
 
                 # Set span inputs if provided
                 if inputs and span:
                     self._set_span_inputs(span, inputs)
             except Exception:
-                # MLflow failed, continue without tracing
+                # MLflow span creation failed, continue without tracing
+                logger.debug("Failed to create MLflow span", exc_info=True)
                 mlflow_available = False
                 span = None
                 ctx = None
@@ -164,7 +168,7 @@ class BaseAgent(ABC):
         try:
             yield span_metadata
 
-            span_metadata["completed_at"] = datetime.utcnow().isoformat()
+            span_metadata["completed_at"] = datetime.now(timezone.utc).isoformat()
             span_metadata["status"] = "success"
 
             # Set span outputs if provided in metadata
@@ -174,7 +178,7 @@ class BaseAgent(ABC):
             add_span_event(span, "end", {"status": "success"})
 
         except Exception as e:
-            span_metadata["completed_at"] = datetime.utcnow().isoformat()
+            span_metadata["completed_at"] = datetime.now(timezone.utc).isoformat()
             span_metadata["status"] = "error"
             span_metadata["error"] = str(e)
 
@@ -182,7 +186,7 @@ class BaseAgent(ABC):
                 try:
                     span.set_status("ERROR")
                 except Exception:
-                    pass
+                    logger.debug("Failed to set span error status", exc_info=True)
             add_span_event(span, "error", {"error": str(e)[:250]})
             raise
 
@@ -192,7 +196,7 @@ class BaseAgent(ABC):
                 try:
                     ctx.__exit__(None, None, None)
                 except Exception:
-                    pass
+                    logger.debug("Failed to close MLflow span context", exc_info=True)
 
     def _set_span_inputs(self, span: Any, inputs: dict[str, Any]) -> None:
         """Set inputs on a span for MLflow trace visualization.
@@ -211,7 +215,7 @@ class BaseAgent(ABC):
                 import json
                 span.set_attribute("inputs", json.dumps(inputs, default=str)[:4000])
         except Exception:
-            pass
+            logger.debug("Failed to set span inputs", exc_info=True)
 
     def _set_span_outputs(self, span: Any, outputs: dict[str, Any]) -> None:
         """Set outputs on a span for MLflow trace visualization.
@@ -230,7 +234,7 @@ class BaseAgent(ABC):
                 import json
                 span.set_attribute("outputs", json.dumps(outputs, default=str)[:4000])
         except Exception:
-            pass
+            logger.debug("Failed to set span outputs", exc_info=True)
 
     def _log_state_context(self, state: BaseState | None) -> None:
         """Log state context to MLflow.
@@ -256,7 +260,7 @@ class BaseAgent(ABC):
             if session_id:
                 log_param(f"{self.name}.session_id", session_id)
         except Exception:
-            pass
+            logger.debug("Failed to log session ID to MLflow", exc_info=True)
 
         # Log conversation-specific context if available
         if hasattr(state, "conversation_id"):
@@ -342,7 +346,7 @@ class BaseAgent(ABC):
         artifact_data: dict[str, Any] = {
             "agent": self.name,
             "conversation_id": conversation_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "message_count": len(serialized),
             "messages": serialized,
         }
@@ -355,7 +359,7 @@ class BaseAgent(ABC):
             if session_id:
                 artifact_data["session_id"] = session_id
         except Exception:
-            pass
+            logger.debug("Failed to get session ID for conversation log", exc_info=True)
 
         # Add tool calls if provided
         if tool_calls:
@@ -388,7 +392,7 @@ class BaseAgent(ABC):
             if mlflow.active_run():
                 mlflow.log_metric(f"{self.name}.{key}", value, step=step)
         except Exception:
-            pass
+            logger.debug("Failed to log metric %s to MLflow", key, exc_info=True)
 
     def log_param(self, key: str, value: Any) -> None:
         """Log a parameter to MLflow.

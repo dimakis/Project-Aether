@@ -1,7 +1,7 @@
 """FastAPI application configuration and setup.
 
 Main entry point for the HTTP API with CORS, middleware,
-and lifecycle management.
+rate limiting, and lifecycle management.
 """
 
 from collections.abc import AsyncGenerator
@@ -10,7 +10,10 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
+from src.api.rate_limit import limiter
 from src.api.routes import api_router
 from src.settings import Settings, get_settings
 from src.storage import close_db, init_db
@@ -80,6 +83,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Configure rate limiting (T188)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # Register routes
     app.include_router(api_router, prefix="/api/v1")

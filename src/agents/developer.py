@@ -4,7 +4,7 @@ The Developer takes approved automation proposals and deploys them
 to Home Assistant, handling YAML generation and service calls.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -134,7 +134,7 @@ class DeveloperAgent(BaseAgent):
             "ha_automation_id": ha_automation_id,
             "yaml_content": automation_yaml,
             "deployment_method": result.get("method", "manual"),
-            "deployed_at": datetime.utcnow().isoformat(),
+            "deployed_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def _generate_automation_yaml(self, proposal: Any) -> str:
@@ -242,7 +242,7 @@ class DeveloperAgent(BaseAgent):
         return {
             "rolled_back": True,
             "ha_automation_id": ha_automation_id,
-            "rolled_back_at": datetime.utcnow().isoformat(),
+            "rolled_back_at": datetime.now(timezone.utc).isoformat(),
             "note": "Automation disabled. Manual removal from automations.yaml may be needed.",
         }
 

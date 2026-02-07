@@ -3,7 +3,9 @@
 User Story 3: Energy Optimization Suggestions.
 """
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+
+from src.api.rate_limit import limiter
 
 from src.api.schemas import (
     ActionRequest,
@@ -287,16 +289,20 @@ async def delete_insight(insight_id: str) -> None:
     summary="Start energy analysis",
     description="Start a new energy analysis job (async).",
 )
+@limiter.limit("5/minute")
 async def start_analysis(
+    request: Request,
     data: AnalysisRequest,
     background_tasks: BackgroundTasks,
 ) -> AnalysisJob:
     """Start an energy analysis job.
 
+    Rate limited to 5/minute (sandbox execution).
+
     This runs asynchronously in the background and returns
     a job ID that can be used to check status.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
     from uuid import uuid4
 
     # Create job placeholder
@@ -306,7 +312,7 @@ async def start_analysis(
         status="pending",
         analysis_type=data.analysis_type,
         progress=0.0,
-        started_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
     )
 
     # Queue the actual analysis work

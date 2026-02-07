@@ -4,7 +4,7 @@ MCP Gap: No `list_services` tool available.
 Workaround: Seed common services from constants, expand during discovery.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -216,14 +216,17 @@ class ServiceRepository:
         Returns:
             Matching services
         """
-        search_pattern = f"%{query}%"
+        from src.dal.entities import _escape_ilike
+
+        escaped = _escape_ilike(query)
+        search_pattern = f"%{escaped}%"
         result = await self.session.execute(
             select(Service)
             .where(
-                (Service.name.ilike(search_pattern))
-                | (Service.description.ilike(search_pattern))
-                | (Service.domain.ilike(search_pattern))
-                | (Service.service.ilike(search_pattern))
+                (Service.name.ilike(search_pattern, escape="\\"))
+                | (Service.description.ilike(search_pattern, escape="\\"))
+                | (Service.domain.ilike(search_pattern, escape="\\"))
+                | (Service.service.ilike(search_pattern, escape="\\"))
             )
             .limit(limit)
         )

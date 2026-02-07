@@ -3,7 +3,7 @@
 T093: Tests for DeveloperAgent deployment logic.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -34,7 +34,7 @@ class TestDeveloperAgent:
         proposal.mode = "single"
         proposal.status = ProposalStatus.APPROVED
         proposal.ha_automation_id = None
-        proposal.created_at = datetime.utcnow()
+        proposal.created_at = datetime.now(timezone.utc)
         proposal.approved_by = "user"
         proposal.to_ha_yaml_dict = MagicMock(return_value={
             "alias": "Test Automation",

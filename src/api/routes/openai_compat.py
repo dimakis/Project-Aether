@@ -18,6 +18,8 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 
+from src.api.rate_limit import limiter
+
 from src.agents import ArchitectWorkflow
 from src.dal import ConversationRepository, MessageRepository
 from src.graph.state import ConversationState
@@ -135,17 +137,21 @@ async def list_models() -> ModelsResponse:
 
 
 @router.post("/chat/completions", response_model=None)
+@limiter.limit("10/minute")
 async def create_chat_completion(
-    request: ChatCompletionRequest,
+    request: Request,
+    body: ChatCompletionRequest,
 ):
     """Create a chat completion.
 
     OpenAI-compatible endpoint for chat completions.
     Supports both streaming and non-streaming modes.
+
+    Rate limited to 10/minute (LLM-backed).
     """
-    if request.stream:
+    if body.stream:
         return StreamingResponse(
-            _stream_chat_completion(request),
+            _stream_chat_completion(body),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -154,7 +160,7 @@ async def create_chat_completion(
             },
         )
 
-    return await _create_chat_completion(request)
+    return await _create_chat_completion(body)
 
 
 async def _create_chat_completion(

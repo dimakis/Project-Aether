@@ -3,7 +3,7 @@
 T094: Tests for ApprovalState and ProposalStatus transitions.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -220,7 +220,7 @@ class TestHITLApproval:
 
         approval.approved = True
         approval.approved_by = "user"
-        approval.approved_at = datetime.utcnow()
+        approval.approved_at = datetime.now(timezone.utc)
 
         assert approval.approved is True
         assert approval.approved_by == "user"

@@ -7,7 +7,7 @@ and other analytical outputs from the Data Scientist agent.
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, func
@@ -131,12 +131,12 @@ class Insight(Base):
     def mark_reviewed(self) -> None:
         """Mark insight as reviewed."""
         self.status = InsightStatus.REVIEWED
-        self.reviewed_at = datetime.utcnow()
+        self.reviewed_at = datetime.now(timezone.utc)
 
     def mark_actioned(self) -> None:
         """Mark insight as actioned."""
         self.status = InsightStatus.ACTIONED
-        self.actioned_at = datetime.utcnow()
+        self.actioned_at = datetime.now(timezone.utc)
 
     def dismiss(self) -> None:
         """Dismiss the insight."""

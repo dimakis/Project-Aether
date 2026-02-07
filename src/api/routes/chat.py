@@ -6,9 +6,11 @@ User Story 2: Conversational Design with Architect Agent.
 from typing import AsyncGenerator
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.api.rate_limit import limiter
 
 from src.api.schemas import (
     ChatRequest,
@@ -65,10 +67,15 @@ async def get_or_create_architect_agent(session: AsyncSession) -> Agent:
     summary="Start a new conversation",
     description="Create a new conversation and send the initial message.",
 )
+@limiter.limit("10/minute")
 async def create_conversation(
-    request: ConversationCreate,
+    request: Request,
+    data: ConversationCreate,
 ) -> ConversationDetailResponse:
-    """Start a new conversation with the Architect agent."""
+    """Start a new conversation with the Architect agent.
+
+    Rate limited to 10/minute (LLM-backed).
+    """
     async with get_session() as session:
         # Get or create Architect agent
         agent = await get_or_create_architect_agent(session)
@@ -77,8 +84,8 @@ async def create_conversation(
         conv_repo = ConversationRepository(session)
         conversation = await conv_repo.create(
             agent_id=agent.id,
-            title=request.title,
-            context=request.context,
+            title=data.title,
+            context=data.context,
         )
 
         # Create initial user message
@@ -86,7 +93,7 @@ async def create_conversation(
         user_message = await msg_repo.create(
             conversation_id=conversation.id,
             role="user",
-            content=request.initial_message,
+            content=data.initial_message,
         )
 
         # Process with Architect agent
@@ -94,7 +101,7 @@ async def create_conversation(
 
         workflow = ArchitectWorkflow()
         state = await workflow.start_conversation(
-            user_message=request.initial_message,
+            user_message=data.initial_message,
             session=session,
         )
 
@@ -262,11 +269,16 @@ async def get_conversation(conversation_id: str) -> ConversationDetailResponse:
     summary="Send a message",
     description="Send a message in an existing conversation.",
 )
+@limiter.limit("10/minute")
 async def send_message(
+    request: Request,
     conversation_id: str,
-    request: ChatRequest,
+    data: ChatRequest,
 ) -> ChatResponse:
-    """Send a message to continue a conversation."""
+    """Send a message to continue a conversation.
+
+    Rate limited to 10/minute (LLM-backed).
+    """
     async with get_session() as session:
         conv_repo = ConversationRepository(session)
         msg_repo = MessageRepository(session)
@@ -280,12 +292,12 @@ async def send_message(
         user_message = await msg_repo.create(
             conversation_id=conversation_id,
             role="user",
-            content=request.message,
+            content=data.message,
         )
 
         # Update context if provided
-        if request.context:
-            await conv_repo.update_context(conversation_id, request.context)
+        if data.context:
+            await conv_repo.update_context(conversation_id, data.context)
 
         # Process with Architect
         from langchain_core.messages import HumanMessage
@@ -307,7 +319,7 @@ async def send_message(
         workflow = ArchitectWorkflow()
         state = await workflow.continue_conversation(
             state=state,
-            user_message=request.message,
+            user_message=data.message,
             session=session,
         )
 

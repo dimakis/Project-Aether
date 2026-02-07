@@ -5,7 +5,7 @@ Individual messages within a conversation - User Story 2.
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +23,9 @@ class Message(Base, UUIDMixin, TimestampMixin):
     """
 
     __tablename__ = "message"
+    __table_args__ = (
+        Index("ix_messages_conversation_created", "conversation_id", "created_at"),
+    )
 
     conversation_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),

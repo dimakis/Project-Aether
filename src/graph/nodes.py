@@ -4,7 +4,7 @@ Each node is an async function that takes state and returns state updates.
 Nodes are composable building blocks for agent workflows.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -429,7 +429,7 @@ async def process_approval_node(
         if approved:
             approval.approved = True
             approval.approved_by = approved_by
-            approval.approved_at = datetime.utcnow()
+            approval.approved_at = datetime.now(timezone.utc)
             approved_ids.append(approval.id)
 
             # Persist to DB if session available
@@ -682,9 +682,9 @@ async def execute_sandbox_node(
 
     try:
         sandbox = SandboxRunner()
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         result = await sandbox.run(state.generated_script, data_path=data_path)
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(timezone.utc)
 
         execution = ScriptExecution(
             script_content=state.generated_script[:5000],

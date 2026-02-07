@@ -15,7 +15,7 @@ Requires:
 
 import json
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.agents import DataScientistAgent
@@ -28,7 +28,7 @@ from src.storage.entities import Insight, InsightStatus, InsightType
 @pytest.fixture
 def mock_energy_history():
     """Generate mock energy history data."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     states = []
     
     # Generate 24 hours of data
