@@ -10,11 +10,13 @@ import {
   FileText,
   History,
   Ban,
+  Copy,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useUpdateAgentStatus } from "@/api/hooks";
+import { useUpdateAgentStatus, useCloneAgent } from "@/api/hooks";
 import type { AgentDetail, AgentStatusValue } from "@/lib/types";
 import { AGENT_LABELS, STATUS_COLORS, type Tab } from "./constants";
 import { OverviewTab } from "./OverviewTab";
@@ -35,6 +37,7 @@ export function AgentCard({
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const statusMutation = useUpdateAgentStatus();
+  const cloneMutation = useCloneAgent();
   const isDisabled = agent.status === "disabled";
 
   const handleStatusChange = (status: AgentStatusValue) => {
@@ -89,6 +92,19 @@ export function AgentCard({
             </span>
           )}
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-2 h-7 px-2 text-muted-foreground hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            cloneMutation.mutate(agent.name);
+          }}
+          disabled={cloneMutation.isPending}
+          title="Clone agent"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
       </button>
 
       {/* Expanded Detail */}

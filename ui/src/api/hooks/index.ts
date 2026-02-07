@@ -44,6 +44,7 @@ export {
   useAgentPromptVersions,
   useUpdateAgentStatus,
   useSeedAgents,
+  useCloneAgent,
   useCreateConfigVersion,
   usePromoteConfigVersion,
   useRollbackConfig,

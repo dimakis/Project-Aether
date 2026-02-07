@@ -20,6 +20,11 @@ export const agents = {
       method: "POST",
     }),
 
+  clone: (name: string) =>
+    request<import("@/lib/types").AgentDetail>(`/agents/${name}/clone`, {
+      method: "POST",
+    }),
+
   // Config versions
   listConfigVersions: (name: string) =>
     request<import("@/lib/types").ConfigVersion[]>(

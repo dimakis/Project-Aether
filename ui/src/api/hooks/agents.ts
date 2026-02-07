@@ -55,6 +55,16 @@ export function useSeedAgents() {
   });
 }
 
+export function useCloneAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => agents.clone(name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents"] });
+    },
+  });
+}
+
 export function useCreateConfigVersion() {
   const qc = useQueryClient();
   return useMutation({

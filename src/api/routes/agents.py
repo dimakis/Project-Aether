@@ -272,6 +272,90 @@ async def update_agent_status(
         )
 
 
+# ─── Clone Endpoint ──────────────────────────────────────────────────────────
+
+
+@router.post("/{agent_name}/clone", response_model=AgentResponse, status_code=201)
+async def clone_agent(agent_name: str) -> AgentResponse:
+    """Clone an agent with its active config and prompt as new drafts.
+
+    Creates a new agent named ``{agent_name}_copy`` (or ``_copy2`` etc. if
+    the name already exists). The active config and prompt versions are
+    copied as new drafts on the cloned agent, ready for editing.
+
+    This makes it trivial to swap LLM backends: clone, change the model
+    in the cloned config, promote, and disable the original.
+    """
+    async with get_session() as session:
+        agent_repo = AgentRepository(session)
+        config_repo = AgentConfigVersionRepository(session)
+        prompt_repo = AgentPromptVersionRepository(session)
+
+        source = await agent_repo.get_by_name(agent_name)
+        if not source:
+            raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+        # Generate a unique clone name
+        clone_name = f"{agent_name}_copy"
+        suffix = 1
+        while await agent_repo.get_by_name(clone_name):
+            suffix += 1
+            clone_name = f"{agent_name}_copy{suffix}"
+
+        # Create the cloned agent
+        cloned = await agent_repo.create_or_update(
+            name=clone_name,
+            description=f"Clone of {source.description}",
+            version=source.version,
+            status=AgentStatus.ENABLED.value,
+        )
+        await session.flush()
+
+        # Clone active config version as a draft
+        src_config = source.active_config_version
+        if src_config:
+            new_config = await config_repo.create_draft(
+                agent_id=cloned.id,
+                model_name=src_config.model_name,
+                temperature=src_config.temperature,
+                fallback_model=src_config.fallback_model,
+                tools_enabled=src_config.tools_enabled,
+                change_summary=f"Cloned from {agent_name}",
+            )
+            await session.flush()
+
+            # Auto-promote the config
+            await config_repo.promote(new_config.id, cloned.id)
+            await session.flush()
+
+        # Clone active prompt version as a draft
+        src_prompt = source.active_prompt_version
+        if src_prompt:
+            new_prompt = await prompt_repo.create_draft(
+                agent_id=cloned.id,
+                prompt_template=src_prompt.prompt_template,
+                change_summary=f"Cloned from {agent_name}",
+            )
+            await session.flush()
+
+            # Auto-promote the prompt
+            await prompt_repo.promote(new_prompt.id, cloned.id)
+            await session.flush()
+
+        await session.commit()
+
+        # Refresh to pick up eager-loaded relationships
+        await session.refresh(cloned)
+
+        return AgentResponse(
+            **_serialize_agent(
+                cloned,
+                cloned.active_config_version,
+                cloned.active_prompt_version,
+            )
+        )
+
+
 # ─── Config Version Endpoints ─────────────────────────────────────────────────
 
 
