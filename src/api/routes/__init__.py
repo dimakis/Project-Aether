@@ -6,6 +6,7 @@ for inclusion in the main application.
 
 from fastapi import APIRouter
 
+from src.api.routes.agents import router as agents_router
 from src.api.routes.areas import router as areas_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.passkey import router as passkey_router
@@ -49,6 +50,8 @@ api_router.include_router(webhooks_router)
 api_router.include_router(traces_router)
 # LLM Usage Tracking
 api_router.include_router(usage_router)
+# Feature 23: Agent Configuration
+api_router.include_router(agents_router)
 # OpenAI-compatible API for Open WebUI
 api_router.include_router(openai_router)
 
