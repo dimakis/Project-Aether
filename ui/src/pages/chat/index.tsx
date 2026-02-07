@@ -19,6 +19,8 @@ import {
   useActivityPanel,
   toggleActivityPanel,
 } from "@/lib/agent-activity-store";
+import { handleTraceEvent } from "@/lib/trace-event-handler";
+import type { TraceEventChunk } from "@/lib/trace-event-handler";
 import { useModels, useConversations, useCreateProposal } from "@/api/hooks";
 import { streamChat, submitFeedback } from "@/api/client";
 import type { ChatMessage } from "@/lib/types";
@@ -231,9 +233,15 @@ export function ChatPage() {
       let traceId: string | undefined;
 
       for await (const chunk of streamChat(selectedModel, chatHistory)) {
-        if (typeof chunk === "object" && "type" in chunk && chunk.type === "metadata") {
-          traceId = chunk.trace_id;
-          continue;
+        if (typeof chunk === "object" && "type" in chunk) {
+          if (chunk.type === "metadata") {
+            traceId = chunk.trace_id;
+            continue;
+          }
+          if (chunk.type === "trace") {
+            handleTraceEvent(chunk as TraceEventChunk, setAgentActivity);
+            continue;
+          }
         }
         const text = typeof chunk === "string" ? chunk : "";
         fullContent += text;
