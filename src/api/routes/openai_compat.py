@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from src.api.rate_limit import limiter
 
-from src.agents import ArchitectWorkflow
+from src.agents import ArchitectWorkflow, StreamEvent
 from src.agents.model_context import model_context
 from src.dal import ConversationRepository, MessageRepository
 from src.graph.state import ConversationState
@@ -29,6 +29,38 @@ from src.tracing import start_experiment_run, log_param
 from src.tracing.context import session_context
 
 router = APIRouter(tags=["OpenAI Compatible"])
+
+
+# --- Agent mapping for tool calls (module-level for reuse in streaming) ---
+
+TOOL_AGENT_MAP: dict[str, str] = {
+    # Data Scientist tools
+    "analyze_energy": "data_scientist",
+    "run_custom_analysis": "data_scientist",
+    "diagnose_issue": "data_scientist",
+    # DS Team Specialists
+    "consult_energy_analyst": "energy_analyst",
+    "consult_behavioral_analyst": "behavioral_analyst",
+    "consult_diagnostic_analyst": "diagnostic_analyst",
+    "request_synthesis_review": "system",
+    # Dashboard Designer
+    "generate_dashboard_yaml": "dashboard_designer",
+    "validate_dashboard_yaml": "dashboard_designer",
+    "list_dashboards": "dashboard_designer",
+    # Librarian
+    "discover_entities": "librarian",
+    # Developer
+    "deploy_automation": "developer",
+    "delete_automation": "developer",
+    "create_script": "developer",
+    "create_scene": "developer",
+    # System tools
+    "create_insight_schedule": "system",
+    "seek_approval": "system",
+    "execute_service": "system",
+    # Insight tools
+    "propose_automation_from_insight": "architect",
+}
 
 
 # --- Request/Response Models ---
@@ -369,87 +401,97 @@ async def _stream_chat_completion(
                         model_name=request.model,
                         temperature=request.temperature,
                     ):
-                        # Process with Architect (using requested LLM model)
                         workflow = ArchitectWorkflow(
                             model_name=request.model,
                             temperature=request.temperature,
                         )
-                        state = await workflow.continue_conversation(
+
+                        is_background = _is_background_request(request.messages)
+                        tool_calls_used: list[str] = []
+                        final_state: ConversationState | None = None
+                        full_content = ""
+
+                        # --- Real token-by-token streaming ---
+                        async for event in workflow.stream_conversation(
                             state=state,
                             user_message=user_message,
                             session=session,
-                        )
+                        ):
+                            event_type = event.get("type")
 
-                    # Get response content
-                    assistant_content = ""
-                    if state.messages:
-                        for msg in reversed(state.messages):
-                            if isinstance(msg, AIMessage):
-                                assistant_content = msg.content
-                                break
-
-                    # Normalize content (handle list, None, etc.)
-                    assistant_content = _extract_text_content(assistant_content)
-
-                    # Strip thinking/reasoning tags from output.
-                    # The frontend has parseThinkingContent() but it cannot
-                    # safely handle unclosed tags (e.g. <think>... without
-                    # </think>) — its regex matches to end-of-string, making
-                    # all remaining content invisible. Stripping server-side
-                    # is the robust fix.
-                    assistant_content = _strip_thinking_tags(assistant_content)
-
-                    if not assistant_content.strip():
-                        assistant_content = (
-                            "I processed your request but couldn't generate a visible response. "
-                            "Please try again."
-                        )
-
-                    # Capture trace ID from the state (set by _traced_invoke)
-                    trace_id = state.last_trace_id
-
-                    # Extract tool call names from the state messages
-                    # (AIMessages with tool_calls indicate which tools the Architect used)
-                    tool_calls_used: list[str] = []
-                    for msg in state.messages:
-                        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
-                            tool_calls_used.extend(
-                                tc.get("name", "") for tc in msg.tool_calls if tc.get("name")
-                            )
-
-                    # Emit trace events BEFORE text chunks so the UI can
-                    # display real-time agent activity as the response streams.
-                    # Skip for background requests (title gen, suggestions).
-                    if not _is_background_request(request.messages):
-                        trace_events = _build_trace_events(
-                            state.messages, tool_calls_used
-                        )
-                        for event in trace_events:
-                            yield f"data: {json.dumps(event)}\n\n"
-
-                    # Stream the response in chunks
-                    # In a real implementation, we'd use the LLM's streaming capability
-                    # For now, we simulate streaming by chunking the response
-                    chunk_size = 10  # Characters per chunk
-
-                    for i in range(0, len(assistant_content), chunk_size):
-                        chunk = assistant_content[i : i + chunk_size]
-
-                        chunk_data = {
-                            "id": completion_id,
-                            "object": "chat.completion.chunk",
-                            "created": created,
-                            "model": request.model,
-                            "choices": [
-                                {
-                                    "index": 0,
-                                    "delta": {"content": chunk},
-                                    "finish_reason": None,
+                            if event_type == "token":
+                                token = event.get("content", "")
+                                # Strip thinking tags incrementally
+                                full_content += token
+                                chunk_data = {
+                                    "id": completion_id,
+                                    "object": "chat.completion.chunk",
+                                    "created": created,
+                                    "model": request.model,
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": {"content": token},
+                                            "finish_reason": None,
+                                        }
+                                    ],
                                 }
-                            ],
-                        }
-                        yield f"data: {json.dumps(chunk_data)}\n\n"
-                        await asyncio.sleep(0.01)  # Small delay for realistic streaming
+                                yield f"data: {json.dumps(chunk_data)}\n\n"
+
+                            elif event_type == "tool_start":
+                                tool_name = event.get("tool", "")
+                                tool_calls_used.append(tool_name)
+                                if not is_background:
+                                    target = TOOL_AGENT_MAP.get(tool_name, "architect")
+                                    trace_ev = {
+                                        "type": "trace",
+                                        "agent": target,
+                                        "event": "tool_call",
+                                        "tool": tool_name,
+                                        "ts": time.time(),
+                                    }
+                                    yield f"data: {json.dumps(trace_ev)}\n\n"
+                                    # Status event for UI
+                                    status_ev = {
+                                        "type": "status",
+                                        "content": f"Running {tool_name}...",
+                                    }
+                                    yield f"data: {json.dumps(status_ev)}\n\n"
+
+                            elif event_type == "tool_end":
+                                if not is_background:
+                                    status_ev = {
+                                        "type": "status",
+                                        "content": "",  # Clear status
+                                    }
+                                    yield f"data: {json.dumps(status_ev)}\n\n"
+
+                            elif event_type == "state":
+                                final_state = event.get("state")
+
+                            elif event_type == "approval_required":
+                                # Emit as a text chunk so user sees the approval request
+                                approval_text = event.get("content", "Approval required")
+                                chunk_data = {
+                                    "id": completion_id,
+                                    "object": "chat.completion.chunk",
+                                    "created": created,
+                                    "model": request.model,
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": {"content": approval_text},
+                                            "finish_reason": None,
+                                        }
+                                    ],
+                                }
+                                yield f"data: {json.dumps(chunk_data)}\n\n"
+
+                    # Use final state from stream, or fall back to original
+                    state = final_state or state
+
+                    # Capture trace ID from the state (set during streaming)
+                    trace_id = state.last_trace_id
 
                     # Send final chunk with finish_reason
                     final_chunk = {
@@ -615,36 +657,6 @@ def _build_trace_events(
     Returns:
         Ordered list of trace event dicts ready for SSE emission.
     """
-    # --- Agent mapping for tool calls ---
-    TOOL_AGENT_MAP: dict[str, str] = {
-        # Data Scientist tools
-        "analyze_energy": "data_scientist",
-        "run_custom_analysis": "data_scientist",
-        "diagnose_issue": "data_scientist",
-        # DS Team Specialists
-        "consult_energy_analyst": "energy_analyst",
-        "consult_behavioral_analyst": "behavioral_analyst",
-        "consult_diagnostic_analyst": "diagnostic_analyst",
-        "request_synthesis_review": "system",
-        # Dashboard Designer
-        "generate_dashboard_yaml": "dashboard_designer",
-        "validate_dashboard_yaml": "dashboard_designer",
-        "list_dashboards": "dashboard_designer",
-        # Librarian
-        "discover_entities": "librarian",
-        # Developer
-        "deploy_automation": "developer",
-        "delete_automation": "developer",
-        "create_script": "developer",
-        "create_scene": "developer",
-        # System tools
-        "create_insight_schedule": "system",
-        "seek_approval": "system",
-        "execute_service": "system",
-        # Insight tools
-        "propose_automation_from_insight": "architect",
-    }
-
     events: list[dict[str, Any]] = []
     base_ts = time.time()
     offset = 0.0
