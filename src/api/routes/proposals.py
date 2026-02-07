@@ -303,15 +303,19 @@ async def deploy_proposal(
 
             await session.commit()
 
+            # Check if deployment actually succeeded
+            deploy_error = result.get("error")
+            deploy_success = not deploy_error and result.get("ha_automation_id") is not None
+
             return DeploymentResponse(
-                success=True,
+                success=deploy_success,
                 proposal_id=proposal_id,
                 ha_automation_id=result.get("ha_automation_id"),
                 method=result.get("deployment_method", "manual"),
                 yaml_content=result.get("yaml_content", ""),
                 instructions=result.get("instructions"),
-                deployed_at=datetime.now(timezone.utc),
-                error=None,
+                deployed_at=datetime.now(timezone.utc) if deploy_success else None,
+                error=deploy_error,
             )
 
         except Exception as e:

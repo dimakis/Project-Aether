@@ -121,20 +121,29 @@ class DeveloperAgent(BaseAgent):
         # Generate unique automation ID
         ha_automation_id = f"aether_{proposal.id.replace('-', '_')[:8]}"
 
-        # Deploy via MCP
-        # Note: Direct automation creation is a known MCP gap
-        # Workaround: Generate YAML for manual import or use REST API
+        # Deploy via HA REST API (with fallback to manual instructions)
         result = await self._deploy_via_mcp(ha_automation_id, automation_yaml)
 
-        # Update proposal status
-        repo = ProposalRepository(session)
-        await repo.deploy(proposal.id, ha_automation_id)
+        # Only mark as deployed if the REST API call succeeded
+        if result.get("success"):
+            repo = ProposalRepository(session)
+            await repo.deploy(proposal.id, ha_automation_id)
 
+            return {
+                "ha_automation_id": ha_automation_id,
+                "yaml_content": automation_yaml,
+                "deployment_method": result.get("method", "rest_api"),
+                "deployed_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        # Deployment failed -- return error info without changing proposal status
+        error_msg = result.get("error") or ", ".join(result.get("errors", []))
         return {
-            "ha_automation_id": ha_automation_id,
+            "ha_automation_id": None,
             "yaml_content": automation_yaml,
-            "deployment_method": result.get("method", "manual"),
-            "deployed_at": datetime.now(timezone.utc).isoformat(),
+            "deployment_method": result.get("method", "failed"),
+            "instructions": result.get("instructions"),
+            "error": error_msg,
         }
 
     def _generate_automation_yaml(self, proposal: Any) -> str:

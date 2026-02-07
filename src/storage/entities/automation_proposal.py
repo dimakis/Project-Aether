@@ -287,12 +287,46 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         else:
             return self._to_automation_dict()
 
+    @staticmethod
+    def _unwrap_triggers(raw: Any) -> list:
+        """Unwrap trigger data that may be stored in various formats.
+
+        Handles: list, {"triggers": [...]}, {"trigger": [...]}, single dict.
+        """
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, dict):
+            # Unwrap {"triggers": [...]} or {"trigger": [...]}
+            if "triggers" in raw and isinstance(raw["triggers"], list):
+                return raw["triggers"]
+            if "trigger" in raw and isinstance(raw["trigger"], list):
+                return raw["trigger"]
+            # Single trigger dict (e.g., {"platform": "time", "at": "21:00"})
+            return [raw]
+        return []
+
+    @staticmethod
+    def _unwrap_actions(raw: Any) -> list:
+        """Unwrap action data that may be stored in various formats.
+
+        Handles: list, {"actions": [...]}, {"action": [...]}, single dict.
+        """
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, dict):
+            if "actions" in raw and isinstance(raw["actions"], list):
+                return raw["actions"]
+            if "action" in raw and isinstance(raw["action"], list):
+                return raw["action"]
+            return [raw]
+        return []
+
     def _to_automation_dict(self) -> dict:
         """Convert to HA automation YAML format."""
         automation = {
             "alias": self.name,
-            "trigger": self.trigger if isinstance(self.trigger, list) else [self.trigger],
-            "action": self.actions if isinstance(self.actions, list) else [self.actions],
+            "trigger": self._unwrap_triggers(self.trigger),
+            "action": self._unwrap_actions(self.actions),
             "mode": self.mode,
         }
 
@@ -300,8 +334,17 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
             automation["description"] = self.description
 
         if self.conditions:
+            conditions = self.conditions
+            if isinstance(conditions, dict):
+                # Unwrap {"conditions": [...]}
+                if "conditions" in conditions and isinstance(conditions["conditions"], list):
+                    conditions = conditions["conditions"]
+                elif "condition" in conditions and isinstance(conditions["condition"], list):
+                    conditions = conditions["condition"]
+                else:
+                    conditions = [conditions]
             automation["condition"] = (
-                self.conditions if isinstance(self.conditions, list) else [self.conditions]
+                conditions if isinstance(conditions, list) else [conditions]
             )
 
         return automation
