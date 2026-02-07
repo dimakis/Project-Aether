@@ -49,6 +49,12 @@ export function SceneTab({
         <StatPill label="Total" value={scenes.length} color="text-primary" />
       </div>
 
+      {searchQuery && filtered.length !== scenes.length && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          Showing {filtered.length} of {scenes.length}
+        </p>
+      )}
+
       <div className="space-y-2">
       {filtered.map((scene) => (
         <Card

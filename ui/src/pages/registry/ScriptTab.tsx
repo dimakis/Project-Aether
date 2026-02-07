@@ -58,6 +58,12 @@ export function ScriptTab({
         <StatPill label="Total" value={scripts.length} color="text-primary" />
       </div>
 
+      {searchQuery && filtered.length !== scripts.length && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          Showing {filtered.length} of {scripts.length}
+        </p>
+      )}
+
       <div className="space-y-2">
       {filtered.map((script) => (
         <Card

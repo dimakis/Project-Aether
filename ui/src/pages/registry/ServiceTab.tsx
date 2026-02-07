@@ -84,6 +84,12 @@ export function ServiceTab({
         </div>
       )}
 
+      {(searchQuery || domainFilter) && filtered.length !== services.length && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          Showing {filtered.length} of {services.length}
+        </p>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState type="services" />
       ) : (

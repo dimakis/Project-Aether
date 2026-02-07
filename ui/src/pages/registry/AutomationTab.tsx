@@ -120,6 +120,12 @@ export function AutomationTab({
         <StatPill label="Total" value={automations.length} color="text-primary" />
       </div>
 
+      {searchQuery && filtered.length !== automations.length && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          Showing {filtered.length} of {automations.length}
+        </p>
+      )}
+
       <div className="space-y-2">
         {filtered.map((auto) => (
           <Card
