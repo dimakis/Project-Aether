@@ -132,6 +132,17 @@ export function useRollbackProposal() {
   });
 }
 
+export function useDeleteProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => proposals.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.proposals });
+      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+    },
+  });
+}
+
 export function useCreateProposal() {
   const qc = useQueryClient();
   return useMutation({
@@ -191,6 +202,17 @@ export function useDismissInsight() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       insights.dismiss(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.insights });
+      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+    },
+  });
+}
+
+export function useDeleteInsight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => insights.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.insights });
       qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });

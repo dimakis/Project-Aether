@@ -30,6 +30,11 @@ async function request<T>(
     throw new ApiError(response.status, message);
   }
 
+  // 204 No Content has no body to parse
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json();
 }
 
@@ -265,6 +270,9 @@ export const proposals = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  delete: (id: string) =>
+    request<void>(`/proposals/${id}`, { method: "DELETE" }),
 };
 
 // ─── Insights ───────────────────────────────────────────────────────────────
@@ -322,6 +330,9 @@ export const insights = {
         body: JSON.stringify({ analysis_type: analysisType, hours }),
       },
     ),
+
+  delete: (id: string) =>
+    request<void>(`/insights/${id}`, { method: "DELETE" }),
 };
 
 // ─── Entities ───────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import {
   useInsightsSummary,
   useReviewInsight,
   useDismissInsight,
+  useDeleteInsight,
   useRunAnalysis,
 } from "@/api/hooks";
 import { InsightCard } from "./InsightCard";
@@ -45,6 +46,7 @@ export function InsightsPage() {
   const { data: summary } = useInsightsSummary();
   const reviewMut = useReviewInsight();
   const dismissMut = useDismissInsight();
+  const deleteMut = useDeleteInsight();
   const analyzeMut = useRunAnalysis();
 
   const insightList = data?.items ?? [];
@@ -146,8 +148,14 @@ export function InsightsPage() {
           onDismiss={() =>
             dismissMut.mutate({ id: expandedInsight.id })
           }
+          onDelete={() =>
+            deleteMut.mutate(expandedInsight.id, {
+              onSuccess: () => setExpandedId(null),
+            })
+          }
           isReviewing={reviewMut.isPending}
           isDismissing={dismissMut.isPending}
+          isDeleting={deleteMut.isPending}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { X, Lightbulb, Target, Clock, Activity, CheckCircle2, XCircle, Eye } from "lucide-react";
+import { X, Lightbulb, Target, Clock, Activity, CheckCircle2, XCircle, Eye, Trash2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatRelativeTime } from "@/lib/utils";
@@ -12,8 +12,10 @@ interface InsightDetailProps {
   onClose: () => void;
   onReview: () => void;
   onDismiss: () => void;
+  onDelete: () => void;
   isReviewing: boolean;
   isDismissing: boolean;
+  isDeleting: boolean;
 }
 
 function MetricPill({
@@ -41,8 +43,10 @@ export function InsightDetail({
   onClose,
   onReview,
   onDismiss,
+  onDelete,
   isReviewing,
   isDismissing,
+  isDeleting,
 }: InsightDetailProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const config = TYPE_CONFIG[insight.type] ?? {
@@ -178,12 +182,28 @@ export function InsightDetail({
 
         {/* Footer actions */}
         <div className="flex items-center justify-between border-t border-border p-4 px-6">
-          {insight.mlflow_run_id && (
-            <span className="text-[10px] font-mono text-muted-foreground">
-              run: {insight.mlflow_run_id.slice(0, 12)}
-            </span>
-          )}
-          <div className="ml-auto flex gap-2">
+          <div className="flex items-center gap-2">
+            {insight.mlflow_run_id && (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                run: {insight.mlflow_run_id.slice(0, 12)}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={onDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1 h-3 w-3" />
+              )}
+              Delete
+            </Button>
+          </div>
+          <div className="flex gap-2">
             {insight.status === "pending" && (
               <>
                 <Button

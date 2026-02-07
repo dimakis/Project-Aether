@@ -651,6 +651,22 @@ class ProposalRepository:
             await self.session.flush()
         return proposal
 
+    async def delete(self, proposal_id: str) -> bool:
+        """Delete a proposal.
+
+        Args:
+            proposal_id: Proposal UUID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        proposal = await self.get_by_id(proposal_id)
+        if proposal:
+            await self.session.delete(proposal)
+            await self.session.flush()
+            return True
+        return False
+
     async def count(self, status: ProposalStatus | None = None) -> int:
         """Count proposals.
 

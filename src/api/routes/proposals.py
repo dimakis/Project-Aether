@@ -385,6 +385,38 @@ async def rollback_proposal(
             raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete(
+    "/{proposal_id}",
+    status_code=204,
+    summary="Delete proposal",
+    description="Delete a proposal. Cannot delete deployed proposals (rollback first).",
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+)
+async def delete_proposal(proposal_id: str) -> None:
+    """Delete a proposal."""
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        if proposal.status == ProposalStatus.DEPLOYED:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete a deployed proposal. Rollback first.",
+            )
+
+        deleted = await repo.delete(proposal_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        await session.commit()
+
+
 async def _deploy_entity_command(proposal, repo: ProposalRepository) -> dict:
     """Execute an entity command proposal via MCP.
 

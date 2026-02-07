@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Code,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   useRejectProposal,
   useDeployProposal,
   useRollbackProposal,
+  useDeleteProposal,
 } from "@/api/hooks";
 import type { Proposal } from "@/lib/types";
 import { STATUS_CONFIG, TYPE_ICONS } from "./types";
@@ -84,6 +86,7 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
   const rejectMut = useRejectProposal();
   const deployMut = useDeployProposal();
   const rollbackMut = useRollbackProposal();
+  const deleteMut = useDeleteProposal();
   const [deployResult, setDeployResult] = useState<{
     success: boolean;
     method?: string;
@@ -296,12 +299,34 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
 
         {/* Footer actions */}
         <div className="flex items-center justify-between border-t border-border p-4 px-6">
-          {detail.ha_automation_id && (
-            <span className="text-[10px] font-mono text-muted-foreground">
-              HA: {detail.ha_automation_id}
-            </span>
-          )}
-          <div className="ml-auto flex gap-2">
+          <div className="flex items-center gap-2">
+            {detail.ha_automation_id && (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                HA: {detail.ha_automation_id}
+              </span>
+            )}
+            {detail.status !== "deployed" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() =>
+                  deleteMut.mutate(detail.id, {
+                    onSuccess: () => onClose(),
+                  })
+                }
+                disabled={deleteMut.isPending}
+              >
+                {deleteMut.isPending ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-1 h-3 w-3" />
+                )}
+                Delete
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
             {detail.status === "proposed" && (
               <>
                 <Button
