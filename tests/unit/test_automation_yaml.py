@@ -3,6 +3,8 @@
 T095: Tests for YAML generation validation.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import yaml
 
@@ -234,3 +236,114 @@ class TestYAMLHelpers:
         assert condition["condition"] == "time"
         assert condition["after"] == "18:00:00"
         assert condition["before"] == "23:00:00"
+
+
+class TestAutomationDeployerRestAPI:
+    """Test AutomationDeployer REST API deployment."""
+
+    @pytest.fixture
+    def deployer_with_mock_mcp(self):
+        """Create deployer with mocked MCP client."""
+        from src.mcp.automation_deploy import AutomationDeployer
+
+        deployer = AutomationDeployer()
+        deployer._mcp = MagicMock()
+        return deployer
+
+    @pytest.mark.asyncio
+    async def test_deploy_via_rest_api_success(self, deployer_with_mock_mcp):
+        """Test successful deployment via REST API."""
+        deployer = deployer_with_mock_mcp
+        deployer._mcp.create_automation = AsyncMock(return_value={
+            "success": True,
+            "automation_id": "test_automation",
+            "entity_id": "automation.test_automation",
+        })
+
+        yaml_content = """
+alias: Test Automation
+trigger:
+  - platform: time
+    at: "08:00:00"
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.bedroom
+mode: single
+"""
+        result = await deployer.deploy_automation(yaml_content, "test_automation")
+
+        assert result["success"] is True
+        assert result["method"] == "rest_api"
+        assert result["entity_id"] == "automation.test_automation"
+        deployer._mcp.create_automation.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_deploy_falls_back_to_manual_on_failure(self, deployer_with_mock_mcp):
+        """Test fallback to manual instructions when REST API fails."""
+        deployer = deployer_with_mock_mcp
+        deployer._mcp.create_automation = AsyncMock(return_value={
+            "success": False,
+            "error": "Connection refused",
+        })
+
+        yaml_content = """
+alias: Test
+trigger:
+  - platform: time
+    at: "08:00"
+action:
+  - service: light.turn_on
+"""
+        result = await deployer.deploy_automation(yaml_content, "test_auto")
+
+        assert result["success"] is False
+        assert result["method"] == "manual"
+        assert "instructions" in result
+
+    @pytest.mark.asyncio
+    async def test_deploy_validates_yaml_first(self, deployer_with_mock_mcp):
+        """Test that YAML is validated before deployment attempt."""
+        deployer = deployer_with_mock_mcp
+
+        invalid_yaml = """
+alias: Test
+# Missing trigger and action!
+"""
+        result = await deployer.deploy_automation(invalid_yaml, "test_auto")
+
+        assert result["success"] is False
+        assert result["method"] == "validation_failed"
+        # Should not have called MCP at all
+        deployer._mcp.create_automation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_deploy_saves_yaml_backup(self, deployer_with_mock_mcp, tmp_path):
+        """Test that YAML is saved as backup when output_dir provided."""
+        deployer = deployer_with_mock_mcp
+        deployer._mcp.create_automation = AsyncMock(return_value={
+            "success": True,
+            "automation_id": "backup_test",
+            "entity_id": "automation.backup_test",
+        })
+
+        yaml_content = """
+alias: Backup Test
+trigger:
+  - platform: time
+    at: "08:00"
+action:
+  - service: light.turn_on
+"""
+        result = await deployer.deploy_automation(
+            yaml_content, 
+            "backup_test",
+            output_dir=tmp_path,
+        )
+
+        assert result["success"] is True
+        assert "yaml_file" in result
+        
+        # Verify file was created
+        yaml_file = tmp_path / "backup_test.yaml"
+        assert yaml_file.exists()

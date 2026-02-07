@@ -8,7 +8,7 @@ Workaround: Generate YAML for manual import, use automation.reload after.
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -122,7 +122,7 @@ class AutomationDeployer:
             return f"aether_{base_id}_{suffix}"
 
         # Use timestamp for uniqueness
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         return f"aether_{base_id}_{timestamp}"
 
     def validate_automation_yaml(self, yaml_content: str) -> tuple[bool, list[str]]:
@@ -184,15 +184,15 @@ class AutomationDeployer:
         automation_id: str,
         output_dir: Path | None = None,
     ) -> dict[str, Any]:
-        """Deploy automation to Home Assistant.
+        """Deploy automation to Home Assistant via REST API.
 
-        MCP Gap: No direct create_automation tool exists.
-        This method uses available workarounds.
+        Uses HA's /api/config/automation/config endpoint to create
+        automations directly - no manual YAML placement required.
 
         Args:
             yaml_content: Valid automation YAML
             automation_id: Unique automation ID
-            output_dir: Optional directory to save YAML file
+            output_dir: Optional directory to save YAML file (backup)
 
         Returns:
             Deployment result dict
@@ -206,12 +206,15 @@ class AutomationDeployer:
                 "errors": errors,
             }
 
+        # Parse YAML to get config
+        config = yaml.safe_load(yaml_content)
+
         result: dict[str, Any] = {
             "automation_id": automation_id,
             "yaml_content": yaml_content,
         }
 
-        # Save to file if output_dir provided
+        # Save to file if output_dir provided (as backup)
         if output_dir:
             output_dir = Path(output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -219,28 +222,38 @@ class AutomationDeployer:
             yaml_file.write_text(yaml_content)
             result["yaml_file"] = str(yaml_file)
 
-        # Attempt deployment via MCP
-        # Note: This is the workaround path - direct creation not available
+        # Deploy via REST API (the real deal - no MCP gap!)
         try:
-            # Option 1: Try to reload automations (assumes YAML was placed in HA config)
-            await self.mcp.call_service(
-                domain="automation",
-                service="reload",
+            deploy_result = await self.mcp.create_automation(
+                automation_id=automation_id,
+                alias=config.get("alias", automation_id),
+                trigger=config.get("trigger", []),
+                action=config.get("action", []),
+                condition=config.get("condition"),
+                description=config.get("description"),
+                mode=config.get("mode", "single"),
             )
-            result["success"] = True
-            result["method"] = "reload"
-            result["note"] = (
-                "Automation reload triggered. "
-                "Ensure YAML is in HA automations.yaml or automations directory."
-            )
+
+            if deploy_result.get("success"):
+                result["success"] = True
+                result["method"] = "rest_api"
+                result["entity_id"] = deploy_result.get("entity_id")
+                result["note"] = "Automation created via HA REST API. Active immediately."
+            else:
+                # REST API failed - fall back to manual instructions
+                result["success"] = False
+                result["method"] = "manual"
+                result["error"] = deploy_result.get("error", "Unknown error")
+                result["instructions"] = self._get_manual_instructions(automation_id)
+
         except Exception as e:
-            # Reload failed - provide manual instructions
+            # Total failure - provide manual instructions
             result["success"] = False
             result["method"] = "manual"
             result["error"] = str(e)
             result["instructions"] = self._get_manual_instructions(automation_id)
 
-        result["deployed_at"] = datetime.utcnow().isoformat()
+        result["deployed_at"] = datetime.now(timezone.utc).isoformat()
         return result
 
     def _get_manual_instructions(self, automation_id: str) -> str:
@@ -325,7 +338,7 @@ The automation will have the ID: automation.{automation_id}
             domain="automation",
             service="reload",
         )
-        return {"reloaded": True, "reloaded_at": datetime.utcnow().isoformat()}
+        return {"reloaded": True, "reloaded_at": datetime.now(timezone.utc).isoformat()}
 
 
 # =============================================================================

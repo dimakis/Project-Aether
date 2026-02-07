@@ -558,18 +558,548 @@ class MCPClient:
             "domains": domains,
         }
 
+    # =========================================================================
+    # AUTOMATION MANAGEMENT (Direct REST API - no MCP gap!)
+    # =========================================================================
 
-# Singleton client
+    @_trace_mcp_call("mcp.create_automation")
+    async def create_automation(
+        self,
+        automation_id: str,
+        alias: str,
+        trigger: list[dict[str, Any]],
+        action: list[dict[str, Any]],
+        condition: list[dict[str, Any]] | None = None,
+        description: str | None = None,
+        mode: str = "single",
+    ) -> dict[str, Any]:
+        """Create or update an automation via HA REST API.
+
+        This bypasses the MCP gap by using HA's config API directly.
+
+        Args:
+            automation_id: Unique automation ID (e.g., "aether_motion_lights")
+            alias: Human-readable name
+            trigger: List of trigger configurations
+            action: List of action configurations
+            condition: Optional list of conditions
+            description: Optional description
+            mode: Execution mode (single, restart, queued, parallel)
+
+        Returns:
+            Result dict with success status
+        """
+        from src.tracing import log_param
+
+        log_param("mcp.create_automation.id", automation_id)
+        log_param("mcp.create_automation.alias", alias)
+
+        # Build automation config
+        config: dict[str, Any] = {
+            "id": automation_id,
+            "alias": alias,
+            "trigger": trigger,
+            "action": action,
+            "mode": mode,
+        }
+
+        if description:
+            config["description"] = description
+        if condition:
+            config["condition"] = condition
+
+        try:
+            # POST to config API creates or updates the automation
+            result = await self._request(
+                "POST",
+                f"/api/config/automation/config/{automation_id}",
+                json=config,
+            )
+
+            return {
+                "success": True,
+                "automation_id": automation_id,
+                "entity_id": f"automation.{automation_id}",
+                "method": "rest_api",
+                "config": config,
+            }
+        except MCPError as e:
+            return {
+                "success": False,
+                "automation_id": automation_id,
+                "error": str(e),
+                "method": "rest_api",
+            }
+
+    @_trace_mcp_call("mcp.get_automation_config")
+    async def get_automation_config(
+        self,
+        automation_id: str,
+    ) -> dict[str, Any] | None:
+        """Get an automation's configuration.
+
+        Args:
+            automation_id: Automation ID
+
+        Returns:
+            Automation config or None if not found
+        """
+        return await self._request(
+            "GET",
+            f"/api/config/automation/config/{automation_id}",
+        )
+
+    @_trace_mcp_call("mcp.delete_automation")
+    async def delete_automation(
+        self,
+        automation_id: str,
+    ) -> dict[str, Any]:
+        """Delete an automation.
+
+        Args:
+            automation_id: Automation ID to delete
+
+        Returns:
+            Result dict
+        """
+        from src.tracing import log_param
+
+        log_param("mcp.delete_automation.id", automation_id)
+
+        try:
+            await self._request(
+                "DELETE",
+                f"/api/config/automation/config/{automation_id}",
+            )
+            return {"success": True, "automation_id": automation_id}
+        except MCPError as e:
+            return {"success": False, "automation_id": automation_id, "error": str(e)}
+
+    @_trace_mcp_call("mcp.list_automation_configs")
+    async def list_automation_configs(self) -> list[dict[str, Any]]:
+        """List all automation configurations.
+
+        Returns:
+            List of automation config dicts
+        """
+        result = await self._request("GET", "/api/config/automation/config")
+        return result if result else []
+
+    # =========================================================================
+    # SCRIPTS (Create reusable action sequences)
+    # =========================================================================
+
+    @_trace_mcp_call("mcp.create_script")
+    async def create_script(
+        self,
+        script_id: str,
+        alias: str,
+        sequence: list[dict[str, Any]],
+        description: str | None = None,
+        mode: str = "single",
+        icon: str | None = None,
+    ) -> dict[str, Any]:
+        """Create or update a script via REST API.
+
+        Scripts are reusable action sequences that can be called from
+        automations or manually.
+
+        Args:
+            script_id: Unique script ID
+            alias: Human-readable name
+            sequence: List of action configurations
+            description: Optional description
+            mode: Execution mode (single, restart, queued, parallel)
+            icon: Optional MDI icon (e.g., "mdi:lightbulb")
+
+        Returns:
+            Result dict with success status
+        """
+        from src.tracing import log_param
+
+        log_param("mcp.create_script.id", script_id)
+
+        config: dict[str, Any] = {
+            "alias": alias,
+            "sequence": sequence,
+            "mode": mode,
+        }
+
+        if description:
+            config["description"] = description
+        if icon:
+            config["icon"] = icon
+
+        try:
+            await self._request(
+                "POST",
+                f"/api/config/script/config/{script_id}",
+                json=config,
+            )
+            return {
+                "success": True,
+                "script_id": script_id,
+                "entity_id": f"script.{script_id}",
+            }
+        except MCPError as e:
+            return {"success": False, "script_id": script_id, "error": str(e)}
+
+    @_trace_mcp_call("mcp.delete_script")
+    async def delete_script(self, script_id: str) -> dict[str, Any]:
+        """Delete a script."""
+        try:
+            await self._request("DELETE", f"/api/config/script/config/{script_id}")
+            return {"success": True, "script_id": script_id}
+        except MCPError as e:
+            return {"success": False, "script_id": script_id, "error": str(e)}
+
+    # =========================================================================
+    # SCENES (Capture and restore entity states)
+    # =========================================================================
+
+    @_trace_mcp_call("mcp.create_scene")
+    async def create_scene(
+        self,
+        scene_id: str,
+        name: str,
+        entities: dict[str, dict[str, Any]],
+        icon: str | None = None,
+    ) -> dict[str, Any]:
+        """Create or update a scene via REST API.
+
+        Scenes capture a snapshot of entity states that can be activated later.
+
+        Args:
+            scene_id: Unique scene ID
+            name: Human-readable name
+            entities: Dict of entity_id -> state/attributes to set
+            icon: Optional MDI icon
+
+        Returns:
+            Result dict
+        """
+        from src.tracing import log_param
+
+        log_param("mcp.create_scene.id", scene_id)
+
+        config: dict[str, Any] = {
+            "id": scene_id,
+            "name": name,
+            "entities": entities,
+        }
+
+        if icon:
+            config["icon"] = icon
+
+        try:
+            await self._request(
+                "POST",
+                f"/api/config/scene/config/{scene_id}",
+                json=config,
+            )
+            return {
+                "success": True,
+                "scene_id": scene_id,
+                "entity_id": f"scene.{scene_id}",
+            }
+        except MCPError as e:
+            return {"success": False, "scene_id": scene_id, "error": str(e)}
+
+    @_trace_mcp_call("mcp.delete_scene")
+    async def delete_scene(self, scene_id: str) -> dict[str, Any]:
+        """Delete a scene."""
+        try:
+            await self._request("DELETE", f"/api/config/scene/config/{scene_id}")
+            return {"success": True, "scene_id": scene_id}
+        except MCPError as e:
+            return {"success": False, "scene_id": scene_id, "error": str(e)}
+
+    # =========================================================================
+    # INPUT HELPERS (User-configurable state holders)
+    # =========================================================================
+
+    @_trace_mcp_call("mcp.create_input_boolean")
+    async def create_input_boolean(
+        self,
+        input_id: str,
+        name: str,
+        initial: bool = False,
+        icon: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an input_boolean helper.
+
+        Useful for creating virtual switches the agent can toggle.
+
+        Args:
+            input_id: Unique ID
+            name: Display name
+            initial: Initial state
+            icon: Optional MDI icon
+
+        Returns:
+            Result dict
+        """
+        config: dict[str, Any] = {"name": name, "initial": initial}
+        if icon:
+            config["icon"] = icon
+
+        try:
+            await self._request(
+                "POST",
+                f"/api/config/input_boolean/config/{input_id}",
+                json=config,
+            )
+            return {
+                "success": True,
+                "input_id": input_id,
+                "entity_id": f"input_boolean.{input_id}",
+            }
+        except MCPError as e:
+            return {"success": False, "input_id": input_id, "error": str(e)}
+
+    @_trace_mcp_call("mcp.create_input_number")
+    async def create_input_number(
+        self,
+        input_id: str,
+        name: str,
+        min_value: float,
+        max_value: float,
+        initial: float | None = None,
+        step: float = 1.0,
+        unit_of_measurement: str | None = None,
+        mode: str = "slider",
+        icon: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an input_number helper.
+
+        Useful for creating configurable thresholds the agent can adjust.
+
+        Args:
+            input_id: Unique ID
+            name: Display name
+            min_value: Minimum value
+            max_value: Maximum value
+            initial: Initial value
+            step: Step increment
+            unit_of_measurement: Unit label
+            mode: "slider" or "box"
+            icon: Optional MDI icon
+
+        Returns:
+            Result dict
+        """
+        config: dict[str, Any] = {
+            "name": name,
+            "min": min_value,
+            "max": max_value,
+            "step": step,
+            "mode": mode,
+        }
+        if initial is not None:
+            config["initial"] = initial
+        if unit_of_measurement:
+            config["unit_of_measurement"] = unit_of_measurement
+        if icon:
+            config["icon"] = icon
+
+        try:
+            await self._request(
+                "POST",
+                f"/api/config/input_number/config/{input_id}",
+                json=config,
+            )
+            return {
+                "success": True,
+                "input_id": input_id,
+                "entity_id": f"input_number.{input_id}",
+            }
+        except MCPError as e:
+            return {"success": False, "input_id": input_id, "error": str(e)}
+
+    # =========================================================================
+    # TEMPLATES & EVENTS
+    # =========================================================================
+
+    @_trace_mcp_call("mcp.render_template")
+    async def render_template(self, template: str) -> str | None:
+        """Render a Jinja2 template using HA's template engine.
+
+        Useful for complex state calculations.
+
+        Args:
+            template: Jinja2 template string
+
+        Returns:
+            Rendered result or None on error
+        """
+        try:
+            result = await self._request(
+                "POST",
+                "/api/template",
+                json={"template": template},
+            )
+            return result if isinstance(result, str) else str(result)
+        except MCPError:
+            return None
+
+    @_trace_mcp_call("mcp.fire_event")
+    async def fire_event(
+        self,
+        event_type: str,
+        event_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Fire a custom event.
+
+        Useful for triggering automations or signaling state changes.
+
+        Args:
+            event_type: Event type name
+            event_data: Optional event data
+
+        Returns:
+            Result dict
+        """
+        from src.tracing import log_param
+
+        log_param("mcp.fire_event.type", event_type)
+
+        try:
+            await self._request(
+                "POST",
+                f"/api/events/{event_type}",
+                json=event_data or {},
+            )
+            return {"success": True, "event_type": event_type}
+        except MCPError as e:
+            return {"success": False, "event_type": event_type, "error": str(e)}
+
+    @_trace_mcp_call("mcp.get_error_log")
+    async def get_error_log(self) -> str:
+        """Get Home Assistant error log.
+
+        Useful for debugging issues.
+
+        Returns:
+            Error log contents
+        """
+        try:
+            result = await self._request("GET", "/api/error_log")
+            return result if isinstance(result, str) else ""
+        except MCPError:
+            return ""
+
+    @_trace_mcp_call("mcp.check_config")
+    async def check_config(self) -> dict[str, Any]:
+        """Check Home Assistant configuration validity.
+
+        Returns:
+            Config check result with errors/warnings
+        """
+        try:
+            result = await self._request("POST", "/api/config/core/check_config")
+            return result or {"result": "unknown"}
+        except MCPError as e:
+            return {"result": "error", "error": str(e)}
+
+    # =========================================================================
+    # DIAGNOSTIC METHODS (Feature 06: HA Diagnostics & Troubleshooting)
+    # =========================================================================
+
+    @_trace_mcp_call("mcp.list_config_entries")
+    async def list_config_entries(
+        self,
+        domain: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """List all integration config entries.
+
+        Args:
+            domain: Optional domain to filter by (e.g., "zha", "mqtt")
+
+        Returns:
+            List of config entry dicts with entry_id, domain, title, state, etc.
+        """
+        result = await self._request("GET", "/api/config/config_entries")
+        entries = result if isinstance(result, list) else []
+        if domain:
+            entries = [e for e in entries if e.get("domain") == domain]
+        return entries
+
+    @_trace_mcp_call("mcp.get_config_entry_diagnostics")
+    async def get_config_entry_diagnostics(
+        self,
+        entry_id: str,
+    ) -> dict[str, Any] | None:
+        """Get diagnostics for a specific integration config entry.
+
+        Not all integrations support diagnostics. Returns None if the
+        integration doesn't provide diagnostic data (404 response).
+
+        Args:
+            entry_id: The config entry ID
+
+        Returns:
+            Diagnostic data dict, or None if unsupported
+        """
+        return await self._request(
+            "GET", f"/api/config/config_entries/{entry_id}/diagnostics"
+        )
+
+    @_trace_mcp_call("mcp.reload_config_entry")
+    async def reload_config_entry(self, entry_id: str) -> dict[str, Any]:
+        """Reload a specific integration config entry.
+
+        WARNING: This mutates HA state. Should be HITL-gated at the tool level.
+
+        Args:
+            entry_id: The config entry ID to reload
+
+        Returns:
+            Reload result (may include require_restart flag)
+        """
+        result = await self._request(
+            "POST", f"/api/config/config_entries/entry/{entry_id}/reload"
+        )
+        return result or {}
+
+    @_trace_mcp_call("mcp.list_services")
+    async def list_services(self) -> list[dict[str, Any]]:
+        """List all available Home Assistant services.
+
+        Returns:
+            List of service domain dicts, each containing domain name
+            and a services dict with service names and descriptions.
+        """
+        result = await self._request("GET", "/api/services")
+        return result if isinstance(result, list) else []
+
+    @_trace_mcp_call("mcp.list_event_types")
+    async def list_event_types(self) -> list[dict[str, Any]]:
+        """List all available event types in Home Assistant.
+
+        Returns:
+            List of event type dicts with event_type and listener_count.
+        """
+        result = await self._request("GET", "/api/events")
+        return result if isinstance(result, list) else []
+
+
+# Singleton client (thread-safe via double-checked locking, T186)
 _client: MCPClient | None = None
+_client_lock = __import__("threading").Lock()
 
 
 def get_mcp_client() -> MCPClient:
     """Get or create the MCP client singleton.
 
+    Thread-safe: Uses double-checked locking to prevent concurrent
+    client creation in multi-threaded environments.
+
     Returns:
         MCPClient instance
     """
-    global _client
+    global _client  # noqa: PLW0603
     if _client is None:
-        _client = MCPClient()
+        with _client_lock:
+            if _client is None:
+                _client = MCPClient()
     return _client
