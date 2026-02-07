@@ -44,6 +44,11 @@ class TestArchitectContext:
             entity_repo.list_all = AsyncMock(return_value=[
                 MagicMock(entity_id="light.living_room", name="Living Room", state="on", area=None),
             ])
+            entity_repo.list_by_domains = AsyncMock(return_value={
+                "light": [
+                    MagicMock(entity_id="light.living_room", name="Living Room", state="on", area=None),
+                ],
+            })
             area_repo.list_all = AsyncMock(return_value=[
                 MagicMock(name="Living Room", ha_area_id="living_room"),
             ])
