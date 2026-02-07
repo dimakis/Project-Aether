@@ -6,6 +6,7 @@ import { DataViewer } from "@/components/ui/data-viewer";
 import { cn } from "@/lib/utils";
 import type { Scene } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
+import { StatPill } from "./StatPill";
 
 interface SceneTabProps {
   scenes: Scene[];
@@ -42,7 +43,13 @@ export function SceneTab({
   if (filtered.length === 0) return <EmptyState type="scenes" />;
 
   return (
-    <div className="space-y-2">
+    <div>
+      {/* Stats row */}
+      <div className="mb-4 flex gap-3">
+        <StatPill label="Total" value={scenes.length} color="text-primary" />
+      </div>
+
+      <div className="space-y-2">
       {filtered.map((scene) => (
         <Card
           key={scene.id}
@@ -101,6 +108,7 @@ export function SceneTab({
           </CardContent>
         </Card>
       ))}
+      </div>
     </div>
   );
 }

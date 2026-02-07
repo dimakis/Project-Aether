@@ -135,6 +135,7 @@ export function RegistryPage() {
           scripts={scripts?.scripts ?? []}
           isLoading={scriptsLoading}
           searchQuery={searchQuery}
+          runningCount={scripts?.running_count}
         />
       )}
       {activeTab === "scenes" && (

@@ -7,17 +7,20 @@ import { DataViewer } from "@/components/ui/data-viewer";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type { Script } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
+import { StatPill } from "./StatPill";
 
 interface ScriptTabProps {
   scripts: Script[];
   isLoading: boolean;
   searchQuery: string;
+  runningCount?: number;
 }
 
 export function ScriptTab({
   scripts,
   isLoading,
   searchQuery,
+  runningCount,
 }: ScriptTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -44,7 +47,18 @@ export function ScriptTab({
   if (filtered.length === 0) return <EmptyState type="scripts" />;
 
   return (
-    <div className="space-y-2">
+    <div>
+      {/* Stats row */}
+      <div className="mb-4 flex gap-3">
+        <StatPill
+          label="Running"
+          value={runningCount ?? 0}
+          color="text-emerald-400"
+        />
+        <StatPill label="Total" value={scripts.length} color="text-primary" />
+      </div>
+
+      <div className="space-y-2">
       {filtered.map((script) => (
         <Card
           key={script.id}
@@ -144,6 +158,7 @@ export function ScriptTab({
           </CardContent>
         </Card>
       ))}
+      </div>
     </div>
   );
 }
