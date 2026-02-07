@@ -6,91 +6,453 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-## Overview
+Project Aether is an intelligent home automation system that connects AI agents to your Home Assistant instance. Instead of writing YAML by hand or clicking through dashboards, you have a conversation — describe what you want, and Aether's agents discover your devices, analyze your energy data, diagnose problems, and design automations for you.
 
-Project Aether is an intelligent home automation system that uses AI agents to discover, manage, and optimize your Home Assistant setup. It features:
+**Key idea**: A team of specialized AI agents (Architect, Data Scientist, Librarian, Developer) collaborate to understand your smart home and act on your behalf — with human approval required for any changes.
 
-- **🔍 Smart Discovery**: Librarian agent discovers and categorizes all HA entities
-- **💬 Conversational Design**: Chat with the Architect agent to design automations
-- **📊 Energy Insights**: Data Scientist agent analyzes usage and suggests optimizations
-- **🎨 Custom Dashboards**: Generate tailored Lovelace dashboards
+---
 
-## Constitution
+## Table of Contents
 
-This project follows strict principles defined in our [Constitution](.specify/memory/constitution.md):
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [User Flows](#user-flows)
+- [Quick Start](#quick-start)
+- [Deployment Modes](#deployment-modes)
+- [LLM Configuration](#llm-configuration)
+- [Architecture](#architecture)
+- [UI Pages](#ui-pages)
+- [API Reference](#api-reference)
+- [CLI Reference](#cli-reference)
+- [Development](#development)
+- [Project Principles](#project-principles)
+- [Documentation](#documentation)
 
-1. **Safety First**: All automations require human approval (HITL)
-2. **Isolation**: Generated scripts run in gVisor sandboxes
-3. **Observability**: All agent actions traced via MLflow
-4. **State**: LangGraph + PostgreSQL for reliable state management
-5. **Reliability**: Comprehensive testing (80%+ coverage required)
+---
+
+## Features
+
+### Conversational Home Control
+Chat with your smart home in natural language. Ask to turn on lights, check sensor readings, or query entity states. All mutating actions require your explicit approval (Human-in-the-Loop).
+
+### Entity Discovery & Catalog
+The Librarian agent automatically discovers and catalogs all Home Assistant entities, devices, and areas into a searchable database. Query your home with natural language — "which lights are on in the kitchen?" or "show me all temperature sensors."
+
+### Automation Design
+Describe an automation in plain English — "turn off the lights when everyone leaves" — and the Architect agent designs it, generates the YAML, and presents it for your approval before deploying to Home Assistant.
+
+### Energy Analysis
+The Data Scientist agent analyzes your energy consumption patterns using historical data. It generates Python analysis scripts, executes them in a secure gVisor sandbox, and returns insights with projected savings.
+
+### Diagnostics & Troubleshooting
+When something goes wrong — missing sensor data, unavailable devices, integration errors — the Architect pulls HA error logs, validates configuration, checks entity health, and collaborates with the Data Scientist to produce actionable diagnoses.
+
+### Intelligent Optimization
+The Data Scientist detects behavioral patterns from logbook data, identifies manual actions that could be automated, and suggests optimizations. When it finds a high-impact opportunity, it proposes it to the Architect, who can design an automation for you.
+
+### Scheduled & Event-Driven Insights
+Set up cron schedules (e.g., daily energy analysis at 2 AM) or HA webhook triggers (e.g., run diagnostics when a device goes unavailable). Uses APScheduler with PostgreSQL-backed persistence.
+
+### Agent Activity Tracing
+A real-time visualization panel in the chat UI shows which agents are active, how they delegate to each other, and a timeline of trace events — making the "thinking" process visible and debuggable.
+
+### Multi-Provider LLM Support
+Works with OpenAI, OpenRouter (100+ models), Google Gemini, Ollama (local/free), Together AI, and Groq. Per-agent model routing lets you use a premium model for the Architect and a cheaper model for script generation.
+
+### Full Observability
+Every agent operation is traced via MLflow with parent-child span relationships, token usage, and latency metrics. View traces at `http://localhost:5002`.
+
+---
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              User Interfaces                                │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────────┐  │
+│  │   CLI       │    │  REST API   │    │    Chat UI (React)              │  │
+│  │  (aether)   │    │  (FastAPI)  │    │    localhost:3000               │  │
+│  └──────┬──────┘    └──────┬──────┘    └───────────────┬─────────────────┘  │
+│         └──────────────────┼───────────────────────────┘                    │
+│                            ▼                                                │
+│              ┌─────────────────────────────┐                                │
+│              │   /v1/chat/completions      │  (OpenAI-compatible)           │
+│              │   /api/conversations        │  (Native API)                  │
+│              └──────────────┬──────────────┘                                │
+└─────────────────────────────┼───────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────┼───────────────────────────────────────────────┐
+│                       Agent Layer                                           │
+│                             ▼                                               │
+│              ┌─────────────────────────────┐                                │
+│              │      Architect Agent        │  ◄── Unified entry point       │
+│              │   (Routes + Orchestrates)   │      for all user requests     │
+│              └──────────────┬──────────────┘                                │
+│                             │ delegates via tools                           │
+│         ┌───────────────────┼───────────────────┐                           │
+│         ▼                   ▼                   ▼                           │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
+│  │   Data      │    │  Librarian  │    │  Developer  │                     │
+│  │  Scientist  │    │   Agent     │    │   Agent     │                     │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                     │
+│         │                  │                  │                             │
+│         ▼                  ▼                  ▼                             │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
+│  │  Sandbox    │    │    MCP      │    │  Automation  │                    │
+│  │  (gVisor)   │    │   Client    │    │   Deploy     │                    │
+│  └─────────────┘    └─────────────┘    └──────────────┘                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────┼───────────────────────────────────────────────┐
+│                       Data Layer                                            │
+│         ┌───────────────────┼───────────────────┐                           │
+│         ▼                   ▼                   ▼                           │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
+│  │ PostgreSQL  │    │   MLflow    │    │   Redis     │                     │
+│  │  (State)    │    │  (Traces)   │    │  (Cache)    │                     │
+│  └─────────────┘    └─────────────┘    └─────────────┘                     │
+└──────────────────────────────────────────┬──────────────────────────────────┘
+                                           │
+┌──────────────────────────────────────────┼──────────────────────────────────┐
+│                    External Services      │                                  │
+│         ┌────────────────────────────────┴──────────────────┐               │
+│         ▼                                                   ▼               │
+│  ┌─────────────────┐                               ┌─────────────────┐     │
+│  │ Home Assistant  │                               │   LLM Provider  │     │
+│  │   (via MCP)     │                               │ (OpenAI/etc.)   │     │
+│  └─────────────────┘                               └─────────────────┘     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Agents
+
+| Agent | Role | What It Does |
+|-------|------|--------------|
+| **Architect** | Orchestrator & Chat | The unified entry point. Handles conversation, routes to specialists, designs automations, runs diagnostics. |
+| **Data Scientist** | Analysis & Insights | Analyzes energy data, detects behavioral patterns, runs diagnostic investigations. Generates Python scripts executed in a secure sandbox. |
+| **Librarian** | Discovery & Catalog | Discovers all HA entities, devices, and areas. Builds a searchable local catalog. |
+| **Developer** | Deployment | Takes approved automation proposals and deploys them to Home Assistant. |
+
+### Model Context Propagation
+
+When you select a model in the UI (e.g., `claude-sonnet-4`), that choice propagates through all agent delegations. Per-agent overrides in `.env` allow cost optimization:
+
+```
+Resolution order:  UI selection  >  per-agent .env setting  >  global default
+```
+
+---
+
+## User Flows
+
+### 1. Chat & Home Control
+
+```
+You: "Turn on the living room lights"
+         │
+         ▼
+    ┌─────────────┐
+    │  Architect   │  Detects entity control intent
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────────┐
+    │ WAITING APPROVAL │  "I can turn on light.living_room. Reply 'approve' to proceed."
+    └──────┬──────────┘
+           │
+      You: "approve"
+           │
+           ▼
+    ┌─────────────┐
+    │ Execute via │──▶ Home Assistant (MCP)
+    │    MCP      │
+    └─────────────┘
+           │
+           ▼
+    "Done! The living room lights are now on."
+```
+
+### 2. Entity Discovery
+
+```
+You: "Discover my home" (or run `make discover`)
+         │
+         ▼
+    ┌─────────────┐    ┌─────────────┐
+    │  Architect   │──▶│  Librarian   │
+    └─────────────┘    └──────┬──────┘
+                              │
+                    ┌─────────┼─────────┐
+                    ▼         ▼         ▼
+              list_entities  domain   system
+              (all domains)  summary  overview
+                    │         │         │
+                    └─────────┼─────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │  Infer devices  │  (from entity attributes)
+                    │  Extract areas  │  (from entity area_ids)
+                    │  Sync automations│ (from list_automations)
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │ Persist to DB   │  Entities, devices, areas stored
+                    │ (PostgreSQL)    │  in local catalog
+                    └─────────────────┘
+                             │
+                             ▼
+    "Discovered 847 entities across 23 domains, 12 areas, 156 devices."
+```
+
+### 3. Automation Design (HITL)
+
+```
+You: "Create an automation that turns off the hallway lights at midnight"
+         │
+         ▼
+    ┌─────────────┐
+    │  Architect   │  Queries entity catalog for hallway lights
+    └──────┬──────┘  Designs automation trigger + action
+           │
+           ▼
+    ┌───────────────────┐
+    │ Automation        │  Status: PROPOSED
+    │ Proposal          │  Shows YAML + explanation
+    │                   │  "Here's what this will do..."
+    └──────┬────────────┘
+           │
+      You: "approve"
+           │
+           ▼
+    ┌─────────────┐    ┌─────────────┐
+    │  Developer   │──▶│ Deploy to   │  Generates YAML, reloads HA
+    │   Agent      │    │ Home Asst.  │
+    └─────────────┘    └─────────────┘
+           │
+           ▼
+    "Automation deployed! 'Hallway lights midnight off' is now active in HA."
+    
+    (You can later: view, disable, or rollback via /proposals)
+```
+
+### 4. Energy Analysis
+
+```
+You: "Analyze my energy consumption this week"
+         │
+         ▼
+    ┌─────────────┐         ┌──────────────────┐
+    │  Architect   │────────▶│  Data Scientist   │
+    └─────────────┘         └────────┬─────────┘
+                                     │
+                    ┌────────────────┼────────────────┐
+                    ▼                ▼                ▼
+            Discover energy    Fetch 7 days      Generate Python
+            sensors (MCP)      of history (MCP)   analysis script (LLM)
+                    │                │                │
+                    └────────────────┼────────────────┘
+                                     ▼
+                            ┌─────────────────┐
+                            │  gVisor Sandbox  │  Execute script in isolation
+                            │  (pandas/numpy)  │  No network, read-only FS
+                            └────────┬────────┘
+                                     │
+                                     ▼
+                            ┌─────────────────┐
+                            │ Extract Insights │  Parse output, identify patterns
+                            │    (LLM)         │  Calculate projected savings
+                            └────────┬────────┘
+                                     │
+                                     ▼
+    "Your total consumption was 187 kWh this week. Peak usage occurs
+     between 6-8 PM. Suggestion: Shifting your EV charging to off-peak
+     hours (midnight-6 AM) could save ~$12/month."
+     
+    Insight persisted to DB, viewable in /insights
+```
+
+### 5. Diagnostics & Troubleshooting
+
+```
+You: "My car charger energy data disappeared from my dashboards"
+         │
+         ▼
+    ┌─────────────┐
+    │  Architect   │
+    └──────┬──────┘
+           │
+    ┌──────┼───────────────────────────────────────┐
+    │      ▼                                        │
+    │  analyze_error_log()    → Parse HA error log  │
+    │  find_unavailable()     → Scan entity health  │  Evidence
+    │  diagnose_entity(...)   → Deep-dive sensors   │  gathering
+    │  check_integration()    → Integration status  │
+    │  validate_config()      → Config validation   │
+    └──────┬────────────────────────────────────────┘
+           │
+           ▼
+    ┌──────────────────┐
+    │ diagnose_issue() │  Delegate to Data Scientist with collected evidence
+    └──────┬───────────┘
+           │
+           ▼
+    ┌──────────────────┐
+    │  Data Scientist   │  DIAGNOSTIC mode: analyze data gaps,
+    │  (sandbox)        │  sensor connectivity, integration failures
+    └──────┬───────────┘
+           │
+           ▼
+    (Architect may loop: gather more data → re-delegate)
+           │
+           ▼
+    "I found the issue: Your Easee integration lost connection 3 days ago
+     (error: 'authentication token expired'). The charger entity has been
+     'unavailable' since then. To fix: Go to Settings → Integrations → 
+     Easee → Reconfigure and re-authenticate."
+```
+
+### 6. Scheduled Insights
+
+```
+You: "Run energy analysis every day at 2 AM"
+         │
+         ▼
+    ┌─────────────────────────────┐
+    │ POST /insight-schedules     │
+    │ {                           │
+    │   "name": "Daily energy",   │
+    │   "analysis_type": "energy",│
+    │   "trigger_type": "cron",   │
+    │   "cron_expression":        │
+    │     "0 2 * * *"             │
+    │ }                           │
+    └─────────────┬───────────────┘
+                  │
+                  ▼
+    APScheduler (PostgreSQL-backed) fires at 2:00 AM daily
+                  │
+                  ▼
+    Data Scientist runs analysis → Insight persisted → Visible in UI
+```
+
+Webhook triggers work similarly — configure an HA automation to POST to `/api/v1/webhooks/ha` when specific events occur (e.g., device goes unavailable), and Aether runs the analysis automatically.
+
+### 7. Optimization Suggestions (Agent Collaboration)
+
+```
+    Data Scientist discovers a pattern during analysis:
+    "User manually turns off living room lights every night at 11 PM"
+         │
+         ▼
+    ┌──────────────────┐
+    │ AutomationSugg.  │  High-confidence, actionable
+    │ {                 │
+    │  trigger: time    │
+    │  action: light.off│
+    │  confidence: 0.92 │
+    │ }                 │
+    └──────┬───────────┘
+           │ returned to Architect via tool response
+           ▼
+    ┌─────────────┐
+    │  Architect   │  "The Data Scientist noticed you turn off the living room
+    └──────┬──────┘   lights every night at 11 PM. Want me to create an
+           │          automation for that?"
+           ▼
+      You: "Yes please"
+           │
+           ▼
+    (Standard automation design flow with HITL approval)
+```
+
+---
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [Podman](https://podman.io/) or Docker (for PostgreSQL, MLflow, Redis)
+- Node.js 18+ (for the UI)
+- A Home Assistant instance with a [long-lived access token](https://www.home-assistant.io/docs/authentication/)
+- An LLM API key (OpenAI, OpenRouter, or other — see [LLM Configuration](#llm-configuration))
+
+### Setup
+
 ```bash
-# Prerequisites: Python 3.11+, uv, Podman
+# Clone the repository
+git clone https://github.com/your-org/project-aether.git
+cd project-aether
 
-# Install and configure
+# Install Python dependencies
 make install
+
+# Install UI dependencies
+make ui-install
+
+# Configure environment
 cp .env.example .env
-# Edit .env with your HA_TOKEN, HA_URL, and OPENAI_API_KEY
+# Edit .env with your HA_TOKEN, HA_URL, and LLM_API_KEY
+```
 
-# Start development environment (single command!)
-make run
+### Run
 
-# Or with chat UI
+```bash
+# Start everything (infrastructure + API + UI)
 make run-ui
+
+# Open the chat UI
 open http://localhost:3000
 ```
+
+That's it. The UI connects to the API at `localhost:8000`, which talks to your Home Assistant via MCP.
+
+### First Steps
+
+1. **Open the Chat** at `http://localhost:3000` and try: "Discover my home"
+2. **Browse Entities** on the Entities page to see what was found
+3. **Ask a question**: "What lights are currently on?" or "Analyze my energy usage"
+4. **Design an automation**: "Create an automation that turns on the porch light at sunset"
+5. **Check diagnostics**: "Are any of my devices unavailable?"
+
+---
 
 ## Deployment Modes
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| **Development** | `make run` | API on host with hot-reload |
-| **Dev + Chat UI** | `make run-ui` | Above + Open WebUI interface |
-| **Production** | `make run-prod` | Everything containerized |
-| **Stop** | `make down` | Stop all services |
+| **Development** | `make run` | Infrastructure in containers, API on host with hot-reload |
+| **Dev + UI** | `make run-ui` | Above + React UI dev server with HMR |
+| **Production** | `make run-prod` | Everything containerized (Podman Compose) |
+| **Stop** | `make down` | Stop all services and containers |
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Open WebUI (localhost:3000)                            │
-│  Beautiful chat interface with streaming                │
-└─────────────────────┬───────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────┐
-│  Aether API (localhost:8000)                            │
-│  ├─ /v1/chat/completions  (OpenAI-compatible)           │
-│  └─ /api/conversations    (Native API)                  │
-└─────────────────────┬───────────────────────────────────┘
-                      │
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
-   PostgreSQL      MLflow        Redis
-     :5432         :5002         :6379
-```
+### Services & Ports
 
-See [Architecture Documentation](docs/architecture.md) for detailed diagrams.
+| Service | Port | Description |
+|---------|------|-------------|
+| Chat UI | `3000` | React frontend |
+| Aether API | `8000` | FastAPI backend (OpenAI-compatible + native API) |
+| MLflow | `5002` | Trace viewer for agent observability |
+| PostgreSQL | `5432` | State, conversations, entities, insights |
+| Redis | `6379` | Entity cache |
+
+---
 
 ## LLM Configuration
 
 Project Aether supports multiple LLM backends. Configure in your `.env`:
 
-### OpenRouter (Recommended - access to 100+ models)
+### OpenRouter (Recommended — access to 100+ models)
+
 ```bash
 LLM_PROVIDER=openrouter
 LLM_API_KEY=sk-or-v1-your-key
 LLM_MODEL=anthropic/claude-sonnet-4
 ```
 
-### Local Ollama (Free, private)
-```bash
-LLM_PROVIDER=ollama
-LLM_MODEL=mistral:latest
-# No API key needed
-```
-
 ### OpenAI Direct
+
 ```bash
 LLM_PROVIDER=openai
 LLM_API_KEY=sk-your-openai-key
@@ -98,13 +460,23 @@ LLM_MODEL=gpt-4o
 ```
 
 ### Google Gemini
+
 ```bash
 LLM_PROVIDER=google
 GOOGLE_API_KEY=your-google-key
 LLM_MODEL=gemini-2.0-flash
 ```
 
-### Other OpenAI-compatible APIs
+### Local Ollama (Free, private)
+
+```bash
+LLM_PROVIDER=ollama
+LLM_MODEL=mistral:latest
+# No API key needed
+```
+
+### Other OpenAI-Compatible APIs
+
 ```bash
 LLM_PROVIDER=together  # or groq, custom
 LLM_API_KEY=your-key
@@ -112,36 +484,377 @@ LLM_BASE_URL=https://api.together.xyz/v1
 LLM_MODEL=meta-llama/Llama-3-70b-chat-hf
 ```
 
+### Per-Agent Model Overrides
+
+Optimize cost by using cheaper models for specific agents:
+
+```bash
+# Global (used by Architect)
+LLM_MODEL=anthropic/claude-sonnet-4
+
+# Data Scientist uses a cheaper model for script generation
+DATA_SCIENTIST_MODEL=gpt-4o-mini
+DATA_SCIENTIST_TEMPERATURE=0.3
+```
+
+Resolution order: **UI model selection > per-agent `.env` setting > global default**.
+
+---
+
+## Architecture
+
+### Agent System
+
+The Architect is the unified entry point for all user requests. It understands intent and delegates to specialist agents via tool-calling:
+
+| Tool | Delegates To | Purpose |
+|------|-------------|---------|
+| `analyze_energy` | Data Scientist | Energy consumption analysis |
+| `discover_entities` | Librarian | Entity catalog refresh |
+| `diagnose_issue` | Data Scientist (diagnostic mode) | Collaborative troubleshooting |
+| `deploy_automation` | Developer | Automation deployment (HITL) |
+| `get_entity_history` | — (direct MCP) | Historical data retrieval |
+| `analyze_error_log` | — (diagnostics module) | HA error log analysis |
+| `find_unavailable_entities` | — (diagnostics module) | Entity health scan |
+| `check_integration_health` | — (diagnostics module) | Integration status |
+| `validate_config` | — (diagnostics module) | HA config validation |
+
+### Diagnostic Collaboration
+
+The Architect and Data Scientist collaborate on complex issues. The Architect gathers evidence first (logs, entity health, integration status), then delegates to the Data Scientist with specific context and instructions. It can iterate — gathering more data based on findings and re-delegating.
+
+### Sandbox Isolation
+
+All Data Scientist analysis scripts run in a gVisor sandbox via Podman:
+
+- **No network access** (default)
+- **Read-only filesystem** (except `/tmp`)
+- **Memory/CPU limits** enforced
+- **Timeout enforcement** (default 30s)
+- **Pre-installed**: pandas, numpy, matplotlib, scipy, scikit-learn, seaborn
+
+### Scheduled & Event-Driven Insights
+
+Two trigger mechanisms feed into the same analysis pipeline:
+
+```
+  ┌──── Cron (APScheduler) ────►┐
+  │   "0 2 * * *"               │   Existing analysis pipeline
+  │                              │   (DataScientist + sandbox)
+  └──── Webhook (HA event) ────►│   → Insight persisted to DB
+        POST /webhooks/ha        │
+                                 └──────────────────────────────
+```
+
+### Data Layer
+
+| Store | Purpose |
+|-------|---------|
+| **PostgreSQL** | Conversations, messages, entities, devices, areas, automation proposals, insights, insight schedules, discovery sessions, LangGraph checkpoints |
+| **MLflow** | Agent traces with parent-child spans, token usage, latency metrics |
+| **Redis** | Entity query cache |
+
+### Observability
+
+All agent operations are traced via MLflow:
+
+```
+Session: conv-12345
+├── ArchitectAgent.invoke
+│   ├── inputs: {"message": "Analyze energy"}
+│   ├── llm.ainvoke
+│   ├── analyze_energy (tool)
+│   │   └── DataScientistWorkflow.run_analysis
+│   │       ├── collect_energy_data
+│   │       ├── generate_script
+│   │       ├── execute_sandbox
+│   │       └── extract_insights
+│   └── outputs: {"response": "I analyzed...", "insights": [...]}
+```
+
+View traces: `http://localhost:5002`
+
+---
+
+## UI Pages
+
+The React frontend provides a modern interface for interacting with Aether:
+
+| Page | Path | Description |
+|------|------|-------------|
+| **Dashboard** | `/` | System overview — entity counts, pending proposals, recent insights, domain breakdown |
+| **Chat** | `/chat` | Conversational interface with streaming, model selection, thinking disclosure, and agent activity panel |
+| **Proposals** | `/proposals` | View, approve, reject, or rollback automation proposals |
+| **Insights** | `/insights` | Browse analysis results — energy patterns, behavioral insights, diagnostics |
+| **Entities** | `/entities` | Browse and search all discovered HA entities with filtering |
+| **Registry** | `/registry` | Home Assistant registry management — devices, areas, automations |
+| **Diagnostics** | `/diagnostics` | System health, error logs, integration status, entity diagnostics |
+
+### Chat Features
+
+- **Streaming responses** with markdown rendering and syntax highlighting
+- **Model selection** — pick any model from your configured provider
+- **Thinking disclosure** — expandable "thinking" blocks show agent reasoning
+- **Agent activity panel** — real-time visualization of which agents are working, delegation flow, and trace timeline
+- **Conversation history** — persistent sessions with auto-titling
+- **Quick suggestions** — pre-built prompts for common tasks
+- **Feedback** — thumbs up/down on responses
+
+---
+
+## API Reference
+
+### OpenAI-Compatible Endpoints
+
+These endpoints allow any OpenAI-compatible client (including Open WebUI) to work with Aether:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/v1/models` | List available agents as "models" |
+| `POST` | `/v1/chat/completions` | Chat with agents (supports `stream: true`) |
+
+### Native API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **Conversations** | | |
+| `GET` | `/api/conversations` | List conversations |
+| `POST` | `/api/conversations` | Start new conversation |
+| `GET` | `/api/conversations/{id}` | Get conversation with messages |
+| `POST` | `/api/conversations/{id}/messages` | Send a message |
+| **Entities** | | |
+| `GET` | `/api/entities` | List entities (with filtering) |
+| `GET` | `/api/entities/{id}` | Get entity details |
+| `POST` | `/api/entities/query` | Natural language entity query |
+| `POST` | `/api/entities/sync` | Trigger entity sync from HA |
+| **Devices & Areas** | | |
+| `GET` | `/api/devices` | List devices |
+| `GET` | `/api/areas` | List areas |
+| **Insights** | | |
+| `GET` | `/api/insights` | List insights |
+| `GET` | `/api/insights/{id}` | Get insight details |
+| `POST` | `/api/insights/analyze` | Trigger analysis |
+| **Insight Schedules** | | |
+| `GET` | `/api/insight-schedules` | List schedules |
+| `POST` | `/api/insight-schedules` | Create schedule |
+| `PUT` | `/api/insight-schedules/{id}` | Update schedule |
+| `DELETE` | `/api/insight-schedules/{id}` | Delete schedule |
+| `POST` | `/api/insight-schedules/{id}/run` | Manual trigger |
+| **Proposals** | | |
+| `GET` | `/api/proposals` | List automation proposals |
+| `GET` | `/api/proposals/{id}` | Get proposal details |
+| `POST` | `/api/proposals/{id}/approve` | Approve proposal |
+| `POST` | `/api/proposals/{id}/reject` | Reject proposal |
+| `POST` | `/api/proposals/{id}/deploy` | Deploy approved proposal |
+| `POST` | `/api/proposals/{id}/rollback` | Rollback deployed proposal |
+| **HA Registry** | | |
+| `GET` | `/api/automations` | List HA automations |
+| `GET` | `/api/scripts` | List HA scripts |
+| `GET` | `/api/scenes` | List HA scenes |
+| `GET` | `/api/services` | List known services |
+| **Webhooks** | | |
+| `POST` | `/api/v1/webhooks/ha` | Receive HA automation webhook events |
+| **Traces** | | |
+| `GET` | `/v1/traces/{trace_id}/spans` | Get MLflow trace tree for visualization |
+| **System** | | |
+| `GET` | `/api/v1/health` | Health check |
+| `GET` | `/api/v1/status` | System status |
+
+Interactive API docs available at `http://localhost:8000/docs` when running.
+
+---
+
+## CLI Reference
+
+The `aether` CLI provides terminal access to all features:
+
+```bash
+# Start the API server
+aether serve [--reload]
+
+# Entity discovery
+aether discover                    # Run full entity discovery
+aether entities list               # List all entities
+aether entities query "kitchen lights"  # Natural language query
+aether entities show <entity_id>   # Show entity details
+
+# Devices & Areas
+aether devices list                # List discovered devices
+aether areas list                  # List discovered areas
+
+# Chat
+aether chat                        # Interactive chat session
+
+# Automation proposals
+aether proposals list              # List proposals
+aether proposals approve <id>      # Approve a proposal
+aether proposals reject <id>       # Reject a proposal
+
+# Energy analysis
+aether analyze energy --days 7     # Run energy analysis
+
+# Insights
+aether insights list               # List generated insights
+aether insights show <id>          # Show insight details
+
+# HA Registry
+aether automations list            # List HA automations
+aether scripts list                # List HA scripts
+aether scenes list                 # List HA scenes
+aether services list               # List known services
+
+# System
+aether status                      # Show system status
+```
+
+---
+
 ## Development
+
+### Setup
 
 ```bash
 # Install with dev dependencies
 uv sync
 
-# Start PostgreSQL + MLflow containers (MLflow on http://localhost:5001)
-make mlflow-up
+# Install UI dependencies
+cd ui && npm install && cd ..
 
-# Or start local MLflow server (defaults to http://localhost:5002)
-make mlflow
+# Start infrastructure (PostgreSQL, MLflow, Redis)
+make up
 
-# Run tests
-uv run pytest
+# Run migrations
+make migrate
 
-# Lint and format
-uv run ruff check --fix
-uv run ruff format
+# Start API with hot-reload
+make serve
 
-# Type check
-uv run mypy src
+# Start UI dev server (separate terminal)
+make ui-dev
 ```
+
+### Testing
+
+```bash
+make test          # Run all tests
+make test-unit     # Unit tests only
+make test-int      # Integration tests (requires PostgreSQL)
+make test-e2e      # End-to-end tests
+make test-cov      # Tests with coverage report
+
+# TDD helpers
+make test-red FILE=tests/unit/test_foo.py    # Red phase (expect failure)
+make test-green FILE=tests/unit/test_foo.py  # Green phase (expect pass)
+```
+
+### Quality
+
+```bash
+make lint          # Ruff linter
+make format        # Ruff formatter + auto-fix
+make typecheck     # MyPy type checking
+make check         # All quality checks
+```
+
+### Database
+
+```bash
+make migrate                        # Run pending migrations
+make migrate-new NAME=description   # Create new migration
+make migrate-down                   # Rollback last migration
+make psql                           # Connect to PostgreSQL
+```
+
+### Sandbox
+
+```bash
+# Build the Data Scientist sandbox image (pandas, numpy, scipy, etc.)
+make build-sandbox
+```
+
+### Project Structure
+
+```
+src/
+├── agents/              # AI agents (Architect, Data Scientist, Librarian, Developer)
+│   ├── architect.py     # Orchestrator — routes to specialists, designs automations
+│   ├── data_scientist.py# Energy analysis, behavioral patterns, diagnostics
+│   ├── librarian.py     # Entity discovery and cataloging
+│   ├── developer.py     # Automation deployment (HITL)
+│   └── model_context.py # Model routing and per-agent overrides
+├── api/                 # FastAPI application
+│   ├── routes/          # API endpoints (chat, entities, insights, proposals, etc.)
+│   ├── schemas/         # Pydantic request/response models
+│   └── services/        # Business logic services
+├── dal/                 # Data Access Layer (repositories)
+├── diagnostics/         # HA diagnostic modules (log parser, entity health, etc.)
+├── graph/               # LangGraph workflows and state management
+├── mcp/                 # MCP client for Home Assistant communication
+├── sandbox/             # gVisor sandbox runner for script execution
+├── scheduler/           # APScheduler for cron/webhook insight triggers
+├── storage/             # SQLAlchemy models and database setup
+│   └── entities/        # Domain models (entity, device, area, conversation, etc.)
+├── tools/               # Agent tool definitions (HA tools, diagnostic tools)
+├── tracing/             # MLflow tracing integration
+├── cli/                 # Typer CLI application
+├── llm.py               # Multi-provider LLM abstraction
+├── settings.py          # Pydantic settings (environment variables)
+└── logging_config.py    # Structured logging (structlog)
+
+ui/
+├── src/
+│   ├── pages/           # React pages (dashboard, chat, proposals, insights, etc.)
+│   ├── components/      # Reusable UI components
+│   │   ├── chat/        # Chat-specific (markdown renderer, thinking, agent activity)
+│   │   └── ui/          # Base components (button, card, badge, etc.)
+│   ├── api/             # API client and React Query hooks
+│   ├── layouts/         # App layout with sidebar navigation
+│   └── lib/             # Utilities, types, storage helpers
+└── vite.config.ts       # Vite configuration
+
+tests/
+├── unit/                # Unit tests (mocked dependencies)
+├── integration/         # Integration tests (real PostgreSQL via testcontainers)
+└── e2e/                 # End-to-end tests (full pipeline)
+
+infrastructure/
+├── podman/
+│   ├── compose.yaml     # Podman Compose (PostgreSQL, MLflow, Redis, app, UI)
+│   ├── Containerfile    # API container image
+│   ├── Containerfile.ui # UI container image
+│   └── Containerfile.sandbox  # Data science sandbox image
+└── postgres/
+    └── init.sql         # Database initialization
+```
+
+---
+
+## Project Principles
+
+Project Aether follows a constitution with five core principles:
+
+1. **Safety First (HITL)**: All mutating Home Assistant actions require explicit human approval. No automation deploys without your "approve."
+
+2. **Isolation**: Data Scientist analysis scripts run in gVisor sandboxes — no network access, read-only filesystem, enforced resource limits. Generated code never touches your HA instance directly.
+
+3. **Observability**: Every agent action is traced via MLflow with full span trees, token counts, and latency metrics. Nothing happens in the dark.
+
+4. **Reliable State**: LangGraph + PostgreSQL for checkpointed workflow state. Conversations, proposals, and insights persist across restarts.
+
+5. **Quality**: Comprehensive testing (unit, integration, E2E) with TDD workflow support. Ruff linting, MyPy type checking, and pre-commit hooks.
+
+---
 
 ## Documentation
 
-- [Architecture Overview](docs/architecture.md) - System design, deployment modes, data flows
-- [Quickstart Guide](specs/001-project-aether/quickstart.md) - Getting started
-- [Data Model](specs/001-project-aether/data-model.md) - Database schema
-- [Technical Decisions](specs/001-project-aether/research.md) - Research and rationale
-- [API Documentation](http://localhost:8000/docs) (when running)
+- [Architecture Overview](docs/architecture.md) — Detailed system design, deployment modes, data flows
+- [Code Healthcheck](docs/code-healthcheck.md) — Architecture health and technical debt tracking
+- [Data Model](specs/001-project-aether/data-model.md) — Database schema reference
+- [Feature Specs](specs/001-project-aether/features/) — Individual feature specifications
+- [API Documentation](http://localhost:8000/docs) — Interactive Swagger UI (when running)
+- [MLflow Traces](http://localhost:5002) — Agent trace viewer (when running)
+
+---
 
 ## License
 
