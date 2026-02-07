@@ -8,6 +8,7 @@ import {
   BookOpen,
   Activity,
   Zap,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSystemStatus } from "@/api/hooks";
@@ -20,6 +21,7 @@ const navItems = [
   { to: "/insights", icon: Lightbulb, label: "Insights" },
   { to: "/entities", icon: Cpu, label: "Entities" },
   { to: "/registry", icon: BookOpen, label: "Registry" },
+  { to: "/schedules", icon: Clock, label: "Schedules" },
   { to: "/diagnostics", icon: Activity, label: "Diagnostics" },
 ];
 

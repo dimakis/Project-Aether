@@ -9,6 +9,7 @@ import { InsightsPage } from "@/pages/insights";
 import { EntitiesPage } from "@/pages/entities";
 import { RegistryPage } from "@/pages/registry";
 import { DiagnosticsPage } from "@/pages/diagnostics";
+import { SchedulesPage } from "@/pages/schedules";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="insights" element={<InsightsPage />} />
               <Route path="entities" element={<EntitiesPage />} />
               <Route path="registry" element={<RegistryPage />} />
+              <Route path="schedules" element={<SchedulesPage />} />
               <Route path="diagnostics" element={<DiagnosticsPage />} />
             </Route>
           </Routes>
