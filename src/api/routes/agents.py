@@ -359,6 +359,11 @@ async def promote_config_version(
             raise HTTPException(status_code=409, detail=str(e))
 
         await session.commit()
+
+        # Invalidate runtime cache so agents pick up the new config
+        from src.agents.config_cache import invalidate_agent_config
+        invalidate_agent_config(agent_name)
+
         logger.info(
             "Config v%d promoted for agent %s (model=%s)",
             version.version_number,
@@ -505,6 +510,11 @@ async def promote_prompt_version(
             raise HTTPException(status_code=409, detail=str(e))
 
         await session.commit()
+
+        # Invalidate runtime cache so agents pick up the new prompt
+        from src.agents.config_cache import invalidate_agent_config
+        invalidate_agent_config(agent_name)
+
         logger.info(
             "Prompt v%d promoted for agent %s",
             version.version_number,

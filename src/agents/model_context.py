@@ -8,10 +8,11 @@ Also carries tracing metadata (parent_span_id) for inter-agent trace linking.
 
 Pattern follows src/tracing/context.py (session_context with contextvars).
 
-Resolution order for any agent:
+Resolution order for any agent (Feature 23 update):
     1. Explicit model context (user's UI selection, propagated via contextvars)
-    2. Per-agent settings (e.g. DATA_SCIENTIST_MODEL from .env)
-    3. Global default (LLM_MODEL from .env)
+    2. DB-backed active config version (per-agent settings from UI config page)
+    3. Per-agent env var settings (e.g. DATA_SCIENTIST_MODEL from .env)
+    4. Global default (LLM_MODEL from .env)
 """
 
 from __future__ import annotations
@@ -103,17 +104,22 @@ def clear_model_context() -> None:
 def resolve_model(
     agent_model: str | None = None,
     agent_temperature: float | None = None,
+    db_model: str | None = None,
+    db_temperature: float | None = None,
 ) -> tuple[str | None, float | None]:
     """Resolve model name and temperature using the priority chain.
 
-    Resolution order:
+    Resolution order (Feature 23 update):
         1. Active model context (user's UI selection)
-        2. Per-agent settings (passed as arguments)
-        3. Returns (None, None) — caller falls back to global default
+        2. DB-backed agent config (from active config version)
+        3. Per-agent env var settings (passed as arguments)
+        4. Returns (None, None) — caller falls back to global default
 
     Args:
-        agent_model: Per-agent model override from settings
-        agent_temperature: Per-agent temperature override from settings
+        agent_model: Per-agent model override from env var settings
+        agent_temperature: Per-agent temperature override from env var settings
+        db_model: Per-agent model from DB active config version
+        db_temperature: Per-agent temperature from DB active config version
 
     Returns:
         Tuple of (model_name, temperature). Either or both may be None,
@@ -125,11 +131,15 @@ def resolve_model(
     if ctx and ctx.model_name:
         return ctx.model_name, ctx.temperature
 
-    # Priority 2: Per-agent settings
+    # Priority 2: DB-backed active config version (Feature 23)
+    if db_model:
+        return db_model, db_temperature
+
+    # Priority 3: Per-agent env var settings
     if agent_model:
         return agent_model, agent_temperature
 
-    # Priority 3: Caller uses its own default (global settings)
+    # Priority 4: Caller uses its own default (global settings)
     return None, None
 
 
