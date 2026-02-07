@@ -4,6 +4,11 @@ Provides a clean interface for database operations
 with caching, transactions, and query optimization.
 """
 
+from src.dal.agents import (
+    AgentConfigVersionRepository,
+    AgentPromptVersionRepository,
+    AgentRepository,
+)
 from src.dal.areas import AreaRepository
 from src.dal.automations import AutomationRepository, SceneRepository, ScriptRepository
 from src.dal.conversations import (
@@ -20,6 +25,10 @@ from src.dal.services import ServiceRepository, seed_services
 from src.dal.sync import DiscoverySyncService
 
 __all__ = [
+    # Agent configuration (Feature 23)
+    "AgentRepository",
+    "AgentConfigVersionRepository",
+    "AgentPromptVersionRepository",
     # Entity repositories
     "EntityRepository",
     "DeviceRepository",
