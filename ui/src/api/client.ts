@@ -79,7 +79,7 @@ export const conversations = {
 
 // ─── Chat (OpenAI-compatible, streaming) ────────────────────────────────────
 
-/** A chunk from the SSE stream — either a text delta or a metadata event */
+/** A chunk from the SSE stream — text delta, metadata, or real-time trace event */
 export type StreamChunk =
   | string
   | {
@@ -88,6 +88,14 @@ export type StreamChunk =
       conversation_id?: string;
       /** Tool names the Architect invoked during this turn */
       tool_calls?: string[];
+    }
+  | {
+      type: "trace";
+      agent?: string;
+      event: string;
+      tool?: string;
+      ts?: number;
+      agents?: string[];
     };
 
 export async function* streamChat(
@@ -149,6 +157,19 @@ export async function* streamChat(
             trace_id: parsed.trace_id,
             conversation_id: parsed.conversation_id,
             tool_calls: parsed.tool_calls,
+          };
+          continue;
+        }
+
+        // Handle real-time trace events (agent activity)
+        if (parsed.type === "trace") {
+          yield {
+            type: "trace",
+            agent: parsed.agent,
+            event: parsed.event,
+            tool: parsed.tool,
+            ts: parsed.ts,
+            agents: parsed.agents,
           };
           continue;
         }

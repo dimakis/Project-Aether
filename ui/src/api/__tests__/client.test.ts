@@ -268,6 +268,105 @@ describe("streamChat", () => {
     expect(chunks).toEqual(["split"]);
   });
 
+  // --- trace events ---
+
+  it("yields trace events with agent and event info", async () => {
+    const traceStart = sse(
+      JSON.stringify({
+        type: "trace",
+        agent: "architect",
+        event: "start",
+        ts: 1700000000,
+      }),
+    );
+    const traceToolCall = sse(
+      JSON.stringify({
+        type: "trace",
+        agent: "data_scientist",
+        event: "tool_call",
+        tool: "analyze_energy",
+        ts: 1700000001,
+      }),
+    );
+    const traceComplete = sse(
+      JSON.stringify({
+        type: "trace",
+        event: "complete",
+        agents: ["architect", "data_scientist"],
+        ts: 1700000002,
+      }),
+    );
+
+    globalThis.fetch = mockFetchSSE([
+      traceStart,
+      traceToolCall,
+      traceComplete,
+      sseDelta("Results"),
+      sse("[DONE]"),
+    ]);
+
+    const chunks = await collectChunks("test", [
+      { role: "user", content: "Analyze" },
+    ]);
+
+    expect(chunks).toEqual([
+      {
+        type: "trace",
+        agent: "architect",
+        event: "start",
+        tool: undefined,
+        ts: 1700000000,
+        agents: undefined,
+      },
+      {
+        type: "trace",
+        agent: "data_scientist",
+        event: "tool_call",
+        tool: "analyze_energy",
+        ts: 1700000001,
+        agents: undefined,
+      },
+      {
+        type: "trace",
+        event: "complete",
+        agent: undefined,
+        tool: undefined,
+        ts: 1700000002,
+        agents: ["architect", "data_scientist"],
+      },
+      "Results",
+    ]);
+  });
+
+  it("handles interleaved trace and metadata events", async () => {
+    const trace = sse(
+      JSON.stringify({
+        type: "trace",
+        agent: "architect",
+        event: "start",
+        ts: 1700000000,
+      }),
+    );
+
+    globalThis.fetch = mockFetchSSE([
+      trace,
+      sseDelta("Hi"),
+      sseMetadata("trace-id", "conv-id"),
+      sse("[DONE]"),
+    ]);
+
+    const chunks = await collectChunks("test", [
+      { role: "user", content: "Hi" },
+    ]);
+
+    // Trace event, then text, then metadata
+    expect(chunks).toHaveLength(3);
+    expect(typeof chunks[0]).toBe("object");
+    expect((chunks[0] as any).type).toBe("trace");
+    expect(typeof chunks[1]).toBe("string");
+    expect((chunks[2] as any).type).toBe("metadata");
+  });
+
   // --- request format ---
 
   it("sends correct request body", async () => {
