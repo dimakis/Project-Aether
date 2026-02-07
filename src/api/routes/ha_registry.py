@@ -113,6 +113,59 @@ async def get_automation(
     return AutomationResponse.model_validate(automation)
 
 
+@router.get("/automations/{automation_id}/config")
+async def get_automation_config(
+    automation_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get an automation's raw YAML configuration from Home Assistant.
+
+    Args:
+        automation_id: Internal UUID, HA automation ID, or entity ID slug
+        session: Database session
+
+    Returns:
+        Automation config dict from HA
+    """
+    from src.mcp import get_mcp_client
+    import yaml as pyyaml
+
+    # Resolve to HA automation ID
+    repo = AutomationRepository(session)
+    automation = await repo.get_by_id(automation_id)
+    if not automation:
+        automation = await repo.get_by_ha_automation_id(automation_id)
+    if not automation:
+        automation = await repo.get_by_entity_id(f"automation.{automation_id}")
+
+    if not automation:
+        raise HTTPException(status_code=404, detail="Automation not found")
+
+    ha_id = automation.ha_automation_id or automation_id
+
+    try:
+        mcp = get_mcp_client()
+        config = await mcp.get_automation_config(ha_id)
+        if not config:
+            raise HTTPException(
+                status_code=404,
+                detail="Automation config not available from Home Assistant",
+            )
+        return {
+            "automation_id": str(automation.id),
+            "ha_automation_id": ha_id,
+            "config": config,
+            "yaml": pyyaml.dump(config, default_flow_style=False, sort_keys=False),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch config from Home Assistant: {e}",
+        )
+
+
 # =============================================================================
 # SCRIPTS
 # =============================================================================

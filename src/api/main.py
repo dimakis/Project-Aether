@@ -4,20 +4,27 @@ Main entry point for the HTTP API with CORS, middleware,
 rate limiting, and lifecycle management.
 """
 
+import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from src.api.auth import RequireAPIKey
 from src.api.rate_limit import limiter
 from src.api.routes import api_router
+from src.exceptions import AetherError, ConfigurationError, MCPError, ValidationError
 from src.settings import Settings, get_settings
 from src.storage import close_db, init_db
 from src.tracing import init_mlflow
+
+# Context variable for correlation ID (thread-safe, async-safe)
+_correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
 # Singleton app instance
 _app: FastAPI | None = None
@@ -40,11 +47,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     settings = get_settings()
 
-    # Initialize MLflow (Constitution: Observability)
-    init_mlflow()
-
-    # Initialize database (Constitution: State)
     if settings.environment != "testing":
+        # Initialize MLflow (Constitution: Observability)
+        init_mlflow()
+
+        # Initialize database (Constitution: State)
         await init_db()
 
     # Start scheduler (Feature 10: Scheduled & Event-Driven Insights)
@@ -98,8 +105,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Register routes
-    app.include_router(api_router, prefix="/api/v1")
+    # Add correlation ID middleware (must be before routes)
+    app.middleware("http")(_correlation_middleware)
+
+    # Add request tracing middleware (lazy import to avoid circular dependency)
+    from src.api.middleware import RequestTracingMiddleware
+
+    app.add_middleware(RequestTracingMiddleware)
+
+    # Register routes with API key authentication
+    # Auth is applied globally but exempts health endpoints (handled in auth.py)
+    app.include_router(api_router, prefix="/api/v1", dependencies=[Depends(RequireAPIKey)])
 
     # Add exception handlers
     _register_exception_handlers(app)
@@ -129,14 +145,101 @@ def _get_allowed_origins(settings: Settings) -> list[str]:
         return [settings.ha_url]
 
 
+async def _correlation_middleware(request: Request, call_next):
+    """Middleware to generate and propagate correlation IDs.
+
+    Generates a correlation ID at the start of each request and stores it
+    in a context variable. Also includes it in response headers.
+
+    Args:
+        request: FastAPI request object
+        call_next: Next middleware/handler in the chain
+
+    Returns:
+        Response with X-Correlation-ID header
+    """
+    # Check if correlation ID is provided in request header
+    correlation_id = request.headers.get("X-Correlation-ID")
+    if not correlation_id:
+        correlation_id = str(uuid.uuid4())
+
+    # Store in context variable for use by exceptions
+    _correlation_id.set(correlation_id)
+
+    # Process request
+    response = await call_next(request)
+
+    # Add correlation ID to response headers
+    response.headers["X-Correlation-ID"] = correlation_id
+
+    return response
+
+
+def get_correlation_id() -> str | None:
+    """Get the current request's correlation ID from context.
+
+    Returns:
+        Correlation ID string or None if not in request context
+    """
+    return _correlation_id.get()
+
+
 def _register_exception_handlers(app: FastAPI) -> None:
     """Register custom exception handlers.
 
     Args:
         app: FastAPI application
     """
-    from fastapi import HTTPException, Request
+    from fastapi import HTTPException
     from fastapi.responses import JSONResponse
+
+    @app.exception_handler(AetherError)
+    async def aether_error_handler(
+        request: Request,
+        exc: AetherError,
+    ) -> JSONResponse:
+        """Handle Aether application errors with correlation ID."""
+        # Use correlation ID from exception or context
+        correlation_id = exc.correlation_id or get_correlation_id() or str(uuid.uuid4())
+
+        # Determine error type and status code
+        error_type = exc.__class__.__name__.replace("Error", "_error").lower()
+        status_code = 500
+
+        if isinstance(exc, AetherError):
+            # Map specific error types to status codes
+            if isinstance(exc, ValidationError):
+                status_code = 400
+            elif isinstance(exc, ConfigurationError):
+                status_code = 500
+            elif isinstance(exc, MCPError) and exc.status_code:
+                status_code = exc.status_code
+            elif isinstance(exc, MCPError):
+                status_code = 502  # Bad Gateway for MCP errors
+
+        # Log the error
+        import structlog
+
+        logger = structlog.get_logger()
+        logger.error(
+            "Aether error",
+            error_type=error_type,
+            correlation_id=correlation_id,
+            exc_info=exc,
+        )
+
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "error": {
+                    "code": status_code,
+                    "message": str(exc),
+                    "type": error_type,
+                    "correlation_id": correlation_id,
+                }
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(
@@ -144,6 +247,7 @@ def _register_exception_handlers(app: FastAPI) -> None:
         exc: HTTPException,
     ) -> JSONResponse:
         """Handle HTTP exceptions with consistent format."""
+        correlation_id = get_correlation_id() or str(uuid.uuid4())
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -151,8 +255,10 @@ def _register_exception_handlers(app: FastAPI) -> None:
                     "code": exc.status_code,
                     "message": exc.detail,
                     "type": "http_error",
+                    "correlation_id": correlation_id,
                 }
             },
+            headers={"X-Correlation-ID": correlation_id},
         )
 
     @app.exception_handler(Exception)
@@ -162,12 +268,17 @@ def _register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         """Handle unexpected exceptions."""
         settings = get_settings()
+        correlation_id = get_correlation_id() or str(uuid.uuid4())
 
         # Log the error
         import structlog
 
         logger = structlog.get_logger()
-        logger.exception("Unhandled exception", exc_info=exc)
+        logger.exception(
+            "Unhandled exception",
+            correlation_id=correlation_id,
+            exc_info=exc,
+        )
 
         # Return sanitized response
         detail = str(exc) if settings.debug else "Internal server error"
@@ -178,8 +289,10 @@ def _register_exception_handlers(app: FastAPI) -> None:
                     "code": 500,
                     "message": detail,
                     "type": "internal_error",
+                    "correlation_id": correlation_id,
                 }
             },
+            headers={"X-Correlation-ID": correlation_id},
         )
 
 
@@ -195,5 +308,15 @@ def get_app() -> FastAPI:
     return _app
 
 
-# For uvicorn: uvicorn src.api.main:app
-app = get_app()
+# For uvicorn: use "src.api.main:get_app" with --factory flag,
+# or "src.api.main:app" which lazily initializes on first access.
+def __getattr__(name: str) -> Any:
+    """Module-level __getattr__ for lazy app initialization.
+
+    Only creates the app when 'app' is accessed, not at import time.
+    This prevents DB/MLflow connections from being triggered during imports,
+    which would break test environments.
+    """
+    if name == "app":
+        return get_app()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
+from src.api.metrics import get_metrics_collector
+from src.api.rate_limit import limiter
 from src.api.schemas import (
     ComponentHealth,
     HealthResponse,
@@ -43,6 +45,30 @@ async def health_check() -> HealthResponse:
         timestamp=datetime.now(timezone.utc),
         version="0.1.0",
     )
+
+
+@router.get(
+    "/metrics",
+    summary="Operational Metrics",
+    description="Returns current operational metrics including request rates, latency percentiles, error counts, and agent invocations.",
+)
+@limiter.exempt
+async def get_metrics() -> dict:
+    """Get current operational metrics.
+
+    Returns metrics including:
+    - Request counts (by method, path, status)
+    - Latency percentiles (p50, p95, p99)
+    - Error counts (by error type)
+    - Active requests
+    - Agent invocations (by role)
+    - Uptime
+
+    Returns:
+        Dictionary with all current metrics
+    """
+    metrics = get_metrics_collector()
+    return metrics.get_metrics()
 
 
 @router.get(
