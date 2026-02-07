@@ -5,6 +5,8 @@ All SQLAlchemy ORM models for Project Aether.
 
 # Core models
 from src.storage.entities.agent import Agent
+from src.storage.entities.agent_config_version import AgentConfigVersion, VersionStatus
+from src.storage.entities.agent_prompt_version import AgentPromptVersion
 from src.storage.entities.conversation import Conversation, ConversationStatus
 from src.storage.entities.message import Message
 
@@ -32,12 +34,18 @@ from src.storage.entities.insight_schedule import InsightSchedule, TriggerType
 # Authentication
 from src.storage.entities.passkey_credential import PasskeyCredential
 
+# System Configuration
+from src.storage.entities.system_config import SystemConfig
+
 # LLM Usage Tracking
 from src.storage.entities.llm_usage import LLMUsage
 
 __all__ = [
     # Core
     "Agent",
+    "AgentConfigVersion",
+    "AgentPromptVersion",
+    "VersionStatus",
     "Conversation",
     "ConversationStatus",
     "Message",
@@ -65,6 +73,8 @@ __all__ = [
     "TriggerType",
     # Authentication
     "PasskeyCredential",
+    # System Configuration
+    "SystemConfig",
     # LLM Usage
     "LLMUsage",
 ]

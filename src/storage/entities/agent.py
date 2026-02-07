@@ -1,17 +1,22 @@
 """Agent entity model.
 
 Represents an agent in the system for tracing and orchestration purposes.
+Extended in Feature 23 with status lifecycle and versioned configuration.
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
-from sqlalchemy import String, Text
+from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.storage.models import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
+    from src.storage.entities.agent_config_version import AgentConfigVersion
+    from src.storage.entities.agent_prompt_version import AgentPromptVersion
     from src.storage.entities.conversation import Conversation
 
 # Valid agent names in the system
@@ -23,6 +28,22 @@ AgentName = Literal[
     "data_scientist",
     "orchestrator",
 ]
+
+
+class AgentStatus(str, Enum):
+    """Agent lifecycle status."""
+
+    DISABLED = "disabled"
+    ENABLED = "enabled"
+    PRIMARY = "primary"
+
+
+# Valid status transitions
+VALID_AGENT_STATUS_TRANSITIONS: dict[AgentStatus, set[AgentStatus]] = {
+    AgentStatus.DISABLED: {AgentStatus.ENABLED},
+    AgentStatus.ENABLED: {AgentStatus.DISABLED, AgentStatus.PRIMARY},
+    AgentStatus.PRIMARY: {AgentStatus.DISABLED, AgentStatus.ENABLED},
+}
 
 
 class Agent(Base, UUIDMixin, TimestampMixin):
@@ -41,7 +62,10 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         name: Agent identifier (e.g., 'librarian', 'architect')
         description: Human-readable description of agent's purpose
         version: Semantic version of the agent implementation
-        prompt_template: System prompt template (versioned in MLflow)
+        status: Lifecycle status (disabled, enabled, primary)
+        prompt_template: Legacy system prompt template (superseded by AgentPromptVersion)
+        active_config_version_id: FK to currently active config version
+        active_prompt_version_id: FK to currently active prompt version
         created_at: When the agent record was created
         updated_at: Last update timestamp
     """
@@ -67,10 +91,29 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         default="0.1.0",
         doc="Semantic version of the agent implementation",
     )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=AgentStatus.ENABLED.value,
+        index=True,
+        doc="Lifecycle status: disabled, enabled, or primary",
+    )
     prompt_template: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
-        doc="System prompt template (versioned in MLflow for observability)",
+        doc="Legacy system prompt template (superseded by AgentPromptVersion)",
+    )
+    active_config_version_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("agent_config_version.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+        doc="FK to currently active config version",
+    )
+    active_prompt_version_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("agent_prompt_version.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+        doc="FK to currently active prompt version",
     )
 
     # Relationships
@@ -79,10 +122,41 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         back_populates="agent",
         lazy="selectin",
     )
+    config_versions: Mapped[list["AgentConfigVersion"]] = relationship(
+        "AgentConfigVersion",
+        back_populates="agent",
+        foreign_keys="[AgentConfigVersion.agent_id]",
+        lazy="selectin",
+        order_by="AgentConfigVersion.version_number.desc()",
+    )
+    prompt_versions: Mapped[list["AgentPromptVersion"]] = relationship(
+        "AgentPromptVersion",
+        back_populates="agent",
+        foreign_keys="[AgentPromptVersion.agent_id]",
+        lazy="selectin",
+        order_by="AgentPromptVersion.version_number.desc()",
+    )
+
+    @property
+    def is_active(self) -> bool:
+        """Check if agent is available for delegation."""
+        return self.status in (AgentStatus.ENABLED.value, AgentStatus.PRIMARY.value)
+
+    def can_transition_to(self, new_status: AgentStatus) -> bool:
+        """Check if a status transition is valid.
+
+        Args:
+            new_status: Target status
+
+        Returns:
+            True if the transition is allowed
+        """
+        current = AgentStatus(self.status)
+        return new_status in VALID_AGENT_STATUS_TRANSITIONS.get(current, set())
 
     def __repr__(self) -> str:
         """Return string representation."""
-        return f"<Agent(name={self.name!r}, version={self.version!r})>"
+        return f"<Agent(name={self.name!r}, version={self.version!r}, status={self.status!r})>"
 
     @classmethod
     def create(
@@ -91,6 +165,7 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         description: str,
         version: str = "0.1.0",
         prompt_template: str | None = None,
+        status: str = AgentStatus.ENABLED.value,
     ) -> "Agent":
         """Factory method to create a new Agent.
 
@@ -99,6 +174,7 @@ class Agent(Base, UUIDMixin, TimestampMixin):
             description: Human-readable description
             version: Semantic version (default: 0.1.0)
             prompt_template: Optional system prompt template
+            status: Initial status (default: enabled)
 
         Returns:
             New Agent instance (not yet persisted)
@@ -108,4 +184,5 @@ class Agent(Base, UUIDMixin, TimestampMixin):
             description=description,
             version=version,
             prompt_template=prompt_template,
+            status=status,
         )
