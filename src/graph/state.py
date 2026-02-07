@@ -255,6 +255,9 @@ class ConversationState(MessageState):
     approved_items: list[str] = Field(default_factory=list)
     rejected_items: list[str] = Field(default_factory=list)
 
+    # Trace context — populated by @mlflow.trace() wrapper for frontend activity panel
+    last_trace_id: str | None = None
+
 
 # =============================================================================
 # ANALYSIS STATE (User Story 3 & 4: Data Scientist)

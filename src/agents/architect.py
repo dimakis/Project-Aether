@@ -825,7 +825,9 @@ class ArchitectWorkflow:
         state.messages.append(HumanMessage(content=user_message))
         turn_number = (len(state.messages) + 1) // 2  # Count conversation turns
 
-        # Create MLflow trace with proper span hierarchy
+        # Create MLflow trace with proper span hierarchy.
+        # _traced_invoke accepts key context as parameters so MLflow
+        # auto-captures them as trace inputs (visible in the UI).
         @mlflow.trace(
             name="conversation_turn",
             span_type="CHAIN",
@@ -836,14 +838,34 @@ class ArchitectWorkflow:
                 "type": "continue_conversation",
             },
         )
-        async def _traced_invoke():
+        async def _traced_invoke(
+            user_message: str,
+            conversation_id: str,
+            turn: int,
+        ):
             # Set session for grouping multiple turns
             mlflow.update_current_trace(
-                metadata={"mlflow.trace.session": state.conversation_id}
+                metadata={"mlflow.trace.session": conversation_id}
             )
+
+            # Capture the trace request_id so the SSE stream can include it
+            # for the frontend Agent Activity panel.
+            try:
+                span = mlflow.get_current_active_span()
+                if span:
+                    request_id = getattr(span, "request_id", None)
+                    if request_id:
+                        state.last_trace_id = str(request_id)
+            except Exception:
+                pass  # trace capture is best-effort
+
             return await self.agent.invoke(state, session=session)
 
-        updates = await _traced_invoke()
+        updates = await _traced_invoke(
+            user_message=user_message,
+            conversation_id=state.conversation_id,
+            turn=turn_number,
+        )
         state = state.model_copy(update=updates)
 
         return state

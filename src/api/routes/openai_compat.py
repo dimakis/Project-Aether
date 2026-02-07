@@ -277,14 +277,8 @@ async def _create_chat_completion(
                 # Strip thinking/reasoning tags from output
                 assistant_content = _strip_thinking_tags(assistant_content)
 
-                # Capture trace ID for feedback
-                trace_id = None
-                try:
-                    last_trace = mlflow.get_last_active_trace()
-                    if last_trace:
-                        trace_id = last_trace.info.trace_id
-                except Exception:
-                    pass
+                # Capture trace ID from the state (set by _traced_invoke)
+                trace_id = state.last_trace_id
 
                 await session.commit()
 
@@ -385,14 +379,8 @@ async def _stream_chat_completion(
                     # Strip thinking/reasoning tags from output
                     assistant_content = _strip_thinking_tags(assistant_content)
 
-                    # Capture trace ID for frontend feedback
-                    trace_id = None
-                    try:
-                        last_trace = mlflow.get_last_active_trace()
-                        if last_trace:
-                            trace_id = last_trace.info.trace_id
-                    except Exception:
-                        pass  # trace capture is best-effort
+                    # Capture trace ID from the state (set by _traced_invoke)
+                    trace_id = state.last_trace_id
 
                     # Stream the response in chunks
                     # In a real implementation, we'd use the LLM's streaming capability
