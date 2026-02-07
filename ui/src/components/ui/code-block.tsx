@@ -1,5 +1,5 @@
 import { useState, useCallback, type ReactNode } from "react";
-import { ShikiHighlighter, useShikiHighlighter } from "react-shiki";
+import ShikiHighlighter from "react-shiki";
 import { Check, Copy, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,11 +43,6 @@ export function CodeBlock({
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState(collapsible && code.split("\n").length > 25);
-
-  const highlighter = useShikiHighlighter({
-    themes: ["github-dark-default"],
-    langs: [language],
-  });
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(code);
@@ -101,17 +96,19 @@ export function CodeBlock({
         </div>
       </div>
 
-      {/* Code content */}
+      {/* Code content - using ShikiHighlighter component API */}
       <div
         className={cn("overflow-auto", showLineNumbers && "code-with-lines")}
         style={maxHeight ? { maxHeight } : undefined}
       >
         <ShikiHighlighter
-          highlighter={highlighter}
-          code={displayCode}
           language={language}
-          theme="github-dark-default"
-        />
+          theme="github-dark"
+          showLanguage={false}
+          addDefaultStyles={false}
+        >
+          {displayCode}
+        </ShikiHighlighter>
       </div>
     </div>
   );

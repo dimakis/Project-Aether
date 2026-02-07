@@ -1,6 +1,7 @@
 import { useMemo, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { isInlineCode } from "react-shiki";
 import { CodeBlock, InlineCode } from "@/components/ui/code-block";
 import { cn } from "@/lib/utils";
 
@@ -13,13 +14,14 @@ interface MarkdownRendererProps {
 export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
   const components = useMemo(() => ({
     // Route fenced code blocks through our shiki CodeBlock
-    code(props: ComponentPropsWithoutRef<"code">) {
-      const { children, className: codeClassName, ...rest } = props;
+    // Uses react-shiki's isInlineCode helper to distinguish inline vs fenced
+    code(props: ComponentPropsWithoutRef<"code"> & { node?: unknown }) {
+      const { children, className: codeClassName, node, ...rest } = props;
       const match = /language-(\w+)/.exec(codeClassName || "");
+      const isInline = node ? isInlineCode(node as Parameters<typeof isInlineCode>[0]) : !match;
 
-      // If it has a language class, it's a fenced code block (inside <pre>)
-      if (match) {
-        const lang = match[1];
+      if (!isInline) {
+        const lang = match ? match[1] : "text";
         const codeStr = String(children).replace(/\n$/, "");
         return (
           <CodeBlock
