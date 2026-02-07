@@ -41,6 +41,9 @@ EXEMPT_ROUTES = {
     "/api/v1/status",
     "/api/v1/metrics",
     "/api/v1/auth/login",
+    "/api/v1/auth/login/ha-token",
+    "/api/v1/auth/setup",
+    "/api/v1/auth/setup-status",
     "/api/v1/auth/passkey/authenticate/options",
     "/api/v1/auth/passkey/authenticate/verify",
 }

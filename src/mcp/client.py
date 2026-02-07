@@ -24,7 +24,7 @@ from src.mcp.diagnostics import DiagnosticMixin
 from src.mcp.entities import EntityMixin
 
 # Re-export for backward compatibility
-__all__ = ["MCPClient", "MCPClientConfig", "MCPError", "get_mcp_client"]
+__all__ = ["MCPClient", "MCPClientConfig", "MCPError", "get_mcp_client", "reset_mcp_client"]
 
 
 class MCPClient(BaseMCPClient, EntityMixin, AutomationMixin, DiagnosticMixin):
@@ -65,3 +65,17 @@ def get_mcp_client() -> MCPClient:
             if _client is None:
                 _client = MCPClient()
     return _client
+
+
+def reset_mcp_client() -> None:
+    """Reset the MCP client singleton.
+
+    Called after first-time setup stores HA config in DB, so the
+    MCP client re-initializes with the new connection details on
+    next access.
+
+    Thread-safe: Acquires lock before modifying singleton.
+    """
+    global _client  # noqa: PLW0603
+    with _client_lock:
+        _client = None

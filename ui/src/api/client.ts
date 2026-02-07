@@ -470,6 +470,28 @@ export const system = {
     request<import("@/lib/types").SystemStatus>("/status"),
 };
 
+// ─── Auth / Setup ────────────────────────────────────────────────────────────
+
+export const auth = {
+  setupStatus: () =>
+    request<{ setup_complete: boolean }>(`/auth/setup-status`),
+
+  setup: (data: { ha_url: string; ha_token: string; password?: string | null }) =>
+    request<{ token: string; message: string }>(`/auth/setup`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  loginWithHAToken: (ha_token: string) =>
+    request<{ token: string; username: string; message: string }>(
+      `/auth/login/ha-token`,
+      {
+        method: "POST",
+        body: JSON.stringify({ ha_token }),
+      },
+    ),
+};
+
 // ─── Usage ──────────────────────────────────────────────────────────────────
 
 export const usage = {

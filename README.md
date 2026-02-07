@@ -60,7 +60,7 @@ Set up cron schedules (e.g., daily energy analysis at 2 AM) or HA webhook trigge
 A real-time visualization panel in the chat UI shows which agents are active, how they delegate to each other, and a timeline of trace events — making the "thinking" process visible and debuggable.
 
 ### Authentication & Passkeys
-Single-user authentication with multiple methods: JWT session tokens (password login), WebAuthn passkeys (Face ID / Touch ID), and API keys (for programmatic access). All methods coexist — use a passkey from your phone and an API key for scripts.
+HA-verified first-time setup: on first launch, a setup wizard prompts for your Home Assistant URL and long-lived access token. After validation, you set an optional fallback password and register a passkey. Subsequent logins support **passkeys** (primary, Face ID / Touch ID), **HA token** (alternative), and **password** (fallback). All methods coexist — use a passkey from your phone and an API key for scripts.
 
 ### LLM Usage Tracking
 Every LLM API call is tracked with token counts, estimated costs, and response latency. The Usage dashboard shows daily trends, per-model breakdowns, and cost estimates. Pricing data covers OpenAI, Anthropic, Google, Meta, DeepSeek, and Mistral models.
@@ -435,17 +435,52 @@ That's it. The UI connects to the API at `localhost:8000`, which talks to your H
 
 ## Authentication
 
-Aether supports three authentication methods, all of which can coexist:
+Aether uses HA-verified first-time setup and supports four authentication methods:
 
-### 1. Password Login (JWT)
+### First-Time Setup
 
-Set a username and password in your `.env`:
+On first launch, the UI shows a setup wizard:
+
+1. **Enter HA URL + token** — Aether validates the connection by calling the HA API
+2. **Set fallback password** (optional) — stored as a bcrypt hash in the database
+3. **Register a passkey** — Face ID / Touch ID for quick biometric login
+
+The HA URL and token are stored in the database (encrypted with Fernet, key derived from `JWT_SECRET`). Setup can only be run once; to re-run, delete the `system_config` DB row.
+
+### 1. Passkey / Biometric Login (WebAuthn) — Primary
+
+The recommended login method. After registering a passkey during setup, use Face ID, Touch ID, or Windows Hello to sign in instantly.
+
+Configure for your domain:
 
 ```bash
-AUTH_USERNAME=admin          # default: admin
-AUTH_PASSWORD=your-secret    # required for password auth
+WEBAUTHN_RP_ID=home.example.com     # your domain (must match URL)
+WEBAUTHN_RP_NAME=Aether             # display name
+WEBAUTHN_ORIGIN=https://home.example.com  # full origin URL
+```
+
+> **Note**: WebAuthn requires HTTPS in production. Use Cloudflare Tunnel or Tailscale for secure remote access.
+
+### 2. HA Token Login — Alternative
+
+Log in using any valid Home Assistant long-lived access token. Aether validates the token against the stored HA URL (from setup) or env var fallback.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login/ha-token \
+  -H "Content-Type: application/json" \
+  -d '{"ha_token": "your-long-lived-access-token"}'
+```
+
+### 3. Password Login (JWT) — Fallback
+
+If you set a password during setup, use it to log in. Aether checks the DB hash first, then falls back to the `AUTH_PASSWORD` env var.
+
+```bash
+# Optional env var fallback (DB password from setup takes priority)
+AUTH_USERNAME=admin
+AUTH_PASSWORD=your-secret
 JWT_SECRET=a-long-random-string  # optional, auto-derived if empty
-JWT_EXPIRY_HOURS=72          # default: 72 hours
+JWT_EXPIRY_HOURS=72
 ```
 
 Login via the UI or API:
@@ -458,21 +493,7 @@ curl -X POST http://localhost:8000/api/v1/auth/login \
 
 The JWT is returned in the response body **and** as an httpOnly cookie (`aether_session`).
 
-### 2. Passkey / Biometric Login (WebAuthn)
-
-Register a passkey from the UI settings after logging in with a password. Once registered, use Face ID, Touch ID, or Windows Hello to sign in — no password needed.
-
-Configure for your domain:
-
-```bash
-WEBAUTHN_RP_ID=home.example.com     # your domain (must match URL)
-WEBAUTHN_RP_NAME=Aether             # display name
-WEBAUTHN_ORIGIN=https://home.example.com  # full origin URL
-```
-
-> **Note**: WebAuthn requires HTTPS in production. Use Cloudflare Tunnel or Tailscale for secure remote access.
-
-### 3. API Key (Programmatic Access)
+### 4. API Key (Programmatic Access)
 
 For scripts, CLI tools, or external integrations:
 
@@ -488,7 +509,7 @@ curl -H "X-API-Key: your-api-key" http://localhost:8000/api/v1/entities
 
 ### Auth Disabled (Development)
 
-When neither `AUTH_PASSWORD` nor `API_KEY` is set, authentication is completely disabled for development convenience.
+When no setup has been completed and neither `AUTH_PASSWORD` nor `API_KEY` is set, authentication is completely disabled for development convenience.
 
 ---
 
@@ -852,7 +873,10 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | **Traces** | | |
 | `GET` | `/api/v1/traces/{trace_id}/spans` | Get trace span tree for visualization |
 | **Authentication** | | |
-| `POST` | `/api/v1/auth/login` | Password login (returns JWT) |
+| `GET` | `/api/v1/auth/setup-status` | Check if first-time setup is complete (public) |
+| `POST` | `/api/v1/auth/setup` | First-time setup: validate HA, store config, return JWT (public, one-shot) |
+| `POST` | `/api/v1/auth/login` | Password login (checks DB hash, then env var fallback) |
+| `POST` | `/api/v1/auth/login/ha-token` | HA token login (validates against stored HA URL) |
 | `POST` | `/api/v1/auth/logout` | Clear session cookie |
 | `GET` | `/api/v1/auth/me` | Check session status |
 | `POST` | `/api/v1/auth/passkey/register/options` | Start passkey registration (auth required) |

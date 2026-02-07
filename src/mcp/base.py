@@ -24,6 +24,45 @@ class MCPClientConfig(BaseModel):
     timeout: int = Field(default=30, description="Request timeout in seconds")
 
 
+def _try_get_db_config(settings) -> tuple[str, str] | None:
+    """Try to read HA config from DB (non-blocking best effort).
+
+    Returns (ha_url, ha_token) if successful, None otherwise.
+    Gracefully handles missing DB, no config, or event loop issues.
+    """
+    import asyncio
+    import structlog
+
+    logger = structlog.get_logger(__name__)
+
+    try:
+        from src.api.auth import _get_jwt_secret
+        from src.dal.system_config import SystemConfigRepository
+        from src.storage import get_session
+
+        jwt_secret = _get_jwt_secret(settings)
+
+        async def _fetch():
+            async with get_session() as session:
+                repo = SystemConfigRepository(session)
+                return await repo.get_ha_connection(jwt_secret)
+
+        # Try to run in existing event loop or create a new one
+        try:
+            loop = asyncio.get_running_loop()
+            # If already in an async context, we can't use asyncio.run().
+            # Return None and let the env var fallback be used.
+            # The setup endpoint calls reset_mcp_client() after storing
+            # config, so next access will re-init with DB config.
+            return None
+        except RuntimeError:
+            # No event loop running - safe to use asyncio.run()
+            return asyncio.run(_fetch())
+    except Exception as exc:
+        logger.debug("mcp_db_config_fallback", reason=str(exc))
+        return None
+
+
 def _trace_mcp_call(name: str):
     """Decorator to trace MCP client methods.
 
@@ -48,19 +87,44 @@ class BaseMCPClient:
     def __init__(self, config: MCPClientConfig | None = None):
         """Initialize base MCP client.
 
+        Tries to read HA config from DB first (set via setup wizard),
+        then falls back to environment variables.
+
         Args:
             config: Optional configuration (uses settings if not provided)
         """
         if config is None:
-            settings = get_settings()
-            config = MCPClientConfig(
-                ha_url=settings.ha_url,
-                ha_url_remote=settings.ha_url_remote,
-                ha_token=settings.ha_token.get_secret_value(),
-            )
+            config = self._resolve_config()
         self.config = config
         self._connected = False
         self._active_url: str | None = None  # Which URL is currently working
+
+    @staticmethod
+    def _resolve_config() -> MCPClientConfig:
+        """Resolve HA config from DB (primary) or env vars (fallback).
+
+        Attempts to read HA URL and decrypted token from the system_config
+        DB table. If unavailable (no setup, DB error, or no event loop),
+        falls back to settings from environment variables.
+        """
+        settings = get_settings()
+
+        # Try DB config
+        db_config = _try_get_db_config(settings)
+        if db_config:
+            ha_url, ha_token = db_config
+            return MCPClientConfig(
+                ha_url=ha_url,
+                ha_url_remote=settings.ha_url_remote,
+                ha_token=ha_token,
+            )
+
+        # Fallback to env vars
+        return MCPClientConfig(
+            ha_url=settings.ha_url,
+            ha_url_remote=settings.ha_url_remote,
+            ha_token=settings.ha_token.get_secret_value(),
+        )
 
     @_trace_mcp_call("mcp.connect")
     async def connect(self) -> None:

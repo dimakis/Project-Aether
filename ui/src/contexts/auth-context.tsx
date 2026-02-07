@@ -17,12 +17,16 @@ interface AuthState {
   username: string | null;
   loading: boolean;
   hasPasskeys: boolean;
+  setupComplete: boolean | null; // null = still checking
 }
 
 interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<void>;
   loginWithPasskey: () => Promise<void>;
+  loginWithHAToken: (haToken: string) => Promise<void>;
+  runSetup: (haUrl: string, haToken: string, password?: string | null) => Promise<void>;
   logout: () => Promise<void>;
+  checkSetupStatus: () => Promise<void>;
 }
 
 // =============================================================================
@@ -41,11 +45,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     username: null,
     loading: true,
     hasPasskeys: false,
+    setupComplete: null,
   });
 
-  // Check session on mount
+  // Check setup status, then session on mount
   useEffect(() => {
-    checkSession();
+    (async () => {
+      await checkSetupStatus();
+      await checkSession();
+    })();
+  }, []);
+
+  const checkSetupStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${env.API_URL}/v1/auth/setup-status`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setState((s) => ({ ...s, setupComplete: data.setup_complete }));
+      }
+    } catch {
+      // If we can't reach the backend, assume not set up
+      setState((s) => ({ ...s, setupComplete: false }));
+    }
   }, []);
 
   const checkSession = useCallback(async () => {
@@ -55,27 +78,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const data = await res.json();
-        setState({
+        setState((s) => ({
+          ...s,
           authenticated: true,
           username: data.username,
           loading: false,
           hasPasskeys: data.has_passkeys ?? false,
-        });
+        }));
       } else {
-        setState({
+        setState((s) => ({
+          ...s,
           authenticated: false,
           username: null,
           loading: false,
           hasPasskeys: false,
-        });
+        }));
       }
     } catch {
-      setState({
+      setState((s) => ({
+        ...s,
         authenticated: false,
         username: null,
         loading: false,
         hasPasskeys: false,
-      });
+      }));
     }
   }, []);
 
@@ -93,12 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await res.json();
-    setState({
+    setState((s) => ({
+      ...s,
       authenticated: true,
       username: data.username,
       loading: false,
       hasPasskeys: false,
-    });
+    }));
   }, []);
 
   const loginWithPasskey = useCallback(async () => {
@@ -131,30 +158,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await verifyRes.json();
-    setState({
+    setState((s) => ({
+      ...s,
       authenticated: true,
       username: data.username,
       loading: false,
       hasPasskeys: true,
-    });
+    }));
   }, []);
+
+  const loginWithHAToken = useCallback(async (haToken: string) => {
+    const res = await fetch(`${env.API_URL}/v1/auth/login/ha-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ ha_token: haToken }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.detail || body?.error?.message || "HA token login failed");
+    }
+
+    const data = await res.json();
+    setState((s) => ({
+      ...s,
+      authenticated: true,
+      username: data.username,
+      loading: false,
+    }));
+  }, []);
+
+  const runSetup = useCallback(
+    async (haUrl: string, haToken: string, password?: string | null) => {
+      const res = await fetch(`${env.API_URL}/v1/auth/setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ha_url: haUrl, ha_token: haToken, password }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || "Setup failed");
+      }
+
+      const data = await res.json();
+      setState((s) => ({
+        ...s,
+        authenticated: true,
+        username: "admin",
+        loading: false,
+        setupComplete: true,
+      }));
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
     await fetch(`${env.API_URL}/v1/auth/logout`, {
       method: "POST",
       credentials: "include",
     });
-    setState({
+    setState((s) => ({
+      ...s,
       authenticated: false,
       username: null,
       loading: false,
       hasPasskeys: false,
-    });
+    }));
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, loginWithPasskey, logout }}
+      value={{
+        ...state,
+        login,
+        loginWithPasskey,
+        loginWithHAToken,
+        runSetup,
+        logout,
+        checkSetupStatus,
+      }}
     >
       {children}
     </AuthContext.Provider>

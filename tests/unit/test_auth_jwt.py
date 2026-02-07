@@ -10,6 +10,8 @@ Tests the JWT-based session authentication including:
 """
 
 import time
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock
 
 import jwt
 import pytest
@@ -57,12 +59,32 @@ def _patch_settings(monkeypatch, settings: Settings) -> None:
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
 
 
+def _patch_db_session(monkeypatch) -> None:
+    """Patch get_session in auth routes to return a mock (no real DB).
+
+    The login endpoint now checks the DB for password hash before
+    falling back to env vars. This mock returns no config (None)
+    so the env var fallback is used in tests.
+    """
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    @asynccontextmanager
+    async def _mock_get_session():
+        yield mock_session
+
+    monkeypatch.setattr("src.api.routes.auth.get_session", _mock_get_session)
+
+
 @pytest.fixture
 async def auth_client(monkeypatch):
     """Create a test client with JWT auth enabled."""
     get_settings.cache_clear()
     settings = _make_settings()
     _patch_settings(monkeypatch, settings)
+    _patch_db_session(monkeypatch)
     app = create_app(settings)
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -78,6 +100,7 @@ async def auth_and_apikey_client(monkeypatch):
     get_settings.cache_clear()
     settings = _make_settings(api_key=SecretStr("test-api-key-123"))
     _patch_settings(monkeypatch, settings)
+    _patch_db_session(monkeypatch)
     app = create_app(settings)
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -93,6 +116,7 @@ async def no_password_client(monkeypatch):
     get_settings.cache_clear()
     settings = _make_settings(auth_password=SecretStr(""))
     _patch_settings(monkeypatch, settings)
+    _patch_db_session(monkeypatch)
     app = create_app(settings)
     async with AsyncClient(
         transport=ASGITransport(app=app),
