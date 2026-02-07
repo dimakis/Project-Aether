@@ -592,12 +592,12 @@ New features are tracked individually in `features/` — see transition note bel
 
 **Review Cadence**: Architecture review every 2 weeks or after major feature completion.
 
-### Immediate Priority (Sprint 1)
+### Immediate Priority (Sprint 1) ✅
 
-- [ ] T186 [P] Fix thread-safety in singleton patterns (src/storage/__init__.py, src/mcp/client.py) - add asyncio.Lock for concurrent initialization
-- [ ] T187 [P] Replace deprecated `datetime.utcnow()` with `datetime.now(timezone.utc)` across codebase (src/agents/, src/graph/state.py, src/storage/, src/tracing/)
-- [ ] T188 [P] Add rate limiting middleware to expensive API endpoints (discovery, chat, analyze) using slowapi or custom middleware in src/api/main.py
-- [ ] T189 [P] Escape special characters in DAL search queries (src/dal/entities.py search method) to prevent ILIKE wildcard injection
+- [x] T186 [P] Fix thread-safety in singleton patterns (src/storage/__init__.py, src/mcp/client.py) - add threading.Lock for concurrent initialization (double-checked locking)
+- [x] T187 [P] Replace deprecated `datetime.utcnow()` with `datetime.now(timezone.utc)` across codebase (~50 instances in 27 files: src/agents/, src/graph/, src/storage/, src/dal/, src/mcp/, src/sandbox/, src/tracing/, src/api/, tests/)
+- [x] T188 [P] Add rate limiting middleware to expensive API endpoints using slowapi: discovery (5/min), chat (10/min), analyze (5/min), deploy/rollback (5/min) in src/api/rate_limit.py
+- [x] T189 [P] Escape special characters in DAL search queries (src/dal/entities.py, src/dal/services.py) to prevent ILIKE wildcard injection via _escape_ilike() helper
 
 ### Short-term Priority (Sprint 2-3)
 
@@ -625,7 +625,11 @@ New features are tracked individually in `features/` — see transition note bel
 
 ### Architecture Review Checklist (Recurring)
 
-**Run this checklist every 2 weeks or after completing a major feature:**
+**Run this checklist every 2 weeks or after completing a major feature.**
+
+**Full healthcheck document**: [`docs/code-healthcheck.md`](../../docs/code-healthcheck.md) — point the AI assistant at this file to run a comprehensive, automated code healthcheck with dynamically updated findings.
+
+The healthcheck covers all items below plus detailed findings, severity ratings, and action items:
 
 - [ ] T201 [RECURRING] Review singleton patterns for thread-safety issues
 - [ ] T202 [RECURRING] Audit database queries for N+1 patterns (use SQLAlchemy echo=True in dev)
@@ -638,18 +642,20 @@ New features are tracked individually in `features/` — see transition note bel
 - [ ] T209 [RECURRING] Audit dependencies for security updates (uv audit or safety check)
 - [ ] T210 [RECURRING] Review API response times and add indexes if queries slow down
 
+**After each healthcheck run**, the assistant updates `docs/code-healthcheck.md` with current findings, so the next run starts from the latest known state rather than rediscovering the same issues.
+
 ### Technical Debt Tracking
 
 | ID | Issue | Location | Impact | Status |
 |----|-------|----------|--------|--------|
-| TD001 | Thread-unsafe singletons | storage/__init__.py, mcp/client.py | High | Open |
-| TD002 | Deprecated datetime.utcnow() | Multiple files | Medium | Open |
+| TD001 | Thread-unsafe singletons | storage/__init__.py, mcp/client.py | High | ✅ Fixed (T186) |
+| TD002 | Deprecated datetime.utcnow() | Multiple files | Medium | ✅ Fixed (T187) |
 | TD003 | N+1 queries in Architect | agents/architect.py | High | Open |
-| TD004 | Missing rate limiting | api/main.py | High | Open |
+| TD004 | Missing rate limiting | api/main.py | High | ✅ Fixed (T188) |
 | TD005 | Bare exception handling | agents/architect.py:282 | Low | Open |
 | TD006 | Incomplete TODO items | cli/main.py:653,691 | Medium | Open |
 | TD007 | Missing database indexes | dal/entities.py | Medium | Open |
-| TD008 | ILIKE wildcard injection | dal/entities.py:250 | Medium | Open |
+| TD008 | ILIKE wildcard injection | dal/entities.py, dal/services.py | Medium | ✅ Fixed (T189) |
 
 ### Performance Benchmarks (Track Over Time)
 
@@ -679,14 +685,18 @@ The following uncompleted features were migrated from this file:
 
 | Feature | Original Phase | New Location |
 |---------|---------------|--------------|
-| Custom Dashboard Generation (US4) | Phase 6 | [`features/dashboard-generation/`](./features/dashboard-generation/) |
-| Intelligent Optimization (US5) | Phase 6b | [`features/intelligent-optimization/`](./features/intelligent-optimization/) |
+| Custom Dashboard Generation (US4) | Phase 6 | [`features/01-dashboard-generation/`](./features/01-dashboard-generation/) |
+| Intelligent Optimization (US5) | Phase 6b | [`features/03-intelligent-optimization/`](./features/03-intelligent-optimization/) |
 
 ### New Features
 
-| Feature | Location |
-|---------|----------|
-| Diagnostic Collaboration | [`features/diagnostic-collaboration/`](./features/diagnostic-collaboration/) |
+| Feature | Location | Status |
+|---------|----------|--------|
+| Diagnostic Collaboration | [`features/02-C-diagnostic-collaboration/`](./features/02-C-diagnostic-collaboration/) | ✅ Complete |
+| HA Registry Management | [`features/04-ha-registry-management/`](./features/04-ha-registry-management/) | Planned |
+| Calendar & Presence Integration | [`features/05-calendar-presence-integration/`](./features/05-calendar-presence-integration/) | Planned |
+| HA Diagnostics & Troubleshooting | [`features/06-C-ha-diagnostics-troubleshooting/`](./features/06-C-ha-diagnostics-troubleshooting/) | ✅ Complete |
+| Diagnostics API & CLI | [`features/07-diagnostics-api-cli/`](./features/07-diagnostics-api-cli/) | Planned |
 
 ### What Stays in This File
 
