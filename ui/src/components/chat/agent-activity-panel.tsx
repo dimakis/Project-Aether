@@ -18,9 +18,8 @@ import { useTraceSpans } from "@/api/hooks";
 export function AgentActivityPanel() {
   const activity = useAgentActivity();
   const { lastTraceId, panelOpen } = useActivityPanel();
-  const { data: trace, isLoading } = useTraceSpans(lastTraceId);
-
   const isStreaming = activity.isActive;
+  const { data: trace, isLoading } = useTraceSpans(lastTraceId, isStreaming);
   const activeAgent = activity.activeAgent || "architect";
 
   return (

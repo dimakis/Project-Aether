@@ -1,5 +1,6 @@
 import { useRef, useEffect } from "react";
-import { X, Lightbulb, Target, Clock, Activity, CheckCircle2, XCircle, Eye, Trash2, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { X, Lightbulb, Target, Clock, Activity, CheckCircle2, XCircle, Eye, Trash2, Loader2, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatRelativeTime } from "@/lib/utils";
@@ -48,6 +49,7 @@ export function InsightDetail({
   isDismissing,
   isDeleting,
 }: InsightDetailProps) {
+  const navigate = useNavigate();
   const overlayRef = useRef<HTMLDivElement>(null);
   const config = TYPE_CONFIG[insight.type] ?? {
     icon: Lightbulb,
@@ -201,6 +203,17 @@ export function InsightDetail({
                 <Trash2 className="mr-1 h-3 w-3" />
               )}
               Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const prompt = `Create an automation based on insight "${insight.title}" (ID: ${insight.id}). ${insight.description}`;
+                navigate("/chat", { state: { prefill: prompt } });
+              }}
+            >
+              <Wand2 className="mr-1 h-3 w-3" />
+              Create Automation
             </Button>
           </div>
           <div className="flex gap-2">

@@ -312,6 +312,9 @@ class DataScientistAgent(BaseAgent):
         """
         behavioral = BehavioralAnalysisClient(self.ha)
         hours = state.time_range_hours
+        # Collect entities list to maintain consistent top-level structure
+        # with energy data (scripts expect data['entities']).
+        entities: list[dict[str, object]] = []
         data: dict[str, object] = {
             "analysis_type": state.analysis_type.value,
             "hours": hours,
@@ -320,7 +323,7 @@ class DataScientistAgent(BaseAgent):
         try:
             if state.analysis_type == AnalysisType.BEHAVIOR_ANALYSIS:
                 button_usage = await behavioral.get_button_usage(hours=hours)
-                data["button_usage"] = [
+                entities = [
                     {
                         "entity_id": r.entity_id,
                         "total_presses": r.total_presses,
@@ -329,11 +332,12 @@ class DataScientistAgent(BaseAgent):
                     }
                     for r in button_usage[:30]
                 ]
+                data["button_usage"] = entities
                 data["entity_count"] = len(button_usage)
 
             elif state.analysis_type == AnalysisType.AUTOMATION_ANALYSIS:
                 effectiveness = await behavioral.get_automation_effectiveness(hours=hours)
-                data["automation_effectiveness"] = [
+                entities = [
                     {
                         "automation_id": r.automation_id,
                         "alias": r.alias,
@@ -343,11 +347,12 @@ class DataScientistAgent(BaseAgent):
                     }
                     for r in effectiveness
                 ]
+                data["automation_effectiveness"] = entities
                 data["entity_count"] = len(effectiveness)
 
             elif state.analysis_type == AnalysisType.AUTOMATION_GAP_DETECTION:
                 gaps = await behavioral.detect_automation_gaps(hours=hours)
-                data["automation_gaps"] = [
+                entities = [
                     {
                         "description": g.pattern_description,
                         "entities": g.entities,
@@ -357,6 +362,7 @@ class DataScientistAgent(BaseAgent):
                     }
                     for g in gaps
                 ]
+                data["automation_gaps"] = entities
                 data["entity_count"] = len(gaps)
 
             elif state.analysis_type == AnalysisType.CORRELATION_DISCOVERY:
@@ -364,7 +370,7 @@ class DataScientistAgent(BaseAgent):
                     entity_ids=state.entity_ids or None,
                     hours=hours,
                 )
-                data["correlations"] = [
+                entities = [
                     {
                         "entity_a": c.entity_a,
                         "entity_b": c.entity_b,
@@ -374,11 +380,12 @@ class DataScientistAgent(BaseAgent):
                     }
                     for c in correlations
                 ]
+                data["correlations"] = entities
                 data["entity_count"] = len(correlations)
 
             elif state.analysis_type == AnalysisType.DEVICE_HEALTH:
                 health = await behavioral.get_device_health_report(hours=hours)
-                data["device_health"] = [
+                entities = [
                     {
                         "entity_id": h.entity_id,
                         "status": h.status,
@@ -388,6 +395,7 @@ class DataScientistAgent(BaseAgent):
                     }
                     for h in health
                 ]
+                data["device_health"] = entities
                 data["entity_count"] = len(health)
 
             else:
@@ -411,6 +419,9 @@ class DataScientistAgent(BaseAgent):
             logger.warning(f"Error collecting behavioral data: {e}")
             data["error"] = str(e)
 
+        # Always provide top-level 'entities' key for consistency with
+        # energy data structure — scripts rely on data['entities'].
+        data["entities"] = entities
         return data
 
     async def _generate_script(

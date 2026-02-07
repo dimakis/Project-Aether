@@ -621,10 +621,28 @@ def _build_trace_events(
         "analyze_energy": "data_scientist",
         "run_custom_analysis": "data_scientist",
         "diagnose_issue": "data_scientist",
+        # DS Team Specialists
+        "consult_energy_analyst": "energy_analyst",
+        "consult_behavioral_analyst": "behavioral_analyst",
+        "consult_diagnostic_analyst": "diagnostic_analyst",
+        "request_synthesis_review": "system",
+        # Dashboard Designer
+        "generate_dashboard_yaml": "dashboard_designer",
+        "validate_dashboard_yaml": "dashboard_designer",
+        "list_dashboards": "dashboard_designer",
+        # Librarian
+        "discover_entities": "librarian",
+        # Developer
+        "deploy_automation": "developer",
+        "delete_automation": "developer",
+        "create_script": "developer",
+        "create_scene": "developer",
         # System tools
         "create_insight_schedule": "system",
         "seek_approval": "system",
         "execute_service": "system",
+        # Insight tools
+        "propose_automation_from_insight": "architect",
     }
 
     events: list[dict[str, Any]] = []

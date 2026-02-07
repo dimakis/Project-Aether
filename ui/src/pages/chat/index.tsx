@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Loader2, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import yaml from "js-yaml";
 
 export function ChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ─── Multi-session persisted state ──────────────────────────────────
   const [sessions, setSessions] = usePersistedState<ChatSession[]>(
@@ -70,6 +71,17 @@ export function ChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { panelOpen: activityPanelOpen } = useActivityPanel();
+
+  // Pre-fill input from navigation state (e.g. "Create Automation" from insights)
+  useEffect(() => {
+    const prefill = (location.state as { prefill?: string } | null)?.prefill;
+    if (prefill) {
+      setInput(prefill);
+      // Clear the state so a refresh doesn't re-fill
+      navigate(location.pathname, { replace: true, state: {} });
+      inputRef.current?.focus();
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const { data: modelsData } = useModels();
   const { data: conversationsData } = useConversations();

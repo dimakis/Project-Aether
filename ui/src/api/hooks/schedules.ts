@@ -51,11 +51,12 @@ export function useRunInsightSchedule() {
 
 // ─── Traces (Feature 11) ────────────────────────────────────────────────────
 
-export function useTraceSpans(traceId: string | null) {
+export function useTraceSpans(traceId: string | null, isStreaming = false) {
   return useQuery({
     queryKey: ["traces", traceId],
     queryFn: () => traces.getSpans(traceId!),
     enabled: !!traceId,
-    staleTime: Infinity, // Traces are immutable once complete
+    staleTime: 30_000, // 30s — traces are mostly immutable once complete
+    refetchInterval: isStreaming ? 3_000 : false, // Poll every 3s while streaming
   });
 }

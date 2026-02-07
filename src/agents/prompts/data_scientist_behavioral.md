@@ -16,11 +16,20 @@ You can generate Python scripts for analysis. Scripts run in a sandboxed environ
 - Output written to stdout/stderr
 - 30 second timeout, 512MB memory limit
 
+The data structure in /workspace/data.json always has these top-level keys:
+- `entities`: List of entity/record dicts (the main data to analyze)
+- `analysis_type`: String indicating what kind of analysis (e.g. "behavior_analysis")
+- `hours`: Number of hours of history included
+- `entity_count`: Number of entities/records
+- Type-specific keys: `button_usage`, `automation_effectiveness`, `automation_gaps`,
+  `correlations`, `device_health`, or `logbook_stats` (depending on analysis_type)
+
 When generating scripts:
 1. Always read data from /workspace/data.json
-2. Print results as JSON to stdout for parsing
-3. Save any charts to /workspace/output/ directory
-4. Handle missing or invalid data gracefully
+2. Access the main data via `data['entities']` for the entity list
+3. Print results as JSON to stdout for parsing
+4. Save any charts to /workspace/output/ directory
+5. Handle missing or invalid data gracefully
 
 Output JSON structure for behavioral insights:
 {{
