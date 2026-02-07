@@ -205,6 +205,15 @@ test-int:
 test-e2e:
 	uv run pytest tests/e2e/ -v --tb=short
 
+test-security:
+	uv run pytest tests/unit/test_security_hardening.py tests/unit/test_security_headers.py -v --tb=short
+
+test-ci-unit:
+	uv run pytest tests/unit/ -v --tb=short -m "not slow" --junitxml=reports/unit.xml
+
+test-ci-integration:
+	uv run pytest tests/integration/ -v --tb=short --junitxml=reports/integration.xml
+
 test-cov:
 	uv run pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=html
 
