@@ -1,14 +1,12 @@
 <!--
 Sync Impact Report:
-Version: 1.5.0 → 1.6.0 (MINOR: Added Feature Delivery Standards development standard)
-Modified Principles: None
-Added Sections: Feature Delivery Standards subsection under Development Standards
+Version: 1.8.0 → 1.9.0 (MINOR: Added agentic commit discipline and strengthened commit checkpoint rules)
+Modified Principles: V. Reliability & Quality — TDD step 6 strengthened
+Added Sections: "Commit Checkpoints (Agentic Workflows)" subsection, new commit anti-patterns
 Removed Sections: None
 Templates Requiring Updates:
   ✅ No template updates required
-Follow-up TODOs: 
-  - Enforce feature delivery standards in all future development
-  - Migrate existing uncompleted features to features/ directory structure
+Follow-up TODOs: None
 -->
 
 # Aether Home Architect Constitution
@@ -109,10 +107,12 @@ For each task T0XX:
      - Clean up implementation
      - Tests must still pass after refactoring
   
-  6. COMMIT TEST + IMPLEMENTATION TOGETHER
-     - Single atomic commit with both test and implementation
-     - Commit message: "feat(scope): T0XX description"
+  6. COMMIT IMMEDIATELY (Mandatory Checkpoint)
+     - git add test + implementation files
+     - Single atomic commit with conventional commit message
+     - Verify commit succeeded before proceeding
      - Update tasks.md with commit hash
+     - NEVER start the next task without committing this one
 ```
 
 **TDD Benefits**:
@@ -122,11 +122,16 @@ For each task T0XX:
 - Each commit is self-contained and independently verifiable
 - Faster feedback loops catch issues immediately
 
+**TDD Applies to Planning Too**:
+
+When creating implementation plans or build plans, each deliverable/step MUST include its tests as part of the same step — never as a separate phase. A plan that lists "Part 2: Build modules" and "Part 4: Write tests" violates TDD just as much as coding all features before writing any tests. The correct structure is: "Step N: Build X (test-first)" where the test file is the first artifact created in that step.
+
 **Anti-patterns (Prohibited)**:
 - ❌ Writing all implementation first, then batching tests
 - ❌ Modifying test assertions to match incorrect implementation
 - ❌ Committing tests separately from their implementation
 - ❌ Skipping the "red" phase (test must fail first)
+- ❌ Structuring plans with "Implementation" and "Tests" as separate phases or sections (tests are part of each deliverable, not a separate workstream)
 
 **Quality Gates**:
 - Pre-commit hooks: `ruff` (lint), `ruff format` (format), `mypy` (type check)
@@ -160,6 +165,7 @@ All work MUST be committed in small, focused, incremental commits. Each commit s
    - Run tests to verify the piece works
    - Commit immediately before starting the next piece
    - Do NOT batch multiple pieces into a single commit
+   - This applies equally to AI agents during coding sessions. The agent MUST NOT proceed to the next task until the current task is committed.
 
 4. **Commit Size Guidelines**:
    - Ideal: 50-200 lines changed
@@ -187,6 +193,22 @@ feat(us3): implement Data Scientist foundation
 - All tests
 ```
 
+**Commit Checkpoints (Agentic Workflows)**:
+
+When an AI agent is implementing tasks in a coding session, the following commit checkpoints are mandatory:
+
+1. **After each TDD cycle**: Once a test passes (green), the agent MUST commit the test + implementation before starting the next TDD cycle. No exceptions.
+2. **After each logical unit of work**: Spec files, documentation updates, refactoring passes, and configuration changes each get their own commit immediately upon completion.
+3. **Uncommitted change limit**: The agent MUST NOT accumulate more than ~400 lines of uncommitted changes. If approaching this limit, stop and commit what's complete.
+4. **Proactive commits**: The agent MUST commit proactively at each checkpoint. Do NOT wait for the user to request commits — committing is part of the task, not a separate action.
+5. **Session end**: Before ending a session or switching context, ALL uncommitted work must be committed (or stashed with explanation).
+
+**Anti-patterns (Prohibited)**:
+- ❌ Implementing multiple tasks in a session without committing between them
+- ❌ Waiting for the user to request commits instead of committing proactively
+- ❌ Accumulating a large batch of uncommitted changes across many files
+- ❌ Deferring commits to "do them all at the end"
+
 **Rationale**: Incremental commits enable:
 - Easier code review (smaller diffs)
 - Precise git bisect for debugging
@@ -200,13 +222,35 @@ Every feature implementation MUST be tracked, documented, and delivered as a com
 
 **Feature Directory Structure**:
 
-Every feature MUST have a directory under `specs/<project>/features/<feature-name>/` containing:
+Every feature MUST have a directory under `specs/<project>/features/` with a numbered prefix indicating the order it was added to the project:
 
 ```
-specs/<project>/features/<feature-name>/
+specs/<project>/features/NN-feature-name/
 ├── spec.md    # What the feature does and why
 ├── plan.md    # Build plan used during implementation (saved for historical tracing)
 └── tasks.md   # Implementation tasks with status tracking
+```
+
+**Feature Naming Convention**:
+
+1. **Active Features**: `NN-feature-name/` where NN is a zero-padded sequence number
+   - Example: `04-ha-registry-management/`
+   - Numbers indicate the order features were added to the project
+   
+2. **Completed Features**: `NN-C-feature-name/` where C indicates complete
+   - Example: `04-C-ha-registry-management/`
+   - Rename directory when all tasks are done and feature is deployed
+
+3. **Completion Header**: When a feature is completed, add to the TOP of each doc (spec.md, plan.md, tasks.md):
+   ```
+   **Completed**: YYYY-MM-DD
+   ```
+
+**Feature Lifecycle**:
+```
+01-feature-name/        # Active development
+    ↓ (all tasks complete)
+01-C-feature-name/      # Completed, add date header to all docs
 ```
 
 **Delivery Checklist (Required for Every Feature)**:
@@ -272,4 +316,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.6.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-06
+**Version**: 1.9.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-07
