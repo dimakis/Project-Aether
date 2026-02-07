@@ -21,6 +21,7 @@ from src.api.routes.traces import router as traces_router
 from src.api.routes.optimization import router as optimization_router
 from src.api.routes.proposals import router as proposals_router
 from src.api.routes.system import router as system_router
+from src.api.routes.model_ratings import router as model_ratings_router
 from src.api.routes.usage import router as usage_router
 from src.api.routes.webhooks import router as webhooks_router
 
@@ -52,6 +53,8 @@ api_router.include_router(traces_router)
 api_router.include_router(usage_router)
 # Feature 23: Agent Configuration
 api_router.include_router(agents_router)
+# Model Registry – per-agent model ratings
+api_router.include_router(model_ratings_router)
 # OpenAI-compatible API for Open WebUI
 api_router.include_router(openai_router)
 
