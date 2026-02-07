@@ -12,6 +12,8 @@ import {
   BarChart3,
   Bot,
   LogOut,
+  User,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -22,6 +24,7 @@ import {
   toggleActivityPanel,
 } from "@/lib/agent-activity-store";
 import { AgentActivityPanel } from "@/components/chat/agent-activity-panel";
+import { useState, useRef, useEffect } from "react";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -97,20 +100,6 @@ export function AppLayout() {
 
         {/* Status footer */}
         <div className="space-y-2 border-t border-border p-4">
-          {/* User + Logout */}
-          <div className="flex items-center justify-between">
-            <span className="truncate text-xs text-muted-foreground">
-              {username ?? "user"}
-            </span>
-            <button
-              onClick={logout}
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              title="Sign out"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
           {/* Activity panel toggle */}
           <button
             onClick={toggleActivityPanel}
@@ -159,7 +148,13 @@ export function AppLayout() {
       </aside>
 
       {/* Main Content + Activity Panel */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Top header with UserMenu */}
+        <header className="flex h-14 shrink-0 items-center justify-end border-b border-border bg-card px-6">
+          <UserMenu username={username} onLogout={logout} />
+        </header>
+
+        <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 overflow-auto">
           <Outlet />
           <footer className="px-6 py-4 text-center text-[11px] text-muted-foreground/50">
@@ -170,6 +165,61 @@ export function AppLayout() {
         {/* Global Agent Activity Panel */}
         <AgentActivityPanel />
       </div>
+      </div>
+    </div>
+  );
+}
+
+
+/** UserMenu dropdown at top-right of the header. */
+function UserMenu({ username, onLogout }: { username: string | null; onLogout: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const displayName = username ?? "user";
+  const initials = displayName.slice(0, 2).toUpperCase();
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        {/* Avatar initials */}
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+          {initials}
+        </div>
+        <span className="hidden sm:inline">{displayName}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-card shadow-lg">
+          <div className="border-b border-border px-3 py-2">
+            <p className="text-sm font-medium">{displayName}</p>
+            <p className="text-[11px] text-muted-foreground">Signed in</p>
+          </div>
+          <button
+            onClick={() => {
+              setOpen(false);
+              onLogout();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+        </div>
+      )}
     </div>
   );
 }
