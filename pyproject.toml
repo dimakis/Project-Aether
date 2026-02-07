@@ -51,6 +51,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "pyjwt",
     "bcrypt",
+    "webauthn>=2.7.0",
 ]
 
 [project.optional-dependencies]

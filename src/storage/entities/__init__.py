@@ -29,6 +29,9 @@ from src.storage.entities.insight import Insight, InsightStatus, InsightType
 # Insight Schedules (Feature 10)
 from src.storage.entities.insight_schedule import InsightSchedule, TriggerType
 
+# Authentication
+from src.storage.entities.passkey_credential import PasskeyCredential
+
 __all__ = [
     # Core
     "Agent",
@@ -57,4 +60,6 @@ __all__ = [
     # Insight Schedules (Feature 10)
     "InsightSchedule",
     "TriggerType",
+    # Authentication
+    "PasskeyCredential",
 ]

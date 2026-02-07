@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from src.api.routes.areas import router as areas_router
 from src.api.routes.auth import router as auth_router
+from src.api.routes.passkey import router as passkey_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.devices import router as devices_router
 from src.api.routes.entities import router as entities_router
@@ -26,6 +27,7 @@ api_router = APIRouter()
 
 # Authentication
 api_router.include_router(auth_router)
+api_router.include_router(passkey_router)
 # System
 api_router.include_router(system_router, tags=["System"])
 api_router.include_router(entities_router)
