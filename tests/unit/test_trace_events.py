@@ -1,9 +1,16 @@
-"""Unit tests for _build_trace_events helper.
+"""Unit tests for trace event helpers and SSE emission.
 
 TDD: Tests the extraction of real-time trace events from completed
-ConversationState for SSE streaming.
+ConversationState for SSE streaming, and their integration with
+_stream_chat_completion.
 """
 
+import json
+import warnings
+from contextlib import contextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.api.routes.openai_compat import _build_trace_events
@@ -228,3 +235,167 @@ class TestBuildTraceEvents:
 
         agent_names = [e.get("agent") for e in events if e.get("agent")]
         assert "data_scientist" in agent_names
+
+
+# ---------------------------------------------------------------------------
+# _stream_chat_completion — trace event emission
+# ---------------------------------------------------------------------------
+
+
+class TestStreamEmitsTraceEvents:
+    """Verify that _stream_chat_completion emits trace SSE events
+    before text chunks when the request is NOT a background request."""
+
+    @staticmethod
+    @contextmanager
+    def _mock_stream(completed_state):
+        """Context manager that mocks all _stream_chat_completion dependencies.
+
+        Yields nothing — the generator can be consumed inside the block.
+        """
+        mock_session = AsyncMock()
+        mock_session.commit = AsyncMock()
+
+        mock_workflow = AsyncMock()
+        mock_workflow.continue_conversation = AsyncMock(return_value=completed_state)
+
+        with (
+            patch("src.api.routes.openai_compat.get_session") as mock_gs,
+            patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
+            patch("src.api.routes.openai_compat.session_context"),
+            patch("src.api.routes.openai_compat.model_context"),
+            patch("src.api.routes.openai_compat.ArchitectWorkflow", return_value=mock_workflow),
+            patch("src.api.routes.openai_compat.log_param"),
+        ):
+            mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_run.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_run.return_value.__exit__ = MagicMock(return_value=False)
+            yield
+
+    @staticmethod
+    async def _collect_sse(request) -> list[dict]:
+        """Collect and parse all SSE events from a stream."""
+        from src.api.routes.openai_compat import _stream_chat_completion
+
+        raw_events: list[str] = []
+        async for sse_line in _stream_chat_completion(request):
+            raw_events.append(sse_line)
+
+        parsed = []
+        for ev in raw_events:
+            if ev.startswith("data: ") and not ev.startswith("data: [DONE]"):
+                raw = ev.removeprefix("data: ").strip()
+                parsed.append(json.loads(raw))
+        return parsed
+
+    @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore")
+    async def test_trace_events_before_text_chunks(self):
+        """Trace events appear before text delta chunks in the stream."""
+        from src.api.routes.openai_compat import (
+            ChatCompletionRequest,
+            ChatMessage,
+        )
+
+        request = ChatCompletionRequest(
+            model="test-model",
+            messages=[ChatMessage(role="user", content="Hello world")],
+            stream=True,
+        )
+
+        completed_state = MagicMock()
+        completed_state.messages = [
+            HumanMessage(content="Hello world"),
+            AIMessage(content="Hi there!"),
+        ]
+        completed_state.last_trace_id = "trace-abc-123"
+
+        with self._mock_stream(completed_state):
+            parsed = await self._collect_sse(request)
+
+        trace_events = [p for p in parsed if p.get("type") == "trace"]
+        text_chunks = [
+            p for p in parsed
+            if p.get("object") == "chat.completion.chunk"
+            and p.get("choices", [{}])[0].get("delta", {}).get("content")
+        ]
+
+        # Trace events should exist
+        assert len(trace_events) >= 2, f"Expected trace events, got {trace_events}"
+
+        # Trace events should appear BEFORE text chunks in the stream
+        first_trace_idx = parsed.index(trace_events[0])
+        first_text_idx = parsed.index(text_chunks[0]) if text_chunks else len(parsed)
+        assert first_trace_idx < first_text_idx, "Trace events must come before text chunks"
+
+    @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore")
+    async def test_no_trace_events_for_background_request(self):
+        """Background requests (title gen) should not emit trace events."""
+        from src.api.routes.openai_compat import (
+            ChatCompletionRequest,
+            ChatMessage,
+        )
+
+        request = ChatCompletionRequest(
+            model="test-model",
+            messages=[
+                ChatMessage(role="system", content="Generate a title for this conversation."),
+                ChatMessage(role="user", content="Hello world"),
+            ],
+            stream=True,
+        )
+
+        completed_state = MagicMock()
+        completed_state.messages = [
+            HumanMessage(content="Hello world"),
+            AIMessage(content="Chat Title"),
+        ]
+        completed_state.last_trace_id = None
+
+        with self._mock_stream(completed_state):
+            parsed = await self._collect_sse(request)
+
+        trace_events = [p for p in parsed if p.get("type") == "trace"]
+        assert len(trace_events) == 0, f"Background requests should not emit traces, got {trace_events}"
+
+    @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore")
+    async def test_trace_events_include_tool_agent(self):
+        """When tools are used, trace events include the delegated agent."""
+        from src.api.routes.openai_compat import (
+            ChatCompletionRequest,
+            ChatMessage,
+        )
+
+        request = ChatCompletionRequest(
+            model="test-model",
+            messages=[ChatMessage(role="user", content="Analyze energy")],
+            stream=True,
+        )
+
+        completed_state = MagicMock()
+        completed_state.messages = [
+            HumanMessage(content="Analyze energy"),
+            AIMessage(
+                content="Let me analyze",
+                tool_calls=[{"id": "c1", "name": "analyze_energy", "args": {}}],
+            ),
+            ToolMessage(content="Analysis results", tool_call_id="c1"),
+            AIMessage(content="Here are the results"),
+        ]
+        completed_state.last_trace_id = "trace-xyz"
+
+        with self._mock_stream(completed_state):
+            parsed = await self._collect_sse(request)
+
+        trace_events = [p for p in parsed if p.get("type") == "trace"]
+        agents = [e.get("agent") for e in trace_events if e.get("agent")]
+        assert "data_scientist" in agents
+        assert "architect" in agents
+
+        # Complete event has both agents
+        complete = next(e for e in trace_events if e["event"] == "complete")
+        assert "architect" in complete["agents"]
+        assert "data_scientist" in complete["agents"]

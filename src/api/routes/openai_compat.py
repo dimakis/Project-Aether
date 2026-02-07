@@ -406,6 +406,25 @@ async def _stream_chat_completion(
                     # Capture trace ID from the state (set by _traced_invoke)
                     trace_id = state.last_trace_id
 
+                    # Extract tool call names from the state messages
+                    # (AIMessages with tool_calls indicate which tools the Architect used)
+                    tool_calls_used: list[str] = []
+                    for msg in state.messages:
+                        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
+                            tool_calls_used.extend(
+                                tc.get("name", "") for tc in msg.tool_calls if tc.get("name")
+                            )
+
+                    # Emit trace events BEFORE text chunks so the UI can
+                    # display real-time agent activity as the response streams.
+                    # Skip for background requests (title gen, suggestions).
+                    if not _is_background_request(request.messages):
+                        trace_events = _build_trace_events(
+                            state.messages, tool_calls_used
+                        )
+                        for event in trace_events:
+                            yield f"data: {json.dumps(event)}\n\n"
+
                     # Stream the response in chunks
                     # In a real implementation, we'd use the LLM's streaming capability
                     # For now, we simulate streaming by chunking the response
@@ -445,15 +464,6 @@ async def _stream_chat_completion(
                         ],
                     }
                     yield f"data: {json.dumps(final_chunk)}\n\n"
-
-                    # Extract tool call names from the state messages
-                    # (AIMessages with tool_calls indicate which tools the Architect used)
-                    tool_calls_used: list[str] = []
-                    for msg in state.messages:
-                        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
-                            tool_calls_used.extend(
-                                tc.get("name", "") for tc in msg.tool_calls if tc.get("name")
-                            )
 
                     # Send metadata event with trace_id and tool calls before DONE
                     metadata: dict[str, object] = {
