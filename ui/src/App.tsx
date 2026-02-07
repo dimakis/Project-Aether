@@ -14,6 +14,7 @@ import { DiagnosticsPage } from "@/pages/diagnostics";
 import { SchedulesPage } from "@/pages/schedules";
 import { UsagePage } from "@/pages/usage";
 import { AgentsPage } from "@/pages/agents";
+import { ArchitecturePage } from "@/pages/architecture";
 import { ModelRegistryPage } from "@/pages/model-registry";
 import { Loader2 } from "lucide-react";
 
@@ -65,6 +66,7 @@ export default function App() {
               <Route path="usage" element={<UsagePage />} />
               <Route path="diagnostics" element={<DiagnosticsPage />} />
               <Route path="agents" element={<AgentsPage />} />
+              <Route path="architecture" element={<ArchitecturePage />} />
               <Route path="agents/registry" element={<ModelRegistryPage />} />
                 </Route>
               </Route>
