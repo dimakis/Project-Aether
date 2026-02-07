@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSystemStatus } from "@/api/hooks";
+import { useAgentActivity } from "@/lib/agent-activity-store";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -22,9 +23,18 @@ const navItems = [
   { to: "/diagnostics", icon: Activity, label: "Diagnostics" },
 ];
 
+const AGENT_LABELS: Record<string, string> = {
+  architect: "Architect",
+  data_scientist: "Data Scientist",
+  sandbox: "Sandbox",
+  librarian: "Librarian",
+  developer: "Developer",
+};
+
 export function AppLayout() {
   const { data: status } = useSystemStatus();
   const isHealthy = status?.status === "healthy";
+  const agentActivity = useAgentActivity();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -62,15 +72,35 @@ export function AppLayout() {
 
         {/* Status footer */}
         <div className="border-t border-border p-4">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div
-              className={cn(
-                "h-2 w-2 rounded-full",
-                isHealthy ? "bg-success" : "bg-destructive",
-              )}
-            />
-            <span>{isHealthy ? "System Healthy" : "Connecting..."}</span>
-          </div>
+          {agentActivity.isActive ? (
+            <div className="flex items-center gap-2 text-xs text-primary">
+              <div className="relative h-2 w-2">
+                <div className="absolute inset-0 animate-ping rounded-full bg-primary/60" />
+                <div className="relative h-2 w-2 rounded-full bg-primary" />
+              </div>
+              <span className="truncate">
+                {agentActivity.activeAgent
+                  ? AGENT_LABELS[agentActivity.activeAgent] ?? agentActivity.activeAgent
+                  : "Processing"}
+                {agentActivity.delegatingTo && (
+                  <span className="text-muted-foreground">
+                    {" → "}
+                    {AGENT_LABELS[agentActivity.delegatingTo] ?? agentActivity.delegatingTo}
+                  </span>
+                )}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  isHealthy ? "bg-success" : "bg-destructive",
+                )}
+              />
+              <span>{isHealthy ? "System Healthy" : "Connecting..."}</span>
+            </div>
+          )}
         </div>
       </aside>
 

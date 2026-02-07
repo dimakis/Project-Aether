@@ -152,6 +152,15 @@ export async function submitFeedback(
   }
 }
 
+// ─── Traces (Feature 11) ────────────────────────────────────────────────────
+
+export const traces = {
+  getSpans: (traceId: string) =>
+    request<import("@/lib/types").TraceResponse>(
+      `/traces/${traceId}/spans`,
+    ),
+};
+
 // ─── Models ─────────────────────────────────────────────────────────────────
 
 export const models = {

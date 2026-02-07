@@ -20,11 +20,13 @@ import {
   MessageSquare,
   ThumbsUp,
   ThumbsDown,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { ThinkingIndicator } from "@/components/ui/thinking-indicator";
 import { ThinkingDisclosure } from "@/components/chat/thinking-disclosure";
+import { AgentActivityPanel } from "@/components/chat/agent-activity-panel";
 import { cn } from "@/lib/utils";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import {
@@ -35,7 +37,8 @@ import {
   type ChatSession,
 } from "@/lib/storage";
 import { parseThinkingContent } from "@/lib/thinking-parser";
-import { useModels, useConversations } from "@/api/hooks";
+import { setAgentActivity, clearAgentActivity } from "@/lib/agent-activity-store";
+import { useModels, useConversations, useTraceSpans } from "@/api/hooks";
 import { streamChat, submitFeedback } from "@/api/client";
 import type { ChatMessage } from "@/lib/types";
 
@@ -131,11 +134,14 @@ export function ChatPage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [activityPanelOpen, setActivityPanelOpen] = useState(false);
+  const [lastTraceId, setLastTraceId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: modelsData } = useModels();
   const { data: conversationsData } = useConversations();
+  const { data: traceData, isLoading: traceLoading } = useTraceSpans(lastTraceId);
 
   const availableModels = modelsData?.data ?? [];
   const recentConversations = conversationsData?.items?.slice(0, 10) ?? [];
@@ -302,6 +308,7 @@ export function ChatPage() {
     setInput("");
     setIsStreaming(true);
     setStreamStartTime(Date.now());
+    setAgentActivity({ isActive: true, activeAgent: "architect" });
 
     // Build OpenAI message history
     // Get current messages for this session (we need to read from state at this point)
@@ -349,6 +356,11 @@ export function ChatPage() {
         };
         return updated;
       });
+
+      // Update trace ID for the activity panel
+      if (traceId) {
+        setLastTraceId(traceId);
+      }
     } catch {
       updateSessionMessages((prev) => {
         const updated = [...prev];
@@ -364,6 +376,7 @@ export function ChatPage() {
     } finally {
       setIsStreaming(false);
       setStreamStartTime(null);
+      clearAgentActivity();
       inputRef.current?.focus();
     }
   };
@@ -505,8 +518,9 @@ export function ChatPage() {
         </div>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex flex-1 flex-col">
+      {/* Chat Area + Activity Panel */}
+      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Model selector header */}
         <div className="flex h-14 items-center justify-between border-b border-border px-4">
           <div className="relative">
@@ -572,6 +586,18 @@ export function ChatPage() {
                 </motion.div>
               )}
             </AnimatePresence>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActivityPanelOpen(!activityPanelOpen)}
+              className={cn(
+                activityPanelOpen && "bg-primary/10 text-primary",
+              )}
+              title="Toggle agent activity panel"
+            >
+              <Activity className="mr-1 h-3 w-3" />
+              Activity
+            </Button>
             <Button variant="ghost" size="sm" onClick={startNewChat}>
               <Plus className="mr-1 h-3 w-3" />
               New Chat
@@ -688,6 +714,17 @@ export function ChatPage() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Agent Activity Panel (Feature 11) */}
+      <AgentActivityPanel
+        isOpen={activityPanelOpen}
+        onClose={() => setActivityPanelOpen(false)}
+        trace={traceData ?? null}
+        isLoading={traceLoading}
+        isStreaming={isStreaming}
+        activeAgent="architect"
+      />
       </div>
     </div>
   );

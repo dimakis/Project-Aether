@@ -7,6 +7,7 @@ import {
   entities,
   registry,
   system,
+  traces,
 } from "./client";
 
 // ─── Keys ───────────────────────────────────────────────────────────────────
@@ -231,6 +232,17 @@ export function useRegistrySummary() {
   return useQuery({
     queryKey: queryKeys.registrySummary,
     queryFn: () => registry.summary(),
+  });
+}
+
+// ─── Traces (Feature 11) ────────────────────────────────────────────────────
+
+export function useTraceSpans(traceId: string | null) {
+  return useQuery({
+    queryKey: ["traces", traceId],
+    queryFn: () => traces.getSpans(traceId!),
+    enabled: !!traceId,
+    staleTime: Infinity, // Traces are immutable once complete
   });
 }
 
