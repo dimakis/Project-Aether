@@ -18,6 +18,11 @@ import {
   Shield,
   Cpu,
   RefreshCw,
+  Thermometer,
+  CloudSun,
+  Gauge,
+  Sparkles,
+  DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +68,42 @@ const ANALYSIS_TYPES = [
     label: "Automation Gaps",
     icon: Cpu,
     emoji: "🤖",
+  },
+  {
+    value: "comfort_analysis",
+    label: "Comfort Analysis",
+    icon: Thermometer,
+    emoji: "🌡️",
+  },
+  {
+    value: "security_audit",
+    label: "Security Audit",
+    icon: Shield,
+    emoji: "🔒",
+  },
+  {
+    value: "weather_correlation",
+    label: "Weather Correlation",
+    icon: CloudSun,
+    emoji: "🌤️",
+  },
+  {
+    value: "cost_optimization",
+    label: "Cost Optimization",
+    icon: DollarSign,
+    emoji: "💰",
+  },
+  {
+    value: "automation_efficiency",
+    label: "Automation Efficiency",
+    icon: Gauge,
+    emoji: "📊",
+  },
+  {
+    value: "custom",
+    label: "Custom Analysis",
+    icon: Sparkles,
+    emoji: "✨",
   },
 ];
 
@@ -455,12 +496,18 @@ function CreateScheduleForm({ onClose }: { onClose: () => void }) {
   });
   // Track hours as a string so the user can freely clear and retype
   const [hoursStr, setHoursStr] = useState("24");
+  // Custom analysis prompt (used when analysis_type === "custom")
+  const [customPrompt, setCustomPrompt] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const hours = parseInt(hoursStr) || 24;
+    const options: Record<string, unknown> = { ...form.options };
+    if (form.analysis_type === "custom" && customPrompt.trim()) {
+      options.custom_query = customPrompt.trim();
+    }
     createMut.mutate(
-      { ...form, hours },
+      { ...form, hours, options },
       {
         onSuccess: () => onClose(),
         onError: () => {
@@ -561,6 +608,25 @@ function CreateScheduleForm({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           </div>
+
+          {/* Custom Analysis Prompt */}
+          {form.analysis_type === "custom" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                What should be analyzed?
+              </label>
+              <textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder="e.g., Check if my HVAC is cycling on/off too frequently"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                required
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground/60">
+                Describe in natural language what patterns, metrics, or behaviors to look for
+              </p>
+            </div>
+          )}
 
           {/* Cron Expression */}
           {form.trigger_type === "cron" && (

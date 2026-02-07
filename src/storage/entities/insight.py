@@ -30,6 +30,12 @@ class InsightType(str, enum.Enum):
     CORRELATION = "correlation"
     DEVICE_HEALTH = "device_health"
     BEHAVIORAL_PATTERN = "behavioral_pattern"
+    # Conversational Insights: additional preset types
+    COMFORT_ANALYSIS = "comfort_analysis"
+    SECURITY_AUDIT = "security_audit"
+    WEATHER_CORRELATION = "weather_correlation"
+    AUTOMATION_EFFICIENCY = "automation_efficiency"
+    CUSTOM = "custom"
 
 
 class InsightStatus(str, enum.Enum):

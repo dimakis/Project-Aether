@@ -125,7 +125,12 @@ export type InsightType =
   | "automation_inefficiency"
   | "correlation"
   | "device_health"
-  | "behavioral_pattern";
+  | "behavioral_pattern"
+  | "comfort_analysis"
+  | "security_audit"
+  | "weather_correlation"
+  | "automation_efficiency"
+  | "custom";
 
 export interface Insight {
   id: string;

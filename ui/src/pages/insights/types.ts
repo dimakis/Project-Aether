@@ -9,6 +9,11 @@ import {
   Heart,
   Users,
   Activity,
+  Thermometer,
+  Shield,
+  CloudSun,
+  Gauge,
+  Sparkles,
 } from "lucide-react";
 import type { InsightType } from "@/lib/types";
 
@@ -61,6 +66,31 @@ export const TYPE_CONFIG: Record<
     icon: Users,
     label: "Behavioral",
     color: "text-teal-400",
+  },
+  comfort_analysis: {
+    icon: Thermometer,
+    label: "Comfort",
+    color: "text-rose-400",
+  },
+  security_audit: {
+    icon: Shield,
+    label: "Security",
+    color: "text-slate-400",
+  },
+  weather_correlation: {
+    icon: CloudSun,
+    label: "Weather",
+    color: "text-sky-400",
+  },
+  automation_efficiency: {
+    icon: Gauge,
+    label: "Automation Efficiency",
+    color: "text-lime-400",
+  },
+  custom: {
+    icon: Sparkles,
+    label: "Custom",
+    color: "text-violet-400",
   },
 };
 
