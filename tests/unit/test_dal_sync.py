@@ -1043,12 +1043,396 @@ class TestSyncEntities:
 
 
 class TestSyncAutomationEntities:
-    """Tests for _sync_automation_entities private method."""
+    """Tests for _sync_automation_entities populating ha_automations, scripts, scenes."""
+
+    @pytest.fixture
+    def registry_entities(self):
+        """Create sample entities with realistic attributes for registry sync."""
+        from src.mcp.parsers import ParsedEntity
+
+        return [
+            ParsedEntity(
+                entity_id="automation.morning_routine",
+                domain="automation",
+                name="Morning Routine",
+                state="on",
+                attributes={
+                    "id": "morning_routine",
+                    "friendly_name": "Morning Routine",
+                    "last_triggered": "2026-02-07T08:00:00+00:00",
+                    "mode": "single",
+                },
+                area_id=None,
+                device_id=None,
+                device_class=None,
+                unit_of_measurement=None,
+                supported_features=0,
+            ),
+            ParsedEntity(
+                entity_id="automation.night_mode",
+                domain="automation",
+                name="Night Mode",
+                state="off",
+                attributes={
+                    "id": "night_mode",
+                    "friendly_name": "Night Mode",
+                    "last_triggered": None,
+                    "mode": "restart",
+                },
+                area_id=None,
+                device_id=None,
+                device_class=None,
+                unit_of_measurement=None,
+                supported_features=0,
+            ),
+            ParsedEntity(
+                entity_id="script.turn_on_lights",
+                domain="script",
+                name="Turn On Lights",
+                state="off",
+                attributes={
+                    "friendly_name": "Turn On Lights",
+                    "last_triggered": "2026-02-06T18:30:00+00:00",
+                    "mode": "single",
+                    "icon": "mdi:lightbulb",
+                },
+                area_id=None,
+                device_id=None,
+                device_class=None,
+                unit_of_measurement=None,
+                supported_features=0,
+            ),
+            ParsedEntity(
+                entity_id="scene.evening",
+                domain="scene",
+                name="Evening Scene",
+                state="scening",
+                attributes={
+                    "friendly_name": "Evening Scene",
+                    "icon": "mdi:weather-night",
+                },
+                area_id=None,
+                device_id=None,
+                device_class=None,
+                unit_of_measurement=None,
+                supported_features=0,
+            ),
+            # Non-registry entity (should be ignored)
+            ParsedEntity(
+                entity_id="light.living_room",
+                domain="light",
+                name="Living Room Light",
+                state="off",
+                attributes={},
+                area_id=None,
+                device_id=None,
+                device_class=None,
+                unit_of_measurement=None,
+                supported_features=0,
+            ),
+        ]
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_sync_automation_entities_noop(self, sync_service, sample_entities):
-        """Test that _sync_automation_entities is currently a no-op."""
-        # Currently this method just passes, so we verify it doesn't raise
-        await sync_service._sync_automation_entities(sample_entities)
-        # No assertions needed - just verify it completes without error
+    async def test_upserts_automations(self, sync_service, registry_entities):
+        """Test that automation entities are upserted into ha_automations table."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        stats = await sync_service._sync_automation_entities(registry_entities)
+
+        assert sync_service.automation_repo.upsert.call_count == 2
+        # Check first automation upsert data
+        first_call = sync_service.automation_repo.upsert.call_args_list[0][0][0]
+        assert first_call["ha_automation_id"] == "morning_routine"
+        assert first_call["entity_id"] == "automation.morning_routine"
+        assert first_call["alias"] == "Morning Routine"
+        assert first_call["state"] == "on"
+        assert first_call["mode"] == "single"
+        assert first_call["last_triggered"] == "2026-02-07T08:00:00+00:00"
+        assert stats["automations_synced"] == 2
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_upserts_scripts(self, sync_service, registry_entities):
+        """Test that script entities are upserted into scripts table."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        stats = await sync_service._sync_automation_entities(registry_entities)
+
+        assert sync_service.script_repo.upsert.call_count == 1
+        script_call = sync_service.script_repo.upsert.call_args_list[0][0][0]
+        assert script_call["entity_id"] == "script.turn_on_lights"
+        assert script_call["alias"] == "Turn On Lights"
+        assert script_call["state"] == "off"
+        assert script_call["mode"] == "single"
+        assert script_call["icon"] == "mdi:lightbulb"
+        assert script_call["last_triggered"] == "2026-02-06T18:30:00+00:00"
+        assert stats["scripts_synced"] == 1
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_upserts_scenes(self, sync_service, registry_entities):
+        """Test that scene entities are upserted into scenes table."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        stats = await sync_service._sync_automation_entities(registry_entities)
+
+        assert sync_service.scene_repo.upsert.call_count == 1
+        scene_call = sync_service.scene_repo.upsert.call_args_list[0][0][0]
+        assert scene_call["entity_id"] == "scene.evening"
+        assert scene_call["name"] == "Evening Scene"
+        assert scene_call["icon"] == "mdi:weather-night"
+        assert stats["scenes_synced"] == 1
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_removes_stale_automations(self, sync_service, registry_entities):
+        """Test that automations no longer in HA are removed."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        # DB has an extra automation that's no longer in HA
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(
+            return_value={"morning_routine", "night_mode", "deleted_one"}
+        )
+        sync_service.automation_repo.delete = AsyncMock(return_value=True)
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        await sync_service._sync_automation_entities(registry_entities)
+
+        sync_service.automation_repo.delete.assert_called_once_with("deleted_one")
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_removes_stale_scripts(self, sync_service, registry_entities):
+        """Test that scripts no longer in HA are removed."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(
+            return_value={"script.turn_on_lights", "script.old_one"}
+        )
+        sync_service.script_repo.delete = AsyncMock(return_value=True)
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        await sync_service._sync_automation_entities(registry_entities)
+
+        sync_service.script_repo.delete.assert_called_once_with("script.old_one")
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_removes_stale_scenes(self, sync_service, registry_entities):
+        """Test that scenes no longer in HA are removed."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(
+            return_value={"scene.evening", "scene.deleted"}
+        )
+        sync_service.scene_repo.delete = AsyncMock(return_value=True)
+
+        await sync_service._sync_automation_entities(registry_entities)
+
+        sync_service.scene_repo.delete.assert_called_once_with("scene.deleted")
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_empty_entities_returns_zero_stats(self, sync_service):
+        """Test that empty entity list returns zero stats without error."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        stats = await sync_service._sync_automation_entities([])
+
+        assert stats["automations_synced"] == 0
+        assert stats["scripts_synced"] == 0
+        assert stats["scenes_synced"] == 0
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_ignores_non_registry_domains(self, sync_service, registry_entities):
+        """Test that non-registry entities (lights, sensors) are ignored."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        stats = await sync_service._sync_automation_entities(registry_entities)
+
+        # 5 entities total but only 4 are registry (2 auto + 1 script + 1 scene)
+        total = stats["automations_synced"] + stats["scripts_synced"] + stats["scenes_synced"]
+        assert total == 4
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_returns_stats_dict(self, sync_service, registry_entities):
+        """Test that return value has expected keys."""
+        sync_service.automation_repo = MagicMock()
+        sync_service.automation_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.automation_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.script_repo = MagicMock()
+        sync_service.script_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
+        sync_service.scene_repo = MagicMock()
+        sync_service.scene_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        sync_service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
+
+        stats = await sync_service._sync_automation_entities(registry_entities)
+
+        assert "automations_synced" in stats
+        assert "scripts_synced" in stats
+        assert "scenes_synced" in stats
+
+
+class TestRunRegistrySync:
+    """Tests for the standalone run_registry_sync convenience function."""
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_fetches_entities_and_syncs_registry(self):
+        """Test that run_registry_sync fetches entities and delegates to sync."""
+        from src.dal.sync import run_registry_sync
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
+
+        mock_mcp = MagicMock()
+        mock_mcp.list_entities = AsyncMock(return_value=[
+            {"entity_id": "automation.test", "state": "on", "name": "Test"},
+            {"entity_id": "script.test", "state": "off", "name": "Test Script"},
+        ])
+
+        with patch("src.dal.sync.parse_entity_list") as mock_parse, \
+             patch.object(DiscoverySyncService, "_sync_automation_entities", new_callable=AsyncMock) as mock_sync:
+            mock_parse.return_value = [MagicMock(domain="automation"), MagicMock(domain="script")]
+            mock_sync.return_value = {
+                "automations_synced": 1,
+                "scripts_synced": 1,
+                "scenes_synced": 0,
+            }
+
+            result = await run_registry_sync(session=mock_session, mcp_client=mock_mcp)
+
+        assert result["automations_synced"] == 1
+        assert result["scripts_synced"] == 1
+        assert result["scenes_synced"] == 0
+        assert "duration_seconds" in result
+        mock_mcp.list_entities.assert_called_once_with(detailed=True)
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_creates_mcp_client_if_none(self):
+        """Test that run_registry_sync creates MCP client when not provided."""
+        from src.dal.sync import run_registry_sync
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
+
+        mock_mcp = MagicMock()
+        mock_mcp.list_entities = AsyncMock(return_value=[])
+
+        with patch("src.dal.sync.get_mcp_client", return_value=mock_mcp) as mock_get_mcp, \
+             patch("src.dal.sync.parse_entity_list", return_value=[]), \
+             patch.object(DiscoverySyncService, "_sync_automation_entities", new_callable=AsyncMock) as mock_sync:
+            mock_sync.return_value = {
+                "automations_synced": 0,
+                "scripts_synced": 0,
+                "scenes_synced": 0,
+            }
+
+            await run_registry_sync(session=mock_session)
+
+        mock_get_mcp.assert_called_once()
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_propagates_mcp_errors(self):
+        """Test that MCP errors propagate to caller."""
+        from src.dal.sync import run_registry_sync
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
+
+        mock_mcp = MagicMock()
+        mock_mcp.list_entities = AsyncMock(side_effect=Exception("MCP connection failed"))
+
+        with pytest.raises(Exception, match="MCP connection failed"):
+            await run_registry_sync(session=mock_session, mcp_client=mock_mcp)
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_duration_is_positive(self):
+        """Test that duration_seconds is a positive number."""
+        from src.dal.sync import run_registry_sync
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
+        mock_session.commit = AsyncMock()
+
+        mock_mcp = MagicMock()
+        mock_mcp.list_entities = AsyncMock(return_value=[])
+
+        with patch("src.dal.sync.parse_entity_list", return_value=[]), \
+             patch.object(DiscoverySyncService, "_sync_automation_entities", new_callable=AsyncMock) as mock_sync:
+            mock_sync.return_value = {
+                "automations_synced": 0,
+                "scripts_synced": 0,
+                "scenes_synced": 0,
+            }
+
+            result = await run_registry_sync(session=mock_session, mcp_client=mock_mcp)
+
+        assert result["duration_seconds"] >= 0

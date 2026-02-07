@@ -203,12 +203,45 @@ class HAAutomationFactory(BaseFactory):
         model = dict
 
     ha_automation_id = LazyAttribute(lambda o: f"automation.auto_{o.id[:8]}")
+    entity_id = LazyAttribute(lambda o: f"automation.{o.ha_automation_id.split('.')[-1]}")
     alias = factory.Sequence(lambda n: f"HA Automation {n}")
     description = factory.Faker("sentence")
     state = "on"
     mode = "single"
     trigger_types = LazyFunction(lambda: ["state"])
+    trigger_count = 1
     action_count = factory.Faker("random_int", min=1, max=5)
+    condition_count = 0
+    last_triggered = None
+
+
+class ScriptFactory(BaseFactory):
+    """Factory for Script sync records."""
+
+    class Meta:
+        model = dict
+
+    entity_id = factory.Sequence(lambda n: f"script.script_{n}")
+    alias = factory.Sequence(lambda n: f"Script {n}")
+    description = factory.Faker("sentence")
+    state = "off"
+    mode = "single"
+    icon = None
+    sequence = None
+    fields = None
+    last_triggered = None
+
+
+class SceneFactory(BaseFactory):
+    """Factory for Scene sync records."""
+
+    class Meta:
+        model = dict
+
+    entity_id = factory.Sequence(lambda n: f"scene.scene_{n}")
+    name = factory.Sequence(lambda n: f"Scene {n}")
+    icon = None
+    entity_states = None
 
 
 # =============================================================================
