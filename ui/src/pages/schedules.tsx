@@ -453,12 +453,21 @@ function CreateScheduleForm({ onClose }: { onClose: () => void }) {
     cron_expression: "0 2 * * *",
     webhook_event: "",
   });
+  // Track hours as a string so the user can freely clear and retype
+  const [hoursStr, setHoursStr] = useState("24");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMut.mutate(form, {
-      onSuccess: () => onClose(),
-    });
+    const hours = parseInt(hoursStr) || 24;
+    createMut.mutate(
+      { ...form, hours },
+      {
+        onSuccess: () => onClose(),
+        onError: () => {
+          // Error is displayed inline via createMut.error below
+        },
+      },
+    );
   };
 
   const updateField = <K extends keyof InsightScheduleCreate>(
@@ -619,12 +628,22 @@ function CreateScheduleForm({ onClose }: { onClose: () => void }) {
               type="number"
               min={1}
               max={8760}
-              value={form.hours ?? 24}
-              onChange={(e) =>
-                updateField("hours", parseInt(e.target.value) || 24)
-              }
+              value={hoursStr}
+              onChange={(e) => setHoursStr(e.target.value)}
             />
           </div>
+
+          {/* Error display */}
+          {createMut.isError && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {createMut.error instanceof Error
+                  ? createMut.error.message
+                  : "Failed to create schedule"}
+              </span>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-2">
