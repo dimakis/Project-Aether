@@ -714,7 +714,7 @@ The following uncompleted features were migrated from this file:
 | Model Routing & Multi-Agent | [`features/08-C-model-routing-multi-agent/`](./features/08-C-model-routing-multi-agent/) | ✅ Complete |
 | Real LLM Streaming | [`features/09-real-llm-streaming/`](./features/09-real-llm-streaming/) | Proposed |
 | Scheduled & Event-Driven Insights | [`features/10-scheduled-event-insights/`](./features/10-scheduled-event-insights/) | Proposed |
-| Agent Activity Trace | [`features/11-agent-activity-trace/`](./features/11-agent-activity-trace/) | Phase 1 Complete (persistent panel, global store) |
+| Agent Activity Trace | [`features/11-agent-activity-trace/`](./features/11-agent-activity-trace/) | Phase 1+2 Complete (persistent panel, real-time SSE trace events) |
 | Climate Comfort Analysis | [`features/12-climate-comfort-analysis/`](./features/12-climate-comfort-analysis/) | Proposed |
 | Presence & Occupancy Intelligence | [`features/13-presence-occupancy-intelligence/`](./features/13-presence-occupancy-intelligence/) | Proposed |
 | Solar & Battery Optimization | [`features/14-solar-battery-optimization/`](./features/14-solar-battery-optimization/) | Proposed |

@@ -25,20 +25,27 @@ Panel animates through the span tree with relative timing
 
 During streaming (before completion), the panel shows a simulated "Architect thinking..." state since the Architect is always the entry point.
 
-### Phase 2 — Real-Time Trace Events (with Feature 09)
+### Phase 2 — Real-Time Trace Events (Implemented)
 
-When real LLM streaming is implemented, trace events are interleaved in the SSE stream via LangGraph node callbacks:
+Trace events are emitted as SSE events before text chunks. Since the backend runs the full workflow synchronously before streaming, `_build_trace_events()` extracts the event sequence from the completed state and emits them upfront:
 
 ```
-data: {"type":"trace","agent":"architect","event":"start","ts":0}
-data: {"choices":[{"delta":{"content":"Let me "}}]}
-data: {"type":"trace","agent":"architect","event":"tool_call","tool":"analyze_energy","ts":1.2}
-data: {"type":"trace","agent":"data_scientist","event":"start","ts":1.3}
-data: {"type":"trace","agent":"data_scientist","event":"tool_call","tool":"sandbox","ts":3.1}
-data: {"type":"trace","agent":"data_scientist","event":"end","ts":4.2}
+data: {"type":"trace","agent":"architect","event":"start","ts":1700000000.05}
+data: {"type":"trace","agent":"data_scientist","event":"start","ts":1700000000.15}
+data: {"type":"trace","agent":"data_scientist","event":"tool_call","tool":"analyze_energy","ts":1700000000.20}
+data: {"type":"trace","agent":"data_scientist","event":"tool_result","ts":1700000000.25}
+data: {"type":"trace","agent":"data_scientist","event":"end","ts":1700000000.30}
+data: {"type":"trace","agent":"architect","event":"end","ts":1700000000.35}
+data: {"type":"trace","event":"complete","agents":["architect","data_scientist"],"ts":1700000000.40}
 data: {"choices":[{"delta":{"content":"Based on the analysis..."}}]}
-data: {"type":"trace","event":"complete","ts":4.8}
 ```
+
+**Tool-to-agent mapping** in `_build_trace_events()`:
+- `analyze_energy`, `run_custom_analysis`, `diagnose_issue` → `data_scientist`
+- `create_insight_schedule`, `seek_approval`, `execute_service` → `system`
+- All other tools remain under `architect`
+
+**Frontend handling**: Both the ChatPage and InlineAssistant process trace events via the shared `handleTraceEvent()` utility, updating agent activity state in real time. Background requests (title generation, suggestions) skip trace emission.
 
 No additional WebSocket infrastructure — piggybacks on the existing SSE chat stream.
 
@@ -195,8 +202,9 @@ Known agents for the topology view:
 | Librarian | `📚` Book | Purple | Entity discovery and cataloging |
 | Developer | `🔧` Wrench | Amber | Automation deployment |
 
-## Files to Create/Modify
+## Files Created/Modified
 
+### Phase 1 (Post-hoc Trace Replay)
 | File | Action |
 |------|--------|
 | `src/api/routes/traces.py` | New — Trace spans endpoint |
@@ -206,13 +214,30 @@ Known agents for the topology view:
 | `ui/src/components/chat/agent-activity-panel.tsx` | New — Collapsible panel container |
 | `ui/src/components/chat/agent-topology.tsx` | New — Agent flow diagram with animations |
 | `ui/src/components/chat/trace-timeline.tsx` | New — Scrollable event timeline |
-| `ui/src/pages/chat.tsx` | Modified — panel toggle, trace fetch on message complete |
+| `ui/src/pages/chat/index.tsx` | Modified — panel toggle, trace fetch on message complete |
 | `ui/src/layouts/app-layout.tsx` | Modified — sidebar agent indicator |
 | `ui/src/lib/types.ts` | Modified — TraceSpan types |
+| `ui/src/lib/agent-activity-store.ts` | New — Global store for agent activity |
 
-## Out of Scope (Phase 1)
+### Phase 2 (Real-Time Trace Events)
+| File | Action |
+|------|--------|
+| `src/api/routes/openai_compat.py` | Modified — `_build_trace_events()` helper + SSE emission |
+| `ui/src/api/client.ts` | Modified — `StreamChunk` trace variant + parser |
+| `ui/src/lib/trace-event-handler.ts` | New — Maps trace events to activity state |
+| `ui/src/pages/chat/index.tsx` | Modified — Handle trace events in stream loop |
+| `ui/src/components/InlineAssistant.tsx` | Modified — Handle trace events with local indicator |
 
-- Real-time trace streaming (requires Feature 09)
+### Test Files (Phase 2)
+| File | Tests |
+|------|-------|
+| `tests/unit/test_trace_events.py` | 15 tests — `_build_trace_events` + SSE emission |
+| `ui/src/api/__tests__/client.test.ts` | 2 new tests — trace event parsing |
+| `ui/src/lib/__tests__/trace-event-handler.test.ts` | 9 tests — event-to-activity mapping |
+
+## Out of Scope
+
+- True real-time streaming mid-workflow (requires Feature 09 — real LLM streaming with LangGraph node callbacks)
 - Trace comparison between messages
 - Full MLflow trace viewer (use MLflow UI for that)
 - Agent topology for non-chat workflows (discovery, optimization)
