@@ -11,9 +11,29 @@ import {
   useDeleteInsight,
   useRunAnalysis,
 } from "@/api/hooks";
+import { InlineAssistant } from "@/components/InlineAssistant";
 import { InsightCard } from "./InsightCard";
 import { InsightDetail } from "./InsightDetail";
 import { InsightFilters } from "./InsightFilters";
+
+const INSIGHTS_SYSTEM_CONTEXT = `You are the Architect agent on the Insights page.
+Help the user understand, analyze, and act on their smart home insights.
+You have access to the run_custom_analysis tool to run ad-hoc analysis
+and the create_insight_schedule tool to set up recurring analysis.
+
+When the user asks a question about their home data, energy usage, or
+device behavior, use run_custom_analysis to investigate. Present your
+findings conversationally and suggest follow-up actions.
+
+You can also help create schedules for recurring analysis based on
+what the user finds interesting in their current insights.`;
+
+const INSIGHTS_SUGGESTIONS = [
+  "Why is my energy usage spiking?",
+  "Analyze my HVAC cycling patterns",
+  "Find devices that waste energy overnight",
+  "Set up a daily comfort analysis",
+];
 
 function StatCard({
   value,
@@ -76,6 +96,16 @@ export function InsightsPage() {
           )}
           Run Analysis
         </Button>
+      </div>
+
+      {/* Inline Assistant */}
+      <div className="mb-6">
+        <InlineAssistant
+          systemContext={INSIGHTS_SYSTEM_CONTEXT}
+          suggestions={INSIGHTS_SUGGESTIONS}
+          invalidateKeys={[["insights"], ["insightsSummary"]]}
+          placeholder="Ask about your insights or run a custom analysis..."
+        />
       </div>
 
       {/* Summary Stats */}

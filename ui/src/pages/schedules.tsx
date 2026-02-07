@@ -36,7 +36,30 @@ import {
   useDeleteInsightSchedule,
   useRunInsightSchedule,
 } from "@/api/hooks";
+import { InlineAssistant } from "@/components/InlineAssistant";
 import type { InsightSchedule, InsightScheduleCreate } from "@/lib/types";
+
+const SCHEDULE_SYSTEM_CONTEXT = `You are the Architect agent on the Insight Schedules page.
+Help the user create, manage, and understand insight schedules.
+You have access to the create_insight_schedule tool to create recurring
+analysis jobs and the run_custom_analysis tool for ad-hoc analysis.
+
+When the user describes a schedule in natural language, use create_insight_schedule
+to create it. Confirm the details with the user in your response.
+
+Available analysis types: energy_optimization, anomaly_detection, usage_patterns,
+device_health, behavior_analysis, automation_analysis, automation_gap_detection,
+correlation_discovery, cost_optimization, comfort_analysis, security_audit,
+weather_correlation, custom.
+
+Available triggers: cron (periodic) and webhook (event-driven from HA).`;
+
+const SCHEDULE_SUGGESTIONS = [
+  "Run energy analysis every morning at 8am",
+  "Alert me when any device goes offline",
+  "Check HVAC efficiency weekly",
+  "Analyze energy costs daily at midnight",
+];
 
 const ANALYSIS_TYPES = [
   {
@@ -156,6 +179,14 @@ export function SchedulesPage() {
           New Schedule
         </Button>
       </div>
+
+      {/* Inline Assistant */}
+      <InlineAssistant
+        systemContext={SCHEDULE_SYSTEM_CONTEXT}
+        suggestions={SCHEDULE_SUGGESTIONS}
+        invalidateKeys={[["insightSchedules"]]}
+        placeholder="Describe a schedule in natural language..."
+      />
 
       {/* Create Form */}
       <AnimatePresence>
