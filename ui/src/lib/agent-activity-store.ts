@@ -1,29 +1,25 @@
 /**
  * Lightweight global store for agent activity state.
  *
- * Feature 11: Live Agent Activity Trace.
+ * Used by:
+ * - ChatPage: setAgentActivity / clearAgentActivity when streaming
+ * - AppLayout sidebar: useAgentActivity to show live indicator
  *
- * The chat page updates this store during streaming, and the sidebar
- * reads from it to show a subtle activity indicator.
+ * Uses useSyncExternalStore for React 18+ compatibility.
  */
 
 import { useSyncExternalStore } from "react";
 
-interface AgentActivityState {
-  /** Whether any agent is currently processing */
+export interface AgentActivity {
   isActive: boolean;
-  /** The currently active agent (if any) */
   activeAgent: string | null;
-  /** Target agent being delegated to (if any) */
-  delegatingTo: string | null;
+  delegatingTo?: string | null;
+  agents?: string[];
 }
 
-let state: AgentActivityState = {
-  isActive: false,
-  activeAgent: null,
-  delegatingTo: null,
-};
+const DEFAULT: AgentActivity = { isActive: false, activeAgent: null };
 
+let current: AgentActivity = DEFAULT;
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -32,28 +28,26 @@ function notify() {
   }
 }
 
+export function setAgentActivity(activity: Partial<AgentActivity>) {
+  current = { ...current, ...activity };
+  notify();
+}
+
+export function clearAgentActivity() {
+  current = DEFAULT;
+  notify();
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-function getSnapshot() {
-  return state;
+function getSnapshot(): AgentActivity {
+  return current;
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
-
-export function setAgentActivity(update: Partial<AgentActivityState>) {
-  state = { ...state, ...update };
-  notify();
-}
-
-export function clearAgentActivity() {
-  state = { isActive: false, activeAgent: null, delegatingTo: null };
-  notify();
-}
-
-/** React hook to subscribe to agent activity state */
-export function useAgentActivity(): AgentActivityState {
+/** React hook to read the current agent activity state. */
+export function useAgentActivity(): AgentActivity {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
