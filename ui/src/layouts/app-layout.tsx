@@ -10,6 +10,7 @@ import {
   Zap,
   Clock,
   BarChart3,
+  Bot,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ const navItems = [
   { to: "/schedules", icon: Clock, label: "Schedules" },
   { to: "/usage", icon: BarChart3, label: "LLM Usage" },
   { to: "/diagnostics", icon: Activity, label: "Diagnostics" },
+  { to: "/agents", icon: Bot, label: "Agents" },
 ];
 
 const AGENT_LABELS: Record<string, string> = {
