@@ -7,6 +7,10 @@ export const AGENT_LABELS: Record<string, string> = {
   developer: "Developer",
   orchestrator: "Orchestrator",
   categorizer: "Categorizer",
+  energy_analyst: "Energy Analyst",
+  behavioral_analyst: "Behavioral Analyst",
+  diagnostic_analyst: "Diagnostic Analyst",
+  dashboard_designer: "Dashboard Designer",
 };
 
 export const STATUS_COLORS: Record<AgentStatusValue, string> = {

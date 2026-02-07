@@ -629,6 +629,29 @@ _AGENT_TOOLS: dict[str, list[str]] = {
         "create_scene",
     ],
     "orchestrator": [],
+    "energy_analyst": [
+        "run_custom_analysis",
+        "analyze_energy",
+        "get_entity_history",
+    ],
+    "behavioral_analyst": [
+        "run_custom_analysis",
+        "analyze_behavior",
+        "get_entity_history",
+    ],
+    "diagnostic_analyst": [
+        "run_custom_analysis",
+        "diagnose_issue",
+        "analyze_error_log",
+        "find_unavailable_entities",
+        "diagnose_entity",
+        "check_integration_health",
+    ],
+    "dashboard_designer": [
+        "generate_dashboard_yaml",
+        "validate_dashboard_yaml",
+        "list_dashboards",
+    ],
 }
 
 
@@ -814,6 +837,38 @@ async def seed_agents(request: Request) -> dict[str, Any]:
             "model": settings.llm_model,
             "temperature": settings.llm_temperature,
             "prompt_name": None,
+        },
+        {
+            "name": "energy_analyst",
+            "description": "Energy consumption analysis, cost optimization, and usage patterns.",
+            "status": AgentStatus.ENABLED.value,
+            "model": settings.data_scientist_model or settings.llm_model,
+            "temperature": settings.data_scientist_temperature or settings.llm_temperature,
+            "prompt_name": None,
+        },
+        {
+            "name": "behavioral_analyst",
+            "description": "User behavior patterns, routine detection, and automation suggestions.",
+            "status": AgentStatus.ENABLED.value,
+            "model": settings.data_scientist_model or settings.llm_model,
+            "temperature": settings.data_scientist_temperature or settings.llm_temperature,
+            "prompt_name": None,
+        },
+        {
+            "name": "diagnostic_analyst",
+            "description": "System health monitoring, error diagnosis, and integration troubleshooting.",
+            "status": AgentStatus.ENABLED.value,
+            "model": settings.data_scientist_model or settings.llm_model,
+            "temperature": settings.data_scientist_temperature or settings.llm_temperature,
+            "prompt_name": None,
+        },
+        {
+            "name": "dashboard_designer",
+            "description": "Lovelace dashboard design, YAML generation, and deployment.",
+            "status": AgentStatus.ENABLED.value,
+            "model": settings.llm_model,
+            "temperature": settings.llm_temperature,
+            "prompt_name": "dashboard_designer_system",
         },
     ]
 
