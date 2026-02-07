@@ -21,9 +21,11 @@ from pydantic import BaseModel, Field
 from src.api.rate_limit import limiter
 
 from src.agents import ArchitectWorkflow
+from src.agents.model_context import model_context
 from src.dal import ConversationRepository, MessageRepository
 from src.graph.state import ConversationState
 from src.storage import get_session
+from src.tracing import start_experiment_run, log_param
 from src.tracing.context import session_context
 
 router = APIRouter(tags=["OpenAI Compatible"])
@@ -167,51 +169,69 @@ async def _create_chat_completion(
     request: ChatCompletionRequest,
 ) -> ChatCompletionResponse:
     """Process non-streaming chat completion."""
+    import mlflow
+
     async with get_session() as session:
         # Get or create conversation - use stable ID derived from messages
         # This ensures Open WebUI conversations stay grouped in MLflow
         conversation_id = request.conversation_id or _derive_conversation_id(request.messages)
 
         with session_context(conversation_id):
-            # Convert OpenAI messages to LangChain messages
-            lc_messages = _convert_to_langchain_messages(request.messages)
+            # Create MLflow run for full observability (runs + nested traces)
+            with start_experiment_run("conversation") as run:
+                mlflow.set_tag("endpoint", "chat_completion")
+                mlflow.set_tag("session.id", conversation_id)
+                mlflow.set_tag("mlflow.trace.session", conversation_id)
+                log_param("conversation_id", conversation_id)
+                log_param("model", request.model)
 
-            # Extract last user message
-            user_message = ""
-            for msg in reversed(request.messages):
-                if msg.role == "user" and msg.content:
-                    user_message = msg.content
-                    break
+                # Convert OpenAI messages to LangChain messages
+                lc_messages = _convert_to_langchain_messages(request.messages)
 
-            if not user_message:
-                raise HTTPException(status_code=400, detail="No user message found")
-
-            # Create state from messages
-            state = ConversationState(
-                conversation_id=conversation_id,
-                messages=lc_messages[:-1],  # All but last user message
-            )
-
-            # Process with Architect (using requested LLM model)
-            workflow = ArchitectWorkflow(
-                model_name=request.model,
-                temperature=request.temperature,
-            )
-            state = await workflow.continue_conversation(
-                state=state,
-                user_message=user_message,
-                session=session,
-            )
-
-            # Get response
-            assistant_content = ""
-            if state.messages:
-                for msg in reversed(state.messages):
-                    if isinstance(msg, AIMessage):
-                        assistant_content = msg.content
+                # Extract last user message
+                user_message = ""
+                for msg in reversed(request.messages):
+                    if msg.role == "user" and msg.content:
+                        user_message = msg.content
                         break
 
-            await session.commit()
+                if not user_message:
+                    raise HTTPException(status_code=400, detail="No user message found")
+
+                log_param("turn", (len(lc_messages) + 1) // 2)
+                log_param("type", "continue_conversation")
+
+                # Create state from messages
+                state = ConversationState(
+                    conversation_id=conversation_id,
+                    messages=lc_messages[:-1],  # All but last user message
+                )
+
+                # Propagate user's model selection to all delegated agents
+                with model_context(
+                    model_name=request.model,
+                    temperature=request.temperature,
+                ):
+                    # Process with Architect (using requested LLM model)
+                    workflow = ArchitectWorkflow(
+                        model_name=request.model,
+                        temperature=request.temperature,
+                    )
+                    state = await workflow.continue_conversation(
+                        state=state,
+                        user_message=user_message,
+                        session=session,
+                    )
+
+                # Get response
+                assistant_content = ""
+                if state.messages:
+                    for msg in reversed(state.messages):
+                        if isinstance(msg, AIMessage):
+                            assistant_content = msg.content
+                            break
+
+                await session.commit()
 
         return ChatCompletionResponse(
             model=request.model,
@@ -236,6 +256,8 @@ async def _stream_chat_completion(
     Yields Server-Sent Events in the OpenAI format:
     data: {"id": "...", "object": "chat.completion.chunk", ...}
     """
+    import mlflow
+
     completion_id = f"chatcmpl-{uuid4().hex[:8]}"
     created = int(time.time())
 
@@ -245,54 +267,87 @@ async def _stream_chat_completion(
             conversation_id = request.conversation_id or _derive_conversation_id(request.messages)
 
             with session_context(conversation_id):
-                # Convert messages
-                lc_messages = _convert_to_langchain_messages(request.messages)
+                # Create MLflow run for full observability (runs + nested traces)
+                with start_experiment_run("conversation") as run:
+                    mlflow.set_tag("endpoint", "chat_completion_stream")
+                    mlflow.set_tag("session.id", conversation_id)
+                    mlflow.set_tag("mlflow.trace.session", conversation_id)
+                    log_param("conversation_id", conversation_id)
+                    log_param("model", request.model)
 
-                # Extract last user message
-                user_message = ""
-                for msg in reversed(request.messages):
-                    if msg.role == "user" and msg.content:
-                        user_message = msg.content
-                        break
+                    # Convert messages
+                    lc_messages = _convert_to_langchain_messages(request.messages)
 
-                if not user_message:
-                    yield _format_sse_error("No user message found")
-                    return
-
-                # Create state
-                state = ConversationState(
-                    conversation_id=conversation_id,
-                    messages=lc_messages[:-1],
-                )
-
-                # Process with Architect (using requested LLM model)
-                workflow = ArchitectWorkflow(
-                    model_name=request.model,
-                    temperature=request.temperature,
-                )
-                state = await workflow.continue_conversation(
-                    state=state,
-                    user_message=user_message,
-                    session=session,
-                )
-
-                # Get response content
-                assistant_content = ""
-                if state.messages:
-                    for msg in reversed(state.messages):
-                        if isinstance(msg, AIMessage):
-                            assistant_content = msg.content
+                    # Extract last user message
+                    user_message = ""
+                    for msg in reversed(request.messages):
+                        if msg.role == "user" and msg.content:
+                            user_message = msg.content
                             break
 
-                # Stream the response in chunks
-                # In a real implementation, we'd use the LLM's streaming capability
-                # For now, we simulate streaming by chunking the response
-                chunk_size = 10  # Characters per chunk
+                    if not user_message:
+                        yield _format_sse_error("No user message found")
+                        return
 
-                for i in range(0, len(assistant_content), chunk_size):
-                    chunk = assistant_content[i : i + chunk_size]
+                    log_param("turn", (len(lc_messages) + 1) // 2)
+                    log_param("type", "continue_conversation")
 
-                    chunk_data = {
+                    # Create state
+                    state = ConversationState(
+                        conversation_id=conversation_id,
+                        messages=lc_messages[:-1],
+                    )
+
+                    # Propagate user's model selection to all delegated agents
+                    with model_context(
+                        model_name=request.model,
+                        temperature=request.temperature,
+                    ):
+                        # Process with Architect (using requested LLM model)
+                        workflow = ArchitectWorkflow(
+                            model_name=request.model,
+                            temperature=request.temperature,
+                        )
+                        state = await workflow.continue_conversation(
+                            state=state,
+                            user_message=user_message,
+                            session=session,
+                        )
+
+                    # Get response content
+                    assistant_content = ""
+                    if state.messages:
+                        for msg in reversed(state.messages):
+                            if isinstance(msg, AIMessage):
+                                assistant_content = msg.content
+                                break
+
+                    # Stream the response in chunks
+                    # In a real implementation, we'd use the LLM's streaming capability
+                    # For now, we simulate streaming by chunking the response
+                    chunk_size = 10  # Characters per chunk
+
+                    for i in range(0, len(assistant_content), chunk_size):
+                        chunk = assistant_content[i : i + chunk_size]
+
+                        chunk_data = {
+                            "id": completion_id,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": request.model,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {"content": chunk},
+                                    "finish_reason": None,
+                                }
+                            ],
+                        }
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                        await asyncio.sleep(0.01)  # Small delay for realistic streaming
+
+                    # Send final chunk with finish_reason
+                    final_chunk = {
                         "id": completion_id,
                         "object": "chat.completion.chunk",
                         "created": created,
@@ -300,32 +355,15 @@ async def _stream_chat_completion(
                         "choices": [
                             {
                                 "index": 0,
-                                "delta": {"content": chunk},
-                                "finish_reason": None,
+                                "delta": {},
+                                "finish_reason": "stop",
                             }
                         ],
                     }
-                    yield f"data: {json.dumps(chunk_data)}\n\n"
-                    await asyncio.sleep(0.01)  # Small delay for realistic streaming
+                    yield f"data: {json.dumps(final_chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
 
-                # Send final chunk with finish_reason
-                final_chunk = {
-                    "id": completion_id,
-                    "object": "chat.completion.chunk",
-                    "created": created,
-                    "model": request.model,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {},
-                            "finish_reason": "stop",
-                        }
-                    ],
-                }
-                yield f"data: {json.dumps(final_chunk)}\n\n"
-                yield "data: [DONE]\n\n"
-
-                await session.commit()
+                    await session.commit()
 
     except Exception as e:
         yield _format_sse_error(str(e))

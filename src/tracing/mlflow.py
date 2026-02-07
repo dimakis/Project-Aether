@@ -98,8 +98,8 @@ def _ensure_mlflow_initialized() -> bool:
 
         # Ensure URI is valid
         if not uri or uri.startswith("/mlflow"):
-            # Fall back to SQLite database (recommended by MLflow)
-            uri = "sqlite:///mlflow.db"
+            # Fall back to HTTP server (matches containerized MLflow in compose.yaml)
+            uri = "http://localhost:5002"
             _logger.debug(f"Using fallback MLflow URI: {uri}")
 
         mlflow.set_tracking_uri(uri)
@@ -252,7 +252,7 @@ def enable_autolog() -> None:
 def init_mlflow() -> Any:
     """Initialize MLflow with settings from environment.
 
-    Also enables autolog for supported libraries.
+    Sets the active experiment, enables autolog, and returns a client.
 
     Returns:
         Configured MlflowClient instance or None if unavailable
@@ -260,12 +260,24 @@ def init_mlflow() -> Any:
     if not _ensure_mlflow_initialized():
         return None
 
-    # Enable autolog when initializing
-    enable_autolog()
-
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return None
+
+    # Set the active experiment so @mlflow.trace() and autolog know where to log.
+    # Without this, traces fail with a foreign-key error on the MLflow backend
+    # because experiment_id is empty.
+    try:
+        settings = get_settings()
+        experiment_name = settings.mlflow_experiment_name
+        get_or_create_experiment(experiment_name)
+        mlflow.set_experiment(experiment_name)
+        _logger.debug(f"MLflow active experiment set to '{experiment_name}'")
+    except Exception as e:
+        _logger.debug(f"Failed to set MLflow experiment: {e}")
+
+    # Enable autolog when initializing
+    enable_autolog()
 
     try:
         from mlflow.tracking import MlflowClient
