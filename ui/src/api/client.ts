@@ -17,11 +17,18 @@ async function request<T>(
   const url = `${env.API_URL}/v1${path}`;
   const response = await fetch(url, {
     ...options,
+    credentials: "include", // Send httpOnly JWT cookie
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
     },
   });
+
+  // Redirect to login on 401 (expired session, etc.)
+  if (response.status === 401 && !path.startsWith("/auth/")) {
+    window.location.href = "/login";
+    throw new ApiError(401, "Session expired");
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -84,6 +91,7 @@ export async function* streamChat(
   const url = `${env.API_URL}/v1/chat/completions`;
   const response = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
@@ -148,6 +156,7 @@ export async function submitFeedback(
   const url = `${env.API_URL}/v1/feedback`;
   const response = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ trace_id: traceId, sentiment }),
   });

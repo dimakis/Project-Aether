@@ -9,8 +9,10 @@ import {
   Activity,
   Zap,
   Clock,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
 import { useSystemStatus, useProposals } from "@/api/hooks";
 import {
   useAgentActivity,
@@ -39,6 +41,7 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 export function AppLayout() {
+  const { username, logout } = useAuth();
   const { data: status } = useSystemStatus();
   const isHealthy = status?.status === "healthy";
   const agentActivity = useAgentActivity();
@@ -90,6 +93,20 @@ export function AppLayout() {
 
         {/* Status footer */}
         <div className="space-y-2 border-t border-border p-4">
+          {/* User + Logout */}
+          <div className="flex items-center justify-between">
+            <span className="truncate text-xs text-muted-foreground">
+              {username ?? "user"}
+            </span>
+            <button
+              onClick={logout}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Sign out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           {/* Activity panel toggle */}
           <button
             onClick={toggleActivityPanel}
