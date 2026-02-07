@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import limiter
 
+from src.agents.model_context import model_context
 from src.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -99,11 +100,18 @@ async def create_conversation(
         # Process with Architect agent
         from src.agents import ArchitectWorkflow
 
-        workflow = ArchitectWorkflow()
-        state = await workflow.start_conversation(
-            user_message=data.initial_message,
-            session=session,
-        )
+        # Set model context so delegated agents inherit the default model
+        from src.settings import get_settings as _get_settings
+        _chat_settings = _get_settings()
+        with model_context(
+            model_name=_chat_settings.llm_model,
+            temperature=_chat_settings.llm_temperature,
+        ):
+            workflow = ArchitectWorkflow()
+            state = await workflow.start_conversation(
+                user_message=data.initial_message,
+                session=session,
+            )
 
         # Get assistant response from state
         assistant_content = ""
@@ -316,12 +324,19 @@ async def send_message(
             ],
         )
 
-        workflow = ArchitectWorkflow()
-        state = await workflow.continue_conversation(
-            state=state,
-            user_message=data.message,
-            session=session,
-        )
+        # Set model context so delegated agents inherit the default model
+        from src.settings import get_settings as _get_settings
+        _chat_settings = _get_settings()
+        with model_context(
+            model_name=_chat_settings.llm_model,
+            temperature=_chat_settings.llm_temperature,
+        ):
+            workflow = ArchitectWorkflow()
+            state = await workflow.continue_conversation(
+                state=state,
+                user_message=data.message,
+                session=session,
+            )
 
         # Get assistant response
         assistant_content = ""

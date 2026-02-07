@@ -5,8 +5,11 @@ natural language conversation, translating their desires into
 structured automation proposals.
 """
 
+import logging
 from datetime import datetime
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -26,6 +29,20 @@ Your role is to help users design home automations through conversation. You:
 2. Ask clarifying questions when needed
 3. Design automations using Home Assistant's trigger/condition/action model
 4. Present proposals for human approval before any deployment
+
+## Response Formatting
+
+Use rich markdown formatting in your responses to make them clear and scannable:
+- Use **bold** for emphasis and `code` for entity IDs, service calls, and YAML keys
+- Use headings (##, ###) to organize longer responses
+- Use bullet points and numbered lists for steps and options
+- Use code blocks with language tags (```yaml, ```json) for automation configs
+- Use tables when comparing options or showing entity states
+- Use emojis naturally to improve scanability:
+  💡 for lights/ideas, ⚡ for automations/energy, 🌡️ for climate/temperature,
+  🔧 for configuration/fixes, ✅ for confirmations, ⚠️ for warnings,
+  📊 for data/analysis, 🏠 for home/areas, 🔒 for security,
+  🎯 for goals/targets, 💰 for cost savings, 🕐 for time/schedules
 
 When designing automations:
 - Use clear, descriptive names (alias)
@@ -639,6 +656,82 @@ class ArchitectAgent(BaseAgent):
             updates["architect_design"] = proposal_data
 
         return updates
+
+
+    async def receive_suggestion(
+        self,
+        suggestion: Any,
+        session: Any,
+    ) -> dict[str, Any]:
+        """Receive an AutomationSuggestion from the Data Scientist and create a proposal.
+
+        Converts the DS suggestion into a structured prompt, generates a full
+        automation proposal, and returns it for HITL approval.
+
+        Feature 03: Intelligent Optimization — DS-to-Architect suggestion flow.
+
+        Args:
+            suggestion: AutomationSuggestion model from the Data Scientist
+            session: Database session for proposal persistence
+
+        Returns:
+            Dict with proposal data and formatted response
+        """
+        # Build a structured prompt from the suggestion
+        prompt = (
+            f"The Data Scientist has identified a pattern that could be automated:\n\n"
+            f"**Pattern:** {suggestion.pattern}\n"
+            f"**Entities:** {', '.join(suggestion.entities[:10])}\n"
+            f"**Proposed Trigger:** {suggestion.proposed_trigger}\n"
+            f"**Proposed Action:** {suggestion.proposed_action}\n"
+            f"**Confidence:** {suggestion.confidence:.0%}\n"
+            f"**Source Analysis:** {suggestion.source_insight_type}\n"
+        )
+
+        if suggestion.evidence:
+            import json
+            evidence_str = json.dumps(suggestion.evidence, indent=2, default=str)[:500]
+            prompt += f"\n**Evidence:**\n```json\n{evidence_str}\n```\n"
+
+        prompt += (
+            "\nPlease design a complete Home Assistant automation based on this suggestion. "
+            "Include the full trigger, conditions (if needed), and actions in a JSON proposal block."
+        )
+
+        messages = [
+            SystemMessage(content=ARCHITECT_SYSTEM_PROMPT),
+            HumanMessage(content=prompt),
+        ]
+
+        async with self.trace_span("receive_suggestion", None) as span:
+            response = await self.llm.ainvoke(messages)
+            response_text = response.content
+
+            span["outputs"] = {"response_length": len(response_text)}
+
+            # Try to extract a proposal
+            proposal_data = self._extract_proposal(response_text)
+
+            result: dict[str, Any] = {
+                "response": response_text,
+                "proposal_data": proposal_data,
+            }
+
+            if proposal_data and session:
+                try:
+                    proposal = await self._create_proposal(
+                        session,
+                        conversation_id="ds_suggestion",
+                        proposal_data=proposal_data,
+                    )
+                    result["proposal_id"] = proposal.id
+                    result["proposal_name"] = proposal.name
+                    result["proposal_yaml"] = self._proposal_to_yaml(proposal_data)
+                except Exception as e:
+                    logger.warning(f"Failed to create proposal from suggestion: {e}")
+                    result["error"] = str(e)
+
+            return result
 
 
 class ArchitectWorkflow:
