@@ -920,6 +920,53 @@ class TestSyncAreas:
         assert mapping == {"living_room": "id-1", "bedroom": "id-2"}
         assert sync_service.area_repo.upsert.call_count == 2
 
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_fetch_areas_uses_ha_registry_api(self, sync_service):
+        """Test that _fetch_areas tries the direct HA REST API first."""
+        sync_service.mcp.get_area_registry = AsyncMock(return_value=[
+            {
+                "area_id": "living_room",
+                "name": "Living Room",
+                "floor_id": "ground_floor",
+                "icon": "mdi:sofa",
+                "picture": None,
+            },
+        ])
+
+        areas = await sync_service._fetch_areas([])
+
+        # Should use HA REST API data, not inferred from entities
+        assert len(areas) == 1
+        assert areas["living_room"]["name"] == "Living Room"
+        assert areas["living_room"]["floor_id"] == "ground_floor"
+        assert areas["living_room"]["icon"] == "mdi:sofa"
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_fetch_areas_falls_back_to_inference(self, sync_service):
+        """Test that _fetch_areas falls back to entity inference when HA API fails."""
+        sync_service.mcp.get_area_registry = AsyncMock(return_value=[])
+
+        # Pass entities with area_id attributes
+        from src.mcp.workarounds import ParsedEntity
+
+        entities = [
+            ParsedEntity(
+                entity_id="light.living_room",
+                name="Living Room Light",
+                state="on",
+                domain="light",
+                area_id="living_room",
+                attributes={},
+            ),
+        ]
+
+        areas = await sync_service._fetch_areas(entities)
+
+        assert "living_room" in areas
+        assert areas["living_room"]["name"] == "Living Room"
+
 
 class TestSyncDevices:
     """Tests for _sync_devices private method."""

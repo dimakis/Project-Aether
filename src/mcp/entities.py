@@ -41,6 +41,25 @@ class EntityMixin:
             logger.warning("Failed to fetch entity registry (area_id will be blank): %s", e)
             return {}
 
+    async def get_area_registry(self) -> list[dict[str, Any]]:
+        """Fetch areas directly from the HA area registry REST API.
+
+        Bypasses the MCP tool limitation that can only infer areas from
+        entity attributes. Returns the full area registry including
+        floor_id, icon, picture, and aliases.
+
+        Returns:
+            List of area dicts, or empty list on error
+        """
+        try:
+            result = await self._request("GET", "/api/config/area_registry/list")
+            if not result or not isinstance(result, list):
+                return []
+            return result
+        except Exception as e:
+            logger.warning("Failed to fetch area registry from HA: %s", e)
+            return []
+
     @_trace_mcp_call("mcp.list_entities")
     async def list_entities(
         self,

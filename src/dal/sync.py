@@ -81,8 +81,8 @@ class DiscoverySyncService:
             entities = parse_entity_list(raw_entities)
             discovery.entities_found = len(entities)
 
-            # 2. Infer areas from entities
-            inferred_areas = infer_areas_from_entities(entities)
+            # 2. Fetch areas (direct HA API with inference fallback)
+            inferred_areas = await self._fetch_areas(entities)
             discovery.areas_found = len(inferred_areas)
 
             # Sync areas
@@ -117,7 +117,10 @@ class DiscoverySyncService:
             discovery.completed_at = datetime.now(timezone.utc)
 
             # Record MCP gaps encountered
+            # areas_via_inference is True only if the HA API returned nothing
+            areas_via_api = bool(await self.mcp.get_area_registry())
             discovery.mcp_gaps_encountered = {
+                "areas_via_inference": not areas_via_api,
                 "floors_not_available": True,
                 "labels_not_available": True,
                 "device_details_not_available": True,
@@ -134,6 +137,47 @@ class DiscoverySyncService:
 
         await self.session.commit()
         return discovery
+
+    async def _fetch_areas(
+        self,
+        entities: list,
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch areas from HA REST API, falling back to entity inference.
+
+        Tries the direct HA area registry API first (which provides
+        floor_id, icon, picture). Falls back to inferring areas from
+        entity attributes if the API returns nothing.
+
+        Args:
+            entities: Parsed entities (used as fallback for inference)
+
+        Returns:
+            Dictionary mapping area_id to area info
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Try direct HA REST API first
+        ha_areas = await self.mcp.get_area_registry()
+        if ha_areas:
+            logger.info("Fetched %d areas from HA area registry API", len(ha_areas))
+            areas = {}
+            for area in ha_areas:
+                area_id = area.get("area_id")
+                if area_id:
+                    areas[area_id] = {
+                        "ha_area_id": area_id,
+                        "name": area.get("name", area_id),
+                        "floor_id": area.get("floor_id"),
+                        "icon": area.get("icon"),
+                        "picture": area.get("picture"),
+                    }
+            return areas
+
+        # Fallback: infer from entity attributes
+        logger.info("HA area registry API returned empty; falling back to entity inference")
+        return infer_areas_from_entities(entities)
 
     async def _sync_areas(
         self,
