@@ -7,83 +7,31 @@ import {
   Loader2,
   ChevronRight,
   ChevronDown,
-  Circle,
-  Lightbulb,
-  Thermometer,
-  ToggleLeft,
-  Wind,
-  Droplets,
-  Zap,
-  Lock,
-  Camera,
-  Speaker,
-  Sun,
-  Binary,
-  MapPin,
   ArrowUpDown,
   LayoutGrid,
   List,
-  Code,
+  MapPin,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DataViewer, YamlViewer } from "@/components/ui/data-viewer";
+import { DataViewer } from "@/components/ui/data-viewer";
 import { cn } from "@/lib/utils";
 import {
   useEntities,
   useDomainsSummary,
   useSyncEntities,
   useAreas,
-  useAutomationConfig,
 } from "@/api/hooks";
-import type { Entity, Area } from "@/lib/types";
-
-// Domain icon mapping
-const DOMAIN_ICONS: Record<string, typeof Cpu> = {
-  light: Lightbulb,
-  sensor: Thermometer,
-  switch: ToggleLeft,
-  climate: Wind,
-  fan: Wind,
-  binary_sensor: Binary,
-  lock: Lock,
-  camera: Camera,
-  media_player: Speaker,
-  cover: Sun,
-  water_heater: Droplets,
-  automation: Zap,
-};
-
-// Domain emoji mapping for visual flair
-const DOMAIN_EMOJI: Record<string, string> = {
-  light: "💡",
-  sensor: "📊",
-  switch: "🔘",
-  climate: "🌡️",
-  fan: "🌀",
-  binary_sensor: "🔲",
-  lock: "🔒",
-  camera: "📷",
-  media_player: "🔊",
-  cover: "🪟",
-  automation: "⚡",
-  water_heater: "🔥",
-  person: "👤",
-  zone: "📍",
-  weather: "🌤️",
-  sun: "☀️",
-  input_boolean: "✅",
-  input_number: "🔢",
-  input_select: "📋",
-  script: "📜",
-  scene: "🎬",
-};
-
-type SortBy = "name" | "entity_id" | "state" | "area" | "domain";
-type GroupBy = "none" | "area" | "device" | "domain";
+import type { Entity } from "@/lib/types";
+import { DOMAIN_EMOJI, type SortBy, type GroupBy } from "./constants";
+import { DomainIcon } from "./DomainIcon";
+import { StateIndicator } from "./StateIndicator";
+import { EntityListItem } from "./EntityListItem";
+import { AutomationYamlCard } from "./AutomationYamlCard";
+import { InfoRow } from "./InfoRow";
 
 export function EntitiesPage() {
   const [selectedDomain, setSelectedDomain] = useState<string>("");
@@ -598,178 +546,6 @@ export function EntitiesPage() {
           )}
         </AnimatePresence>
       </div>
-    </div>
-  );
-}
-
-function AutomationYamlCard({
-  entityId,
-  domain,
-}: {
-  entityId: string;
-  domain: string;
-}) {
-  // Extract the HA ID from entity_id (e.g., "automation.morning_lights" -> "morning_lights")
-  const haId = entityId.replace(`${domain}.`, "");
-  const { data, isLoading, error } = useAutomationConfig(haId);
-
-  return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Code className="h-4 w-4" />
-          {domain === "automation" ? "Automation" : "Script"} Configuration
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-32" />
-        ) : error ? (
-          <p className="text-xs text-muted-foreground">
-            Configuration not available from Home Assistant
-          </p>
-        ) : data?.yaml ? (
-          <YamlViewer content={data.yaml} collapsible maxHeight={500} />
-        ) : (
-          <p className="text-xs text-muted-foreground">No configuration data</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function EntityListItem({
-  entity,
-  isSelected,
-  areaName,
-  onSelect,
-}: {
-  entity: Entity;
-  isSelected: boolean;
-  areaName: string;
-  onSelect: () => void;
-}) {
-  return (
-    <motion.button
-      layout
-      onClick={onSelect}
-      whileHover={{ x: 2 }}
-      className={cn(
-        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-        isSelected
-          ? "bg-primary/5 border border-primary/30"
-          : "hover:bg-accent border border-transparent",
-      )}
-    >
-      <DomainIcon domain={entity.domain} state={entity.state} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{entity.name}</p>
-        <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-          <span className="truncate">{entity.entity_id}</span>
-          {areaName && (
-            <>
-              <span className="text-muted-foreground/30">&middot;</span>
-              <span className="flex items-center gap-0.5 truncate text-muted-foreground/70">
-                <MapPin className="h-2.5 w-2.5 shrink-0" />
-                {areaName}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <StateIndicator state={entity.state} />
-        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-      </div>
-    </motion.button>
-  );
-}
-
-function DomainIcon({
-  domain,
-  state,
-  size = "sm",
-}: {
-  domain: string;
-  state: string | null;
-  size?: "sm" | "lg";
-}) {
-  const IconComponent = DOMAIN_ICONS[domain] ?? Cpu;
-  const isOn =
-    state === "on" ||
-    state === "home" ||
-    state === "playing" ||
-    state === "open";
-
-  const sizeClasses = size === "lg" ? "h-10 w-10" : "h-8 w-8";
-  const iconSize = size === "lg" ? "h-5 w-5" : "h-4 w-4";
-
-  return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-lg",
-        sizeClasses,
-        isOn
-          ? "bg-primary/10 text-primary"
-          : "bg-muted text-muted-foreground",
-      )}
-    >
-      <IconComponent className={iconSize} />
-    </div>
-  );
-}
-
-function StateIndicator({
-  state,
-  size = "sm",
-}: {
-  state: string | null;
-  size?: "sm" | "lg";
-}) {
-  const isOn =
-    state === "on" ||
-    state === "home" ||
-    state === "playing" ||
-    state === "open";
-  const isOff =
-    state === "off" ||
-    state === "not_home" ||
-    state === "idle" ||
-    state === "closed";
-  const isUnavailable = state === "unavailable" || state === "unknown";
-
-  const s = size === "lg" ? "h-3 w-3" : "h-2 w-2";
-
-  return (
-    <Circle
-      className={cn(
-        s,
-        "shrink-0 fill-current",
-        isOn && "text-success",
-        isOff && "text-muted-foreground/40",
-        isUnavailable && "text-destructive",
-        !isOn && !isOff && !isUnavailable && "text-info",
-      )}
-    />
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  emoji,
-}: {
-  label: string;
-  value: string;
-  emoji?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <Badge variant="secondary" className="text-[10px]">
-        {emoji && <span className="mr-1">{emoji}</span>}
-        {value}
-      </Badge>
     </div>
   );
 }

@@ -12,9 +12,6 @@ import {
   Play,
   MessageSquare,
   Search,
-  Database,
-  BarChart3,
-  Home,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -22,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatRelativeTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   useSystemStatus,
   usePendingProposals,
@@ -32,22 +29,10 @@ import {
   useInsights,
   useRunAnalysis,
 } from "@/api/hooks";
-
-// ─── Status helpers ──────────────────────────────────────────────────────────
-
-const COMPONENT_ICONS: Record<string, typeof Database> = {
-  database: Database,
-  mlflow: BarChart3,
-  home_assistant: Home,
-};
-
-const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
-  healthy: { dot: "bg-emerald-400", bg: "bg-emerald-400/10", text: "text-emerald-400" },
-  degraded: { dot: "bg-amber-400", bg: "bg-amber-400/10", text: "text-amber-400" },
-  unhealthy: { dot: "bg-red-400", bg: "bg-red-400/10", text: "text-red-400" },
-};
-
-// ─── Page ────────────────────────────────────────────────────────────────────
+import { COMPONENT_ICONS, STATUS_COLORS } from "./constants";
+import { formatUptime } from "./helpers";
+import { StatCard } from "./StatCard";
+import { RecentActivityFeed } from "./RecentActivityFeed";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -425,161 +410,4 @@ export function DashboardPage() {
       </div>
     </div>
   );
-}
-
-// ─── Stat Card ───────────────────────────────────────────────────────────────
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  loading,
-  color,
-  bgColor,
-  onClick,
-  detail,
-}: {
-  icon: typeof Activity;
-  label: string;
-  value: number;
-  loading: boolean;
-  color: string;
-  bgColor: string;
-  onClick: () => void;
-  detail?: string;
-}) {
-  return (
-    <Card
-      className="cursor-pointer transition-all hover:border-primary/30 hover:shadow-md"
-      onClick={onClick}
-    >
-      <CardContent className="flex items-center gap-3 p-4">
-        <div
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-lg",
-            bgColor,
-          )}
-        >
-          <Icon className={cn("h-5 w-5", color)} />
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            {label}
-          </p>
-          {loading ? (
-            <Skeleton className="mt-1 h-5 w-10" />
-          ) : (
-            <>
-              <p className="text-lg font-bold">{value}</p>
-              {detail && (
-                <p className="text-[10px] text-muted-foreground">{detail}</p>
-              )}
-            </>
-          )}
-        </div>
-        <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground/30" />
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Recent Activity Feed ────────────────────────────────────────────────────
-
-interface ActivityItem {
-  id: string;
-  type: "proposal" | "insight";
-  title: string;
-  status: string;
-  timestamp: string;
-  link: string;
-}
-
-function RecentActivityFeed({
-  proposals,
-  insights,
-}: {
-  proposals: Array<{ id: string; name: string; status: string; created_at: string }>;
-  insights: Array<{ id: string; title: string; status: string; created_at: string }>;
-}) {
-  // Merge and sort by timestamp
-  const items: ActivityItem[] = [
-    ...proposals.slice(0, 5).map((p) => ({
-      id: p.id,
-      type: "proposal" as const,
-      title: p.name,
-      status: p.status,
-      timestamp: p.created_at,
-      link: `/proposals?id=${p.id}`,
-    })),
-    ...insights.slice(0, 5).map((i) => ({
-      id: i.id,
-      type: "insight" as const,
-      title: i.title,
-      status: i.status,
-      timestamp: i.created_at,
-      link: "/insights",
-    })),
-  ].sort(
-    (a, b) =>
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-  );
-
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center py-8 text-center">
-        <Activity className="mb-2 h-6 w-6 text-muted-foreground/20" />
-        <p className="text-xs text-muted-foreground">No recent activity</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1">
-      {items.slice(0, 8).map((item) => (
-        <Link
-          key={`${item.type}-${item.id}`}
-          to={item.link}
-          className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-accent/50"
-        >
-          <div
-            className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-md",
-              item.type === "proposal"
-                ? "bg-amber-400/10 text-amber-400"
-                : "bg-blue-400/10 text-blue-400",
-            )}
-          >
-            {item.type === "proposal" ? (
-              <FileCheck className="h-3 w-3" />
-            ) : (
-              <Lightbulb className="h-3 w-3" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium">{item.title}</p>
-          </div>
-          <Badge
-            variant="secondary"
-            className="shrink-0 text-[9px] capitalize"
-          >
-            {item.status}
-          </Badge>
-          <span className="shrink-0 text-[10px] text-muted-foreground">
-            {formatRelativeTime(item.timestamp)}
-          </span>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  if (days > 0) return `${days}d ${hours}h`;
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${mins}m`;
-  return `${mins}m`;
 }
