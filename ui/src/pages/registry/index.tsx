@@ -16,17 +16,17 @@ import { ServiceTab } from "./ServiceTab";
 import { OverviewTab } from "./OverviewTab";
 
 const TABS = [
+  { key: "overview", label: "Overview", icon: Activity },
   { key: "automations", label: "Automations", icon: Zap },
   { key: "scripts", label: "Scripts", icon: FileText },
   { key: "scenes", label: "Scenes", icon: Clapperboard },
   { key: "services", label: "Services", icon: Wrench },
-  { key: "summary", label: "Overview", icon: Activity },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
 export function RegistryPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("automations");
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: automations, isLoading: autoLoading } =
@@ -43,7 +43,7 @@ export function RegistryPage() {
     scripts: scripts?.total ?? 0,
     scenes: scenes?.total ?? 0,
     services: services?.total ?? 0,
-    summary: 0,
+    overview: 0,
   };
 
   return (
@@ -89,8 +89,8 @@ export function RegistryPage() {
         })}
       </div>
 
-      {/* Search (not on summary) */}
-      {activeTab !== "summary" && (
+      {/* Search (not on overview) */}
+      {activeTab !== "overview" && (
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -142,7 +142,7 @@ export function RegistryPage() {
           searchQuery={searchQuery}
         />
       )}
-      {activeTab === "summary" && (
+      {activeTab === "overview" && (
         <OverviewTab summary={summary ?? null} isLoading={summaryLoading} />
       )}
     </div>
