@@ -12,8 +12,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from src.api.rate_limit import limiter
 
 from src.dal.agents import (
     AgentConfigVersionRepository,
@@ -34,41 +36,41 @@ router = APIRouter(prefix="/agents", tags=["Agents"])
 class AgentConfigVersionCreate(BaseModel):
     """Request body for creating a config version draft."""
 
-    model_name: str | None = None
+    model_name: str | None = Field(default=None, max_length=100)
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
-    fallback_model: str | None = None
+    fallback_model: str | None = Field(default=None, max_length=100)
     tools_enabled: list[str] | None = None
-    change_summary: str | None = None
+    change_summary: str | None = Field(default=None, max_length=2000)
 
 
 class AgentConfigVersionUpdate(BaseModel):
     """Request body for updating a config version draft."""
 
-    model_name: str | None = None
+    model_name: str | None = Field(default=None, max_length=100)
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
-    fallback_model: str | None = None
+    fallback_model: str | None = Field(default=None, max_length=100)
     tools_enabled: list[str] | None = None
-    change_summary: str | None = None
+    change_summary: str | None = Field(default=None, max_length=2000)
 
 
 class AgentPromptVersionCreate(BaseModel):
     """Request body for creating a prompt version draft."""
 
-    prompt_template: str = Field(..., min_length=1)
-    change_summary: str | None = None
+    prompt_template: str = Field(..., min_length=1, max_length=50_000)
+    change_summary: str | None = Field(default=None, max_length=2000)
 
 
 class AgentPromptVersionUpdate(BaseModel):
     """Request body for updating a prompt version draft."""
 
-    prompt_template: str | None = None
-    change_summary: str | None = None
+    prompt_template: str | None = Field(default=None, max_length=50_000)
+    change_summary: str | None = Field(default=None, max_length=2000)
 
 
 class AgentStatusUpdate(BaseModel):
     """Request body for updating agent status."""
 
-    status: str = Field(..., pattern="^(disabled|enabled|primary)$")
+    status: str = Field(..., max_length=20, pattern="^(disabled|enabled|primary)$")
 
 
 class ConfigVersionResponse(BaseModel):
@@ -193,16 +195,19 @@ async def list_agents() -> AgentListResponse:
     """List all agents with their active config/prompt versions."""
     async with get_session() as session:
         repo = AgentRepository(session)
-        config_repo = AgentConfigVersionRepository(session)
-        prompt_repo = AgentPromptVersionRepository(session)
 
         agents = await repo.list_all()
         items = []
         for agent in agents:
-            active_config = await config_repo.get_active(agent.id)
-            active_prompt = await prompt_repo.get_active(agent.id)
+            # Use eager-loaded relationships instead of N+1 manual queries
             items.append(
-                AgentResponse(**_serialize_agent(agent, active_config, active_prompt))
+                AgentResponse(
+                    **_serialize_agent(
+                        agent,
+                        agent.active_config_version,
+                        agent.active_prompt_version,
+                    )
+                )
             )
 
         return AgentListResponse(agents=items, total=len(items))
@@ -213,17 +218,19 @@ async def get_agent(agent_name: str) -> AgentResponse:
     """Get agent details by name."""
     async with get_session() as session:
         repo = AgentRepository(session)
-        config_repo = AgentConfigVersionRepository(session)
-        prompt_repo = AgentPromptVersionRepository(session)
 
         agent = await repo.get_by_name(agent_name)
         if not agent:
             raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
 
-        active_config = await config_repo.get_active(agent.id)
-        active_prompt = await prompt_repo.get_active(agent.id)
-
-        return AgentResponse(**_serialize_agent(agent, active_config, active_prompt))
+        # Use eager-loaded relationships instead of manual queries
+        return AgentResponse(
+            **_serialize_agent(
+                agent,
+                agent.active_config_version,
+                agent.active_prompt_version,
+            )
+        )
 
 
 @router.patch("/{agent_name}", response_model=AgentResponse)
@@ -253,12 +260,16 @@ async def update_agent_status(
 
         await session.commit()
 
-        config_repo = AgentConfigVersionRepository(session)
-        prompt_repo = AgentPromptVersionRepository(session)
-        active_config = await config_repo.get_active(agent.id)
-        active_prompt = await prompt_repo.get_active(agent.id)
+        # Refresh to pick up eager-loaded relationships after commit
+        await session.refresh(agent)
 
-        return AgentResponse(**_serialize_agent(agent, active_config, active_prompt))
+        return AgentResponse(
+            **_serialize_agent(
+                agent,
+                agent.active_config_version,
+                agent.active_prompt_version,
+            )
+        )
 
 
 # ─── Config Version Endpoints ─────────────────────────────────────────────────
@@ -346,7 +357,9 @@ async def update_config_version(
     "/{agent_name}/config/versions/{version_id}/promote",
     response_model=ConfigVersionResponse,
 )
+@limiter.limit("10/minute")
 async def promote_config_version(
+    request: Request,
     agent_name: str,
     version_id: str,
 ) -> ConfigVersionResponse:
@@ -497,7 +510,9 @@ async def update_prompt_version(
     "/{agent_name}/prompt/versions/{version_id}/promote",
     response_model=PromptVersionResponse,
 )
+@limiter.limit("10/minute")
 async def promote_prompt_version(
+    request: Request,
     agent_name: str,
     version_id: str,
 ) -> PromptVersionResponse:
@@ -564,11 +579,189 @@ async def delete_prompt_version(agent_name: str, version_id: str) -> None:
         await session.commit()
 
 
+# ─── Prompt Generation Endpoint ────────────────────────────────────────────────
+
+
+# Tool definitions per agent role for prompt generation context
+_AGENT_TOOLS: dict[str, list[str]] = {
+    "architect": [
+        "get_entity_state",
+        "list_entities_by_domain",
+        "search_entities",
+        "get_domain_summary",
+        "control_entity",
+        "deploy_automation",
+        "create_script",
+        "create_scene",
+        "list_automations",
+        "render_template",
+        "seek_approval",
+        "analyze_energy",
+        "analyze_behavior",
+        "discover_entities",
+        "get_entity_history",
+        "diagnose_issue",
+        "run_custom_analysis",
+        "analyze_error_log",
+        "find_unavailable_entities",
+        "diagnose_entity",
+        "check_integration_health",
+        "validate_config",
+        "create_insight_schedule",
+    ],
+    "data_scientist": [
+        "run_custom_analysis",
+        "analyze_energy",
+        "analyze_behavior",
+        "get_entity_history",
+        "diagnose_issue",
+    ],
+    "librarian": [
+        "discover_entities",
+        "list_entities_by_domain",
+        "search_entities",
+        "get_domain_summary",
+    ],
+    "developer": [
+        "deploy_automation",
+        "delete_automation",
+        "create_script",
+        "create_scene",
+    ],
+    "orchestrator": [],
+}
+
+
+class PromptGenerateRequest(BaseModel):
+    """Request body for AI-assisted prompt generation."""
+
+    user_input: str | None = Field(
+        default=None,
+        max_length=5000,
+        description="Custom instructions for prompt generation",
+    )
+
+
+class PromptGenerateResponse(BaseModel):
+    """Response from prompt generation."""
+
+    generated_prompt: str
+    agent_name: str
+    agent_role: str
+
+
+@router.post(
+    "/{agent_name}/prompt/generate",
+    response_model=PromptGenerateResponse,
+)
+@limiter.limit("10/minute")
+async def generate_prompt(
+    request: Request,
+    agent_name: str,
+    body: PromptGenerateRequest,
+) -> PromptGenerateResponse:
+    """Generate a system prompt for an agent using AI.
+
+    Uses the architect's LLM to generate a context-aware system prompt
+    based on the agent's role, description, available tools, current
+    prompt, and optional user instructions.
+    """
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    from src.llm import get_llm
+
+    async with get_session() as session:
+        repo = AgentRepository(session)
+        agent = await repo.get_by_name(agent_name)
+        if not agent:
+            raise HTTPException(
+                status_code=404, detail=f"Agent '{agent_name}' not found"
+            )
+
+        # Gather context
+        tools = _AGENT_TOOLS.get(agent_name, [])
+        current_prompt = None
+        if agent.active_prompt_version:
+            current_prompt = agent.active_prompt_version.prompt_template
+
+        # Build meta-prompt
+        meta_parts = [
+            "You are an expert AI prompt engineer. Your task is to generate a "
+            "high-quality system prompt for an AI agent in a Home Assistant "
+            "automation platform called Project Aether.",
+            "",
+            f"## Target Agent: {agent.name}",
+            f"**Role**: {agent_name}",
+            f"**Description**: {agent.description}",
+        ]
+
+        if tools:
+            meta_parts.append("")
+            meta_parts.append("## Available Tools")
+            meta_parts.append(
+                "The agent has access to these tools: "
+                + ", ".join(f"`{t}`" for t in tools)
+            )
+
+        if current_prompt:
+            meta_parts.append("")
+            meta_parts.append("## Current System Prompt")
+            meta_parts.append(
+                "Here is the agent's current system prompt for reference:"
+            )
+            # Truncate very long prompts to avoid token waste
+            truncated = current_prompt[:8000]
+            if len(current_prompt) > 8000:
+                truncated += "\n... (truncated)"
+            meta_parts.append(f"```\n{truncated}\n```")
+
+        meta_parts.append("")
+        meta_parts.append("## Instructions")
+        meta_parts.append(
+            "Generate a comprehensive system prompt that:\n"
+            "1. Clearly defines the agent's role and responsibilities\n"
+            "2. Explains how and when to use each available tool\n"
+            "3. Sets appropriate behavioral guidelines\n"
+            "4. Includes safety constraints (e.g. HITL approval for mutations)\n"
+            "5. Provides response formatting guidelines"
+        )
+
+        if body.user_input:
+            meta_parts.append("")
+            meta_parts.append("## Additional User Requirements")
+            meta_parts.append(body.user_input)
+
+        meta_parts.append("")
+        meta_parts.append(
+            "Return ONLY the system prompt text. Do not wrap it in code "
+            "blocks or add any preamble/commentary."
+        )
+
+        meta_prompt = "\n".join(meta_parts)
+
+        # Invoke LLM
+        llm = get_llm()
+        messages = [
+            SystemMessage(content=meta_prompt),
+            HumanMessage(
+                content=f"Generate the system prompt for the {agent_name} agent."
+            ),
+        ]
+        response = await llm.ainvoke(messages)
+
+        return PromptGenerateResponse(
+            generated_prompt=response.content,
+            agent_name=agent.name,
+            agent_role=agent_name,
+        )
+
+
 # ─── Seed Endpoint ────────────────────────────────────────────────────────────
 
 
 @router.post("/seed", response_model=dict, status_code=201)
-async def seed_agents() -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def seed_agents(request: Request) -> dict[str, Any]:
     """Seed default agents with initial configurations.
 
     Creates agent records for all known roles (if they don't exist)
