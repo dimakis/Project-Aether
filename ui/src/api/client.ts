@@ -100,6 +100,11 @@ export async function* streamChat(
     }),
   });
 
+  if (response.status === 401) {
+    window.location.href = "/login";
+    throw new ApiError(401, "Session expired");
+  }
+
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText);
   }
@@ -160,6 +165,11 @@ export async function submitFeedback(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ trace_id: traceId, sentiment }),
   });
+
+  if (response.status === 401) {
+    window.location.href = "/login";
+    throw new ApiError(401, "Session expired");
+  }
 
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText);
