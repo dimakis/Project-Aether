@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -16,11 +16,16 @@ import {
   BarChart3,
   Home,
   Settings,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { ThinkingIndicator } from "@/components/ui/thinking-indicator";
+import { ThinkingDisclosure } from "@/components/chat/thinking-disclosure";
 import { cn } from "@/lib/utils";
+import { usePersistedState } from "@/hooks/use-persisted-state";
+import { STORAGE_KEYS } from "@/lib/storage";
+import { parseThinkingContent } from "@/lib/thinking-parser";
 import { useModels, useConversations } from "@/api/hooks";
 import { streamChat } from "@/api/client";
 import type { ChatMessage } from "@/lib/types";
@@ -29,7 +34,7 @@ interface DisplayMessage {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
-  timestamp?: Date;
+  timestamp?: string; // ISO string for serialization
 }
 
 const SUGGESTIONS = [
@@ -82,15 +87,6 @@ const SUGGESTIONS = [
 ];
 
 // Message animation variants
-const messageVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
-  },
-};
-
 const suggestionVariants = {
   hidden: { opacity: 0, y: 20, scale: 0.95 },
   visible: (i: number) => ({
@@ -106,10 +102,19 @@ const suggestionVariants = {
 };
 
 export function ChatPage() {
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  // ─── Persisted state ─────────────────────────────────────────────
+  const [messages, setMessages] = usePersistedState<DisplayMessage[]>(
+    STORAGE_KEYS.chatMessages,
+    [],
+  );
+  const [selectedModel, setSelectedModel] = usePersistedState<string>(
+    STORAGE_KEYS.selectedModel,
+    "gpt-4o-mini",
+  );
+
+  // ─── Ephemeral state ─────────────────────────────────────────────
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
@@ -155,16 +160,17 @@ export function ChatPage() {
   const sendMessage = async (content: string) => {
     if (!content.trim() || isStreaming) return;
 
+    const now = new Date().toISOString();
     const userMsg: DisplayMessage = {
       role: "user",
       content: content.trim(),
-      timestamp: new Date(),
+      timestamp: now,
     };
     const assistantMsg: DisplayMessage = {
       role: "assistant",
       content: "",
       isStreaming: true,
-      timestamp: new Date(),
+      timestamp: now,
     };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -172,7 +178,7 @@ export function ChatPage() {
     setIsStreaming(true);
     setStreamStartTime(Date.now());
 
-    // Build OpenAI message history
+    // Build OpenAI message history (send raw content, thinking included)
     const chatHistory: ChatMessage[] = [
       ...messages.map((m) => ({
         role: m.role as "user" | "assistant",
@@ -272,6 +278,28 @@ export function ChatPage() {
           </Button>
         </div>
         <div className="flex-1 overflow-auto p-2">
+          {/* Show current session if messages exist */}
+          {messages.length > 0 && (
+            <div className="mb-2">
+              <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2 border border-primary/20">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-primary">
+                    Current Chat
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {messages.filter((m) => m.role === "user").length} messages
+                  </p>
+                </div>
+                <button
+                  onClick={startNewChat}
+                  className="ml-2 rounded p-1 text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  title="Clear chat"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          )}
           {recentConversations.map((conv) => (
             <button
               key={conv.id}
@@ -285,7 +313,7 @@ export function ChatPage() {
               </div>
             </button>
           ))}
-          {recentConversations.length === 0 && (
+          {recentConversations.length === 0 && messages.length === 0 && (
             <p className="px-3 py-8 text-center text-xs text-muted-foreground">
               No conversations yet
             </p>
@@ -419,101 +447,15 @@ export function ChatPage() {
             <div className="mx-auto max-w-3xl space-y-1 px-4 py-6">
               <AnimatePresence initial={false}>
                 {messages.map((msg, i) => (
-                  <motion.div
+                  <ChatMessage
                     key={i}
-                    layout
-                    initial="hidden"
-                    animate="visible"
-                    variants={messageVariants}
-                    className={cn(
-                      "group relative flex gap-3 rounded-xl px-4 py-4",
-                      msg.role === "user"
-                        ? "bg-accent/30"
-                        : "bg-transparent",
-                    )}
-                  >
-                    {/* Avatar */}
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-gradient-to-br from-primary/20 to-purple-500/20 text-primary",
-                      )}
-                    >
-                      {msg.role === "user" ? (
-                        <User className="h-4 w-4" />
-                      ) : (
-                        <Bot className="h-4 w-4" />
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="min-w-0 flex-1">
-                      {/* Role label + timestamp */}
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="text-xs font-semibold">
-                          {msg.role === "user" ? "You" : "Aether"}
-                        </span>
-                        {msg.timestamp && (
-                          <span className="text-[10px] text-muted-foreground/50">
-                            {msg.timestamp.toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Message body */}
-                      {msg.role === "assistant" ? (
-                        <div className="text-sm">
-                          {msg.content ? (
-                            <>
-                              <MarkdownRenderer content={msg.content} />
-                              {msg.isStreaming && (
-                                <ThinkingIndicator hasContent />
-                              )}
-                            </>
-                          ) : msg.isStreaming ? (
-                            <ThinkingIndicator />
-                          ) : null}
-                        </div>
-                      ) : (
-                        <MarkdownRenderer
-                          content={msg.content}
-                          className="text-sm"
-                        />
-                      )}
-                    </div>
-
-                    {/* Action buttons (visible on hover) */}
-                    {!msg.isStreaming && msg.content && (
-                      <div className="absolute right-2 top-2 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button
-                          onClick={() => handleCopyMessage(msg.content, i)}
-                          className="rounded-md p-1.5 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
-                          title="Copy message"
-                        >
-                          {copiedIdx === i ? (
-                            <Check className="h-3.5 w-3.5 text-success" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                        {msg.role === "assistant" &&
-                          i === messages.length - 1 && (
-                            <button
-                              onClick={handleRetry}
-                              className="rounded-md p-1.5 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
-                              title="Retry"
-                            >
-                              <RotateCw className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                      </div>
-                    )}
-                  </motion.div>
+                    msg={msg}
+                    index={i}
+                    isLast={i === messages.length - 1}
+                    copiedIdx={copiedIdx}
+                    onCopy={handleCopyMessage}
+                    onRetry={handleRetry}
+                  />
                 ))}
               </AnimatePresence>
               <div ref={messagesEndRef} />
@@ -561,3 +503,136 @@ export function ChatPage() {
     </div>
   );
 }
+
+// ─── Message Component ───────────────────────────────────────────────────────
+
+interface ChatMessageProps {
+  msg: DisplayMessage;
+  index: number;
+  isLast: boolean;
+  copiedIdx: number | null;
+  onCopy: (content: string, idx: number) => void;
+  onRetry: () => void;
+}
+
+function ChatMessage({ msg, index, isLast, copiedIdx, onCopy, onRetry }: ChatMessageProps) {
+  // Parse thinking content for assistant messages
+  const parsed = useMemo(() => {
+    if (msg.role !== "assistant") return null;
+    return parseThinkingContent(msg.content);
+  }, [msg.role, msg.content]);
+
+  const visibleContent = parsed?.visible ?? msg.content;
+  const thinkingBlocks = parsed?.thinking ?? [];
+  const isModelThinking = parsed?.isThinking ?? false;
+
+  const timestamp = msg.timestamp ? new Date(msg.timestamp) : undefined;
+
+  return (
+    <motion.div
+      layout
+      initial="hidden"
+      animate="visible"
+      variants={messageVariants}
+      className={cn(
+        "group relative flex gap-3 rounded-xl px-4 py-4",
+        msg.role === "user" ? "bg-accent/30" : "bg-transparent",
+      )}
+    >
+      {/* Avatar */}
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          msg.role === "user"
+            ? "bg-primary text-primary-foreground"
+            : "bg-gradient-to-br from-primary/20 to-purple-500/20 text-primary",
+        )}
+      >
+        {msg.role === "user" ? (
+          <User className="h-4 w-4" />
+        ) : (
+          <Bot className="h-4 w-4" />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        {/* Role label + timestamp */}
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-xs font-semibold">
+            {msg.role === "user" ? "You" : "Aether"}
+          </span>
+          {timestamp && (
+            <span className="text-[10px] text-muted-foreground/50">
+              {timestamp.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          )}
+        </div>
+
+        {/* Message body */}
+        {msg.role === "assistant" ? (
+          <div className="text-sm">
+            {/* Thinking disclosure (if model had thinking content) */}
+            {(thinkingBlocks.length > 0 || (isModelThinking && msg.isStreaming)) && (
+              <ThinkingDisclosure
+                thinking={thinkingBlocks}
+                isActive={isModelThinking && !!msg.isStreaming}
+              />
+            )}
+
+            {visibleContent ? (
+              <>
+                <MarkdownRenderer content={visibleContent} />
+                {msg.isStreaming && !isModelThinking && (
+                  <ThinkingIndicator hasContent />
+                )}
+              </>
+            ) : msg.isStreaming ? (
+              <ThinkingIndicator />
+            ) : null}
+          </div>
+        ) : (
+          <MarkdownRenderer content={msg.content} className="text-sm" />
+        )}
+      </div>
+
+      {/* Action buttons (visible on hover) */}
+      {!msg.isStreaming && msg.content && (
+        <div className="absolute right-2 top-2 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            onClick={() => onCopy(visibleContent || msg.content, index)}
+            className="rounded-md p-1.5 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+            title="Copy message"
+          >
+            {copiedIdx === index ? (
+              <Check className="h-3.5 w-3.5 text-success" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </button>
+          {msg.role === "assistant" && isLast && (
+            <button
+              onClick={onRetry}
+              className="rounded-md p-1.5 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+              title="Retry"
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+const messageVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
+  },
+};

@@ -231,6 +231,9 @@ async def _create_chat_completion(
                             assistant_content = msg.content
                             break
 
+                # Strip thinking/reasoning tags from output
+                assistant_content = _strip_thinking_tags(assistant_content)
+
                 await session.commit()
 
         return ChatCompletionResponse(
@@ -322,6 +325,9 @@ async def _stream_chat_completion(
                                 assistant_content = msg.content
                                 break
 
+                    # Strip thinking/reasoning tags from output
+                    assistant_content = _strip_thinking_tags(assistant_content)
+
                     # Stream the response in chunks
                     # In a real implementation, we'd use the LLM's streaming capability
                     # For now, we simulate streaming by chunking the response
@@ -397,6 +403,24 @@ def _convert_to_langchain_messages(messages: list[ChatMessage]) -> list[Any]:
             )
 
     return lc_messages
+
+
+def _strip_thinking_tags(content: str) -> str:
+    """Strip LLM thinking/reasoning tags from response content.
+
+    Many reasoning models (GPT-5, DeepSeek-R1, QwQ, etc.) include
+    chain-of-thought in tags like <think>...</think>. These should
+    not be sent to the end user as visible output.
+    """
+    import re
+    
+    thinking_tags = ["think", "thinking", "reasoning", "thought", "reflection"]
+    pattern = "|".join(
+        rf"<{tag}>[\s\S]*?</{tag}>"
+        for tag in thinking_tags
+    )
+    cleaned = re.sub(pattern, "", content, flags=re.IGNORECASE)
+    return cleaned.strip()
 
 
 def _format_sse_error(error: str) -> str:
