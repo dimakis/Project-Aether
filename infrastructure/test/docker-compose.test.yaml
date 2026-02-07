@@ -58,22 +58,6 @@ services:
       - aether-test-network
 
   # ===========================================================================
-  # Redis - Test Cache (optional, for rate limiting tests)
-  # ===========================================================================
-  redis-test:
-    image: redis:7-alpine
-    container_name: aether-redis-test
-    ports:
-      - "6380:6379"  # Different port to avoid conflicts
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - aether-test-network
-
-  # ===========================================================================
   # Mock Home Assistant (for E2E tests)
   # ===========================================================================
   # Note: This is a simple mock server, not actual HA

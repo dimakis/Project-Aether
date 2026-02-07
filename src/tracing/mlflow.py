@@ -26,6 +26,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from types import TracebackType
 from typing import Any, Generator, ParamSpec, TypeVar
 
 from src.settings import get_settings
@@ -434,7 +435,7 @@ def get_active_run() -> Any:
 # =============================================================================
 
 
-def log_param(key: str, value: Any) -> None:
+def log_param(key: str, value: object) -> None:
     """Log a parameter to the active run."""
     mlflow = _safe_import_mlflow()
     if mlflow is None:
@@ -447,7 +448,7 @@ def log_param(key: str, value: Any) -> None:
         _logger.debug(f"Failed to log param {key}: {e}")
 
 
-def log_params(params: dict[str, Any]) -> None:
+def log_params(params: dict[str, object]) -> None:
     """Log multiple parameters to the active run."""
     mlflow = _safe_import_mlflow()
     if mlflow is None:
@@ -486,7 +487,7 @@ def log_metrics(metrics: dict[str, float], step: int | None = None) -> None:
         _logger.debug(f"Failed to log metrics: {e}")
 
 
-def log_dict(data: dict[str, Any], filename: str) -> None:
+def log_dict(data: dict[str, object], filename: str) -> None:
     """Log a dictionary as a JSON artifact."""
     mlflow = _safe_import_mlflow()
     if mlflow is None:
@@ -773,7 +774,7 @@ class AetherTracer:
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: Any,
+        exc_tb: TracebackType | None,
     ) -> None:
         mlflow = _safe_import_mlflow()
         duration_ms = (time.perf_counter() - self._start_time) * 1000
@@ -797,10 +798,10 @@ class AetherTracer:
             return self.run.info.run_id
         return None
 
-    def log_param(self, key: str, value: Any) -> None:
+    def log_param(self, key: str, value: object) -> None:
         log_param(key, value)
 
-    def log_params(self, params: dict[str, Any]) -> None:
+    def log_params(self, params: dict[str, object]) -> None:
         log_params(params)
 
     def log_metric(self, key: str, value: float, step: int | None = None) -> None:
@@ -823,7 +824,7 @@ def get_tracer() -> AetherTracer | None:
     return _current_tracer.get()
 
 
-def get_tracing_status() -> dict[str, Any]:
+def get_tracing_status() -> dict[str, object]:
     """Return current MLflow tracing configuration and status."""
     initialized = _ensure_mlflow_initialized()
     settings = get_settings()

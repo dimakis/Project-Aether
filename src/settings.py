@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     )
 
     # Environment
-    environment: Literal["development", "staging", "production"] = "development"
+    environment: Literal["development", "staging", "production", "testing"] = "development"
     debug: bool = False
 
     # Database (Constitution: State - PostgreSQL for checkpointing)
@@ -118,6 +118,10 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")  # noqa: S104
     api_port: int = Field(default=8000, ge=1, le=65535)
     api_workers: int = Field(default=1, ge=1, le=16)
+    api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="API key for authentication (empty = auth disabled)",
+    )
 
     # Scheduler (Feature 10: Scheduled & Event-Driven Insights)
     scheduler_enabled: bool = Field(

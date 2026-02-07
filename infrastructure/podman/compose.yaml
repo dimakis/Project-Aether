@@ -5,7 +5,7 @@
 # DEPLOYMENT MODES (via profiles):
 # --------------------------------
 # Development (host Python, containerized infra):
-#   podman-compose up -d                    # Infra only (postgres, mlflow, redis)
+#   podman-compose up -d                    # Infra only (postgres, mlflow)
 #   make serve                              # Run API on host with hot-reload
 #
 # Full Containerized (production-like):
@@ -82,23 +82,6 @@ services:
       retries: 3
 
   # ===========================================================================
-  # Redis Cache (Optional - for entity caching)
-  # ===========================================================================
-  redis:
-    image: docker.io/library/redis:7-alpine
-    container_name: aether-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ===========================================================================
   # Aether Application (profile: full)
   # ===========================================================================
   # Use --profile full to include the application container.
@@ -117,7 +100,6 @@ services:
       # Override for container networking
       DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
       MLFLOW_TRACKING_URI: http://mlflow:5000
-      REDIS_URL: redis://redis:6379
       # For sandbox: use podman socket
       SANDBOX_PODMAN_SOCKET: /run/podman/podman.sock
     ports:
@@ -177,8 +159,6 @@ volumes:
     name: aether-mlflow-data
   mlflow_artifacts:
     name: aether-mlflow-artifacts
-  redis_data:
-    name: aether-redis-data
 
 networks:
   default:
