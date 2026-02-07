@@ -153,6 +153,16 @@ class Settings(BaseSettings):
         description="JWT token lifetime in hours",
     )
 
+    # Google OAuth 2.0
+    google_client_id: str = Field(
+        default="",
+        description="Google OAuth 2.0 Client ID (empty = Google sign-in disabled)",
+    )
+    google_client_secret: SecretStr = Field(
+        default=SecretStr(""),
+        description="Google OAuth 2.0 Client Secret",
+    )
+
     # CORS
     allowed_origins: str = Field(
         default="",

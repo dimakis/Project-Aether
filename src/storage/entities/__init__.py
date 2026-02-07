@@ -34,6 +34,9 @@ from src.storage.entities.insight_schedule import InsightSchedule, TriggerType
 # Authentication
 from src.storage.entities.passkey_credential import PasskeyCredential
 
+# User Profiles
+from src.storage.entities.user_profile import UserProfile
+
 # System Configuration
 from src.storage.entities.system_config import SystemConfig
 
@@ -73,6 +76,8 @@ __all__ = [
     "TriggerType",
     # Authentication
     "PasskeyCredential",
+    # User Profiles
+    "UserProfile",
     # System Configuration
     "SystemConfig",
     # LLM Usage
