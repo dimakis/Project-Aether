@@ -300,6 +300,11 @@ class SandboxRunner:
                 ]
             )
 
+        # Suppress Python deprecation warnings so they don't pollute stdout.
+        # The Data Scientist agent parses JSON from stdout; stray warnings
+        # (e.g. pandas pyarrow DeprecationWarning) break extraction.
+        cmd.extend(["--env", "PYTHONWARNINGS=ignore::DeprecationWarning"])
+
         # Environment variables
         if environment:
             for key, value in environment.items():

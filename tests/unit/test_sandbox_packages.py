@@ -22,6 +22,7 @@ REQUIRED_PACKAGES = [
     "scikit-learn",
     "statsmodels",
     "seaborn",
+    "pyarrow",
 ]
 
 
@@ -182,6 +183,7 @@ scipy: OK
 scikit-learn: OK
 statsmodels: OK
 seaborn: OK
+pyarrow: OK
 ALL_PACKAGES_AVAILABLE"""
 
         result = SandboxResult(

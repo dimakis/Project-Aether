@@ -284,3 +284,53 @@ class TestSandboxRunnerDataMount:
         import inspect
         sig = inspect.signature(runner.run)
         assert "environment" in sig.parameters
+
+
+class TestSandboxWarningsSuppression:
+    """Tests for deprecation warning suppression in sandbox scripts.
+
+    Sandbox scripts must not have their stdout polluted by Python
+    deprecation warnings (e.g. pandas pyarrow warning) since the
+    Data Scientist agent parses JSON from stdout.
+    """
+
+    @pytest.mark.asyncio
+    async def test_build_command_includes_pythonwarnings_env(self):
+        """Test that _build_command injects PYTHONWARNINGS env var to suppress warnings."""
+        runner = SandboxRunner()
+        policy = get_default_policy()
+
+        with patch.object(runner, "_is_gvisor_available", new_callable=AsyncMock, return_value=False):
+            with patch.object(runner, "_get_available_image", new_callable=AsyncMock, return_value="aether-sandbox:latest"):
+                script_path = Path("/tmp/test_script.py")
+                cmd = await runner._build_command(
+                    script_path=script_path,
+                    policy=policy,
+                    data_path=None,
+                    environment=None,
+                )
+
+        # The command should contain --env PYTHONWARNINGS=ignore::DeprecationWarning
+        cmd_str = " ".join(cmd)
+        assert "PYTHONWARNINGS=ignore::DeprecationWarning" in cmd_str
+
+    @pytest.mark.asyncio
+    async def test_build_command_warning_env_does_not_override_user_env(self):
+        """Test that user-provided env vars are preserved alongside warning suppression."""
+        runner = SandboxRunner()
+        policy = get_default_policy()
+
+        with patch.object(runner, "_is_gvisor_available", new_callable=AsyncMock, return_value=False):
+            with patch.object(runner, "_get_available_image", new_callable=AsyncMock, return_value="aether-sandbox:latest"):
+                script_path = Path("/tmp/test_script.py")
+                cmd = await runner._build_command(
+                    script_path=script_path,
+                    policy=policy,
+                    data_path=None,
+                    environment={"MY_VAR": "hello"},
+                )
+
+        cmd_str = " ".join(cmd)
+        # Both the user env var and the warning suppression should be present
+        assert "MY_VAR=hello" in cmd_str
+        assert "PYTHONWARNINGS=ignore::DeprecationWarning" in cmd_str
