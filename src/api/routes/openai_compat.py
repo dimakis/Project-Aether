@@ -274,8 +274,18 @@ async def _create_chat_completion(
                             assistant_content = msg.content
                             break
 
-                # Strip thinking/reasoning tags from output
+                # Normalize content (handle list, None, etc.)
+                assistant_content = _extract_text_content(assistant_content)
+
+                # Strip thinking/reasoning tags for non-streaming clients
+                # (Open WebUI and other external clients that lack thinking-tag UI)
                 assistant_content = _strip_thinking_tags(assistant_content)
+
+                if not assistant_content.strip():
+                    assistant_content = (
+                        "I processed your request but couldn't generate a visible response. "
+                        "Please try again."
+                    )
 
                 # Capture trace ID from the state (set by _traced_invoke)
                 trace_id = state.last_trace_id
@@ -376,8 +386,22 @@ async def _stream_chat_completion(
                                 assistant_content = msg.content
                                 break
 
-                    # Strip thinking/reasoning tags from output
+                    # Normalize content (handle list, None, etc.)
+                    assistant_content = _extract_text_content(assistant_content)
+
+                    # Strip thinking/reasoning tags from output.
+                    # The frontend has parseThinkingContent() but it cannot
+                    # safely handle unclosed tags (e.g. <think>... without
+                    # </think>) — its regex matches to end-of-string, making
+                    # all remaining content invisible. Stripping server-side
+                    # is the robust fix.
                     assistant_content = _strip_thinking_tags(assistant_content)
+
+                    if not assistant_content.strip():
+                        assistant_content = (
+                            "I processed your request but couldn't generate a visible response. "
+                            "Please try again."
+                        )
 
                     # Capture trace ID from the state (set by _traced_invoke)
                     trace_id = state.last_trace_id
@@ -469,22 +493,71 @@ def _convert_to_langchain_messages(messages: list[ChatMessage]) -> list[Any]:
     return lc_messages
 
 
-def _strip_thinking_tags(content: str) -> str:
+def _extract_text_content(content: Any) -> str:
+    """Normalize AIMessage.content to a plain string.
+
+    LangChain's AIMessage.content can be:
+    - str: normal text (most common)
+    - list: structured content blocks, e.g. [{"type": "text", "text": "..."}]
+    - None: empty response
+
+    Args:
+        content: Raw content from AIMessage
+
+    Returns:
+        Plain text string (may be empty)
+    """
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text") or block.get("content") or ""
+                if text:
+                    parts.append(str(text))
+        return "\n".join(parts)
+    # Fallback: coerce to string
+    return str(content)
+
+
+def _strip_thinking_tags(content: str | list) -> str:
     """Strip LLM thinking/reasoning tags from response content.
 
     Many reasoning models (GPT-5, DeepSeek-R1, QwQ, etc.) include
     chain-of-thought in tags like <think>...</think>. These should
     not be sent to the end user as visible output.
+
+    Handles:
+    - Closed tag pairs: <think>...</think>
+    - Unclosed tags: <think>... (model truncated or streaming artefact)
+    - List content: [{"type": "text", "text": "..."}] from some providers
     """
     import re
-    
+
+    text = _extract_text_content(content)
+
     thinking_tags = ["think", "thinking", "reasoning", "thought", "reflection"]
-    pattern = "|".join(
+
+    # First: strip closed tag pairs  <tag>...</tag>
+    closed_pattern = "|".join(
         rf"<{tag}>[\s\S]*?</{tag}>"
         for tag in thinking_tags
     )
-    cleaned = re.sub(pattern, "", content, flags=re.IGNORECASE)
-    return cleaned.strip()
+    text = re.sub(closed_pattern, "", text, flags=re.IGNORECASE)
+
+    # Second: strip unclosed tags  <tag>...$ (no closing tag found)
+    unclosed_pattern = "|".join(
+        rf"<{tag}>[\s\S]*$"
+        for tag in thinking_tags
+    )
+    text = re.sub(unclosed_pattern, "", text, flags=re.IGNORECASE)
+
+    return text.strip()
 
 
 def _format_sse_error(error: str) -> str:
