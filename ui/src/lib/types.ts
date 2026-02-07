@@ -149,6 +149,23 @@ export interface AnalysisJob {
   error?: string;
 }
 
+// ─── Areas ──────────────────────────────────────────────────────────────────
+
+export interface Area {
+  id: string;
+  ha_area_id: string;
+  name: string;
+  floor_id?: string;
+  icon?: string;
+  entity_count: number;
+  last_synced_at?: string;
+}
+
+export interface AreaList {
+  areas: Area[];
+  total: number;
+}
+
 // ─── Entities ────────────────────────────────────────────────────────────────
 
 export interface Entity {
@@ -209,6 +226,46 @@ export interface HARegistrySummary {
   areas: number;
   devices: number;
   entities: number;
+}
+
+// ─── Insight Schedules (Feature 10) ──────────────────────────────────────────
+
+export interface InsightSchedule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  analysis_type: string;
+  trigger_type: "cron" | "webhook";
+  entity_ids: string[] | null;
+  hours: number;
+  options: Record<string, unknown>;
+  cron_expression: string | null;
+  webhook_event: string | null;
+  webhook_filter: Record<string, unknown> | null;
+  last_run_at: string | null;
+  last_result: string | null;
+  last_error: string | null;
+  run_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InsightScheduleList {
+  items: InsightSchedule[];
+  total: number;
+}
+
+export interface InsightScheduleCreate {
+  name: string;
+  analysis_type: string;
+  trigger_type: "cron" | "webhook";
+  enabled?: boolean;
+  entity_ids?: string[];
+  hours?: number;
+  options?: Record<string, unknown>;
+  cron_expression?: string;
+  webhook_event?: string;
+  webhook_filter?: Record<string, unknown>;
 }
 
 // ─── Traces (Feature 11) ─────────────────────────────────────────────────────

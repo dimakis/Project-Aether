@@ -230,6 +230,35 @@ class MCPClient:
             "domain_samples": {},  # Would need additional logic
         }
 
+    async def _fetch_entity_registry(self) -> dict[str, dict[str, Any]]:
+        """Fetch the HA entity registry to get area_id, device_id, etc.
+
+        The entity registry contains metadata not available in /api/states,
+        including area_id, device_id, disabled_by, hidden_by, etc.
+
+        Returns:
+            Mapping of entity_id to registry entry
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            # HA REST API for entity registry
+            registry = await self._request("GET", "/api/config/entity_registry")
+            if not registry or not isinstance(registry, list):
+                logger.debug("Entity registry returned empty or unexpected format")
+                return {}
+
+            return {
+                entry.get("entity_id", ""): entry
+                for entry in registry
+                if entry.get("entity_id")
+            }
+        except Exception as e:
+            logger.warning("Failed to fetch entity registry (area_id will be blank): %s", e)
+            return {}
+
     @_trace_mcp_call("mcp.list_entities")
     async def list_entities(
         self,
@@ -239,6 +268,9 @@ class MCPClient:
         detailed: bool = False,
     ) -> list[dict[str, Any]]:
         """List entities with optional filtering.
+
+        Merges state data from /api/states with registry data from
+        /api/config/entity_registry to include area_id, device_id, etc.
 
         Args:
             domain: Filter by domain (e.g., "light")
@@ -260,6 +292,9 @@ class MCPClient:
         states = await self._request("GET", "/api/states")
         if not states:
             raise MCPError("Failed to list entities", "list_entities")
+
+        # Fetch entity registry for area_id and other metadata
+        registry = await self._fetch_entity_registry()
 
         entities = []
 
@@ -292,10 +327,20 @@ class MCPClient:
                 entity["last_changed"] = state.get("last_changed")
                 entity["last_updated"] = state.get("last_updated")
 
-            # Try to extract area_id from attributes
-            attrs = state.get("attributes", {})
-            if "area_id" in attrs:
-                entity["area_id"] = attrs["area_id"]
+            # Merge registry metadata (area_id, device_id, etc.)
+            reg_entry = registry.get(entity_id, {})
+            if reg_entry.get("area_id"):
+                entity["area_id"] = reg_entry["area_id"]
+            if reg_entry.get("device_id"):
+                entity["device_id"] = reg_entry["device_id"]
+            if reg_entry.get("icon"):
+                entity["icon"] = reg_entry["icon"]
+
+            # Fallback: try extracting area_id from state attributes
+            if "area_id" not in entity:
+                attrs = state.get("attributes", {})
+                if "area_id" in attrs:
+                    entity["area_id"] = attrs["area_id"]
 
             entities.append(entity)
 

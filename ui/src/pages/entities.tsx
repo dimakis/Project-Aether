@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Cpu,
@@ -18,6 +18,8 @@ import {
   Speaker,
   Sun,
   Binary,
+  MapPin,
+  ArrowUpDown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +28,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataViewer } from "@/components/ui/data-viewer";
 import { cn } from "@/lib/utils";
-import { useEntities, useDomainsSummary, useSyncEntities } from "@/api/hooks";
-import type { Entity } from "@/lib/types";
+import {
+  useEntities,
+  useDomainsSummary,
+  useSyncEntities,
+  useAreas,
+} from "@/api/hooks";
+import type { Entity, Area } from "@/lib/types";
 
 // Domain icon mapping
 const DOMAIN_ICONS: Record<string, typeof Cpu> = {
@@ -70,25 +77,85 @@ const DOMAIN_EMOJI: Record<string, string> = {
   scene: "🎬",
 };
 
+type SortBy = "name" | "entity_id" | "state" | "area" | "domain";
+
 export function EntitiesPage() {
   const [selectedDomain, setSelectedDomain] = useState<string>("");
+  const [selectedAreaId, setSelectedAreaId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>("name");
+  const [showAreaFilter, setShowAreaFilter] = useState(false);
 
   const { data: domains, isLoading: domainsLoading } = useDomainsSummary();
   const { data: entitiesData, isLoading: entitiesLoading } = useEntities(
     selectedDomain || undefined,
+    selectedAreaId || undefined,
   );
+  const { data: areasData } = useAreas();
   const syncMut = useSyncEntities();
 
+  const areaList = areasData?.areas ?? [];
+
+  // Build area lookup: internal UUID → area name
+  const areaLookup = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const area of areaList) {
+      map[area.id] = area.name;
+      map[area.ha_area_id] = area.name;
+    }
+    return map;
+  }, [areaList]);
+
   const entityList = entitiesData?.entities ?? [];
-  const filtered = searchQuery
-    ? entityList.filter(
+
+  // Filter by search
+  const filtered = useMemo(() => {
+    let result = entityList;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
         (e) =>
-          e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.entity_id.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : entityList;
+          e.name.toLowerCase().includes(q) ||
+          e.entity_id.toLowerCase().includes(q) ||
+          (e.area_id && (areaLookup[e.area_id] ?? "").toLowerCase().includes(q)),
+      );
+    }
+    return result;
+  }, [entityList, searchQuery, areaLookup]);
+
+  // Sort
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "entity_id":
+          return a.entity_id.localeCompare(b.entity_id);
+        case "state":
+          return (a.state ?? "").localeCompare(b.state ?? "");
+        case "area": {
+          const aArea = a.area_id ? (areaLookup[a.area_id] ?? "") : "";
+          const bArea = b.area_id ? (areaLookup[b.area_id] ?? "") : "";
+          // Entities with areas first, then alphabetically
+          if (aArea && !bArea) return -1;
+          if (!aArea && bArea) return 1;
+          return aArea.localeCompare(bArea) || a.name.localeCompare(b.name);
+        }
+        case "domain":
+          return a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name);
+        default:
+          return 0;
+      }
+    });
+    return arr;
+  }, [filtered, sortBy, areaLookup]);
+
+  const getAreaName = (areaId: string | undefined): string => {
+    if (!areaId) return "";
+    return areaLookup[areaId] ?? areaId;
+  };
 
   return (
     <div className="flex h-full">
@@ -152,15 +219,105 @@ export function EntitiesPage() {
             )}
           </div>
 
-          {/* Search */}
-          <div className="relative mt-3">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search entities..."
-              className="pl-8 text-sm"
-            />
+          {/* Area filter */}
+          <div className="mt-2">
+            <button
+              onClick={() => setShowAreaFilter(!showAreaFilter)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                selectedAreaId
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-accent",
+              )}
+            >
+              <MapPin className="h-3 w-3" />
+              {selectedAreaId
+                ? `📍 ${getAreaName(selectedAreaId)}`
+                : "Filter by Area"}
+            </button>
+            <AnimatePresence>
+              {showAreaFilter && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    <button
+                      onClick={() => {
+                        setSelectedAreaId("");
+                        setShowAreaFilter(false);
+                      }}
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+                        selectedAreaId === ""
+                          ? "bg-primary/20 text-primary"
+                          : "bg-muted text-muted-foreground hover:bg-accent",
+                      )}
+                    >
+                      All Areas
+                    </button>
+                    {areaList.map((area) => (
+                      <button
+                        key={area.id}
+                        onClick={() => {
+                          setSelectedAreaId(area.id);
+                          setShowAreaFilter(false);
+                        }}
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+                          selectedAreaId === area.id
+                            ? "bg-primary/20 text-primary"
+                            : "bg-muted text-muted-foreground hover:bg-accent",
+                        )}
+                      >
+                        📍 {area.name}
+                        {area.entity_count > 0 && (
+                          <span className="ml-0.5 opacity-50">
+                            {area.entity_count}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    {areaList.length === 0 && (
+                      <p className="px-2 py-1 text-[10px] text-muted-foreground">
+                        No areas found — sync entities first
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Search + Sort */}
+          <div className="mt-3 flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search entities or areas..."
+                className="pl-8 text-sm"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortBy)}
+                className="h-9 cursor-pointer appearance-none rounded-md border border-border bg-background px-2.5 pr-7 text-xs transition-colors hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
+                title="Sort by"
+              >
+                <option value="name">Name</option>
+                <option value="area">Area</option>
+                <option value="domain">Domain</option>
+                <option value="state">State</option>
+                <option value="entity_id">Entity ID</option>
+              </select>
+              <ArrowUpDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+            </div>
           </div>
         </div>
 
@@ -172,45 +329,58 @@ export function EntitiesPage() {
                 <Skeleton key={i} className="h-14 w-full" />
               ))}
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-center">
               <Cpu className="mb-2 h-8 w-8 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">No entities found</p>
             </div>
           ) : (
             <div className="space-y-0.5 p-2">
-              {filtered.map((entity) => (
-                <motion.button
-                  key={entity.id}
-                  layout
-                  onClick={() => setSelectedEntity(entity)}
-                  whileHover={{ x: 2 }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-                    selectedEntity?.id === entity.id
-                      ? "bg-primary/5 border border-primary/30"
-                      : "hover:bg-accent border border-transparent",
-                  )}
-                >
-                  <DomainIcon domain={entity.domain} state={entity.state} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {entity.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {entity.entity_id}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StateIndicator state={entity.state} />
-                    <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  </div>
-                </motion.button>
-              ))}
+              {sorted.map((entity) => {
+                const areaName = getAreaName(entity.area_id);
+                return (
+                  <motion.button
+                    key={entity.id}
+                    layout
+                    onClick={() => setSelectedEntity(entity)}
+                    whileHover={{ x: 2 }}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                      selectedEntity?.id === entity.id
+                        ? "bg-primary/5 border border-primary/30"
+                        : "hover:bg-accent border border-transparent",
+                    )}
+                  >
+                    <DomainIcon domain={entity.domain} state={entity.state} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {entity.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                        <span className="truncate">{entity.entity_id}</span>
+                        {areaName && (
+                          <>
+                            <span className="text-muted-foreground/30">·</span>
+                            <span className="flex items-center gap-0.5 truncate text-muted-foreground/70">
+                              <MapPin className="h-2.5 w-2.5 shrink-0" />
+                              {areaName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <StateIndicator state={entity.state} />
+                      <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    </div>
+                  </motion.button>
+                );
+              })}
             </div>
           )}
           <div className="px-4 py-2 text-xs text-muted-foreground">
-            {filtered.length} entities
+            {sorted.length} entities
+            {selectedAreaId && ` in ${getAreaName(selectedAreaId)}`}
           </div>
         </div>
       </div>
@@ -277,7 +447,11 @@ export function EntitiesPage() {
                     />
                     <InfoRow
                       label="Area"
-                      value={selectedEntity.area_id ?? "—"}
+                      value={
+                        selectedEntity.area_id
+                          ? `📍 ${getAreaName(selectedEntity.area_id)}`
+                          : "—"
+                      }
                     />
                     <InfoRow
                       label="Device Class"

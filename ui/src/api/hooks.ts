@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  areas,
   conversations,
+  insightSchedules,
   models,
   proposals,
   insights,
@@ -190,14 +192,25 @@ export function useRunAnalysis() {
   });
 }
 
+// ─── Areas ──────────────────────────────────────────────────────────────────
+
+export function useAreas() {
+  return useQuery({
+    queryKey: ["areas"],
+    queryFn: () => areas.list(),
+  });
+}
+
 // ─── Entities ───────────────────────────────────────────────────────────────
 
-export function useEntities(domain?: string) {
+export function useEntities(domain?: string, areaId?: string) {
   return useQuery({
-    queryKey: domain
-      ? queryKeys.entitiesByDomain(domain)
-      : queryKeys.entities,
-    queryFn: () => entities.list(domain),
+    queryKey: areaId
+      ? ["entities", "area", areaId, domain]
+      : domain
+        ? queryKeys.entitiesByDomain(domain)
+        : queryKeys.entities,
+    queryFn: () => entities.list(domain, areaId),
   });
 }
 
@@ -232,6 +245,54 @@ export function useRegistrySummary() {
   return useQuery({
     queryKey: queryKeys.registrySummary,
     queryFn: () => registry.summary(),
+  });
+}
+
+// ─── Insight Schedules (Feature 10) ──────────────────────────────────────────
+
+export function useInsightSchedules() {
+  return useQuery({
+    queryKey: ["insightSchedules"],
+    queryFn: () => insightSchedules.list(),
+  });
+}
+
+export function useCreateInsightSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: import("@/lib/types").InsightScheduleCreate) =>
+      insightSchedules.create(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
+  });
+}
+
+export function useUpdateInsightSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<import("@/lib/types").InsightScheduleCreate>;
+    }) => insightSchedules.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
+  });
+}
+
+export function useDeleteInsightSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => insightSchedules.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
+  });
+}
+
+export function useRunInsightSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => insightSchedules.runNow(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
   });
 }
 
