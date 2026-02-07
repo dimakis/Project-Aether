@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Loader2,
   ChevronRight,
+  ChevronDown,
   Circle,
   Lightbulb,
   Thermometer,
@@ -20,19 +21,23 @@ import {
   Binary,
   MapPin,
   ArrowUpDown,
+  LayoutGrid,
+  List,
+  Code,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DataViewer } from "@/components/ui/data-viewer";
+import { DataViewer, YamlViewer } from "@/components/ui/data-viewer";
 import { cn } from "@/lib/utils";
 import {
   useEntities,
   useDomainsSummary,
   useSyncEntities,
   useAreas,
+  useAutomationConfig,
 } from "@/api/hooks";
 import type { Entity, Area } from "@/lib/types";
 
@@ -78,6 +83,7 @@ const DOMAIN_EMOJI: Record<string, string> = {
 };
 
 type SortBy = "name" | "entity_id" | "state" | "area" | "domain";
+type GroupBy = "none" | "area" | "device" | "domain";
 
 export function EntitiesPage() {
   const [selectedDomain, setSelectedDomain] = useState<string>("");
@@ -86,6 +92,8 @@ export function EntitiesPage() {
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [showAreaFilter, setShowAreaFilter] = useState(false);
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const { data: domains, isLoading: domainsLoading } = useDomainsSummary();
   const { data: entitiesData, isLoading: entitiesLoading } = useEntities(
@@ -151,6 +159,49 @@ export function EntitiesPage() {
     });
     return arr;
   }, [filtered, sortBy, areaLookup]);
+
+  // Grouped entities
+  const groupedEntities = useMemo(() => {
+    if (groupBy === "none") return null;
+    const groups: Record<string, Entity[]> = {};
+    for (const entity of sorted) {
+      let key: string;
+      switch (groupBy) {
+        case "area":
+          key = entity.area_id
+            ? (areaLookup[entity.area_id] ?? entity.area_id)
+            : "Unassigned";
+          break;
+        case "device":
+          key = entity.device_id ?? "No Device";
+          break;
+        case "domain":
+          key = entity.domain;
+          break;
+        default:
+          key = "All";
+      }
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(entity);
+    }
+    // Sort group names, but put "Unassigned"/"No Device" last
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      const unassigned = ["Unassigned", "No Device"];
+      if (unassigned.includes(a) && !unassigned.includes(b)) return 1;
+      if (!unassigned.includes(a) && unassigned.includes(b)) return -1;
+      return a.localeCompare(b);
+    });
+    return sortedKeys.map((key) => ({ key, entities: groups[key] }));
+  }, [sorted, groupBy, areaLookup]);
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const getAreaName = (areaId: string | undefined): string => {
     if (!areaId) return "";
@@ -292,7 +343,7 @@ export function EntitiesPage() {
             </AnimatePresence>
           </div>
 
-          {/* Search + Sort */}
+          {/* Search + Sort + Group */}
           <div className="mt-3 flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -319,6 +370,36 @@ export function EntitiesPage() {
               <ArrowUpDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
             </div>
           </div>
+
+          {/* Group By */}
+          <div className="mt-2 flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">Group:</span>
+            {(
+              [
+                { value: "none", label: "None", icon: List },
+                { value: "area", label: "Area", icon: MapPin },
+                { value: "domain", label: "Domain", icon: Cpu },
+                { value: "device", label: "Device", icon: LayoutGrid },
+              ] as const
+            ).map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => {
+                  setGroupBy(value);
+                  setCollapsedGroups(new Set());
+                }}
+                className={cn(
+                  "flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
+                  groupBy === value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-accent",
+                )}
+              >
+                <Icon className="h-2.5 w-2.5" />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Entity List */}
@@ -334,53 +415,65 @@ export function EntitiesPage() {
               <Cpu className="mb-2 h-8 w-8 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">No entities found</p>
             </div>
-          ) : (
-            <div className="space-y-0.5 p-2">
-              {sorted.map((entity) => {
-                const areaName = getAreaName(entity.area_id);
+          ) : groupBy !== "none" && groupedEntities ? (
+            <div className="p-2">
+              {groupedEntities.map(({ key, entities: groupEntities }) => {
+                const isCollapsed = collapsedGroups.has(key);
                 return (
-                  <motion.button
-                    key={entity.id}
-                    layout
-                    onClick={() => setSelectedEntity(entity)}
-                    whileHover={{ x: 2 }}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-                      selectedEntity?.id === entity.id
-                        ? "bg-primary/5 border border-primary/30"
-                        : "hover:bg-accent border border-transparent",
-                    )}
-                  >
-                    <DomainIcon domain={entity.domain} state={entity.state} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {entity.name}
-                      </p>
-                      <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                        <span className="truncate">{entity.entity_id}</span>
-                        {areaName && (
-                          <>
-                            <span className="text-muted-foreground/30">·</span>
-                            <span className="flex items-center gap-0.5 truncate text-muted-foreground/70">
-                              <MapPin className="h-2.5 w-2.5 shrink-0" />
-                              {areaName}
-                            </span>
-                          </>
-                        )}
+                  <div key={key} className="mb-1">
+                    <button
+                      onClick={() => toggleGroup(key)}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="text-xs font-semibold">{key}</span>
+                      <Badge
+                        variant="secondary"
+                        className="ml-auto text-[9px]"
+                      >
+                        {groupEntities.length}
+                      </Badge>
+                    </button>
+                    {!isCollapsed && (
+                      <div className="ml-3 space-y-0.5 border-l border-border/50 pl-2">
+                        {groupEntities.map((entity) => (
+                          <EntityListItem
+                            key={entity.id}
+                            entity={entity}
+                            isSelected={selectedEntity?.id === entity.id}
+                            areaName={getAreaName(entity.area_id)}
+                            onSelect={() => setSelectedEntity(entity)}
+                          />
+                        ))}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StateIndicator state={entity.state} />
-                      <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    </div>
-                  </motion.button>
+                    )}
+                  </div>
                 );
               })}
+            </div>
+          ) : (
+            <div className="space-y-0.5 p-2">
+              {sorted.map((entity) => (
+                <EntityListItem
+                  key={entity.id}
+                  entity={entity}
+                  isSelected={selectedEntity?.id === entity.id}
+                  areaName={getAreaName(entity.area_id)}
+                  onSelect={() => setSelectedEntity(entity)}
+                />
+              ))}
             </div>
           )}
           <div className="px-4 py-2 text-xs text-muted-foreground">
             {sorted.length} entities
             {selectedAreaId && ` in ${getAreaName(selectedAreaId)}`}
+            {groupBy !== "none" &&
+              groupedEntities &&
+              ` in ${groupedEntities.length} groups`}
           </div>
         </div>
       </div>
@@ -465,6 +558,15 @@ export function EntitiesPage() {
                 </Card>
               </div>
 
+              {/* HA YAML Config (for automations/scripts) */}
+              {(selectedEntity.domain === "automation" ||
+                selectedEntity.domain === "script") && (
+                <AutomationYamlCard
+                  entityId={selectedEntity.entity_id}
+                  domain={selectedEntity.domain}
+                />
+              )}
+
               {/* Attributes with YAML/JSON viewer */}
               {selectedEntity.attributes &&
                 Object.keys(selectedEntity.attributes).length > 0 && (
@@ -497,6 +599,89 @@ export function EntitiesPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+function AutomationYamlCard({
+  entityId,
+  domain,
+}: {
+  entityId: string;
+  domain: string;
+}) {
+  // Extract the HA ID from entity_id (e.g., "automation.morning_lights" -> "morning_lights")
+  const haId = entityId.replace(`${domain}.`, "");
+  const { data, isLoading, error } = useAutomationConfig(haId);
+
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Code className="h-4 w-4" />
+          {domain === "automation" ? "Automation" : "Script"} Configuration
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-32" />
+        ) : error ? (
+          <p className="text-xs text-muted-foreground">
+            Configuration not available from Home Assistant
+          </p>
+        ) : data?.yaml ? (
+          <YamlViewer content={data.yaml} collapsible maxHeight={500} />
+        ) : (
+          <p className="text-xs text-muted-foreground">No configuration data</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EntityListItem({
+  entity,
+  isSelected,
+  areaName,
+  onSelect,
+}: {
+  entity: Entity;
+  isSelected: boolean;
+  areaName: string;
+  onSelect: () => void;
+}) {
+  return (
+    <motion.button
+      layout
+      onClick={onSelect}
+      whileHover={{ x: 2 }}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+        isSelected
+          ? "bg-primary/5 border border-primary/30"
+          : "hover:bg-accent border border-transparent",
+      )}
+    >
+      <DomainIcon domain={entity.domain} state={entity.state} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{entity.name}</p>
+        <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+          <span className="truncate">{entity.entity_id}</span>
+          {areaName && (
+            <>
+              <span className="text-muted-foreground/30">&middot;</span>
+              <span className="flex items-center gap-0.5 truncate text-muted-foreground/70">
+                <MapPin className="h-2.5 w-2.5 shrink-0" />
+                {areaName}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <StateIndicator state={entity.state} />
+        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </div>
+    </motion.button>
   );
 }
 
