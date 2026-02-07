@@ -104,15 +104,27 @@ export interface DeploymentResponse {
 
 // ─── Insights ────────────────────────────────────────────────────────────────
 
+export type InsightType =
+  | "energy_optimization"
+  | "anomaly_detection"
+  | "usage_pattern"
+  | "cost_saving"
+  | "maintenance_prediction"
+  | "automation_gap"
+  | "automation_inefficiency"
+  | "correlation"
+  | "device_health"
+  | "behavioral_pattern";
+
 export interface Insight {
   id: string;
-  type: string;
+  type: InsightType;
   title: string;
   description: string;
-  evidence?: Record<string, unknown>;
-  confidence?: number;
-  impact?: string;
-  entities?: string[];
+  evidence: Record<string, unknown>;
+  confidence: number;
+  impact: string;
+  entities: string[];
   script_path?: string;
   script_output?: Record<string, unknown>;
   status: string;
