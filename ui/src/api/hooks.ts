@@ -1,0 +1,245 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  conversations,
+  models,
+  proposals,
+  insights,
+  entities,
+  registry,
+  system,
+} from "./client";
+
+// ─── Keys ───────────────────────────────────────────────────────────────────
+
+export const queryKeys = {
+  conversations: ["conversations"] as const,
+  conversation: (id: string) => ["conversations", id] as const,
+  models: ["models"] as const,
+  proposals: ["proposals"] as const,
+  proposalsPending: ["proposals", "pending"] as const,
+  proposal: (id: string) => ["proposals", id] as const,
+  insights: ["insights"] as const,
+  insightsPending: ["insights", "pending"] as const,
+  insightsSummary: ["insights", "summary"] as const,
+  insight: (id: string) => ["insights", id] as const,
+  entities: ["entities"] as const,
+  entitiesByDomain: (domain: string) => ["entities", "domain", domain] as const,
+  domainsSummary: ["entities", "domains"] as const,
+  registryAutomations: ["registry", "automations"] as const,
+  registrySummary: ["registry", "summary"] as const,
+  systemStatus: ["system", "status"] as const,
+} as const;
+
+// ─── Conversations ──────────────────────────────────────────────────────────
+
+export function useConversations() {
+  return useQuery({
+    queryKey: queryKeys.conversations,
+    queryFn: () => conversations.list(),
+  });
+}
+
+export function useConversation(id: string) {
+  return useQuery({
+    queryKey: queryKeys.conversation(id),
+    queryFn: () => conversations.get(id),
+    enabled: !!id,
+  });
+}
+
+// ─── Models ─────────────────────────────────────────────────────────────────
+
+export function useModels() {
+  return useQuery({
+    queryKey: queryKeys.models,
+    queryFn: () => models.list(),
+    staleTime: 5 * 60 * 1000, // 5 minutes (models don't change often)
+  });
+}
+
+// ─── Proposals ──────────────────────────────────────────────────────────────
+
+export function useProposals(status?: string) {
+  return useQuery({
+    queryKey: [...queryKeys.proposals, status],
+    queryFn: () => proposals.list(status),
+  });
+}
+
+export function usePendingProposals() {
+  return useQuery({
+    queryKey: queryKeys.proposalsPending,
+    queryFn: () => proposals.pending(),
+    refetchInterval: 30_000, // Poll every 30s for pending approvals
+  });
+}
+
+export function useProposal(id: string) {
+  return useQuery({
+    queryKey: queryKeys.proposal(id),
+    queryFn: () => proposals.get(id),
+    enabled: !!id,
+  });
+}
+
+export function useApproveProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => proposals.approve(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.proposals });
+      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+    },
+  });
+}
+
+export function useRejectProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      proposals.reject(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.proposals });
+      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+    },
+  });
+}
+
+export function useDeployProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => proposals.deploy(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.proposals });
+    },
+  });
+}
+
+export function useRollbackProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => proposals.rollback(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.proposals });
+    },
+  });
+}
+
+// ─── Insights ───────────────────────────────────────────────────────────────
+
+export function useInsights(type?: string, status?: string) {
+  return useQuery({
+    queryKey: [...queryKeys.insights, type, status],
+    queryFn: () => insights.list(type, status),
+  });
+}
+
+export function useInsightsSummary() {
+  return useQuery({
+    queryKey: queryKeys.insightsSummary,
+    queryFn: () => insights.summary(),
+  });
+}
+
+export function useInsight(id: string) {
+  return useQuery({
+    queryKey: queryKeys.insight(id),
+    queryFn: () => insights.get(id),
+    enabled: !!id,
+  });
+}
+
+export function useReviewInsight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => insights.review(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.insights });
+      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+    },
+  });
+}
+
+export function useDismissInsight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      insights.dismiss(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.insights });
+      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+    },
+  });
+}
+
+export function useRunAnalysis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      type,
+      hours,
+    }: {
+      type?: string;
+      hours?: number;
+    } = {}) => insights.analyze(type, hours),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.insights });
+      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+    },
+  });
+}
+
+// ─── Entities ───────────────────────────────────────────────────────────────
+
+export function useEntities(domain?: string) {
+  return useQuery({
+    queryKey: domain
+      ? queryKeys.entitiesByDomain(domain)
+      : queryKeys.entities,
+    queryFn: () => entities.list(domain),
+  });
+}
+
+export function useDomainsSummary() {
+  return useQuery({
+    queryKey: queryKeys.domainsSummary,
+    queryFn: () => entities.domainsSummary(),
+  });
+}
+
+export function useSyncEntities() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (force?: boolean) => entities.sync(force),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.entities });
+      qc.invalidateQueries({ queryKey: queryKeys.domainsSummary });
+    },
+  });
+}
+
+// ─── Registry ───────────────────────────────────────────────────────────────
+
+export function useRegistryAutomations() {
+  return useQuery({
+    queryKey: queryKeys.registryAutomations,
+    queryFn: () => registry.automations(),
+  });
+}
+
+export function useRegistrySummary() {
+  return useQuery({
+    queryKey: queryKeys.registrySummary,
+    queryFn: () => registry.summary(),
+  });
+}
+
+// ─── System ─────────────────────────────────────────────────────────────────
+
+export function useSystemStatus() {
+  return useQuery({
+    queryKey: queryKeys.systemStatus,
+    queryFn: () => system.status(),
+    refetchInterval: 60_000, // Poll every minute
+  });
+}
