@@ -20,6 +20,7 @@ from src.api.routes.traces import router as traces_router
 from src.api.routes.optimization import router as optimization_router
 from src.api.routes.proposals import router as proposals_router
 from src.api.routes.system import router as system_router
+from src.api.routes.usage import router as usage_router
 from src.api.routes.webhooks import router as webhooks_router
 
 # Main API router
@@ -46,6 +47,8 @@ api_router.include_router(insight_schedules_router)
 api_router.include_router(webhooks_router)
 # Feature 11: Agent Activity Trace
 api_router.include_router(traces_router)
+# LLM Usage Tracking
+api_router.include_router(usage_router)
 # OpenAI-compatible API for Open WebUI
 api_router.include_router(openai_router)
 

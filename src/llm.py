@@ -139,6 +139,9 @@ class ResilientLLM:
     ) -> Any:
         """Invoke LLM with retry and failover logic.
         
+        After a successful call, logs token usage to the LLM usage tracker
+        (fire-and-forget, non-blocking).
+        
         Args:
             input: Input messages or string
             config: Optional configuration
@@ -150,6 +153,9 @@ class ResilientLLM:
         Raises:
             Exception: If all retries and fallback attempts fail
         """
+        import time as _time
+        start_ms = _time.perf_counter()
+        
         # Try primary provider with retries
         last_error: Exception | None = None
         
@@ -162,6 +168,8 @@ class ResilientLLM:
             try:
                 result = await self.primary_llm.ainvoke(input, config=config, **kwargs)
                 self._circuit_breaker.record_success()
+                latency_ms = int((_time.perf_counter() - start_ms) * 1000)
+                _log_usage_async(result, self.provider, self._get_model_name(), latency_ms)
                 return result
             except Exception as e:
                 last_error = e
@@ -224,9 +232,82 @@ class ResilientLLM:
             self.ainvoke(input, config=config, **kwargs)
         )
     
+    def _get_model_name(self) -> str:
+        """Get the model name from the primary LLM."""
+        return getattr(self.primary_llm, "model_name", getattr(self.primary_llm, "model", "unknown"))
+
     def __getattr__(self, name: str) -> Any:
         """Delegate other attributes to primary LLM."""
         return getattr(self.primary_llm, name)
+
+
+def _log_usage_async(result: Any, provider: str, model: str, latency_ms: int) -> None:
+    """Log LLM token usage asynchronously (fire-and-forget).
+    
+    Extracts token counts from the LLM response and writes a usage record
+    to the database via the LLMUsageRepository. Non-blocking: errors are
+    logged but do not propagate.
+    """
+    try:
+        # Extract token usage from LangChain response metadata
+        usage_meta = getattr(result, "usage_metadata", None)
+        if usage_meta is None:
+            # Try response_metadata for older LangChain versions
+            resp_meta = getattr(result, "response_metadata", {})
+            usage_meta = resp_meta.get("token_usage") or resp_meta.get("usage")
+        
+        if usage_meta is None:
+            return  # No usage data available
+        
+        # Normalize field names
+        if isinstance(usage_meta, dict):
+            input_tokens = usage_meta.get("input_tokens") or usage_meta.get("prompt_tokens", 0)
+            output_tokens = usage_meta.get("output_tokens") or usage_meta.get("completion_tokens", 0)
+            total_tokens = usage_meta.get("total_tokens", input_tokens + output_tokens)
+        else:
+            input_tokens = getattr(usage_meta, "input_tokens", 0) or getattr(usage_meta, "prompt_tokens", 0)
+            output_tokens = getattr(usage_meta, "output_tokens", 0) or getattr(usage_meta, "completion_tokens", 0)
+            total_tokens = getattr(usage_meta, "total_tokens", input_tokens + output_tokens)
+        
+        if total_tokens == 0:
+            return
+        
+        # Calculate cost
+        from src.llm_pricing import calculate_cost
+        cost_usd = calculate_cost(model, input_tokens, output_tokens)
+        
+        # Get call context (conversation_id, agent_role, etc.)
+        from src.llm_call_context import get_llm_call_context
+        ctx = get_llm_call_context()
+        
+        # Fire-and-forget: write to DB
+        asyncio.ensure_future(_write_usage_record(
+            provider=provider,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            cost_usd=cost_usd,
+            latency_ms=latency_ms,
+            conversation_id=ctx.conversation_id if ctx else None,
+            agent_role=ctx.agent_role if ctx else None,
+            request_type=ctx.request_type if ctx else "chat",
+        ))
+    except Exception as e:
+        logger.debug(f"Failed to log LLM usage: {e}")
+
+
+async def _write_usage_record(**kwargs: Any) -> None:
+    """Write a usage record to the database. Silently fails."""
+    try:
+        from src.storage import get_session
+        from src.dal.llm_usage import LLMUsageRepository
+        
+        async with get_session() as session:
+            repo = LLMUsageRepository(session)
+            await repo.record(**kwargs)
+    except Exception as e:
+        logger.debug(f"Failed to write usage record: {e}")
 
 
 def get_llm(

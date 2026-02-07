@@ -32,6 +32,9 @@ from src.storage.entities.insight_schedule import InsightSchedule, TriggerType
 # Authentication
 from src.storage.entities.passkey_credential import PasskeyCredential
 
+# LLM Usage Tracking
+from src.storage.entities.llm_usage import LLMUsage
+
 __all__ = [
     # Core
     "Agent",
@@ -62,4 +65,6 @@ __all__ = [
     "TriggerType",
     # Authentication
     "PasskeyCredential",
+    # LLM Usage
+    "LLMUsage",
 ]
