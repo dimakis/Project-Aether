@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from src.api.auth import RequireAPIKey
+from src.api.auth import verify_api_key
 from src.api.rate_limit import limiter
 from src.api.routes import api_router
 from src.exceptions import AetherError, ConfigurationError, MCPError, ValidationError
@@ -115,7 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Register routes with API key authentication
     # Auth is applied globally but exempts health endpoints (handled in auth.py)
-    app.include_router(api_router, prefix="/api/v1", dependencies=[Depends(RequireAPIKey)])
+    app.include_router(api_router, prefix="/api/v1", dependencies=[Depends(verify_api_key)])
 
     # Add exception handlers
     _register_exception_handlers(app)

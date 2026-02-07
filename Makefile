@@ -139,14 +139,13 @@ down:
 # Use these if you want more control over what's running
 
 up:
-	$(COMPOSE) up -d postgres mlflow redis
+	$(COMPOSE) up -d postgres mlflow
 	@echo "Waiting for services..."
 	@sleep 3
 	@echo ""
 	@echo "Infrastructure ready:"
 	@echo "  PostgreSQL: localhost:5432"
 	@echo "  MLflow:     http://localhost:$(MLFLOW_PORT)"
-	@echo "  Redis:      localhost:6379"
 
 up-ui:
 	$(COMPOSE) --profile ui up -d --build
