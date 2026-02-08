@@ -8,6 +8,8 @@ interface ChatMessageListProps {
   messages: DisplayMessage[];
   activeSessionId: string | null;
   copiedIdx: number | null;
+  /** Live agent status (e.g. "Running discover_entities...") */
+  statusMessage?: string;
   onCopy: (content: string, idx: number) => void;
   onRetry: () => void;
   onFeedback: (index: number, sentiment: "positive" | "negative") => void;
@@ -19,6 +21,7 @@ export function ChatMessageList({
   messages,
   activeSessionId,
   copiedIdx,
+  statusMessage,
   onCopy,
   onRetry,
   onFeedback,
@@ -51,6 +54,11 @@ export function ChatMessageList({
                 index={i}
                 isLast={i === messages.length - 1}
                 copiedIdx={copiedIdx}
+                statusMessage={
+                  msg.isStreaming && i === messages.length - 1
+                    ? statusMessage
+                    : undefined
+                }
                 onCopy={onCopy}
                 onRetry={onRetry}
                 onFeedback={onFeedback}

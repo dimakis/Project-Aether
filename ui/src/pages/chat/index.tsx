@@ -502,6 +502,7 @@ export function ChatPage() {
             messages={messages}
             activeSessionId={activeSessionId}
             copiedIdx={copiedIdx}
+            statusMessage={statusMessage}
             onCopy={handleCopyMessage}
             onRetry={handleRetry}
             onFeedback={handleFeedback}

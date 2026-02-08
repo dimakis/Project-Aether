@@ -12,9 +12,11 @@ const THINKING_MESSAGES = [
 interface ThinkingIndicatorProps {
   /** If content has started streaming, show the streaming cursor instead */
   hasContent?: boolean;
+  /** Live status from the agent (e.g. "Running discover_entities...") */
+  statusMessage?: string;
 }
 
-export function ThinkingIndicator({ hasContent = false }: ThinkingIndicatorProps) {
+export function ThinkingIndicator({ hasContent = false, statusMessage }: ThinkingIndicatorProps) {
   if (hasContent) {
     return (
       <motion.span
@@ -57,7 +59,7 @@ export function ThinkingIndicator({ hasContent = false }: ThinkingIndicatorProps
         animate={{ opacity: [0.5, 0.8, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
       >
-        Thinking...
+        {statusMessage || "Thinking..."}
       </motion.span>
     </motion.div>
   );

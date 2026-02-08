@@ -22,6 +22,8 @@ interface MessageBubbleProps {
   index: number;
   isLast: boolean;
   copiedIdx: number | null;
+  /** Live agent status (e.g. "Running discover_entities...") */
+  statusMessage?: string;
   onCopy: (content: string, idx: number) => void;
   onRetry: () => void;
   onFeedback: (index: number, sentiment: "positive" | "negative") => void;
@@ -33,6 +35,7 @@ export function MessageBubble({
   index,
   isLast,
   copiedIdx,
+  statusMessage,
   onCopy,
   onRetry,
   onFeedback,
@@ -114,7 +117,7 @@ export function MessageBubble({
                 )}
               </>
             ) : msg.isStreaming ? (
-              <ThinkingIndicator />
+              <ThinkingIndicator statusMessage={statusMessage} />
             ) : null}
 
             {/* Feedback buttons (thumbs up/down) */}
