@@ -169,6 +169,20 @@ async def setup(body: SetupRequest, response: Response) -> SetupResponse:
             ha_token_encrypted=ha_token_encrypted,
             password_hash=password_hash,
         )
+
+        # Also create the initial HAZone (multi-server support)
+        from src.dal.ha_zones import HAZoneRepository
+
+        zone_repo = HAZoneRepository(session)
+        await zone_repo.create(
+            name="Home",
+            ha_url=body.ha_url,
+            ha_token=body.ha_token,
+            secret=jwt_secret,
+            is_default=True,
+            icon="mdi:home",
+        )
+
         await session.commit()
 
     # Issue JWT for the admin user
