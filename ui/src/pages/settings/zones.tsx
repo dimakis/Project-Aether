@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import {
   useHAZones,
   useCreateZone,
+  useUpdateZone,
   useDeleteZone,
   useSetDefaultZone,
   useTestZone,
@@ -121,13 +122,41 @@ function ZoneForm({
 function ZoneCard({ zone }: { zone: HAZone }) {
   const deleteMut = useDeleteZone();
   const setDefaultMut = useSetDefaultZone();
+  const updateMut = useUpdateZone();
   const testMut = useTestZone();
   const [testResult, setTestResult] = useState<ZoneTestResult | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(zone.name);
+  const [editUrl, setEditUrl] = useState(zone.ha_url);
+  const [editUrlRemote, setEditUrlRemote] = useState(zone.ha_url_remote ?? "");
+  const [editToken, setEditToken] = useState("");
 
   const handleTest = async () => {
     setTestResult(null);
     const result = await testMut.mutateAsync(zone.id);
     setTestResult(result);
+  };
+
+  const handleSave = async () => {
+    const payload: Record<string, string> = {};
+    if (editName !== zone.name) payload.name = editName;
+    if (editUrl !== zone.ha_url) payload.ha_url = editUrl;
+    if (editUrlRemote !== (zone.ha_url_remote ?? "")) payload.ha_url_remote = editUrlRemote || "";
+    if (editToken) payload.ha_token = editToken;
+
+    if (Object.keys(payload).length > 0) {
+      await updateMut.mutateAsync({ id: zone.id, payload });
+    }
+    setEditing(false);
+    setEditToken("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditName(zone.name);
+    setEditUrl(zone.ha_url);
+    setEditUrlRemote(zone.ha_url_remote ?? "");
+    setEditToken("");
   };
 
   return (
@@ -153,6 +182,14 @@ function ZoneCard({ zone }: { zone: HAZone }) {
           </div>
 
           <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setEditing(!editing)}
+              title="Edit zone"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
             {!zone.is_default && (
               <>
                 <Button
@@ -179,25 +216,98 @@ function ZoneCard({ zone }: { zone: HAZone }) {
           </div>
         </div>
 
-        {/* URLs */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-xs">
-            <Wifi className="h-3 w-3 text-muted-foreground" />
-            <span className="text-muted-foreground">Local:</span>
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-              {zone.ha_url}
-            </code>
+        {/* Inline edit form */}
+        {editing ? (
+          <div className="space-y-2 rounded-lg border border-border/50 bg-muted/30 p-3">
+            <Input
+              placeholder="Zone name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="h-8 text-xs"
+            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Local URL
+                </label>
+                <Input
+                  placeholder="http://192.168.1.50:8123"
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                  className="h-8 font-mono text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Remote URL
+                </label>
+                <Input
+                  placeholder="https://myha.duckdns.org (optional)"
+                  value={editUrlRemote}
+                  onChange={(e) => setEditUrlRemote(e.target.value)}
+                  className="h-8 font-mono text-xs"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                New Token (leave blank to keep existing)
+              </label>
+              <Input
+                type="password"
+                placeholder="Long-lived Access Token"
+                value={editToken}
+                onChange={(e) => setEditToken(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={updateMut.isPending || !editName || !editUrl}
+              >
+                {updateMut.isPending ? (
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                ) : (
+                  <CheckCircle className="mr-1.5 h-3 w-3" />
+                )}
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
+                Cancel
+              </Button>
+            </div>
           </div>
-          {zone.ha_url_remote && (
+        ) : (
+          /* URLs display */
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2 text-xs">
-              <Globe className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Remote:</span>
+              <Wifi className="h-3 w-3 text-muted-foreground" />
+              <span className="text-muted-foreground">Local:</span>
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-                {zone.ha_url_remote}
+                {zone.ha_url}
               </code>
             </div>
-          )}
-        </div>
+            {zone.ha_url_remote ? (
+              <div className="flex items-center gap-2 text-xs">
+                <Globe className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Remote:</span>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+                  {zone.ha_url_remote}
+                </code>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1.5 text-[11px] text-primary/70 transition-colors hover:text-primary"
+              >
+                <Plus className="h-3 w-3" />
+                Add remote URL
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Test connectivity */}
         <div className="flex items-center gap-2">
