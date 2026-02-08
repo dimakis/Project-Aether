@@ -291,7 +291,7 @@ class SandboxRunner:
         )
 
         # Mount data if provided — at /workspace/data.json to match the
-        # Data Scientist system prompt which tells the LLM to read from there.
+        # DS Team system prompt which tells the LLM to read from there.
         if data_path and data_path.exists():
             cmd.extend(
                 [
@@ -301,7 +301,7 @@ class SandboxRunner:
             )
 
         # Suppress Python deprecation warnings so they don't pollute stdout.
-        # The Data Scientist agent parses JSON from stdout; stray warnings
+        # The DS Team agent parses JSON from stdout; stray warnings
         # (e.g. pandas pyarrow DeprecationWarning) break extraction.
         cmd.extend(["--env", "PYTHONWARNINGS=ignore::DeprecationWarning"])
 

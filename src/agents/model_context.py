@@ -1,7 +1,7 @@
 """Model context propagation for multi-agent delegation.
 
 Carries the user's LLM model selection through the agent delegation chain,
-so that specialist agents (e.g. Data Scientist) use the same model the user
+so that specialist agents (e.g. Data Science team) use the same model the user
 chose in the UI rather than falling back to the global default.
 
 Also carries tracing metadata (parent_span_id) for inter-agent trace linking.

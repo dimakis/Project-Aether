@@ -2,7 +2,7 @@
 
 Pydantic schemas for insight endpoints - User Story 3.
 
-Energy optimization suggestions and Data Scientist analysis results.
+Energy optimization suggestions and Data Science team analysis results.
 """
 
 from datetime import datetime

@@ -292,7 +292,7 @@ class DashboardState(ConversationState):
 
 
 # =============================================================================
-# ANALYSIS STATE (User Story 3 & 4: Data Scientist)
+# ANALYSIS STATE (User Story 3 & 4: Data Science Team)
 # =============================================================================
 
 
@@ -315,9 +315,9 @@ class AnalysisType(StrEnum):
 
 
 class AutomationSuggestion(BaseModel):
-    """Structured automation suggestion from the Data Scientist.
+    """Structured automation suggestion from the DS Team.
 
-    When the DS detects a high-confidence, high-impact pattern that could
+    When the DS Team detects a high-confidence, high-impact pattern that could
     be addressed by a Home Assistant automation, it creates this model
     for the Architect to review and refine into a full proposal.
 
@@ -496,7 +496,7 @@ class AnalysisState(MessageState):
     automation_suggestion: AutomationSuggestion | None = Field(
         default=None,
         description=(
-            "Structured automation suggestion from the Data Scientist when a "
+            "Structured automation suggestion from the DS Team when a "
             "high-confidence, high-impact insight is detected. Contains pattern, "
             "entities, proposed trigger/action, and evidence."
         ),

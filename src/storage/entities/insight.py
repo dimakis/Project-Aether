@@ -1,7 +1,7 @@
-"""Insight model for Data Scientist analysis results.
+"""Insight model for Data Science team analysis results.
 
 Stores energy optimization insights, anomaly detections,
-and other analytical outputs from the Data Scientist agent.
+and other analytical outputs from the Data Science team.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from src.storage.models import Base, TimestampMixin, UUIDMixin
 
 
 class InsightType(str, enum.Enum):
-    """Types of insights the Data Scientist can generate."""
+    """Types of insights the Data Science team can generate."""
 
     ENERGY_OPTIMIZATION = "energy_optimization"
     ANOMALY_DETECTION = "anomaly_detection"
@@ -48,7 +48,7 @@ class InsightStatus(str, enum.Enum):
 
 
 class Insight(Base):
-    """Analysis insight from the Data Scientist agent.
+    """Analysis insight from the Data Science team.
 
     Represents an analytical finding such as energy optimization
     opportunities, anomaly detections, or usage patterns.

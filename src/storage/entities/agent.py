@@ -54,7 +54,7 @@ class Agent(Base, UUIDMixin, TimestampMixin):
     - Categorizer: Entity classification and grouping
     - Architect: Automation design and user interaction
     - Developer: Automation implementation
-    - Data Scientist: Analytics and optimization
+    - Data Science team: Analytics and optimization
     - Orchestrator: Multi-agent coordination
 
     Attributes:

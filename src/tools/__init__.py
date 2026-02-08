@@ -55,7 +55,7 @@ def get_all_tools() -> list:
     advanced diagnostic tools (log analysis, entity/integration health),
     approval tools (seek_approval for HITL mutations),
     insight schedule tools (create/manage recurring analysis),
-    custom analysis tools (free-form Data Scientist queries),
+    custom analysis tools (free-form DS Team queries),
     and specialist tools (individual + team delegation).
     """
     return (

@@ -1,4 +1,4 @@
-"""Energy-specific history aggregation for Data Scientist analysis.
+"""Energy-specific history aggregation for Data Science team analysis.
 
 User Story 3: Energy Optimization Suggestions.
 

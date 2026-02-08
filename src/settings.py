@@ -89,13 +89,13 @@ class Settings(BaseSettings):
     # Resolution: user UI selection > per-agent setting > global default.
     data_scientist_model: str | None = Field(
         default=None,
-        description="Override model for Data Scientist agent (e.g., gpt-4o-mini for cheaper script gen)",
+        description="Override model for Data Science team (e.g., gpt-4o-mini for cheaper script gen)",
     )
     data_scientist_temperature: float | None = Field(
         default=None,
         ge=0.0,
         le=2.0,
-        description="Override temperature for Data Scientist agent",
+        description="Override temperature for Data Science team",
     )
 
     # LLM Failover (optional)

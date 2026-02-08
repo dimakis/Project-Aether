@@ -60,7 +60,7 @@ class InsightSchedule(Base):
         JSON,
         nullable=False,
         default=dict,
-        doc="Extra analysis parameters passed to the Data Scientist",
+        doc="Extra analysis parameters passed to the Data Science team",
     )
 
     # Trigger configuration

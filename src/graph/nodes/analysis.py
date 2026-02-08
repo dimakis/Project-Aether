@@ -1,4 +1,4 @@
-"""Analysis workflow nodes for Data Scientist agent.
+"""Analysis workflow nodes for Data Science team.
 
 These nodes handle energy data collection, script generation, sandbox execution,
 insight extraction, and optimization analysis.
@@ -67,7 +67,7 @@ async def generate_script_node(
     state: AnalysisState,
     session: AsyncSession | None = None,
 ) -> dict[str, object]:
-    """Generate analysis script using Data Scientist agent.
+    """Generate analysis script using DS Team agent.
 
     Uses LLM to generate a Python script for energy analysis.
 
@@ -343,7 +343,7 @@ async def analyze_and_suggest_node(
     state: AnalysisState,
     session: AsyncSession | None = None,
 ) -> dict[str, object]:
-    """Run Data Scientist analysis and generate suggestions.
+    """Run DS Team analysis and generate suggestions.
 
     Delegates to DataScientistAgent.invoke() which handles
     both energy and behavioral analysis based on analysis_type.
@@ -384,9 +384,9 @@ async def architect_review_node(
     state: AnalysisState,
     session: AsyncSession | None = None,
 ) -> dict[str, object]:
-    """Have the Architect review DS suggestions and create proposals.
+    """Have the Architect review DS Team suggestions and create proposals.
 
-    If the Data Scientist generated an AutomationSuggestion,
+    If the DS Team generated an AutomationSuggestion,
     passes it to the Architect for refinement into a full proposal.
 
     Args:

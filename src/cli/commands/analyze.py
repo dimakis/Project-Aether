@@ -33,7 +33,7 @@ def analyze(
         typer.Option("--query", "-q", help="Custom analysis query"),
     ] = None,
 ) -> None:
-    """Run analysis with the Data Scientist agent.
+    """Run analysis with the Data Science team.
 
     Analyzes energy sensor data or behavioral patterns and generates insights.
 
@@ -373,7 +373,7 @@ def optimize(
     """Run intelligent optimization analysis.
 
     Analyzes behavioral patterns, detects automation gaps, and
-    suggests automations. Combines Data Scientist insights with
+    suggests automations. Combines DS Team insights with
     Architect proposals.
 
     Examples:

@@ -1,11 +1,11 @@
 """Custom analysis tools for the Architect agent.
 
 Allows the Architect to delegate free-form analysis requests to the
-Data Scientist agent. Results are persisted as insights visible in
+Data Science team. Results are persisted as insights visible in
 the Insights page.
 
 This leverages the existing AnalysisType.CUSTOM with custom_query
-support already built into the Data Scientist pipeline.
+support already built into the DS Team pipeline.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ async def run_custom_analysis(
     - Custom data exploration
     - Any "why is X happening?" or "analyze Y" question
 
-    The Data Scientist agent will generate and execute a Python script
+    The Data Science team will generate and execute a Python script
     in a sandboxed environment to answer the question. Results are
     saved as insights visible on the Insights page.
 
@@ -79,7 +79,7 @@ async def run_custom_analysis(
     hours = max(1, min(hours, 168))
 
     try:
-        # Propagate model context to the Data Scientist
+        # Propagate model context to the DS Team
         ctx = get_model_context()
         parent_span_id = None
         try:

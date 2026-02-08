@@ -1,9 +1,9 @@
-"""Data Scientist agent for energy analysis and insights.
+"""Data Science team agent for energy analysis and insights.
 
 User Story 3: Energy Optimization Suggestions.
 Feature 03: Intelligent Optimization & Multi-Agent Collaboration.
 
-The Data Scientist analyzes energy data and behavioral patterns
+The Data Science team analyzes energy data and behavioral patterns
 from Home Assistant, generates Python scripts for analysis,
 executes them in a sandboxed environment, and extracts actionable insights.
 
@@ -50,7 +50,7 @@ BEHAVIORAL_ANALYSIS_TYPES = {
 
 
 class DataScientistAgent(BaseAgent):
-    """The Data Scientist agent for energy analysis.
+    """The Data Science team agent for energy analysis.
 
     Responsibilities:
     - Analyze energy sensor data
@@ -64,7 +64,7 @@ class DataScientistAgent(BaseAgent):
         self,
         ha_client: HAClient | None = None,
     ):
-        """Initialize Data Scientist agent.
+        """Initialize Data Science team agent.
 
         Args:
             ha_client: Optional HA client (creates one if not provided)
@@ -922,7 +922,7 @@ Output insights as JSON to stdout.
 
 
 class DataScientistWorkflow:
-    """Workflow implementation for the Data Scientist agent.
+    """Workflow implementation for the Data Science team agent.
 
     Orchestrates the analysis process:
     1. Initialize analysis state
@@ -936,7 +936,7 @@ class DataScientistWorkflow:
         self,
         ha_client: HAClient | None = None,
     ):
-        """Initialize the Data Scientist workflow.
+        """Initialize the Data Science team workflow.
 
         Args:
             ha_client: Optional HA client

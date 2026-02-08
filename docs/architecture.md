@@ -38,7 +38,11 @@ Project Aether is an agentic home automation system that provides conversational
 │         ▼                   ▼                   ▼                           │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
 │  │   Data      │    │  Librarian  │    │  Developer  │                     │
-│  │  Scientist  │    │   Agent     │    │   Agent     │                     │
+│  │  Science    │    │   Agent     │    │   Agent     │                     │
+│  │   Team      │    │             │    │             │                     │
+│  │ (Energy,    │    │             │    │             │                     │
+│  │ Behavioral, │    │             │    │             │                     │
+│  │ Diagnostic) │    │             │    │             │                     │
 │  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                     │
 │         │                  │                  │                             │
 │         ▼                  ▼                  ▼                             │
@@ -76,14 +80,14 @@ Project Aether is an agentic home automation system that provides conversational
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | analyze_energy, discover_entities, get_entity_history, diagnose_issue, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, seek_approval, HA tools |
-| **Data Scientist** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode |
+| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | consult_data_science_team (auto-routes to Energy/Behavioral/Diagnostic Analysts), discover_entities, get_entity_history, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, seek_approval, HA tools |
+| **Data Science Team** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode |
 | **Librarian** | Entity discovery, catalog maintenance | MCP list_entities, domain_summary |
 | **Developer** | Automation creation, YAML generation | deploy_automation (with HITL) |
 
 ### Diagnostic Collaboration Flow
 
-The Architect and Data Scientist collaborate to diagnose Home Assistant issues (missing data, sensor failures, integration problems):
+The Architect and Data Science team collaborate to diagnose Home Assistant issues (missing data, sensor failures, integration problems):
 
 ```
 User → Architect: "My car charger energy data disappeared"
@@ -94,17 +98,18 @@ User → Architect: "My car charger energy data disappeared"
          ├─→ check_integration_health()       # Integration-level diagnosis
          ├─→ validate_config()                # Structured config check
          │
-         ├─→ diagnose_issue(                  # Delegate to Data Scientist
+         ├─→ consult_data_science_team(       # Delegate to DS Team (auto-routes to Diagnostic Analyst)
+         │     analysis_type="diagnostic",
          │     entity_ids=[...],
          │     diagnostic_context="...",       # Collected evidence
          │     instructions="...",             # What to investigate
          │   )
-         │   └─→ Data Scientist:
+         │   └─→ DS Team's Diagnostic Analyst:
          │       ├─ Receives Architect's evidence
          │       ├─ Analyzes entity data for gaps/anomalies
          │       └─ Returns diagnostic findings
          │
-         ├─→ (optional) Gather more data based on DS findings
+         ├─→ (optional) Gather more data based on DS Team findings
          ├─→ (optional) Re-delegate with refined instructions
          │
          └─→ User: "Here's what I found: [diagnosis + recommendations]"
@@ -113,7 +118,7 @@ User → Architect: "My car charger energy data disappeared"
 **Key design decisions:**
 - No new workflow graph needed — uses Architect's existing tool-calling loop
 - Architect gathers evidence first, then delegates with context (not blind delegation)
-- Data Scientist has a dedicated DIAGNOSTIC analysis type with its own prompt
+- DS Team's Diagnostic Analyst has a dedicated DIAGNOSTIC analysis type with its own prompt
 - Architect can iterate: gather more data → re-delegate → synthesize
 
 ### Diagnostics Module (`src/diagnostics/`)
@@ -296,16 +301,17 @@ User Message
                         ┌────────────────────┼────────────────────┐
                         │                    │                    │
                         ▼                    ▼                    ▼
-                 ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-                 │ HA Tools    │      │analyze_energy│     │discover_    │
-                 │(direct MCP) │      │   (tool)    │      │entities     │
-                 └─────────────┘      └──────┬──────┘      └──────┬──────┘
-                                             │                    │
-                                             ▼                    ▼
-                                      ┌─────────────┐      ┌─────────────┐
-                                      │Data Scientist│     │  Librarian  │
-                                      │   Agent     │      │   Agent     │
-                                      └─────────────┘      └─────────────┘
+                 ┌─────────────┐      ┌──────────────────────┐      ┌─────────────┐
+                 │ HA Tools    │      │consult_data_science_ │     │discover_    │
+                 │(direct MCP) │      │team (auto-routes)    │      │entities     │
+                 └─────────────┘      └──────┬───────────────┘      └──────┬──────┘
+                                             │                              │
+                                             ▼                              ▼
+                                      ┌──────────────────────┐      ┌─────────────┐
+                                      │  Data Science Team   │      │  Librarian  │
+                                      │ (Energy, Behavioral, │      │   Agent     │
+                                      │  Diagnostic Analysts)│      │             │
+                                      └──────────────────────┘      └─────────────┘
 ```
 
 ### Energy Analysis Flow
@@ -317,13 +323,16 @@ User Message
 ┌─────────────────┐
 │    Architect    │
 │  (routes via    │
-│ analyze_energy) │
+│consult_data_    │
+│science_team,    │
+│auto-routes to   │
+│Energy Analyst)  │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐    ┌─────────────────┐
-│ Data Scientist  │───▶│ collect_energy  │
-│    Agent        │    │    _data        │
+│ DS Team's       │───▶│ collect_energy  │
+│ Energy Analyst  │    │    _data        │
 └────────┬────────┘    └────────┬────────┘
          │                      │
          │                      ▼
@@ -398,7 +407,7 @@ User: "Turn on the living room lights"
 
 ### Sandbox Isolation
 
-Data Scientist scripts run in gVisor with:
+DS Team scripts run in gVisor with:
 - No network access (default)
 - Read-only filesystem (except /tmp)
 - Memory/CPU limits
@@ -416,8 +425,8 @@ Session: conv-12345
 │   ├── inputs: {"message": "Analyze energy"}
 │   ├── _build_messages
 │   ├── llm.ainvoke (autologged)
-│   ├── analyze_energy (tool)
-│   │   └── DataScientistWorkflow.run_analysis
+│   ├── consult_data_science_team (tool, auto-routes to Energy Analyst)
+│   │   └── DataScientistWorkflow.run_analysis (legacy path for scheduled insights)
 │   │       ├── collect_energy_data
 │   │       ├── generate_script
 │   │       ├── execute_sandbox

@@ -1,7 +1,7 @@
 """Agent delegation tools for the Architect.
 
 Allows the Architect to delegate tasks to specialist agents
-(Data Scientist, Librarian) and receive conversational responses.
+(Data Science team, Librarian) and receive conversational responses.
 
 These tools enable a unified chat experience where users interact
 with the Architect, who intelligently routes to specialists.
@@ -66,7 +66,7 @@ async def analyze_energy(
     hours = min(hours, 168)  # Max 1 week
 
     try:
-        # Propagate model context to the Data Scientist.
+        # Propagate model context to the DS Team.
         # The contextvars already flow through async calls, but we also
         # capture the parent span ID for inter-agent trace linking.
         ctx = get_model_context()
@@ -155,7 +155,7 @@ def _format_energy_analysis(state: Any, analysis_type: str, hours: int) -> str:
         f"\n_Analysis covered {hours} hours of data from {len(state.entity_ids)} sensors._"
     )
 
-    # Reverse communication: if the Data Scientist suggests an automation
+    # Reverse communication: if the DS Team suggests an automation
     suggestion = getattr(state, "automation_suggestion", None)
     if suggestion:
         # AutomationSuggestion is now a structured model
@@ -163,7 +163,7 @@ def _format_energy_analysis(state: Any, analysis_type: str, hours: int) -> str:
         entities = getattr(suggestion, "entities", [])
         confidence = getattr(suggestion, "confidence", 0)
         parts.append(
-            f"\n---\n💡 **Data Scientist Suggestion:** {desc}"
+            f"\n---\n💡 **DS Team Suggestion:** {desc}"
         )
         if entities:
             parts.append(f"   Entities: {', '.join(entities[:5])}")
@@ -428,23 +428,23 @@ async def diagnose_issue(
     instructions: str,
     hours: int = 72,
 ) -> str:
-    """Delegate a diagnostic investigation to the Data Scientist.
+    """Delegate a diagnostic investigation to the Diagnostic Analyst.
 
     Use this AFTER gathering evidence (logs, history, config checks) to have
-    the Data Scientist analyze the data and identify root causes.
+    the Diagnostic Analyst analyze the data and identify root causes.
 
     Args:
         entity_ids: Entities involved in the issue
         diagnostic_context: Pre-collected evidence from the Architect:
             error logs, entity history observations, config check results,
             user-reported symptoms
-        instructions: Specific analysis instructions for the Data Scientist,
+        instructions: Specific analysis instructions for the Diagnostic Analyst,
             e.g. "Look for data gaps in the last week and identify what
             integration might have failed"
         hours: Hours of historical data to include (default: 72, max: 168)
 
     Returns:
-        Diagnostic findings and recommendations from the Data Scientist
+        Diagnostic findings and recommendations from the Diagnostic Analyst
     """
     from src.agents import DataScientistWorkflow
     from src.graph.state import AnalysisType
@@ -542,14 +542,14 @@ def _format_diagnostic_results(state: Any, entity_ids: list[str], hours: int) ->
         f"{len(entity_ids)} entities._"
     )
 
-    # Reverse communication: if the Data Scientist suggests an automation
+    # Reverse communication: if the DS Team suggests an automation
     suggestion = getattr(state, "automation_suggestion", None)
     if suggestion:
         desc = getattr(suggestion, "pattern", str(suggestion))
         entities = getattr(suggestion, "entities", [])
         confidence = getattr(suggestion, "confidence", 0)
         parts.append(
-            f"\n---\n💡 **Data Scientist Suggestion:** {desc}"
+            f"\n---\n💡 **DS Team Suggestion:** {desc}"
         )
         if entities:
             parts.append(f"   Entities: {', '.join(entities[:5])}")
@@ -724,9 +724,9 @@ async def propose_automation_from_insight(
     confidence: float = 0.8,
     source_insight_type: str = "automation_gap",
 ) -> str:
-    """Create an automation proposal from a Data Scientist insight.
+    """Create an automation proposal from a DS Team insight.
 
-    Use this when the Data Scientist has identified a pattern that could
+    Use this when the DS Team has identified a pattern that could
     be automated and the user wants to proceed with creating it.
 
     Args:

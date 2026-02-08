@@ -636,7 +636,7 @@ def _build_trace_events(
     Each event has: type, agent, event, (optional) tool, ts, and (optional) agents.
 
     Mapping rules:
-    - analyze_energy, run_custom_analysis, diagnose_issue -> data_scientist
+    - analyze_energy, run_custom_analysis, diagnose_issue -> data_science_team
     - create_insight_schedule, seek_approval, execute_service -> system
     - Everything else stays under architect (no separate agent events)
 

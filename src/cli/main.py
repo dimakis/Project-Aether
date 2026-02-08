@@ -4,7 +4,7 @@ Provides the main CLI application with commands for:
 - serve: Run the API server
 - discover: Trigger entity discovery
 - chat: Interactive chat with the Architect agent
-- analyze: Run analysis with the Data Scientist agent
+- analyze: Run analysis with the Data Science team
 - proposals: Manage automation proposals
 """
 

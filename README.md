@@ -8,7 +8,7 @@
 
 Project Aether is an intelligent home automation system that connects AI agents to your Home Assistant instance. Instead of writing YAML by hand or clicking through dashboards, you have a conversation — describe what you want, and Aether's agents discover your devices, analyze your energy data, diagnose problems, and design automations for you.
 
-**Key idea**: A team of specialized AI agents (Architect, Data Scientist, Librarian, Developer) collaborate to understand your smart home and act on your behalf — with human approval required for any changes.
+**Key idea**: A team of specialized AI agents (Architect, Data Science team, Librarian, Developer) collaborate to understand your smart home and act on your behalf — with human approval required for any changes.
 
 ---
 
@@ -45,13 +45,13 @@ The Librarian agent automatically discovers and catalogs all Home Assistant enti
 Describe an automation in plain English — "turn off the lights when everyone leaves" — and the Architect agent designs it, generates the YAML, and presents it for your approval before deploying to Home Assistant.
 
 ### Energy Analysis
-The Data Scientist agent analyzes your energy consumption patterns using historical data. It generates Python analysis scripts, executes them in a secure gVisor sandbox, and returns insights with projected savings.
+The Data Science team's Energy Analyst analyzes your energy consumption patterns using historical data. It generates Python analysis scripts, executes them in a secure gVisor sandbox, and returns insights with projected savings.
 
 ### Diagnostics & Troubleshooting
-When something goes wrong — missing sensor data, unavailable devices, integration errors — the Architect pulls HA error logs, validates configuration, checks entity health, and collaborates with the Data Scientist to produce actionable diagnoses.
+When something goes wrong — missing sensor data, unavailable devices, integration errors — the Architect delegates to the Data Science team via a single `consult_data_science_team` call. The team's Diagnostic Analyst analyzes error logs, entity health, and integration status to produce actionable diagnoses.
 
 ### Intelligent Optimization
-The Data Scientist detects behavioral patterns from logbook data, identifies manual actions that could be automated, and suggests optimizations. When it finds a high-impact opportunity, it proposes it to the Architect, who can design an automation for you.
+The Data Science team's Behavioral Analyst detects behavioral patterns from logbook data, identifies manual actions that could be automated, and suggests optimizations. When it finds a high-impact opportunity, it proposes it to the Architect, who can design an automation for you.
 
 ### Scheduled & Event-Driven Insights
 Set up cron schedules (e.g., daily energy analysis at 2 AM) or HA webhook triggers (e.g., run diagnostics when a device goes unavailable). Uses APScheduler with PostgreSQL-backed persistence.
@@ -143,8 +143,8 @@ Circuit breaker pattern with automatic provider failover. When your primary LLM 
 
 | Agent | Role | What It Does |
 |-------|------|--------------|
-| **Architect** | Orchestrator & Chat | The unified entry point. Handles conversation, routes to specialists, designs automations, runs diagnostics. |
-| **Data Scientist** | Analysis & Insights | Analyzes energy data, detects behavioral patterns, runs diagnostic investigations. Generates Python scripts executed in a secure sandbox. |
+| **Architect** | Orchestrator & Chat | The unified entry point. Handles conversation, routes to specialists, designs automations. Has 12 curated tools. |
+| **Data Science Team** | Analysis & Insights | Three specialists: Energy Analyst, Behavioral Analyst, Diagnostic Analyst. Share findings via TeamAnalysis, auto-synthesize. Scripts run in gVisor sandbox. |
 | **Librarian** | Discovery & Catalog | Discovers all HA entities, devices, and areas. Builds a searchable local catalog. |
 | **Developer** | Deployment | Takes approved automation proposals and deploys them to Home Assistant via the REST API (`/api/config/automation/config`). Falls back to manual instructions if the API is unreachable. |
 
@@ -257,7 +257,7 @@ You: "Analyze my energy consumption this week"
          │
          ▼
     ┌─────────────┐         ┌──────────────────┐
-    │  Architect   │────────▶│  Data Scientist   │
+    │  Architect   │────────▶│  DS Team (Energy) │
     └─────────────┘         └────────┬─────────┘
                                      │
                     ┌────────────────┼────────────────┐
@@ -306,18 +306,18 @@ You: "My car charger energy data disappeared from my dashboards"
     └──────┬────────────────────────────────────────┘
            │
            ▼
-    ┌──────────────────┐
-    │ diagnose_issue() │  Delegate to Data Scientist with collected evidence
-    └──────┬───────────┘
+    ┌──────────────────────────────┐
+    │ consult_data_science_team() │  Auto-routes to Diagnostic Analyst
+    └──────┬───────────────────────┘
            │
            ▼
     ┌──────────────────┐
-    │  Data Scientist   │  DIAGNOSTIC mode: analyze data gaps,
+    │  DS Team          │  Diagnostic Analyst: analyze data gaps,
     │  (sandbox)        │  sensor connectivity, integration failures
     └──────┬───────────┘
            │
            ▼
-    (Architect may loop: gather more data → re-delegate)
+    (Architect may call again with refined query)
            │
            ▼
     "I found the issue: Your Easee integration lost connection 3 days ago
@@ -347,7 +347,7 @@ You: "Run energy analysis every day at 2 AM"
     APScheduler (PostgreSQL-backed) fires at 2:00 AM daily
                   │
                   ▼
-    Data Scientist runs analysis → Insight persisted → Visible in UI
+    DS Team runs analysis → Insight persisted → Visible in UI
 ```
 
 Webhook triggers work similarly — configure an HA automation to POST to `/api/v1/webhooks/ha` when specific events occur (e.g., device goes unavailable), and Aether runs the analysis automatically.
@@ -355,7 +355,7 @@ Webhook triggers work similarly — configure an HA automation to POST to `/api/
 ### 7. Optimization Suggestions (Agent Collaboration)
 
 ```
-    Data Scientist discovers a pattern during analysis:
+    DS Team's Behavioral Analyst discovers a pattern during analysis:
     "User manually turns off living room lights every night at 11 PM"
          │
          ▼
@@ -370,7 +370,7 @@ Webhook triggers work similarly — configure an HA automation to POST to `/api/
            │ returned to Architect via tool response
            ▼
     ┌─────────────┐
-    │  Architect   │  "The Data Scientist noticed you turn off the living room
+    │  Architect   │  "The Behavioral Analyst noticed you turn off the living room
     └──────┬──────┘   lights every night at 11 PM. Want me to create an
            │          automation for that?"
            ▼
@@ -668,7 +668,7 @@ Optimize cost by using cheaper models for specific agents:
 # Global (used by Architect)
 LLM_MODEL=anthropic/claude-sonnet-4
 
-# Data Scientist uses a cheaper model for script generation
+# DS Team specialists use a cheaper model for script generation
 DATA_SCIENTIST_MODEL=gpt-4o-mini
 DATA_SCIENTIST_TEMPERATURE=0.3
 ```
@@ -698,28 +698,24 @@ The circuit breaker opens after 5 consecutive failures and retries after a 60-se
 
 ### Agent System
 
-The Architect is the unified entry point for all user requests. It understands intent and delegates to specialist agents via tool-calling:
+The Architect is the unified entry point for all user requests. It has 12 curated tools and delegates to specialist agents:
 
 | Tool | Delegates To | Purpose |
 |------|-------------|---------|
-| `analyze_energy` | Data Scientist | Energy consumption analysis |
+| `consult_data_science_team` | DS Team (Energy, Behavioral, Diagnostic Analysts) | All analysis, diagnostics, and optimization. Smart-routes to the right specialist(s). |
 | `discover_entities` | Librarian | Entity catalog refresh |
-| `diagnose_issue` | Data Scientist (diagnostic mode) | Collaborative troubleshooting |
-| `deploy_automation` | Developer | Automation deployment (HITL) |
-| `seek_approval` | Architect | Route all mutating actions (entity commands, automations, scripts, scenes) through the approval workflow |
-| `get_entity_history` | — (direct MCP) | Historical data retrieval |
-| `analyze_error_log` | — (diagnostics module) | HA error log analysis |
-| `find_unavailable_entities` | — (diagnostics module) | Entity health scan |
-| `check_integration_health` | — (diagnostics module) | Integration status |
-| `validate_config` | — (diagnostics module) | HA config validation |
+| `seek_approval` | Developer (on approval) | Route all mutating actions through the approval workflow |
+| `create_insight_schedule` | System | Recurring or event-driven analysis |
+| `get_entity_state`, `list_entities_by_domain`, `search_entities`, `get_domain_summary` | — (direct HA) | Entity queries |
+| `list_automations`, `render_template`, `get_ha_logs`, `check_ha_config` | — (direct HA) | HA state and config queries |
 
-### Diagnostic Collaboration
+### DS Team Collaboration
 
-The Architect and Data Scientist collaborate on complex issues. The Architect gathers evidence first (logs, entity health, integration status), then delegates to the Data Scientist with specific context and instructions. It can iterate — gathering more data based on findings and re-delegating.
+The Architect delegates to the Data Science team via a single `consult_data_science_team` call. The team auto-selects specialists based on query keywords (energy, behavioral, diagnostic), runs them with shared cross-consultation (`TeamAnalysis`), and returns a synthesized response. For complex issues, the Architect can call again with refined queries.
 
 ### Sandbox Isolation
 
-All Data Scientist analysis scripts run in a gVisor sandbox via Podman:
+All DS Team analysis scripts run in a gVisor sandbox via Podman:
 
 - **No network access** (default)
 - **Read-only filesystem** (except `/tmp`)
@@ -734,7 +730,7 @@ Two trigger mechanisms feed into the same analysis pipeline:
 ```
   ┌──── Cron (APScheduler) ────►┐
   │   "0 2 * * *"               │   Existing analysis pipeline
-  │                              │   (DataScientist + sandbox)
+  │                              │   (DS Team + sandbox)
   └──── Webhook (HA event) ────►│   → Insight persisted to DB
         POST /webhooks/ha        │
                                  └──────────────────────────────
@@ -1000,7 +996,7 @@ make psql                           # Connect to PostgreSQL
 ### Sandbox
 
 ```bash
-# Build the Data Scientist sandbox image (pandas, numpy, scipy, etc.)
+# Build the DS Team sandbox image (pandas, numpy, scipy, etc.)
 make build-sandbox
 ```
 
@@ -1008,9 +1004,12 @@ make build-sandbox
 
 ```
 src/
-├── agents/              # AI agents (Architect, Data Scientist, Librarian, Developer)
-│   ├── architect.py     # Orchestrator — routes to specialists, designs automations
-│   ├── data_scientist.py# Energy analysis, behavioral patterns, diagnostics
+├── agents/              # AI agents (Architect, DS Team, Librarian, Developer)
+│   ├── architect.py     # Orchestrator — routes to DS team, designs automations
+│   ├── energy_analyst.py# Energy consumption analysis (DS Team)
+│   ├── behavioral_analyst.py # Behavioral patterns (DS Team)
+│   ├── diagnostic_analyst.py # System health diagnostics (DS Team)
+│   ├── data_scientist.py# Legacy orchestrator (used by scheduled analysis)
 │   ├── librarian.py     # Entity discovery and cataloging
 │   ├── developer.py     # Automation deployment (HITL)
 │   ├── model_context.py # Model routing and per-agent overrides
@@ -1092,7 +1091,7 @@ Project Aether follows a constitution with five core principles:
 
 1. **Safety First (HITL)**: All mutating Home Assistant actions require explicit human approval. No automation deploys without your "approve."
 
-2. **Isolation**: Data Scientist analysis scripts run in gVisor sandboxes — no network access, read-only filesystem, enforced resource limits. Generated code never touches your HA instance directly.
+2. **Isolation**: DS Team analysis scripts run in gVisor sandboxes — no network access, read-only filesystem, enforced resource limits. Generated code never touches your HA instance directly.
 
 3. **Observability**: Every agent action is traced via MLflow with full span trees, token counts, and latency metrics. Nothing happens in the dark.
 

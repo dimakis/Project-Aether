@@ -639,15 +639,15 @@ class ArchitectAgent(BaseAgent):
         suggestion: AutomationSuggestion,
         session: AsyncSession,
     ) -> dict[str, object]:
-        """Receive an AutomationSuggestion from the Data Scientist and create a proposal.
+        """Receive an AutomationSuggestion from the DS Team and create a proposal.
 
-        Converts the DS suggestion into a structured prompt, generates a full
+        Converts the DS Team suggestion into a structured prompt, generates a full
         automation proposal, and returns it for HITL approval.
 
-        Feature 03: Intelligent Optimization — DS-to-Architect suggestion flow.
+        Feature 03: Intelligent Optimization — DS Team-to-Architect suggestion flow.
 
         Args:
-            suggestion: AutomationSuggestion model from the Data Scientist
+            suggestion: AutomationSuggestion model from the DS Team
             session: Database session for proposal persistence
 
         Returns:
@@ -655,7 +655,7 @@ class ArchitectAgent(BaseAgent):
         """
         # Build a structured prompt from the suggestion
         prompt = (
-            f"The Data Scientist has identified a pattern that could be automated:\n\n"
+            f"The Data Science team has identified a pattern that could be automated:\n\n"
             f"**Pattern:** {suggestion.pattern}\n"
             f"**Entities:** {', '.join(suggestion.entities[:10])}\n"
             f"**Proposed Trigger:** {suggestion.proposed_trigger}\n"
