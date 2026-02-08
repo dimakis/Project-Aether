@@ -63,17 +63,20 @@ function useSmartAutoScroll(dep: unknown) {
 // ─── Thinking Box ─────────────────────────────────────────────────────────────
 
 function ThinkingBox({ content, isActive }: { content: string; isActive: boolean }) {
-  const [expanded, setExpanded] = useState(false);
+  // Expanded by default while streaming; collapses to summary after completion
+  const [collapsed, setCollapsed] = useState(false);
   const { ref: boxRef, onScroll } = useSmartAutoScroll(content);
 
   if (!content && !isActive) return null;
 
   const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0;
+  // Show expanded when actively streaming (unless user manually collapsed)
+  const isOpen = isActive ? !collapsed : !collapsed && !!content;
 
   return (
     <div className="rounded-lg border border-border/40 bg-muted/20">
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => setCollapsed(!collapsed)}
         className="flex w-full items-center gap-2 px-3 py-2 text-xs"
       >
         <Brain
@@ -86,12 +89,12 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
           {isActive ? "Reasoning..." : "Thought process"}
         </span>
         {wordCount > 0 && (
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground/50">
-            {wordCount}w
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground/50">
+            {wordCount} words
           </span>
         )}
         <motion.span
-          animate={{ rotate: expanded ? 180 : 0 }}
+          animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.15 }}
           className="ml-auto"
         >
@@ -100,28 +103,20 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
       </button>
 
       <AnimatePresence initial={false}>
-        {content && (
+        {isOpen && content && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
             <div
               ref={boxRef}
               onScroll={onScroll}
-              className={cn(
-                "overflow-auto border-t border-border/20 px-3 py-2",
-                expanded ? "max-h-80" : "max-h-20",
-              )}
+              className="max-h-48 overflow-auto border-t border-border/20 px-3 py-2"
             >
-              <pre
-                className={cn(
-                  "whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-muted-foreground/70",
-                  !expanded && "line-clamp-5",
-                )}
-              >
+              <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground/70">
                 {content}
               </pre>
             </div>
@@ -328,16 +323,6 @@ export function AgentActivityPanel() {
 
           {/* Content */}
           <div className="flex-1 overflow-auto p-3 space-y-3">
-            {/* Thinking box */}
-            {(hasThinking || isStreaming) && (
-              <ErrorBoundary fallback="Thinking stream unavailable">
-                <ThinkingBox
-                  content={activity.thinkingStream}
-                  isActive={isStreaming}
-                />
-              </ErrorBoundary>
-            )}
-
             {/* ── Neural graph — ALWAYS rendered ─────────────────── */}
             <ErrorBoundary fallback="Topology unavailable">
             <div>
@@ -363,6 +348,16 @@ export function AgentActivityPanel() {
               />
             </div>
             </ErrorBoundary>
+
+            {/* ── Thinking box (below topology, above feed) ──────── */}
+            {(hasThinking || isStreaming) && (
+              <ErrorBoundary fallback="Thinking stream unavailable">
+                <ThinkingBox
+                  content={activity.thinkingStream}
+                  isActive={isStreaming}
+                />
+              </ErrorBoundary>
+            )}
 
             {/* ── Live feed (during streaming) ───────────────────── */}
             {(isStreaming || hasLiveData) && (
