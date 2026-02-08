@@ -125,32 +125,31 @@ export const ALL_TOPOLOGY_AGENTS: string[] = [
 
 // ─── Edges ───────────────────────────────────────────────────────────────────
 
-/** All edges in the brain. Every agent connects to Aether (the hub). */
+/**
+ * Edges that reflect actual workflow delegation paths in the codebase.
+ *
+ * Sources:
+ *  - aether → architect: conversation entry point
+ *  - architect → data_science_team: consult_data_science_team tool
+ *  - architect → developer: developer_deploy_node (approved proposals)
+ *  - architect → librarian: discover_entities tool
+ *  - data_science_team → analysts: specialist_tools routing
+ *  - energy → behavioral → diagnostic: team_analysis sequential pipeline
+ */
 const EDGES: [string, string][] = [
-  // Hub-and-spoke: Aether connects to every agent
+  // Entry point
   ["aether", "architect"],
-  ["aether", "data_science_team"],
-  ["aether", "energy_analyst"],
-  ["aether", "behavioral_analyst"],
-  ["aether", "diagnostic_analyst"],
-  ["aether", "dashboard_designer"],
-  ["aether", "sandbox"],
-  ["aether", "librarian"],
-  ["aether", "developer"],
-  // Architect delegates
+  // Architect delegations
   ["architect", "data_science_team"],
-  ["architect", "dashboard_designer"],
-  ["architect", "sandbox"],
-  ["architect", "librarian"],
   ["architect", "developer"],
-  // DS team internal
+  ["architect", "librarian"],
+  // DS team → specialist analysts
   ["data_science_team", "energy_analyst"],
   ["data_science_team", "behavioral_analyst"],
   ["data_science_team", "diagnostic_analyst"],
-  // DS cross-consultation
+  // Team analysis sequential pipeline
   ["energy_analyst", "behavioral_analyst"],
   ["behavioral_analyst", "diagnostic_analyst"],
-  ["energy_analyst", "diagnostic_analyst"],
 ];
 
 // ─── Organic brain layout ────────────────────────────────────────────────────
