@@ -67,24 +67,33 @@ export function handleTraceEvent(
 
   switch (event.event) {
     case "start": {
-      const newSeen = addAgentSeen(current.agentsSeen, agent);
+      let newSeen = addAgentSeen(current.agentsSeen, agent);
       const isDelegated = agent !== "architect";
 
-      // When a delegated agent starts, set architect to idle
       const newStates: Record<string, AgentNodeState> = {
         ...current.agentStates,
         [agent]: "firing",
       };
-      if (isDelegated) {
-        newStates["architect"] = "idle";
+
+      let newEdges = current.activeEdges;
+
+      // Ensure Aether is always visible and has an edge to the architect
+      newSeen = addAgentSeen(newSeen, "aether");
+      if (!newStates["aether"]) {
+        newStates["aether"] = "firing";
       }
 
-      // Build edge from the current active agent to the newly started agent
-      const parent = current.activeAgent || "architect";
-      const newEdges =
-        parent !== agent
-          ? addEdge(current.activeEdges, parent, agent)
-          : current.activeEdges;
+      if (agent === "architect") {
+        // Architect starting — draw edge from Aether hub
+        newEdges = addEdge(newEdges, "aether", "architect");
+      } else {
+        // Delegated agent starting — architect stays visually active (done)
+        // so the user can see it delegated the work, not that it disappeared
+        newStates["architect"] = "done";
+        // Edge from the current active agent (architect) to the delegate
+        const parent = current.activeAgent || "architect";
+        newEdges = addEdge(newEdges, parent, agent);
+      }
 
       setActivity({
         isActive: true,
@@ -108,30 +117,25 @@ export function handleTraceEvent(
       if (isDelegated) {
         // Delegated agent finished — architect resumes firing
         newStates["architect"] = "firing";
-        setActivity({
-          isActive: true,
-          activeAgent: "architect",
-          delegatingTo: null,
-          agentStates: newStates,
-          liveTimeline: [...current.liveTimeline, entry],
-        });
-      } else {
-        // Architect end — still active until complete
-        setActivity({
-          isActive: true,
-          activeAgent: "architect",
-          delegatingTo: null,
-          agentStates: newStates,
-          liveTimeline: [...current.liveTimeline, entry],
-        });
       }
+      // Aether stays firing while the workflow is active
+      newStates["aether"] = "firing";
+
+      setActivity({
+        isActive: true,
+        activeAgent: "architect",
+        delegatingTo: null,
+        agentStates: newStates,
+        liveTimeline: [...current.liveTimeline, entry],
+      });
       break;
     }
 
     case "complete": {
-      // Mark all seen agents as done
+      // Mark all seen agents (including Aether) as done
+      const allSeen = addAgentSeen(current.agentsSeen, "aether");
       const doneStates: Record<string, AgentNodeState> = {};
-      for (const a of current.agentsSeen) {
+      for (const a of allSeen) {
         doneStates[a] = "done";
       }
 
@@ -140,6 +144,7 @@ export function handleTraceEvent(
         activeAgent: null,
         delegatingTo: null,
         agents: event.agents,
+        agentsSeen: allSeen,
         agentStates: doneStates,
         liveTimeline: [...current.liveTimeline, entry],
       });

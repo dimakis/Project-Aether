@@ -10,6 +10,22 @@ import {
   handleTraceEvent,
   type TraceEventChunk,
 } from "@/lib/trace-event-handler";
+import type { AgentActivity, AgentNodeState } from "@/lib/agent-activity-store";
+
+/** Build a fresh default AgentActivity snapshot. */
+function defaultActivity(overrides?: Partial<AgentActivity>): AgentActivity {
+  return {
+    isActive: false,
+    activeAgent: null,
+    agentsSeen: [],
+    agentStates: {},
+    liveTimeline: [],
+    thinkingStream: "",
+    activeEdges: [],
+    delegationMessages: [],
+    ...overrides,
+  };
+}
 
 describe("handleTraceEvent", () => {
   let setActivity: ReturnType<typeof vi.fn>;
@@ -18,7 +34,9 @@ describe("handleTraceEvent", () => {
     setActivity = vi.fn();
   });
 
-  it("sets activeAgent on start event", () => {
+  // ─── Architect start ─────────────────────────────────────────────────
+
+  it("sets architect as activeAgent on start event", () => {
     const event: TraceEventChunk = {
       type: "trace",
       agent: "architect",
@@ -26,51 +44,180 @@ describe("handleTraceEvent", () => {
       ts: 1000,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, defaultActivity());
 
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "architect",
-      delegatingTo: null,
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.isActive).toBe(true);
+    expect(call.activeAgent).toBe("architect");
+    expect(call.delegatingTo).toBeNull();
   });
 
-  it("sets delegatingTo when a delegated agent starts", () => {
+  it("creates aether → architect edge when architect starts", () => {
     const event: TraceEventChunk = {
       type: "trace",
-      agent: "data_scientist",
+      agent: "architect",
+      event: "start",
+      ts: 1000,
+    };
+
+    handleTraceEvent(event, setActivity, defaultActivity());
+
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.activeEdges).toEqual(
+      expect.arrayContaining([["aether", "architect"]]),
+    );
+  });
+
+  it("sets aether to firing when architect starts", () => {
+    const event: TraceEventChunk = {
+      type: "trace",
+      agent: "architect",
+      event: "start",
+      ts: 1000,
+    };
+
+    handleTraceEvent(event, setActivity, defaultActivity());
+
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.agentStates?.aether).toBe("firing");
+    expect(call.agentStates?.architect).toBe("firing");
+  });
+
+  it("includes aether in agentsSeen when architect starts", () => {
+    const event: TraceEventChunk = {
+      type: "trace",
+      agent: "architect",
+      event: "start",
+      ts: 1000,
+    };
+
+    handleTraceEvent(event, setActivity, defaultActivity());
+
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.agentsSeen).toContain("aether");
+    expect(call.agentsSeen).toContain("architect");
+  });
+
+  // ─── Delegated agent start ──────────────────────────────────────────
+
+  it("sets delegatingTo when a delegated agent starts", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "architect",
+      agentsSeen: ["aether", "architect"],
+      agentStates: { aether: "firing", architect: "firing" },
+      activeEdges: [["aether", "architect"]],
+    });
+
+    const event: TraceEventChunk = {
+      type: "trace",
+      agent: "behavioral_analyst",
       event: "start",
       ts: 1001,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "data_scientist",
-      delegatingTo: "data_scientist",
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.isActive).toBe(true);
+    expect(call.activeAgent).toBe("behavioral_analyst");
+    expect(call.delegatingTo).toBe("behavioral_analyst");
   });
 
-  it("resets delegatingTo when delegated agent ends", () => {
+  it("sets architect to 'done' (not 'idle') when delegating", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "architect",
+      agentsSeen: ["aether", "architect"],
+      agentStates: { aether: "firing", architect: "firing" },
+      activeEdges: [["aether", "architect"]],
+    });
+
     const event: TraceEventChunk = {
       type: "trace",
-      agent: "data_scientist",
+      agent: "behavioral_analyst",
+      event: "start",
+      ts: 1001,
+    };
+
+    handleTraceEvent(event, setActivity, current);
+
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.agentStates?.architect).toBe("done");
+    // Aether should remain firing
+    expect(call.agentStates?.aether).toBe("firing");
+  });
+
+  it("creates edge from architect to delegated agent", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "architect",
+      agentsSeen: ["aether", "architect"],
+      agentStates: { aether: "firing", architect: "firing" },
+      activeEdges: [["aether", "architect"]],
+    });
+
+    const event: TraceEventChunk = {
+      type: "trace",
+      agent: "behavioral_analyst",
+      event: "start",
+      ts: 1001,
+    };
+
+    handleTraceEvent(event, setActivity, current);
+
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.activeEdges).toEqual(
+      expect.arrayContaining([
+        ["aether", "architect"],
+        ["architect", "behavioral_analyst"],
+      ]),
+    );
+  });
+
+  // ─── Delegated agent end ────────────────────────────────────────────
+
+  it("resets delegatingTo and resumes architect firing when delegated agent ends", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "behavioral_analyst",
+      agentsSeen: ["aether", "architect", "behavioral_analyst"],
+      agentStates: {
+        aether: "firing",
+        architect: "done",
+        behavioral_analyst: "firing",
+      },
+      activeEdges: [["aether", "architect"], ["architect", "behavioral_analyst"]],
+    });
+
+    const event: TraceEventChunk = {
+      type: "trace",
+      agent: "behavioral_analyst",
       event: "end",
       ts: 1002,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "architect",
-      delegatingTo: null,
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.isActive).toBe(true);
+    expect(call.activeAgent).toBe("architect");
+    expect(call.delegatingTo).toBeNull();
+    expect(call.agentStates?.architect).toBe("firing");
+    expect(call.agentStates?.behavioral_analyst).toBe("done");
+    expect(call.agentStates?.aether).toBe("firing");
   });
 
+  // ─── Architect end ──────────────────────────────────────────────────
+
   it("keeps architect as activeAgent when architect ends", () => {
-    // Architect end just means flow is returning, not that it's done
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "architect",
+      agentsSeen: ["aether", "architect"],
+      agentStates: { aether: "firing", architect: "firing" },
+    });
+
     const event: TraceEventChunk = {
       type: "trace",
       agent: "architect",
@@ -78,34 +225,58 @@ describe("handleTraceEvent", () => {
       ts: 1003,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    // Architect end doesn't change activity — still active until complete
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "architect",
-      delegatingTo: null,
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.isActive).toBe(true);
+    expect(call.activeAgent).toBe("architect");
+    expect(call.delegatingTo).toBeNull();
+    // Aether stays firing
+    expect(call.agentStates?.aether).toBe("firing");
   });
 
-  it("sets agents on complete event", () => {
+  // ─── Complete ───────────────────────────────────────────────────────
+
+  it("marks all agents (including aether) as done on complete", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "architect",
+      agentsSeen: ["aether", "architect", "behavioral_analyst"],
+      agentStates: {
+        aether: "firing",
+        architect: "firing",
+        behavioral_analyst: "done",
+      },
+    });
+
     const event: TraceEventChunk = {
       type: "trace",
       event: "complete",
-      agents: ["architect", "data_scientist"],
+      agents: ["architect", "behavioral_analyst"],
       ts: 1004,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "architect",
-      agents: ["architect", "data_scientist"],
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.isActive).toBe(false);
+    expect(call.activeAgent).toBeNull();
+    expect(call.agentStates?.aether).toBe("done");
+    expect(call.agentStates?.architect).toBe("done");
+    expect(call.agentStates?.behavioral_analyst).toBe("done");
   });
 
-  it("handles tool_call event under current agent", () => {
+  // ─── Tool events ───────────────────────────────────────────────────
+
+  it("handles tool_call event without changing agent", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "architect",
+      agentsSeen: ["aether", "architect"],
+      agentStates: { aether: "firing", architect: "firing" },
+      liveTimeline: [],
+    });
+
     const event: TraceEventChunk = {
       type: "trace",
       agent: "architect",
@@ -114,33 +285,46 @@ describe("handleTraceEvent", () => {
       ts: 1005,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    // tool_call doesn't change the active agent
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "architect",
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.isActive).toBe(true);
+    expect(call.activeAgent).toBe("architect");
   });
 
-  it("handles tool_call under delegated agent", () => {
+  it("handles tool_result event under delegated agent", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "energy_analyst",
+      agentsSeen: ["aether", "architect", "energy_analyst"],
+      agentStates: { aether: "firing", architect: "done", energy_analyst: "firing" },
+      liveTimeline: [],
+    });
+
     const event: TraceEventChunk = {
       type: "trace",
-      agent: "data_scientist",
-      event: "tool_call",
-      tool: "analyze_energy",
+      agent: "energy_analyst",
+      event: "tool_result",
       ts: 1006,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "data_scientist",
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.activeAgent).toBe("energy_analyst");
   });
 
-  it("handles system agent start", () => {
+  // ─── Edge cases ────────────────────────────────────────────────────
+
+  it("handles system agent start with delegation", () => {
+    const current = defaultActivity({
+      isActive: true,
+      activeAgent: "architect",
+      agentsSeen: ["aether", "architect"],
+      agentStates: { aether: "firing", architect: "firing" },
+      activeEdges: [["aether", "architect"]],
+    });
+
     const event: TraceEventChunk = {
       type: "trace",
       agent: "system",
@@ -148,29 +332,31 @@ describe("handleTraceEvent", () => {
       ts: 1007,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "system",
-      delegatingTo: "system",
-    });
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.isActive).toBe(true);
+    expect(call.activeAgent).toBe("system");
+    expect(call.delegatingTo).toBe("system");
   });
 
-  it("handles tool_result event (no agent change)", () => {
+  it("appends to liveTimeline on every event", () => {
+    const current = defaultActivity();
     const event: TraceEventChunk = {
       type: "trace",
       agent: "architect",
-      event: "tool_result",
-      ts: 1008,
+      event: "start",
+      ts: 1000,
     };
 
-    handleTraceEvent(event, setActivity);
+    handleTraceEvent(event, setActivity, current);
 
-    // tool_result keeps current agent
-    expect(setActivity).toHaveBeenCalledWith({
-      isActive: true,
-      activeAgent: "architect",
+    const call = setActivity.mock.calls[0][0] as Partial<AgentActivity>;
+    expect(call.liveTimeline).toHaveLength(1);
+    expect(call.liveTimeline![0]).toMatchObject({
+      agent: "architect",
+      event: "start",
+      ts: 1000,
     });
   });
 });
