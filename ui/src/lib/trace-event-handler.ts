@@ -55,7 +55,7 @@ export function handleTraceEvent(
   current: AgentActivity,
 ): void {
   const ts = event.ts ?? Date.now() / 1000;
-  const agent = event.agent || "architect";
+  const agent = event.agent || "unknown";
 
   // Build a timeline entry for every event
   const entry: LiveTimelineEntry = {

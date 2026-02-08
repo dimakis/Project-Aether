@@ -69,18 +69,7 @@ const EVENT_ICONS: Record<string, string> = {
   end: "✅",
 };
 
-const AGENT_COLORS: Record<string, string> = {
-  architect: "text-blue-400",
-  data_scientist: "text-emerald-400",
-  energy_analyst: "text-yellow-400",
-  behavioral_analyst: "text-teal-400",
-  diagnostic_analyst: "text-rose-400",
-  dashboard_designer: "text-indigo-400",
-  sandbox: "text-orange-400",
-  librarian: "text-purple-400",
-  developer: "text-amber-400",
-  system: "text-muted-foreground",
-};
+import { agentColor } from "@/lib/agent-registry";
 
 /** Format a wall-clock Date as compact HH:MM:SS */
 function formatWallClock(date: Date): string {
@@ -180,7 +169,7 @@ export function TraceTimeline({ rootSpan, startedAt, isLive }: TraceTimelineProp
           {/* Event detail */}
           <div className="min-w-0 flex-1 pb-1">
             <p className="text-[11px] font-medium leading-tight">
-              <span className={AGENT_COLORS[event.agent] ?? "text-muted-foreground"}>
+              <span className={agentColor(event.agent)}>
                 {event.name}
               </span>
             </p>

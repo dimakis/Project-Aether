@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Brain, ChevronDown, Loader2, Cpu, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AgentTopology, ALL_TOPOLOGY_AGENTS } from "./agent-topology";
+import { AgentTopology } from "./agent-topology";
+import { TOPOLOGY_AGENT_IDS } from "@/lib/agent-registry";
 import { TraceTimeline } from "./trace-timeline";
 import {
   useAgentActivity,
@@ -12,22 +13,7 @@ import {
 import type { LiveTimelineEntry, DelegationMessage } from "@/lib/agent-activity-store";
 import { useTraceSpans } from "@/api/hooks";
 
-// ─── Agent colours ───────────────────────────────────────────────────────────
-
-const AGENT_COLORS: Record<string, string> = {
-  aether: "text-primary",
-  architect: "text-blue-400",
-  data_scientist: "text-emerald-400",
-  data_science_team: "text-emerald-400",
-  energy_analyst: "text-yellow-400",
-  behavioral_analyst: "text-teal-400",
-  diagnostic_analyst: "text-rose-400",
-  dashboard_designer: "text-indigo-400",
-  sandbox: "text-orange-400",
-  librarian: "text-purple-400",
-  developer: "text-amber-400",
-  system: "text-muted-foreground",
-};
+import { agentColor, agentLabel } from "@/lib/agent-registry";
 
 const EVENT_LABELS: Record<string, string> = {
   start: "activated",
@@ -55,11 +41,7 @@ function formatTime(ts: number): string {
   });
 }
 
-function friendlyAgent(agent: string): string {
-  return agent
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
+// friendlyAgent is replaced by agentLabel() from the registry
 
 function timeAgo(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
@@ -239,7 +221,7 @@ function LiveEventFeed({
       {items.map((item, i) => {
         if (item.kind === "event") {
           const entry = item.entry;
-          const color = AGENT_COLORS[entry.agent] ?? "text-muted-foreground";
+          const color = agentColor(entry.agent);
           const icon = EVENT_ICONS[entry.event] ?? "\u2022";
           const label = EVENT_LABELS[entry.event] ?? entry.event;
 
@@ -263,7 +245,7 @@ function LiveEventFeed({
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] leading-tight">
                   <span className={cn("font-medium", color)}>
-                    {friendlyAgent(entry.agent)}
+                    {agentLabel(entry.agent)}
                   </span>
                   <span className="text-muted-foreground/60"> {label}</span>
                 </p>
@@ -279,8 +261,8 @@ function LiveEventFeed({
 
         // Delegation message
         const { msg, idx } = item;
-        const fromColor = AGENT_COLORS[msg.from] ?? "text-muted-foreground";
-        const toColor = AGENT_COLORS[msg.to] ?? "text-muted-foreground";
+        const fromColor = agentColor(msg.from);
+        const toColor = agentColor(msg.to);
         const isExpanded = expandedDelegation === idx;
         const preview = msg.content.length > 80 ? msg.content.slice(0, 80) + "..." : msg.content;
 
@@ -308,11 +290,11 @@ function LiveEventFeed({
               >
                 <p className="text-[11px] leading-tight">
                   <span className={cn("font-medium", fromColor)}>
-                    {friendlyAgent(msg.from)}
+                    {agentLabel(msg.from)}
                   </span>
                   <span className="text-muted-foreground/60"> {"\u2192"} </span>
                   <span className={cn("font-medium", toColor)}>
-                    {friendlyAgent(msg.to)}
+                    {agentLabel(msg.to)}
                   </span>
                 </p>
                 <p className="text-[10px] text-muted-foreground/50">
@@ -343,7 +325,7 @@ export function AgentActivityPanel() {
   // Build full agent states: unseen agents are "dormant"
   const fullAgentStates = useMemo(() => {
     const states: Record<string, import("@/lib/agent-activity-store").AgentNodeState> = {};
-    for (const agent of ALL_TOPOLOGY_AGENTS) {
+    for (const agent of TOPOLOGY_AGENT_IDS) {
       states[agent] = activity.agentStates[agent] ?? "dormant";
     }
     return states;
@@ -410,14 +392,14 @@ export function AgentActivityPanel() {
                 {isStreaming || hasLiveData ? "Neural Activity" : "Agent Network"}
               </p>
               <AgentTopology
-                agents={ALL_TOPOLOGY_AGENTS}
+                agents={TOPOLOGY_AGENT_IDS}
                 activeAgent={isStreaming ? activeAgent : null}
                 isLive={isStreaming || hasLiveData}
                 agentStates={
                   isStreaming || hasLiveData
                     ? fullAgentStates
                     : Object.fromEntries(
-                        ALL_TOPOLOGY_AGENTS.map((a) => [a, "dormant" as const]),
+                        TOPOLOGY_AGENT_IDS.map((a) => [a, "dormant" as const]),
                       )
                 }
                 activeEdges={

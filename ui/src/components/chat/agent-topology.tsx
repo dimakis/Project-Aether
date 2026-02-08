@@ -1,158 +1,16 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  Bot,
-  BarChart3,
-  Code,
-  BookOpen,
-  Wrench,
-  Server,
-  Zap,
-  Users,
-  Stethoscope,
-  LayoutDashboard,
-  Brain,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SpanNode } from "@/lib/types";
 import type { AgentNodeState } from "@/lib/agent-activity-store";
+import {
+  AGENTS,
+  TOPOLOGY_AGENT_IDS,
+  DELEGATION_EDGES,
+  agentMeta,
+} from "@/lib/agent-registry";
 
-// ─── Agent metadata ──────────────────────────────────────────────────────────
-
-const AGENTS: Record<
-  string,
-  {
-    label: string;
-    icon: typeof Bot;
-    color: string;
-    glowRgb: string;
-    hex: string;
-  }
-> = {
-  aether: {
-    label: "Aether",
-    icon: Brain,
-    color: "text-primary",
-    glowRgb: "168 85 247",
-    hex: "#a855f7",
-  },
-  architect: {
-    label: "Architect",
-    icon: Bot,
-    color: "text-blue-400",
-    glowRgb: "96 165 250",
-    hex: "#60a5fa",
-  },
-  data_science_team: {
-    label: "DS Team",
-    icon: BarChart3,
-    color: "text-emerald-400",
-    glowRgb: "52 211 153",
-    hex: "#34d399",
-  },
-  energy_analyst: {
-    label: "Energy",
-    icon: Zap,
-    color: "text-yellow-400",
-    glowRgb: "250 204 21",
-    hex: "#facc15",
-  },
-  behavioral_analyst: {
-    label: "Behavioral",
-    icon: Users,
-    color: "text-teal-400",
-    glowRgb: "45 212 191",
-    hex: "#2dd4bf",
-  },
-  diagnostic_analyst: {
-    label: "Diagnostic",
-    icon: Stethoscope,
-    color: "text-rose-400",
-    glowRgb: "251 113 133",
-    hex: "#fb7185",
-  },
-  dashboard_designer: {
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    color: "text-indigo-400",
-    glowRgb: "129 140 248",
-    hex: "#818cf8",
-  },
-  sandbox: {
-    label: "Sandbox",
-    icon: Code,
-    color: "text-orange-400",
-    glowRgb: "251 146 60",
-    hex: "#fb923c",
-  },
-  librarian: {
-    label: "Librarian",
-    icon: BookOpen,
-    color: "text-purple-400",
-    glowRgb: "192 132 252",
-    hex: "#c084fc",
-  },
-  developer: {
-    label: "Developer",
-    icon: Wrench,
-    color: "text-amber-400",
-    glowRgb: "251 191 36",
-    hex: "#fbbf24",
-  },
-  system: {
-    label: "System",
-    icon: Server,
-    color: "text-muted-foreground",
-    glowRgb: "161 161 170",
-    hex: "#a1a1aa",
-  },
-};
-
-// ─── Canonical agent list ────────────────────────────────────────────────────
-
-export const ALL_TOPOLOGY_AGENTS: string[] = [
-  "aether",
-  "architect",
-  "data_science_team",
-  "energy_analyst",
-  "behavioral_analyst",
-  "diagnostic_analyst",
-  "dashboard_designer",
-  "sandbox",
-  "librarian",
-  "developer",
-];
-
-// ─── Edges ───────────────────────────────────────────────────────────────────
-
-/**
- * Edges that reflect actual workflow delegation paths in the codebase.
- *
- * Sources:
- *  - aether → architect: conversation entry point
- *  - architect → data_science_team: consult_data_science_team tool
- *  - architect → developer: developer_deploy_node (approved proposals)
- *  - architect → librarian: discover_entities tool
- *  - architect → dashboard_designer: dashboard generation workflow
- *  - data_science_team → analysts: specialist_tools routing
- *  - energy → behavioral → diagnostic: team_analysis sequential pipeline
- */
-const EDGES: [string, string][] = [
-  // Entry point
-  ["aether", "architect"],
-  // Architect delegations
-  ["architect", "data_science_team"],
-  ["architect", "developer"],
-  ["architect", "librarian"],
-  ["architect", "dashboard_designer"],
-  // DS team → specialist analysts
-  ["data_science_team", "energy_analyst"],
-  ["data_science_team", "behavioral_analyst"],
-  ["data_science_team", "diagnostic_analyst"],
-  // Team analysis sequential pipeline
-  ["energy_analyst", "behavioral_analyst"],
-  ["behavioral_analyst", "diagnostic_analyst"],
-];
+// Re-export for consumers that still import from here
+export { TOPOLOGY_AGENT_IDS as ALL_TOPOLOGY_AGENTS } from "@/lib/agent-registry";
 
 // ─── Organic brain layout ────────────────────────────────────────────────────
 
@@ -186,7 +44,6 @@ const BRAIN_POSITIONS: Record<string, { x: number; y: number }> = {
 interface AgentTopologyProps {
   agents: string[];
   activeAgent?: string | null;
-  rootSpan?: SpanNode | null;
   isLive?: boolean;
   agentStates?: Record<string, AgentNodeState>;
   /** Edges activated during the current workflow (event-driven). */
@@ -212,7 +69,7 @@ export function AgentTopology({
   activeEdges,
 }: AgentTopologyProps) {
   const prefersReducedMotion = useReducedMotion();
-  const displayAgents = agents.length > 0 ? agents : ALL_TOPOLOGY_AGENTS;
+  const displayAgents = agents.length > 0 ? agents : TOPOLOGY_AGENT_IDS;
 
   const positions = useMemo(() => {
     const pos: Record<string, { x: number; y: number }> = {};
@@ -225,7 +82,7 @@ export function AgentTopology({
   // All possible edges are always visible. Active edges get the glow treatment.
   const visibleEdges = useMemo(
     () =>
-      EDGES.filter(
+      DELEGATION_EDGES.filter(
         ([a, b]) => displayAgents.includes(a) && displayAgents.includes(b),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,8 +121,7 @@ export function AgentTopology({
       >
         <defs>
           {displayAgents.map((agent) => {
-            const meta = AGENTS[agent];
-            if (!meta) return null;
+            const meta = agentMeta(agent);
             return (
               <filter
                 key={`glow-${agent}`}
@@ -304,8 +160,8 @@ export function AgentTopology({
           // An edge is "active" if it was explicitly activated via events
           const edgeActive = activeEdgeSet.has(`${a}-${b}`);
 
-          const metaA = AGENTS[a] ?? AGENTS.system;
-          const metaB = AGENTS[b] ?? AGENTS.system;
+          const metaA = agentMeta(a);
+          const metaB = agentMeta(b);
           const sA = getNodeState(a);
           const aFiring = sA === "firing";
 
@@ -414,7 +270,7 @@ export function AgentTopology({
         {displayAgents.map((agent, nodeIdx) => {
           const pos = positions[agent];
           if (!pos) return null;
-          const meta = AGENTS[agent] ?? AGENTS.system;
+          const meta = agentMeta(agent);
           const Icon = meta.icon;
           const state = getNodeState(agent);
           const isFiring = state === "firing";
