@@ -1,9 +1,12 @@
 """Discovery sync service for orchestrating HA synchronization."""
 
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -332,6 +335,17 @@ class DiscoverySyncService:
             ha_automation_id = attrs.get("id", entity.entity_id.split(".", 1)[-1])
             seen_automation_ids.add(ha_automation_id)
 
+            # Fetch full config from HA (trigger/condition/action)
+            config: dict[str, Any] | None = None
+            try:
+                config = await self.ha.get_automation_config(ha_automation_id)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to fetch config for automation %s: %s",
+                    ha_automation_id,
+                    exc,
+                )
+
             await self.automation_repo.upsert({
                 "ha_automation_id": ha_automation_id,
                 "entity_id": entity.entity_id,
@@ -339,6 +353,7 @@ class DiscoverySyncService:
                 "state": entity.state or "off",
                 "mode": attrs.get("mode", "single"),
                 "last_triggered": attrs.get("last_triggered"),
+                "config": config,
             })
             stats["automations_synced"] += 1
 
@@ -353,6 +368,22 @@ class DiscoverySyncService:
             attrs = entity.attributes or {}
             seen_script_ids.add(entity.entity_id)
 
+            # Fetch full config from HA (sequence/fields)
+            script_id = entity.entity_id.split(".", 1)[-1]
+            sequence: list[Any] | None = None
+            fields: dict[str, Any] | None = None
+            try:
+                script_config = await self.ha.get_script_config(script_id)
+                if script_config:
+                    sequence = script_config.get("sequence")
+                    fields = script_config.get("fields")
+            except Exception as exc:
+                logger.warning(
+                    "Failed to fetch config for script %s: %s",
+                    script_id,
+                    exc,
+                )
+
             await self.script_repo.upsert({
                 "entity_id": entity.entity_id,
                 "alias": attrs.get("friendly_name", entity.name),
@@ -360,6 +391,8 @@ class DiscoverySyncService:
                 "mode": attrs.get("mode", "single"),
                 "icon": attrs.get("icon"),
                 "last_triggered": attrs.get("last_triggered"),
+                "sequence": sequence,
+                "fields": fields,
             })
             stats["scripts_synced"] += 1
 
