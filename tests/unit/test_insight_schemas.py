@@ -38,6 +38,28 @@ class TestInsightEnums:
         assert InsightType.USAGE_PATTERN == "usage_pattern"
         assert InsightType.COST_SAVING == "cost_saving"
         assert InsightType.MAINTENANCE_PREDICTION == "maintenance_prediction"
+        assert InsightType.AUTOMATION_GAP == "automation_gap"
+        assert InsightType.AUTOMATION_INEFFICIENCY == "automation_inefficiency"
+        assert InsightType.CORRELATION == "correlation"
+        assert InsightType.DEVICE_HEALTH == "device_health"
+        assert InsightType.BEHAVIORAL_PATTERN == "behavioral_pattern"
+        assert InsightType.COMFORT_ANALYSIS == "comfort_analysis"
+        assert InsightType.SECURITY_AUDIT == "security_audit"
+        assert InsightType.WEATHER_CORRELATION == "weather_correlation"
+        assert InsightType.AUTOMATION_EFFICIENCY == "automation_efficiency"
+        assert InsightType.CUSTOM == "custom"
+
+    def test_schema_enum_matches_db_enum(self):
+        """Test API schema InsightType has all values from DB model."""
+        from src.storage.entities.insight import InsightType as DBInsightType
+
+        schema_values = {e.value for e in InsightType}
+        db_values = {e.value for e in DBInsightType}
+        assert schema_values == db_values, (
+            f"API schema InsightType is out of sync with DB model. "
+            f"Missing from schema: {db_values - schema_values}. "
+            f"Extra in schema: {schema_values - db_values}."
+        )
 
     def test_insight_status_values(self):
         """Test all insight statuses exist."""
