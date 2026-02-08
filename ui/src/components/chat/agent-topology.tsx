@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Bot,
   BarChart3,
@@ -192,12 +192,22 @@ interface AgentTopologyProps {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+/**
+ * Deterministic pseudo-random per node for staggered idle timing.
+ * Avoids synchronized pulsing -- each node breathes independently.
+ */
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 9301 + 49297) * 49297;
+  return x - Math.floor(x);
+}
+
 export function AgentTopology({
   agents,
   activeAgent,
   isLive,
   agentStates,
 }: AgentTopologyProps) {
+  const prefersReducedMotion = useReducedMotion();
   const displayAgents = agents.length > 0 ? agents : ALL_TOPOLOGY_AGENTS;
 
   const positions = useMemo(() => {
@@ -223,10 +233,9 @@ export function AgentTopology({
     return "idle";
   }
 
-  /** Is any streaming happening at all? */
-  const anyFiring = isLive && agentStates
-    ? Object.values(agentStates).some((s) => s === "firing")
-    : false;
+  // Spring configs
+  const firingSpring = { type: "spring" as const, stiffness: 300, damping: 15 };
+  const doneSpring = { type: "spring" as const, stiffness: 120, damping: 20 };
 
   return (
     <div className="flex items-center justify-center">
@@ -290,6 +299,10 @@ export function AgentTopology({
           const x2 = pB.x - nx * (rB + 2);
           const y2 = pB.y - ny * (rB + 2);
 
+          // Randomized shimmer timing per edge
+          const shimmerDur = 3.5 + seededRandom(edgeIdx + 100) * 3;
+          const shimmerDelay = seededRandom(edgeIdx + 200) * 2;
+
           return (
             <g key={`${a}-${b}`}>
               {/* Edge line */}
@@ -305,22 +318,24 @@ export function AgentTopology({
                 animate={{
                   strokeOpacity: edgeActive
                     ? 0.7
-                    : [0.06, 0.14, 0.06], // idle shimmer
+                    : prefersReducedMotion
+                      ? 0.1
+                      : [0.06, 0.14, 0.06], // idle shimmer
                 }}
                 transition={
                   edgeActive
-                    ? { duration: 0.3 }
+                    ? doneSpring
                     : {
-                        duration: 4 + (edgeIdx % 3),
+                        duration: shimmerDur,
                         repeat: Infinity,
                         ease: "easeInOut",
-                        delay: edgeIdx * 0.2,
+                        delay: shimmerDelay,
                       }
                 }
               />
 
               {/* Bidirectional traveling pulses when active */}
-              {edgeActive && (
+              {edgeActive && !prefersReducedMotion && (
                 <>
                   {/* A -> B pulse */}
                   <motion.circle
@@ -368,15 +383,18 @@ export function AgentTopology({
           const state = getNodeState(agent);
           const isFiring = state === "firing";
           const isDone = state === "done";
-          const isDormant = state === "dormant";
-          const isIdle = state === "idle";
           const isAether = agent === "aether";
           const r = isAether ? NODE_RADIUS + 4 : NODE_RADIUS;
 
-          // Breathing idle animation parameters
-          const breatheBase = isAether ? 0.3 : 0.18;
-          const breathePeak = isAether ? 0.5 : 0.32;
-          const breatheDuration = isAether ? 2.5 : 3.5 + (nodeIdx % 3) * 0.4;
+          // Randomized breathing parameters per node (seeded by index for stability)
+          const rng = seededRandom(nodeIdx);
+          const breatheBase = isAether ? 0.3 : 0.16 + rng * 0.06;
+          const breathePeak = isAether ? 0.5 : 0.30 + rng * 0.08;
+          const breatheDuration = isAether ? 2.5 : 2.5 + rng * 2.5; // 2.5-5s
+          const breatheDelay = seededRandom(nodeIdx + 50) * 2.5; // 0-2.5s offset
+          // Subtle scale oscillation range
+          const scaleMin = isAether ? 0.98 : 0.97;
+          const scaleMax = isAether ? 1.02 : 1.03;
 
           return (
             <motion.g
@@ -387,21 +405,25 @@ export function AgentTopology({
                   ? { opacity: 1, scale: 1.08 }
                   : isDone
                     ? { opacity: 1, scale: 1 }
-                    : {
-                        // Breathing animation for idle/dormant
-                        opacity: [breatheBase, breathePeak, breatheBase],
-                        scale: 1,
-                      }
+                    : prefersReducedMotion
+                      ? { opacity: breathePeak, scale: 1 }
+                      : {
+                          // Breathing animation for idle/dormant
+                          opacity: [breatheBase, breathePeak, breatheBase],
+                          scale: [scaleMin, scaleMax, scaleMin],
+                        }
               }
               transition={
-                isFiring || isDone
-                  ? { duration: 0.3 }
-                  : {
-                      duration: breatheDuration,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: nodeIdx * 0.3,
-                    }
+                isFiring
+                  ? firingSpring
+                  : isDone
+                    ? doneSpring
+                    : {
+                        duration: breatheDuration,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: breatheDelay,
+                      }
               }
               style={{ transformOrigin: `${pos.x}px ${pos.y}px` }}
             >
@@ -418,7 +440,7 @@ export function AgentTopology({
               />
 
               {/* Aether ambient glow ring (always present, subtle) */}
-              {isAether && !isFiring && (
+              {isAether && !isFiring && !prefersReducedMotion && (
                 <motion.circle
                   cx={pos.x}
                   cy={pos.y}
@@ -439,7 +461,7 @@ export function AgentTopology({
               )}
 
               {/* Firing pulse ring */}
-              {isFiring && (
+              {isFiring && !prefersReducedMotion && (
                 <motion.circle
                   cx={pos.x}
                   cy={pos.y}
