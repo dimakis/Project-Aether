@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Bot, User, Copy, Check, RotateCw, ThumbsUp, ThumbsDown } from "lucide-react";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
@@ -30,7 +30,7 @@ interface MessageBubbleProps {
   onCreateProposal?: (yamlContent: string) => void;
 }
 
-export function MessageBubble({
+export const MessageBubble = memo(function MessageBubble({
   msg,
   index,
   isLast,
@@ -195,4 +195,4 @@ export function MessageBubble({
       )}
     </motion.div>
   );
-}
+});

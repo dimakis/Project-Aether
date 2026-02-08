@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import { MessageBubble } from "./MessageBubble";
 import { EmptyState } from "./EmptyState";
@@ -17,7 +17,7 @@ interface ChatMessageListProps {
   onSuggestionClick: (message: string) => void;
 }
 
-export function ChatMessageList({
+export const ChatMessageList = memo(function ChatMessageList({
   messages,
   activeSessionId,
   copiedIdx,
@@ -86,4 +86,4 @@ export function ChatMessageList({
       )}
     </div>
   );
-}
+});

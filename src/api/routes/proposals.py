@@ -188,9 +188,11 @@ async def create_proposal(request: Request, body: ProposalCreate) -> ProposalRes
     summary="Approve proposal",
     description="Approve a pending automation proposal.",
 )
+@limiter.limit("5/minute")
 async def approve_proposal(
+    request: Request,
     proposal_id: str,
-    request: ApprovalRequest,
+    data: ApprovalRequest,
 ) -> ProposalResponse:
     """Approve a proposal."""
     async with get_session() as session:
@@ -206,7 +208,7 @@ async def approve_proposal(
                 detail=f"Cannot approve proposal in status {proposal.status.value}",
             )
 
-        await repo.approve(proposal_id, request.approved_by)
+        await repo.approve(proposal_id, data.approved_by)
         await session.commit()
 
         proposal = await repo.get_by_id(proposal_id)
@@ -224,9 +226,11 @@ async def approve_proposal(
     summary="Reject proposal",
     description="Reject a pending automation proposal.",
 )
+@limiter.limit("5/minute")
 async def reject_proposal(
+    request: Request,
     proposal_id: str,
-    request: RejectionRequest,
+    data: RejectionRequest,
 ) -> ProposalResponse:
     """Reject a proposal."""
     async with get_session() as session:
@@ -242,7 +246,7 @@ async def reject_proposal(
                 detail=f"Cannot reject proposal in status {proposal.status.value}",
             )
 
-        await repo.reject(proposal_id, request.reason)
+        await repo.reject(proposal_id, data.reason)
         await session.commit()
 
         proposal = await repo.get_by_id(proposal_id)

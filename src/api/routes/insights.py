@@ -212,7 +212,8 @@ async def create_insight(data: InsightCreate) -> InsightResponse:
     description="Mark an insight as reviewed by a user.",
     responses={404: {"model": ErrorResponse}},
 )
-async def review_insight(insight_id: str, data: ReviewRequest) -> InsightResponse:
+@limiter.limit("10/minute")
+async def review_insight(request: Request, insight_id: str, data: ReviewRequest) -> InsightResponse:
     """Mark insight as reviewed."""
     async with get_session() as session:
         repo = InsightRepository(session)
@@ -232,7 +233,8 @@ async def review_insight(insight_id: str, data: ReviewRequest) -> InsightRespons
     description="Mark an insight as actioned (user took action based on it).",
     responses={404: {"model": ErrorResponse}},
 )
-async def action_insight(insight_id: str, data: ActionRequest) -> InsightResponse:
+@limiter.limit("10/minute")
+async def action_insight(request: Request, insight_id: str, data: ActionRequest) -> InsightResponse:
     """Mark insight as actioned."""
     async with get_session() as session:
         repo = InsightRepository(session)
@@ -252,7 +254,8 @@ async def action_insight(insight_id: str, data: ActionRequest) -> InsightRespons
     description="Dismiss an insight (not relevant or not actionable).",
     responses={404: {"model": ErrorResponse}},
 )
-async def dismiss_insight(insight_id: str, data: DismissRequest) -> InsightResponse:
+@limiter.limit("10/minute")
+async def dismiss_insight(request: Request, insight_id: str, data: DismissRequest) -> InsightResponse:
     """Dismiss an insight."""
     async with get_session() as session:
         repo = InsightRepository(session)
@@ -272,7 +275,8 @@ async def dismiss_insight(insight_id: str, data: DismissRequest) -> InsightRespo
     description="Delete an insight.",
     responses={404: {"model": ErrorResponse}},
 )
-async def delete_insight(insight_id: str) -> None:
+@limiter.limit("10/minute")
+async def delete_insight(request: Request, insight_id: str) -> None:
     """Delete an insight."""
     async with get_session() as session:
         repo = InsightRepository(session)

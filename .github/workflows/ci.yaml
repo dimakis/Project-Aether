@@ -260,7 +260,7 @@ jobs:
           # Parse coverage and fail if below 80%
           pip install coverage
           coverage combine || true
-          coverage report --fail-under=80 || echo "Coverage below threshold"
+          coverage report --fail-under=80
 
   # ===========================================================================
   # Security Scan
