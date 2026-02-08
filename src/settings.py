@@ -206,6 +206,18 @@ class Settings(BaseSettings):
         description="Optional shared secret for webhook authentication (in addition to HA token)",
     )
 
+    # Discovery sync (periodic + webhook-triggered)
+    discovery_sync_enabled: bool = Field(
+        default=True,
+        description="Enable periodic delta sync of HA entities to the discovery DB",
+    )
+    discovery_sync_interval_minutes: int = Field(
+        default=30,
+        ge=5,
+        le=1440,
+        description="Interval in minutes between periodic delta syncs (5 min – 24 h)",
+    )
+
     # Tool execution timeouts
     tool_timeout_seconds: int = Field(
         default=30,
