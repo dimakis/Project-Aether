@@ -170,8 +170,15 @@ export function SchedulesPage() {
                     onToggleEnabled={() => handleToggleEnabled(schedule)}
                     onDelete={() => deleteMut.mutate(schedule.id)}
                     onRun={() => runMut.mutate(schedule.id)}
+                    onUpdate={(data) =>
+                      updateMut.mutate(
+                        { id: schedule.id, data },
+                        { onSuccess: () => setEditingId(null) },
+                      )
+                    }
                     isRunning={runMut.isPending}
                     isDeleting={deleteMut.isPending}
+                    isUpdating={updateMut.isPending}
                   />
                 ))}
               </div>
@@ -199,8 +206,15 @@ export function SchedulesPage() {
                     onToggleEnabled={() => handleToggleEnabled(schedule)}
                     onDelete={() => deleteMut.mutate(schedule.id)}
                     onRun={() => runMut.mutate(schedule.id)}
+                    onUpdate={(data) =>
+                      updateMut.mutate(
+                        { id: schedule.id, data },
+                        { onSuccess: () => setEditingId(null) },
+                      )
+                    }
                     isRunning={runMut.isPending}
                     isDeleting={deleteMut.isPending}
+                    isUpdating={updateMut.isPending}
                   />
                 ))}
               </div>
