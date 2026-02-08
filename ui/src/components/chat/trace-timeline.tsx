@@ -72,6 +72,10 @@ const EVENT_ICONS: Record<string, string> = {
 const AGENT_COLORS: Record<string, string> = {
   architect: "text-blue-400",
   data_scientist: "text-emerald-400",
+  energy_analyst: "text-yellow-400",
+  behavioral_analyst: "text-teal-400",
+  diagnostic_analyst: "text-rose-400",
+  dashboard_designer: "text-indigo-400",
   sandbox: "text-orange-400",
   librarian: "text-purple-400",
   developer: "text-amber-400",

@@ -28,7 +28,7 @@ class SpanNode(BaseModel):
 
     span_id: str
     name: str
-    agent: str  # architect, data_scientist, sandbox, librarian, system
+    agent: str  # architect, data_scientist, energy_analyst, behavioral_analyst, diagnostic_analyst, dashboard_designer, sandbox, librarian, developer, system
     type: str  # chain, llm, tool, retriever, unknown
     start_ms: float  # ms offset from trace start
     end_ms: float
@@ -117,8 +117,17 @@ async def get_trace_spans(trace_id: str) -> TraceResponse:
 
 # ─── Agent Identification ─────────────────────────────────────────────────────
 
-# Patterns for identifying which agent a span belongs to
+# Patterns for identifying which agent a span belongs to.
+# Order matters: more specific patterns must come before generic ones
+# (e.g. "EnergyAnalyst" before "data.?scientist").
 _AGENT_PATTERNS: list[tuple[str, str]] = [
+    # DS team specialists (must be before generic data_scientist)
+    (r"(?i)energy.?analyst|EnergyAnalyst|energy_analysis", "energy_analyst"),
+    (r"(?i)behavio(?:u?r)al.?analyst|BehavioralAnalyst|behavioral_analysis", "behavioral_analyst"),
+    (r"(?i)diagnostic.?analyst|DiagnosticAnalyst|diagnostic_analysis", "diagnostic_analyst"),
+    # Dashboard designer
+    (r"(?i)dashboard.?designer|Dashboard Designer", "dashboard_designer"),
+    # Core agents
     (r"(?i)architect", "architect"),
     (r"(?i)data.?scientist|DataScientist|analyze_energy|analyze_behav", "data_scientist"),
     (r"(?i)sandbox|script.?exec", "sandbox"),
@@ -126,20 +135,52 @@ _AGENT_PATTERNS: list[tuple[str, str]] = [
     (r"(?i)developer|deploy", "developer"),
 ]
 
+# Valid agent role values emitted by BaseAgent.trace_span as the
+# "agent_role" span attribute.  Used for authoritative identification.
+_KNOWN_AGENT_ROLES: set[str] = {
+    "architect",
+    "data_scientist",
+    "energy_analyst",
+    "behavioral_analyst",
+    "diagnostic_analyst",
+    "dashboard_designer",
+    "sandbox",
+    "librarian",
+    "developer",
+}
 
-def _identify_agent(span_name: str, span_type: str, parent_agent: str | None = None) -> str:
-    """Identify which agent a span belongs to based on its name and type.
 
-    Uses heuristics:
-    1. Pattern match on span name
-    2. LLM spans inherit parent agent
-    3. Default to 'system'
+def _identify_agent(
+    span_name: str,
+    span_type: str,
+    parent_agent: str | None = None,
+    span_attrs: dict[str, Any] | None = None,
+) -> str:
+    """Identify which agent a span belongs to.
+
+    Uses a resolution chain:
+    1. Explicit ``agent_role`` attribute set by BaseAgent.trace_span (most reliable)
+    2. Regex pattern match on span name
+    3. LLM / chat-model spans inherit their parent agent
+    4. Fall back to parent agent or ``"system"``
     """
+    # 1. Authoritative: check span attributes for agent_role
+    if span_attrs:
+        role = span_attrs.get("agent_role") or span_attrs.get("agent")
+        if role:
+            role_lower = str(role).lower()
+            # Handle class-style names like "EnergyAnalyst" → "energy_analyst"
+            role_snake = re.sub(r"(?<=[a-z0-9])([A-Z])", r"_\1", str(role)).lower().strip()
+            for candidate in (role_lower, role_snake):
+                if candidate in _KNOWN_AGENT_ROLES:
+                    return candidate
+
+    # 2. Pattern match on span name
     for pattern, agent in _AGENT_PATTERNS:
         if re.search(pattern, span_name):
             return agent
 
-    # LLM spans inherit their parent agent
+    # 3. LLM spans inherit their parent agent
     if span_type.lower() in ("llm", "chat_model") and parent_agent:
         return parent_agent
 
@@ -196,7 +237,8 @@ def _build_span_tree(
         span = span_map[span_id]
         name = _get_span_name(span)
         span_type = _get_span_type(span)
-        agent = _identify_agent(name, span_type, parent_agent)
+        raw_attrs = getattr(span, "attributes", None) or {}
+        agent = _identify_agent(name, span_type, parent_agent, span_attrs=raw_attrs)
         agents.add(agent)
 
         start_ns = _get_start_time(span)
