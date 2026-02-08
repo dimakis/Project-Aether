@@ -1,12 +1,13 @@
 """Tests for the Architect tool registry.
 
 Verifies:
-- get_architect_tools() returns exactly 12 curated tools
+- get_architect_tools() returns exactly 13 curated tools
 - All expected tool names are present
 - No duplicate tool names
 - Old delegation/mutation tools are NOT in the Architect set
 - get_all_tools() still returns the full superset (backward compat)
 - consult_data_science_team is the only DS delegation tool on the Architect
+- consult_dashboard_designer is available for dashboard requests
 """
 
 from __future__ import annotations
@@ -32,6 +33,8 @@ EXPECTED_ARCHITECT_TOOLS = {
     "discover_entities",
     # DS Team (1)
     "consult_data_science_team",
+    # Dashboard (1)
+    "consult_dashboard_designer",
 }
 
 # Tools that should NOT be on the Architect (old delegation, mutation, etc.)
@@ -74,8 +77,8 @@ class TestGetArchitectTools:
         from src.tools import get_architect_tools
 
         tools = get_architect_tools()
-        assert len(tools) == 12, (
-            f"Expected 12 tools, got {len(tools)}: "
+        assert len(tools) == 13, (
+            f"Expected 13 tools, got {len(tools)}: "
             f"{[t.name for t in tools]}"
         )
 
@@ -100,13 +103,13 @@ class TestGetArchitectTools:
         overlap = names & EXCLUDED_FROM_ARCHITECT
         assert not overlap, f"Excluded tools found on Architect: {overlap}"
 
-    def test_team_tool_is_only_ds_tool(self):
-        """Only consult_data_science_team should be the DS delegation tool."""
+    def test_delegation_tools_are_correct(self):
+        """Only consult_data_science_team and consult_dashboard_designer should be delegation tools."""
         from src.tools import get_architect_tools
 
         names = {t.name for t in get_architect_tools()}
-        ds_tools = {n for n in names if "consult" in n or "analyst" in n}
-        assert ds_tools == {"consult_data_science_team"}
+        delegation_tools = {n for n in names if "consult" in n or "analyst" in n}
+        assert delegation_tools == {"consult_data_science_team", "consult_dashboard_designer"}
 
 
 class TestGetAllToolsBackwardCompat:

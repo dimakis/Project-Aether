@@ -39,6 +39,7 @@ from src.tools.insight_schedule_tools import (
 )
 from src.tools.specialist_tools import (
     consult_behavioral_analyst,
+    consult_dashboard_designer,
     consult_data_science_team,
     consult_diagnostic_analyst,
     consult_energy_analyst,
@@ -70,12 +71,13 @@ def get_all_tools() -> list:
 
 
 def get_architect_tools() -> list:
-    """Curated tool set for the Architect agent (lean router, 12 tools).
+    """Curated tool set for the Architect agent (lean router, 13 tools).
 
     The Architect is a conversationalist and router.  It does NOT directly
     execute analysis, diagnostics, or mutations.  Instead:
 
     - Analysis/insights → ``consult_data_science_team`` (smart routing)
+    - Dashboards → ``consult_dashboard_designer`` (Lovelace design)
     - Mutations → ``seek_approval`` → Developer agent executes on approval
     - Diagnostics → routed through the DS team's Diagnostic Analyst
 
@@ -97,6 +99,7 @@ def get_architect_tools() -> list:
     )
     from src.tools.agent_tools import discover_entities as _discover_entities
     from src.tools.specialist_tools import (
+        consult_dashboard_designer as _consult_dashboard,
         consult_data_science_team as _consult_ds_team,
     )
 
@@ -118,6 +121,8 @@ def get_architect_tools() -> list:
         _discover_entities,
         # DS Team (1)
         _consult_ds_team,
+        # Dashboard (1)
+        _consult_dashboard,
     ]
 
 
@@ -157,6 +162,7 @@ __all__ = [
     "consult_energy_analyst",
     "consult_behavioral_analyst",
     "consult_diagnostic_analyst",
+    "consult_dashboard_designer",
     "consult_data_science_team",
     "request_synthesis_review",
     "get_specialist_tools",
