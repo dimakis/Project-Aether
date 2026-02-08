@@ -633,7 +633,7 @@ async def check_ha_config() -> str:
 def get_ha_tools() -> list[Any]:
     """Return all Home Assistant tools."""
     return [
-        # Entity queries
+        # Entity queries (DB-backed)
         get_entity_state,
         list_entities_by_domain,
         search_entities,
@@ -644,6 +644,8 @@ def get_ha_tools() -> list[Any]:
         deploy_automation,
         delete_automation,
         list_automations,
+        get_automation_config,
+        get_script_config,
         # Scripts & Scenes
         create_script,
         create_scene,

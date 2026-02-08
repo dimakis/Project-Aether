@@ -1,8 +1,8 @@
 """Tests for the Architect tool registry.
 
 Verifies:
-- get_architect_tools() returns exactly 13 curated tools
-- All expected tool names are present
+- get_architect_tools() returns exactly 15 curated tools
+- All expected tool names are present (including get_automation_config/get_script_config)
 - No duplicate tool names
 - Old delegation/mutation tools are NOT in the Architect set
 - get_all_tools() still returns the full superset (backward compat)
@@ -16,12 +16,15 @@ import pytest
 
 
 EXPECTED_ARCHITECT_TOOLS = {
-    # HA query (8)
+    # HA query — DB-backed (7)
     "get_entity_state",
     "list_entities_by_domain",
     "search_entities",
     "get_domain_summary",
     "list_automations",
+    "get_automation_config",
+    "get_script_config",
+    # HA query — live (3)
     "render_template",
     "get_ha_logs",
     "check_ha_config",
@@ -77,8 +80,8 @@ class TestGetArchitectTools:
         from src.tools import get_architect_tools
 
         tools = get_architect_tools()
-        assert len(tools) == 13, (
-            f"Expected 13 tools, got {len(tools)}: "
+        assert len(tools) == 15, (
+            f"Expected 15 tools, got {len(tools)}: "
             f"{[t.name for t in tools]}"
         )
 

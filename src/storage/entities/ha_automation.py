@@ -84,7 +84,7 @@ class HAAutomation(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
     config: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
-        doc="Full automation config (null until MCP supports config fetch)",
+        doc="Full automation config (trigger/condition/action). Populated during discovery sync.",
     )
 
     # Last triggered
@@ -106,7 +106,9 @@ class HAAutomation(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
 class Script(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
     """Home Assistant script from script domain.
 
-    Note: sequence is nullable as MCP doesn't support script config fetch.
+    Sequence and fields are populated during discovery sync via
+    get_script_config. May be NULL for newly discovered scripts
+    that haven't been synced yet.
     """
 
     __tablename__ = "scripts"
@@ -151,11 +153,11 @@ class Script(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
         doc="MDI icon",
     )
 
-    # Config (HA gap)
+    # Config
     sequence: Mapped[list[Any] | None] = mapped_column(
         JSONB,
         nullable=True,
-        doc="Script sequence (null until MCP supports script config)",
+        doc="Script action sequence. Populated during discovery sync.",
     )
     fields: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,

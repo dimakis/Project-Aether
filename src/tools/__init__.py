@@ -26,10 +26,12 @@ from src.tools.diagnostic_tools import (
 from src.tools.ha_tools import (
     check_ha_config,
     control_entity,
+    get_automation_config,
     get_domain_summary,
     get_entity_state,
     get_ha_logs,
     get_ha_tools,
+    get_script_config,
     list_entities_by_domain,
     search_entities,
 )
@@ -71,7 +73,7 @@ def get_all_tools() -> list:
 
 
 def get_architect_tools() -> list:
-    """Curated tool set for the Architect agent (lean router, 13 tools).
+    """Curated tool set for the Architect agent (lean router, 15 tools).
 
     The Architect is a conversationalist and router.  It does NOT directly
     execute analysis, diagnostics, or mutations.  Instead:
@@ -80,14 +82,18 @@ def get_architect_tools() -> list:
     - Dashboards → ``consult_dashboard_designer`` (Lovelace design)
     - Mutations → ``seek_approval`` → Developer agent executes on approval
     - Diagnostics → routed through the DS team's Diagnostic Analyst
+    - Config reading → ``get_automation_config`` / ``get_script_config``
+      for full YAML from the discovery DB
 
     This keeps the LLM tool surface small and focused.
     """
     from src.tools.ha_tools import (
         check_ha_config as _check_ha_config,
+        get_automation_config as _get_automation_config,
         get_domain_summary as _get_domain_summary,
         get_entity_state as _get_entity_state,
         get_ha_logs as _get_ha_logs,
+        get_script_config as _get_script_config,
         list_automations,
         list_entities_by_domain as _list_entities_by_domain,
         render_template,
@@ -104,12 +110,15 @@ def get_architect_tools() -> list:
     )
 
     return [
-        # HA query (8)
+        # HA query — DB-backed (7)
         _get_entity_state,
         _list_entities_by_domain,
         _search_entities,
         _get_domain_summary,
         list_automations,
+        _get_automation_config,
+        _get_script_config,
+        # HA query — live (3)
         render_template,
         _get_ha_logs,
         _check_ha_config,
@@ -132,6 +141,8 @@ __all__ = [
     "list_entities_by_domain",
     "search_entities",
     "get_domain_summary",
+    "get_automation_config",
+    "get_script_config",
     "control_entity",
     "get_ha_logs",
     "check_ha_config",
