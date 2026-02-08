@@ -40,6 +40,7 @@ export interface DisplayMessage {
   timestamp?: string; // ISO string for serialization
   traceId?: string; // MLflow trace ID for feedback
   feedback?: "positive" | "negative"; // User sentiment feedback
+  thinkingContent?: string; // Accumulated reasoning/thinking tokens
 }
 
 export interface ChatSession {

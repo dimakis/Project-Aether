@@ -251,8 +251,32 @@ export function ChatPage() {
       { role: "user" as const, content: content.trim() },
     ];
 
-    // Use a ref to accumulate content, avoiding stale closure issues
+    // Use refs to accumulate content, avoiding stale closure issues
     const fullContentRef = { current: "" };
+    const thinkingRef = { current: "" };
+    const rafPending = { current: false };
+
+    /** Flush accumulated content to React state (batched via rAF). */
+    const scheduleFlush = () => {
+      if (rafPending.current) return;
+      rafPending.current = true;
+      requestAnimationFrame(() => {
+        rafPending.current = false;
+        const snapshot = fullContentRef.current;
+        const thinkingSnapshot = thinkingRef.current;
+        updateSessionMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: snapshot,
+            isStreaming: true,
+            timestamp: assistantMsg.timestamp,
+            thinkingContent: thinkingSnapshot || undefined,
+          };
+          return updated;
+        });
+      });
+    };
 
     try {
       let traceId: string | undefined;
@@ -276,31 +300,25 @@ export function ChatPage() {
             continue;
           }
           if (chunk.type === "thinking") {
-            // Pipe thinking content to the activity store for the panel
+            // Pipe thinking content to both the message and the activity panel
+            const delta = chunk.content ?? "";
+            thinkingRef.current += delta;
             const current = getActivitySnapshot();
             setAgentActivity({
-              thinkingStream: (current.thinkingStream ?? "") + (chunk.content ?? ""),
+              thinkingStream: (current.thinkingStream ?? "") + delta,
             });
+            scheduleFlush();
             continue;
           }
         }
         const text = typeof chunk === "string" ? chunk : "";
         fullContentRef.current += text;
-        const snapshot = fullContentRef.current;
-        updateSessionMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: snapshot,
-            isStreaming: true,
-            timestamp: assistantMsg.timestamp,
-          };
-          return updated;
-        });
+        scheduleFlush();
       }
 
-      // Mark streaming as done -- guard against saving empty content
+      // Final flush: ensure all accumulated content is committed
       const finalContent = fullContentRef.current;
+      const finalThinking = thinkingRef.current;
       updateSessionMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
@@ -311,6 +329,7 @@ export function ChatPage() {
           isStreaming: false,
           timestamp: assistantMsg.timestamp,
           traceId,
+          thinkingContent: finalThinking || undefined,
         };
         return updated;
       });

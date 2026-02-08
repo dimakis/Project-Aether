@@ -41,15 +41,22 @@ export function MessageBubble({
   onFeedback,
   onCreateProposal,
 }: MessageBubbleProps) {
-  // Parse thinking content for assistant messages
+  // Parse thinking content for assistant messages.
+  // Prefer the separately-streamed thinkingContent (from SSE thinking events)
+  // over parsing <think> tags from the combined content.
   const parsed = useMemo(() => {
     if (msg.role !== "assistant") return null;
     return parseThinkingContent(msg.content);
   }, [msg.role, msg.content]);
 
+  const hasStreamedThinking = !!msg.thinkingContent;
   const visibleContent = parsed?.visible || msg.content;
-  const thinkingBlocks = parsed?.thinking ?? [];
-  const isModelThinking = parsed?.isThinking ?? false;
+  const thinkingBlocks = hasStreamedThinking
+    ? [msg.thinkingContent!]
+    : (parsed?.thinking ?? []);
+  const isModelThinking = hasStreamedThinking
+    ? !!msg.isStreaming && !msg.content
+    : (parsed?.isThinking ?? false);
 
   const timestamp = msg.timestamp ? new Date(msg.timestamp) : undefined;
 
