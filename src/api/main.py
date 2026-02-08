@@ -71,6 +71,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # Shutdown
+    # Signal SSE streams to close so uvicorn can complete graceful shutdown/reload
+    from src.api.routes.activity_stream import signal_shutdown
+
+    signal_shutdown()
+
     if scheduler:
         await scheduler.stop()
     await close_db()

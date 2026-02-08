@@ -8,6 +8,11 @@ system, not just chat streaming.
 Architecture:
     src/llm.py  -->  publish_activity()  -->  asyncio.Queue per client
                                           -->  SSE endpoint reads queue
+
+Shutdown:
+    Call signal_shutdown() during app shutdown to close all SSE connections
+    promptly. Without this, open SSE connections block uvicorn's graceful
+    shutdown (and therefore --reload).
 """
 
 import asyncio
@@ -26,6 +31,27 @@ router = APIRouter(prefix="/activity", tags=["activity"])
 # ─── In-process broadcast ─────────────────────────────────────────────────────
 
 _subscribers: set[asyncio.Queue] = set()
+_shutting_down = False
+
+
+def signal_shutdown() -> None:
+    """Signal all SSE subscribers to close.
+
+    Call this during app shutdown (e.g. from the FastAPI lifespan)
+    so that open SSE connections close and uvicorn can complete
+    its graceful shutdown / reload cycle.
+
+    Uses a plain boolean + sentinel queue messages instead of asyncio.Event
+    to avoid cross-event-loop issues in tests.
+    """
+    global _shutting_down  # noqa: PLW0603
+    _shutting_down = True
+    # Wake all subscribers so they see the flag
+    for q in _subscribers:
+        try:
+            q.put_nowait(None)  # sentinel
+        except asyncio.QueueFull:
+            pass
 
 
 def publish_activity(event: dict) -> None:
@@ -46,12 +72,20 @@ def publish_activity(event: dict) -> None:
 
 
 async def _subscribe() -> AsyncGenerator[str, None]:
-    """Subscribe to activity events as an SSE stream."""
+    """Subscribe to activity events as an SSE stream.
+
+    Exits cleanly when signal_shutdown() is called, which sets
+    _shutting_down=True and pushes a None sentinel into every queue.
+    This allows uvicorn to proceed with graceful shutdown / reload.
+    """
     q: asyncio.Queue = asyncio.Queue(maxsize=200)
     _subscribers.add(q)
     try:
-        while True:
+        while not _shutting_down:
             data = await q.get()
+            if data is None:
+                # Sentinel: shutdown signal
+                break
             yield f"data: {data}\n\n"
     except asyncio.CancelledError:
         pass
