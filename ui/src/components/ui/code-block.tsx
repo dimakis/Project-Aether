@@ -28,7 +28,7 @@ const LANG_LABELS: Record<string, string> = {
 export interface CodeBlockAction {
   label: string;
   icon?: ReactNode;
-  /** Called with the **full** (un-truncated) code content. */
+  /** Called with the full code content. */
   onClick: (fullCode: string) => void;
 }
 
@@ -39,9 +39,12 @@ interface CodeBlockProps {
   collapsible?: boolean;
   maxHeight?: number;
   className?: string;
-  /** Action button that always receives the full code, even when collapsed. */
+  /** Action button rendered below the code block. */
   action?: CodeBlockAction;
 }
+
+/** Height (px) used when the code block is in its collapsed state. */
+const COLLAPSED_HEIGHT = 240;
 
 export function CodeBlock({
   code,
@@ -53,7 +56,9 @@ export function CodeBlock({
   action,
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-  const [collapsed, setCollapsed] = useState(collapsible && code.split("\n").length > 25);
+  const lineCount = code.split("\n").length;
+  const canCollapse = collapsible && lineCount > 25;
+  const [collapsed, setCollapsed] = useState(canCollapse);
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(code);
@@ -62,8 +67,9 @@ export function CodeBlock({
   }, [code]);
 
   const langLabel = LANG_LABELS[language] ?? language;
-  const lineCount = code.split("\n").length;
-  const displayCode = collapsed ? code.split("\n").slice(0, 25).join("\n") + "\n..." : code;
+
+  // When collapsed, constrain height via CSS — never truncate the actual code.
+  const effectiveMaxHeight = collapsed ? COLLAPSED_HEIGHT : maxHeight;
 
   return (
     <div>
@@ -81,7 +87,7 @@ export function CodeBlock({
             )}
           </div>
           <div className="flex items-center gap-1">
-            {collapsible && lineCount > 25 && (
+            {canCollapse && (
               <button
                 onClick={() => setCollapsed(!collapsed)}
                 className="rounded p-1 text-muted-foreground/50 transition-colors hover:bg-white/5 hover:text-muted-foreground"
@@ -108,10 +114,10 @@ export function CodeBlock({
           </div>
         </div>
 
-        {/* Code content - using ShikiHighlighter component API */}
+        {/* Code content — full code is always rendered; height is constrained via CSS */}
         <div
           className={cn("overflow-auto", showLineNumbers && "code-with-lines")}
-          style={maxHeight ? { maxHeight } : undefined}
+          style={effectiveMaxHeight ? { maxHeight: effectiveMaxHeight } : undefined}
         >
           <ShikiHighlighter
             language={language}
@@ -119,12 +125,12 @@ export function CodeBlock({
             showLanguage={false}
             addDefaultStyles={false}
           >
-            {displayCode}
+            {code}
           </ShikiHighlighter>
         </div>
       </div>
 
-      {/* Action button — always uses full `code`, never truncated displayCode */}
+      {/* Action button */}
       {action && (
         <button
           onClick={() => action.onClick(code)}
