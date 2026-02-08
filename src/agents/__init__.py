@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+from src.agents.execution_context import emit_progress
 from src.graph.state import AgentRole, BaseState
 from src.settings import get_settings
 from src.tracing import add_span_event, get_active_span, log_dict, log_param
@@ -166,6 +167,11 @@ class BaseAgent(ABC):
                 ctx = None
 
         try:
+            # Auto-emit agent_start to execution context progress queue
+            emit_progress(
+                "agent_start", self.role.value, f"{self.name} started"
+            )
+
             yield span_metadata
 
             span_metadata["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -176,6 +182,11 @@ class BaseAgent(ABC):
                 self._set_span_outputs(span, span_metadata["outputs"])
 
             add_span_event(span, "end", {"status": "success"})
+
+            # Auto-emit agent_end on success
+            emit_progress(
+                "agent_end", self.role.value, f"{self.name} completed"
+            )
 
         except Exception as e:
             span_metadata["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -188,6 +199,11 @@ class BaseAgent(ABC):
                 except Exception:
                     logger.debug("Failed to set span error status", exc_info=True)
             add_span_event(span, "error", {"error": str(e)[:250]})
+
+            # Auto-emit agent_end on error
+            emit_progress(
+                "agent_end", self.role.value, f"{self.name} failed"
+            )
             raise
 
         finally:
