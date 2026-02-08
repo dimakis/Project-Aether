@@ -24,6 +24,7 @@ from langchain_core.tools import tool
 
 from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.config_cache import is_agent_enabled
+from src.agents.dashboard_designer import DashboardDesignerAgent
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
 from src.agents.execution_context import emit_delegation, emit_progress
@@ -599,6 +600,69 @@ async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) 
         emit_progress("agent_end", "diagnostic_analyst", "Diagnostic Analyst completed")
 
 
+@tool("consult_dashboard_designer")
+@trace_with_uri(name="agent.consult_dashboard_designer", span_type="TOOL")
+async def consult_dashboard_designer(
+    query: str,
+) -> str:
+    """Consult the Dashboard Designer to create or update Lovelace dashboards.
+
+    Use when the user asks about:
+    - Creating a new Home Assistant dashboard
+    - Updating or redesigning an existing dashboard
+    - Adding cards, views, or sections to a dashboard
+    - Dashboard layout or visualisation recommendations
+
+    The Dashboard Designer will generate valid Lovelace YAML configuration
+    based on the user's requirements, consulting DS team data as needed.
+
+    Args:
+        query: What the user wants for their dashboard (e.g.,
+            "Create an energy monitoring dashboard",
+            "Update my overview dashboard with temperature cards")
+
+    Returns:
+        Dashboard Designer's response with Lovelace YAML and explanation.
+    """
+    if not await is_agent_enabled("dashboard_designer"):
+        return (
+            "Dashboard Designer is currently disabled. "
+            "Enable it on the Agents page to use."
+        )
+
+    # Emit delegation: architect -> dashboard_designer
+    emit_delegation("architect", "dashboard_designer", query)
+    emit_progress("agent_start", "dashboard_designer", "Dashboard Designer started")
+
+    try:
+        from langchain_core.messages import HumanMessage
+
+        from src.graph.state import DashboardState
+
+        agent = DashboardDesignerAgent()
+        state = DashboardState(messages=[HumanMessage(content=query)])
+        result = await agent.invoke(state)
+
+        # Extract the text response from the agent's messages
+        messages = result.get("messages", [])
+        if messages:
+            response = messages[-1].content if hasattr(messages[-1], "content") else str(messages[-1])
+        else:
+            response = "Dashboard Designer returned no response."
+
+        # Emit delegation back: dashboard_designer -> architect
+        summary = response[:300] + ("..." if len(response) > 300 else "")
+        emit_delegation("dashboard_designer", "architect", summary)
+
+        return response
+
+    except Exception as e:
+        logger.error("Dashboard design failed: %s", e, exc_info=True)
+        return f"Dashboard design failed: {e}"
+    finally:
+        emit_progress("agent_end", "dashboard_designer", "Dashboard Designer completed")
+
+
 def get_specialist_tools() -> list:
     """Return all specialist delegation tools (including team tool)."""
     return [
@@ -607,4 +671,5 @@ def get_specialist_tools() -> list:
         consult_diagnostic_analyst,
         request_synthesis_review,
         consult_data_science_team,
+        consult_dashboard_designer,
     ]
