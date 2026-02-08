@@ -14,6 +14,11 @@ import {
   Search,
   Wifi,
   WifiOff,
+  DollarSign,
+  Bot,
+  MapPin,
+  BarChart3,
+  Webhook,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +33,11 @@ import {
   useProposals,
   useInsights,
   useRunAnalysis,
+  useUsageSummary,
+  useModelPerformance,
+  useAgents,
+  useInsightSchedules,
+  useHAZones,
 } from "@/api/hooks";
 import { COMPONENT_ICONS, STATUS_COLORS } from "./constants";
 import { formatUptime } from "./helpers";
@@ -47,9 +57,34 @@ export function DashboardPage() {
   const { data: recentInsights } = useInsights();
   const analyzeMut = useRunAnalysis();
 
+  // New dashboard data sources
+  const { data: usageSummary } = useUsageSummary();
+  const { data: modelPerf } = useModelPerformance();
+  const { data: agentsData } = useAgents();
+  const { data: schedulesData } = useInsightSchedules();
+  const { data: zonesData } = useHAZones();
+
   const totalEntities =
     domainsSummary?.reduce((sum, d) => sum + d.count, 0) ?? 0;
   const domainCount = domainsSummary?.length ?? 0;
+
+  // Derived data for new cards
+  const totalAgents = agentsData?.total ?? 0;
+  const enabledAgents = agentsData?.agents?.filter((a: { status: string }) => a.status !== "disabled").length ?? 0;
+  const draftAgents = agentsData?.agents?.filter((a: { active_config: { status: string } | null }) =>
+    a.active_config?.status === "draft"
+  ).length ?? 0;
+
+  const webhookSchedules = (schedulesData?.items ?? []).filter(
+    (s: { trigger_type: string }) => s.trigger_type === "webhook"
+  );
+  const activeWebhooks = webhookSchedules.filter((s: { enabled: boolean }) => s.enabled).length;
+
+  const topModels = (modelPerf ?? [])
+    .sort((a: { call_count: number }, b: { call_count: number }) => b.call_count - a.call_count)
+    .slice(0, 3);
+
+  const zonesCount = zonesData?.length ?? 0;
 
   return (
     <div className="p-6">
@@ -162,7 +197,7 @@ export function DashboardPage() {
       </div>
 
       {/* Clickable Stats */}
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={FileCheck}
           label="Pending Proposals"
@@ -204,6 +239,16 @@ export function DashboardPage() {
           color="text-red-400"
           bgColor="bg-red-400/10"
           onClick={() => navigate("/insights")}
+        />
+        <StatCard
+          icon={MapPin}
+          label="HA Zones"
+          value={zonesCount}
+          loading={false}
+          color="text-teal-400"
+          bgColor="bg-teal-400/10"
+          onClick={() => navigate("/settings/zones")}
+          detail={zonesCount === 1 ? "1 server" : `${zonesCount} servers`}
         />
       </div>
 
@@ -279,8 +324,140 @@ export function DashboardPage() {
           </Card>
         </div>
 
-        {/* Right column: Quick Actions + Domains */}
+        {/* Right column */}
         <div className="space-y-6">
+          {/* LLM Usage Summary */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <DollarSign className="h-4 w-4 text-emerald-400" />
+                LLM Usage (30d)
+              </CardTitle>
+              <Link to="/usage">
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  Details
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {usageSummary ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Total Calls</span>
+                    <span className="font-semibold tabular-nums">
+                      {usageSummary.total_calls?.toLocaleString() ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Total Tokens</span>
+                    <span className="font-semibold tabular-nums">
+                      {usageSummary.total_tokens?.toLocaleString() ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Total Cost</span>
+                    <span className="font-semibold tabular-nums text-emerald-400">
+                      ${(usageSummary.total_cost_usd ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                  {usageSummary.by_model?.length > 0 && (
+                    <div className="mt-2 space-y-1 border-t border-border/50 pt-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Top Models
+                      </p>
+                      {usageSummary.by_model.slice(0, 3).map((m: { model: string; cost_usd: number; calls: number }) => (
+                        <div key={m.model} className="flex justify-between text-[11px]">
+                          <span className="truncate text-muted-foreground">{m.model}</span>
+                          <span className="tabular-nums">${m.cost_usd.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No usage data yet</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Agent Fleet Overview */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Bot className="h-4 w-4 text-blue-400" />
+                Agent Fleet
+              </CardTitle>
+              <Link to="/agents">
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  Manage
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total Agents</span>
+                  <span className="font-semibold">{totalAgents}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Enabled</span>
+                  <span className="font-semibold text-emerald-400">{enabledAgents}</span>
+                </div>
+                {draftAgents > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Pending Drafts</span>
+                    <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">
+                      {draftAgents}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Model Performance Top 3 */}
+          {topModels.length > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <BarChart3 className="h-4 w-4 text-indigo-400" />
+                  Model Performance
+                </CardTitle>
+                <Link to="/agents/registry">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs">
+                    Full Report
+                    <ArrowRight className="ml-1 h-3 w-3" />
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {topModels.map((m: { model: string; call_count: number; avg_latency_ms: number | null; total_cost_usd: number | null }) => (
+                    <div
+                      key={m.model}
+                      className="flex items-center justify-between rounded-lg border border-border/30 px-2.5 py-1.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium">{m.model}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {m.call_count} calls
+                          {m.avg_latency_ms != null && ` | ${m.avg_latency_ms.toFixed(0)}ms avg`}
+                        </p>
+                      </div>
+                      {m.total_cost_usd != null && (
+                        <span className="text-[10px] tabular-nums text-muted-foreground">
+                          ${m.total_cost_usd.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Actions */}
           <Card>
             <CardHeader className="pb-3">
@@ -318,6 +495,32 @@ export function DashboardPage() {
                 <Search className="mr-2 h-3.5 w-3.5" />
                 Browse Entities
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Webhook Activity */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Webhook className="h-4 w-4 text-orange-400" />
+                Webhooks
+              </CardTitle>
+              <Link to="/webhooks">
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  Manage
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Active Triggers</span>
+                <span className="font-semibold">{activeWebhooks}</span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Total Configured</span>
+                <span>{webhookSchedules.length}</span>
+              </div>
             </CardContent>
           </Card>
 
