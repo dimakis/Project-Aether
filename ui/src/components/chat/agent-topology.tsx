@@ -221,23 +221,26 @@ export function AgentTopology({
     return pos;
   }, [displayAgents.join(",")]);
 
-  // When we have event-driven edges, use those. Otherwise fall back to
-  // the static EDGES (for the dormant/post-stream display).
-  const hasEventEdges = activeEdges && activeEdges.length > 0;
-  const edgeKey = hasEventEdges
-    ? activeEdges!.map(([a, b]) => `${a}-${b}`).join(",")
-    : "static";
-
+  // All possible edges are always visible. Active edges get the glow treatment.
   const visibleEdges = useMemo(
-    () => {
-      const source = hasEventEdges ? activeEdges! : EDGES;
-      return source.filter(
+    () =>
+      EDGES.filter(
         ([a, b]) => displayAgents.includes(a) && displayAgents.includes(b),
-      );
-    },
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [displayAgents.join(","), edgeKey],
+    [displayAgents.join(",")],
   );
+
+  /** Check whether an edge is currently activated (event-driven). */
+  const activeEdgeSet = useMemo(() => {
+    const set = new Set<string>();
+    if (activeEdges) {
+      for (const [a, b] of activeEdges) {
+        set.add(`${a}-${b}`);
+      }
+    }
+    return set;
+  }, [activeEdges]);
 
   function getNodeState(agent: string): AgentNodeState {
     if (agentStates?.[agent]) return agentStates[agent];
@@ -297,14 +300,13 @@ export function AgentTopology({
           const pB = positions[b];
           if (!pA || !pB) return null;
 
-          const sA = getNodeState(a);
-          const sB = getNodeState(b);
-          const aFiring = sA === "firing";
-          const bFiring = sB === "firing";
-          const edgeActive = aFiring || bFiring;
+          // An edge is "active" if it was explicitly activated via events
+          const edgeActive = activeEdgeSet.has(`${a}-${b}`);
 
           const metaA = AGENTS[a] ?? AGENTS.system;
           const metaB = AGENTS[b] ?? AGENTS.system;
+          const sA = getNodeState(a);
+          const aFiring = sA === "firing";
 
           // Shorten edge to not overlap with nodes
           const rA = a === "aether" ? NODE_RADIUS + 4 : NODE_RADIUS;
