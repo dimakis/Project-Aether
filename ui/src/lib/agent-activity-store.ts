@@ -14,6 +14,19 @@
 
 import { useSyncExternalStore } from "react";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+/** Visual state of an agent node in the neural topology. */
+export type AgentNodeState = "idle" | "firing" | "done";
+
+/** A single entry in the live event feed shown during streaming. */
+export interface LiveTimelineEntry {
+  agent: string;
+  event: string; // "start" | "end" | "tool_call" | "tool_result" | "complete"
+  tool?: string;
+  ts: number;
+}
+
 // ─── Activity State (streaming indicator) ────────────────────────────────────
 
 export interface AgentActivity {
@@ -21,9 +34,21 @@ export interface AgentActivity {
   activeAgent: string | null;
   delegatingTo?: string | null;
   agents?: string[];
+  /** Agents accumulated during the current stream (order of first appearance). */
+  agentsSeen: string[];
+  /** Per-agent visual state for the neural topology. */
+  agentStates: Record<string, AgentNodeState>;
+  /** Real-time event feed entries collected during streaming. */
+  liveTimeline: LiveTimelineEntry[];
 }
 
-const DEFAULT_ACTIVITY: AgentActivity = { isActive: false, activeAgent: null };
+const DEFAULT_ACTIVITY: AgentActivity = {
+  isActive: false,
+  activeAgent: null,
+  agentsSeen: [],
+  agentStates: {},
+  liveTimeline: [],
+};
 
 let currentActivity: AgentActivity = DEFAULT_ACTIVITY;
 const activityListeners = new Set<() => void>();
@@ -40,7 +65,7 @@ export function setAgentActivity(activity: Partial<AgentActivity>) {
 }
 
 export function clearAgentActivity() {
-  currentActivity = DEFAULT_ACTIVITY;
+  currentActivity = { ...DEFAULT_ACTIVITY };
   notifyActivity();
 }
 
@@ -49,7 +74,8 @@ function subscribeActivity(listener: () => void) {
   return () => activityListeners.delete(listener);
 }
 
-function getActivitySnapshot(): AgentActivity {
+/** Get the current activity snapshot (for use outside React components). */
+export function getActivitySnapshot(): AgentActivity {
   return currentActivity;
 }
 

@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Activity, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { AgentTopology } from "./agent-topology";
 import { TraceTimeline } from "./trace-timeline";
 import {
@@ -7,13 +9,138 @@ import {
   useActivityPanel,
   setActivityPanelOpen,
 } from "@/lib/agent-activity-store";
+import type { LiveTimelineEntry } from "@/lib/agent-activity-store";
 import { useTraceSpans } from "@/api/hooks";
+
+// ─── Agent colours (mirrors topology) ────────────────────────────────────────
+
+const AGENT_COLORS: Record<string, string> = {
+  architect: "text-blue-400",
+  data_scientist: "text-emerald-400",
+  data_science_team: "text-emerald-400",
+  energy_analyst: "text-yellow-400",
+  behavioral_analyst: "text-teal-400",
+  diagnostic_analyst: "text-rose-400",
+  dashboard_designer: "text-indigo-400",
+  sandbox: "text-orange-400",
+  librarian: "text-purple-400",
+  developer: "text-amber-400",
+  system: "text-muted-foreground",
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  start: "activated",
+  end: "finished",
+  tool_call: "tool",
+  tool_result: "result",
+  complete: "done",
+};
+
+const EVENT_ICONS: Record<string, string> = {
+  start: "\u26A1",   // ⚡
+  end: "\u2713",     // ✓
+  tool_call: "\uD83D\uDD27", // 🔧
+  tool_result: "\u2714",     // ✔
+  complete: "\u2705", // ✅
+};
+
+function formatTime(ts: number): string {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function friendlyAgent(agent: string): string {
+  return agent
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ─── Live Feed ───────────────────────────────────────────────────────────────
+
+function LiveEventFeed({ entries }: { entries: LiveTimelineEntry[] }) {
+  const feedRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to latest entry
+  useEffect(() => {
+    const el = feedRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [entries.length]);
+
+  if (entries.length === 0) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground/50">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>Waiting for activity...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={feedRef} className="max-h-48 space-y-0 overflow-y-auto">
+      {entries.map((entry, i) => {
+        const color = AGENT_COLORS[entry.agent] ?? "text-muted-foreground";
+        const icon = EVENT_ICONS[entry.event] ?? "\u2022";
+        const label = EVENT_LABELS[entry.event] ?? entry.event;
+
+        return (
+          <motion.div
+            key={`${entry.ts}-${entry.event}-${i}`}
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.15 }}
+            className="flex items-start gap-2 py-1"
+          >
+            {/* Timestamp */}
+            <span className="shrink-0 w-[52px] text-right text-[10px] tabular-nums text-muted-foreground/40">
+              {formatTime(entry.ts)}
+            </span>
+
+            {/* Icon dot */}
+            <div className="relative flex flex-col items-center">
+              <span className="text-[9px]">{icon}</span>
+              {/* Vertical connector */}
+              {i < entries.length - 1 && (
+                <div className="absolute top-4 h-full w-px bg-border/30" />
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] leading-tight">
+                <span className={cn("font-medium", color)}>
+                  {friendlyAgent(entry.agent)}
+                </span>
+                <span className="text-muted-foreground/60"> {label}</span>
+              </p>
+              {entry.tool && (
+                <p className="truncate text-[10px] text-muted-foreground/50">
+                  {entry.tool}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Main Panel ──────────────────────────────────────────────────────────────
 
 /**
  * Global Agent Activity Panel.
  *
- * Reads all state from the global agent-activity-store, so it can be
- * rendered at the AppLayout level and persist across page navigation.
+ * During streaming: shows a live "neural" topology with agents lighting up
+ * as they activate, plus a scrolling event feed.
+ *
+ * After streaming: shows the complete MLflow-based trace timeline.
  */
 export function AgentActivityPanel() {
   const activity = useAgentActivity();
@@ -21,6 +148,10 @@ export function AgentActivityPanel() {
   const isStreaming = activity.isActive;
   const { data: trace, isLoading } = useTraceSpans(lastTraceId, isStreaming);
   const activeAgent = activity.activeAgent || "architect";
+
+  // During streaming we always have live data; prefer it over MLflow
+  const hasLiveData =
+    activity.agentsSeen.length > 0 || activity.liveTimeline.length > 0;
 
   return (
     <AnimatePresence>
@@ -38,7 +169,11 @@ export function AgentActivityPanel() {
               <Activity className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">Agent Activity</span>
               {isStreaming && (
-                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                <motion.div
+                  className="h-2 w-2 rounded-full bg-primary"
+                  animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                />
               )}
             </div>
             <button
@@ -51,50 +186,64 @@ export function AgentActivityPanel() {
 
           {/* Content */}
           <div className="flex-1 overflow-auto p-3">
-            {isStreaming && !trace ? (
-              /* Streaming but no trace yet — show live indicator */
+            {isStreaming || hasLiveData ? (
+              /* ── Live neural view ─────────────────────────────────── */
               <div>
-                <p className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-                  Agent Flow
+                <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                  Neural Activity
                 </p>
                 <AgentTopology
-                  agents={[activeAgent]}
+                  agents={
+                    activity.agentsSeen.length > 0
+                      ? activity.agentsSeen
+                      : [activeAgent]
+                  }
                   activeAgent={activeAgent}
                   isLive
+                  agentStates={activity.agentStates}
                 />
-                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground/60">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span>Processing...</span>
-                </div>
+
+                {/* Divider */}
+                <div className="my-3 border-t border-border/50" />
+
+                {/* Live event feed */}
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                  Live Feed{" "}
+                  {activity.liveTimeline.length > 0 && (
+                    <span className="font-normal text-muted-foreground/40">
+                      ({activity.liveTimeline.length})
+                    </span>
+                  )}
+                </p>
+                <LiveEventFeed entries={activity.liveTimeline} />
               </div>
             ) : isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
               </div>
             ) : trace?.root_span ? (
+              /* ── Post-stream MLflow view ──────────────────────────── */
               <div>
-                {/* Agent topology */}
                 <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                   Agent Flow
                 </p>
                 <AgentTopology
                   agents={trace.agents_involved}
-                  activeAgent={isStreaming ? activeAgent : null}
+                  activeAgent={null}
                   rootSpan={trace.root_span}
-                  isLive={isStreaming}
+                  isLive={false}
                 />
 
-                {/* Divider */}
                 <div className="my-3 border-t border-border/50" />
 
-                {/* Timeline */}
                 <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-                  Timeline ({trace.span_count} spans, {(trace.duration_ms / 1000).toFixed(1)}s)
+                  Timeline ({trace.span_count} spans,{" "}
+                  {(trace.duration_ms / 1000).toFixed(1)}s)
                 </p>
                 <TraceTimeline
                   rootSpan={trace.root_span}
                   startedAt={trace.started_at}
-                  isLive={isStreaming}
+                  isLive={false}
                 />
               </div>
             ) : (

@@ -18,6 +18,7 @@ import {
   setLastTraceId,
   useActivityPanel,
   toggleActivityPanel,
+  getActivitySnapshot,
 } from "@/lib/agent-activity-store";
 import { handleTraceEvent } from "@/lib/trace-event-handler";
 import type { TraceEventChunk } from "@/lib/trace-event-handler";
@@ -264,7 +265,7 @@ export function ChatPage() {
             continue;
           }
           if (chunk.type === "trace") {
-            handleTraceEvent(chunk as TraceEventChunk, setAgentActivity);
+            handleTraceEvent(chunk as TraceEventChunk, setAgentActivity, getActivitySnapshot());
             continue;
           }
           if (chunk.type === "status") {

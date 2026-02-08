@@ -403,6 +403,11 @@ async def _stream_chat_completion(
                         trace_id: str | None = None
                         tag_filter = _StreamingTagFilter()
 
+                        # --- Agent lifecycle tracking for the activity panel ---
+                        active_delegated: str | None = None
+                        agents_seen: list[str] = ["architect"]
+                        stream_started = False
+
                         def _make_token_chunk(tok: str) -> str:
                             """Build an SSE line for a single token delta."""
                             return "data: " + json.dumps({
@@ -424,6 +429,11 @@ async def _stream_chat_completion(
                             session=session,
                         ):
                             event_type = event.get("type")
+
+                            # --- Emit architect start on first meaningful event ---
+                            if not stream_started and not is_background:
+                                stream_started = True
+                                yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'start', 'ts': time.time()})}\n\n"
 
                             if event_type == "token":
                                 raw_token = event.get("content", "")
@@ -449,6 +459,18 @@ async def _stream_chat_completion(
                                 tool_calls_used.append(tool_name)
                                 if not is_background:
                                     target = TOOL_AGENT_MAP.get(tool_name, "architect")
+
+                                    # --- Agent lifecycle: delegate to new agent ---
+                                    if target != "architect" and target != active_delegated:
+                                        # End previous delegated agent if any
+                                        if active_delegated:
+                                            yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
+                                        # Start new delegated agent
+                                        yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'start', 'ts': time.time()})}\n\n"
+                                        active_delegated = target
+                                        if target not in agents_seen:
+                                            agents_seen.append(target)
+
                                     trace_ev = {
                                         "type": "trace",
                                         "agent": target,
@@ -466,6 +488,10 @@ async def _stream_chat_completion(
 
                             elif event_type == "tool_end":
                                 if not is_background:
+                                    # --- Agent lifecycle: end delegated agent ---
+                                    if active_delegated:
+                                        yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
+                                        active_delegated = None
                                     status_ev = {
                                         "type": "status",
                                         "content": "",  # Clear status
@@ -497,6 +523,16 @@ async def _stream_chat_completion(
                         for flushed in tag_filter.flush():
                             if flushed:
                                 yield _make_token_chunk(flushed)
+
+                    # --- Agent lifecycle: complete event ---
+                    if stream_started and not is_background:
+                        # End any still-active delegated agent
+                        if active_delegated:
+                            yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
+                        # Architect end
+                        yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
+                        # Complete event with all agents
+                        yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': agents_seen, 'ts': time.time()})}\n\n"
 
                     # Use final state from stream, or fall back to original
                     state = final_state or state
