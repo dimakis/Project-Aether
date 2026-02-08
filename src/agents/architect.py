@@ -241,15 +241,16 @@ class ArchitectAgent(BaseAgent):
         return serialized
 
     def _get_ha_tools(self) -> list[BaseTool]:
-        """Get all tools for the Architect agent.
+        """Get the curated Architect tool set (12 tools).
 
-        Includes:
-        - HA tools: entity queries, control
-        - Agent tools: energy analysis, discovery (delegated to specialists)
+        The Architect is a lean router — it delegates analysis to the
+        DS team via ``consult_data_science_team`` and mutations via
+        ``seek_approval``.  Mutation tools and individual specialist
+        tools are NOT bound here.
         """
         try:
-            from src.tools import get_all_tools
-            return get_all_tools()
+            from src.tools import get_architect_tools
+            return get_architect_tools()
         except Exception:
             import logging
 
@@ -261,10 +262,10 @@ class ArchitectAgent(BaseAgent):
             return []
 
     # Read-only tools that can execute without HITL approval.
-    # Any tool NOT in this set is treated as mutating and requires explicit user approval.
-    # This whitelist approach ensures newly added tools default to requiring approval.
+    # Every tool in get_architect_tools() is read-only except seek_approval,
+    # which is the approval mechanism itself (creating proposals, not mutations).
     _READ_ONLY_TOOLS: frozenset[str] = frozenset({
-        # HA query tools
+        # HA query tools (8)
         "get_entity_state",
         "list_entities_by_domain",
         "search_entities",
@@ -273,30 +274,14 @@ class ArchitectAgent(BaseAgent):
         "render_template",
         "get_ha_logs",
         "check_ha_config",
-        # Diagnostic tools
-        "analyze_error_log",
-        "find_unavailable_entities",
-        "diagnose_entity",
-        "check_integration_health",
-        "validate_config",
-        # Agent delegation tools (read-only analysis)
-        "analyze_energy",
+        # Discovery (1)
         "discover_entities",
-        "get_entity_history",
-        "diagnose_issue",
-        "analyze_behavior",
-        # Specialist delegation tools (DS team)
-        "consult_energy_analyst",
-        "consult_behavioral_analyst",
-        "consult_diagnostic_analyst",
-        "request_synthesis_review",
-        # Analysis tools
-        "run_custom_analysis",
-        # Scheduling (creates config, no HA mutation)
+        # DS Team delegation (1) — read-only analysis
+        "consult_data_science_team",
+        # Scheduling (1) — creates config, no HA mutation
         "create_insight_schedule",
-        # Approval tools (creating proposals IS the approval mechanism)
+        # Approval (1) — creating proposals IS the approval mechanism
         "seek_approval",
-        "propose_automation_from_insight",
     })
 
     def _is_mutating_tool(self, tool_name: str) -> bool:
