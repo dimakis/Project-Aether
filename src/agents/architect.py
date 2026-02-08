@@ -19,15 +19,21 @@ if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
     from src.graph.state import AutomationSuggestion
 
+import asyncio
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.agents import BaseAgent
+from src.agents.execution_context import (
+    ProgressEvent,
+    execution_context,
+)
 from src.agents.prompts import load_prompt
 from src.dal import AreaRepository, DeviceRepository, EntityRepository, ProposalRepository, ServiceRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
 from src.llm import get_llm
-from src.settings import get_settings
+from src.settings import ANALYSIS_TOOLS, get_settings
 from src.storage.entities import AutomationProposal, ProposalStatus
 
 
@@ -967,23 +973,94 @@ class ArchitectWorkflow:
 
                 tool = tool_lookup.get(tool_name)
                 if tool:
-                    try:
-                        result = await tool.ainvoke(args)
-                        result_str = str(result)
-                        tool_results[tool_call_id] = result_str
-                        yield StreamEvent(
-                            type="tool_end",
-                            tool=tool_name,
-                            result=result_str[:500],
-                        )
-                    except Exception as e:
-                        result_str = f"Error: {e}"
-                        tool_results[tool_call_id] = result_str
-                        yield StreamEvent(
-                            type="tool_end",
-                            tool=tool_name,
-                            result=result_str,
-                        )
+                    # Determine timeout based on tool type
+                    settings = get_settings()
+                    timeout = (
+                        settings.analysis_tool_timeout_seconds
+                        if tool_name in ANALYSIS_TOOLS
+                        else settings.tool_timeout_seconds
+                    )
+
+                    # Create progress queue and execution context
+                    progress_queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+                    async with execution_context(
+                        progress_queue=progress_queue,
+                        conversation_id=state.conversation_id,
+                        tool_timeout=float(settings.tool_timeout_seconds),
+                        analysis_timeout=float(settings.analysis_tool_timeout_seconds),
+                    ):
+                        # Run tool in background task
+                        tool_task = asyncio.create_task(tool.ainvoke(args))
+
+                        # Track deadline for timeout
+                        import time as _time
+
+                        deadline = _time.monotonic() + float(timeout)
+                        timed_out = False
+
+                        # Drain progress events while tool runs
+                        try:
+                            while not tool_task.done():
+                                remaining = deadline - _time.monotonic()
+                                if remaining <= 0:
+                                    timed_out = True
+                                    break
+                                try:
+                                    event = await asyncio.wait_for(
+                                        progress_queue.get(),
+                                        timeout=min(0.5, remaining),
+                                    )
+                                    yield StreamEvent(
+                                        type=event.type,
+                                        agent=event.agent,
+                                        content=event.message,
+                                    )
+                                except asyncio.TimeoutError:
+                                    continue
+
+                            if timed_out:
+                                tool_task.cancel()
+                                try:
+                                    await tool_task
+                                except (asyncio.CancelledError, Exception):
+                                    pass
+                                result_str = f"Error: Tool {tool_name} timed out after {timeout}s"
+                                tool_results[tool_call_id] = result_str
+                                yield StreamEvent(
+                                    type="tool_end",
+                                    tool=tool_name,
+                                    result=result_str,
+                                )
+                            else:
+                                # Drain any remaining events after tool completes
+                                while not progress_queue.empty():
+                                    event = progress_queue.get_nowait()
+                                    yield StreamEvent(
+                                        type=event.type,
+                                        agent=event.agent,
+                                        content=event.message,
+                                    )
+
+                                # Collect result (tool is already done)
+                                result = tool_task.result()
+                                result_str = str(result)
+                                tool_results[tool_call_id] = result_str
+                                yield StreamEvent(
+                                    type="tool_end",
+                                    tool=tool_name,
+                                    result=result_str[:500],
+                                )
+
+                        except Exception as e:
+                            if not tool_task.done():
+                                tool_task.cancel()
+                            result_str = f"Error: {e}"
+                            tool_results[tool_call_id] = result_str
+                            yield StreamEvent(
+                                type="tool_end",
+                                tool=tool_name,
+                                result=result_str,
+                            )
                 else:
                     tool_results[tool_call_id] = f"Tool {tool_name} not found"
 
