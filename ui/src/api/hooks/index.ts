@@ -63,6 +63,7 @@ export {
   useUsageSummary,
   useUsageDaily,
   useUsageByModel,
+  useConversationCost,
   useModelRatings,
   useModelSummary,
   useCreateModelRating,

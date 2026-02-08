@@ -58,3 +58,16 @@ async def get_usage_by_model(
     repo = LLMUsageRepository(session)
     models = await repo.get_by_model(days=days)
     return {"days": days, "models": models}
+
+
+@router.get("/conversation/{conversation_id}")
+async def get_conversation_cost(
+    conversation_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get aggregated cost and usage for a specific conversation.
+
+    Returns total calls, tokens, cost, and per-agent breakdown.
+    """
+    repo = LLMUsageRepository(session)
+    return await repo.get_conversation_cost(conversation_id)

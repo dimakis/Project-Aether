@@ -171,6 +171,24 @@ export const usage = {
         avg_latency_ms: number | null;
       }>;
     }>(`/usage/models?days=${days}`),
+
+  conversationCost: (conversationId: string) =>
+    request<{
+      conversation_id: string;
+      total_calls: number;
+      total_input_tokens: number;
+      total_output_tokens: number;
+      total_tokens: number;
+      total_cost_usd: number;
+      by_agent: Array<{
+        agent_role: string;
+        model: string;
+        calls: number;
+        tokens: number;
+        cost_usd: number;
+        avg_latency_ms: number | null;
+      }>;
+    }>(`/usage/conversation/${conversationId}`),
 };
 
 // ─── Model Ratings ──────────────────────────────────────────────────────────

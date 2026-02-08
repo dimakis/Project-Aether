@@ -49,6 +49,15 @@ export function useUsageByModel(days = 30) {
   });
 }
 
+export function useConversationCost(conversationId: string | null) {
+  return useQuery({
+    queryKey: ["usage", "conversation", conversationId],
+    queryFn: () => usage.conversationCost(conversationId!),
+    enabled: !!conversationId,
+    staleTime: 30_000,
+  });
+}
+
 // ─── Model Ratings ──────────────────────────────────────────────────────────
 
 export function useModelRatings(modelName?: string, agentRole?: string) {

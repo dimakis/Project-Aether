@@ -151,6 +151,62 @@ class LLMUsageRepository:
             for r in result
         ]
 
+    async def get_conversation_cost(self, conversation_id: str) -> dict:
+        """Get aggregated cost and usage for a specific conversation.
+
+        Args:
+            conversation_id: The conversation UUID
+
+        Returns:
+            Dict with total_calls, total_tokens, total_cost_usd, by_agent
+        """
+        # Total for conversation
+        result = await self.session.execute(
+            select(
+                func.count(LLMUsage.id).label("total_calls"),
+                func.coalesce(func.sum(LLMUsage.input_tokens), 0).label("total_input_tokens"),
+                func.coalesce(func.sum(LLMUsage.output_tokens), 0).label("total_output_tokens"),
+                func.coalesce(func.sum(LLMUsage.total_tokens), 0).label("total_tokens"),
+                func.coalesce(func.sum(LLMUsage.cost_usd), 0.0).label("total_cost_usd"),
+            ).where(LLMUsage.conversation_id == conversation_id)
+        )
+        row = result.one()
+
+        # Per-agent breakdown
+        agent_result = await self.session.execute(
+            select(
+                LLMUsage.agent_role,
+                LLMUsage.model,
+                func.count(LLMUsage.id).label("calls"),
+                func.coalesce(func.sum(LLMUsage.total_tokens), 0).label("tokens"),
+                func.coalesce(func.sum(LLMUsage.cost_usd), 0.0).label("cost_usd"),
+                func.avg(LLMUsage.latency_ms).label("avg_latency_ms"),
+            )
+            .where(LLMUsage.conversation_id == conversation_id)
+            .group_by(LLMUsage.agent_role, LLMUsage.model)
+            .order_by(func.sum(LLMUsage.cost_usd).desc())
+        )
+
+        return {
+            "conversation_id": conversation_id,
+            "total_calls": row.total_calls,
+            "total_input_tokens": row.total_input_tokens,
+            "total_output_tokens": row.total_output_tokens,
+            "total_tokens": row.total_tokens,
+            "total_cost_usd": round(float(row.total_cost_usd), 6),
+            "by_agent": [
+                {
+                    "agent_role": r.agent_role or "unknown",
+                    "model": r.model,
+                    "calls": r.calls,
+                    "tokens": r.tokens,
+                    "cost_usd": round(float(r.cost_usd), 6),
+                    "avg_latency_ms": round(float(r.avg_latency_ms), 0) if r.avg_latency_ms else None,
+                }
+                for r in agent_result
+            ],
+        }
+
     async def get_by_model(self, days: int = 30) -> list[dict]:
         """Get per-model usage breakdown.
 
