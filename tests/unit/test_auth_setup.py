@@ -150,7 +150,8 @@ class TestSetupEndpoint:
 
         with patch("src.api.routes.auth.get_session", mock_get_session), \
              patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls, \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
+             patch("src.api.routes.auth.verify_ha_connection") as mock_verify, \
+             patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo.create_config.return_value = mock_config
@@ -249,7 +250,8 @@ class TestSetupEndpoint:
 
         with patch("src.api.routes.auth.get_session", mock_get_session), \
              patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls, \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
+             patch("src.api.routes.auth.verify_ha_connection") as mock_verify, \
+             patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo.create_config.return_value = mock_config
@@ -287,7 +289,8 @@ class TestSetupEndpoint:
 
         with patch("src.api.routes.auth.get_session", mock_get_session), \
              patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls, \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
+             patch("src.api.routes.auth.verify_ha_connection") as mock_verify, \
+             patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo.create_config.return_value = mock_config
