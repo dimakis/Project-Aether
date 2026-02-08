@@ -206,6 +206,20 @@ class Settings(BaseSettings):
         description="Optional shared secret for webhook authentication (in addition to HA token)",
     )
 
+    # Tool execution timeouts
+    tool_timeout_seconds: int = Field(
+        default=30,
+        ge=5,
+        le=300,
+        description="Timeout for simple tool calls (HA queries, etc.)",
+    )
+    analysis_tool_timeout_seconds: int = Field(
+        default=180,
+        ge=30,
+        le=600,
+        description="Timeout for long-running analysis tools (DS team, diagnostics)",
+    )
+
     # Sandbox (Constitution: Isolation)
     sandbox_enabled: bool = Field(
         default=True,
@@ -217,6 +231,21 @@ class Settings(BaseSettings):
         le=300,
         description="Maximum script execution time",
     )
+
+
+# Tools that get the longer analysis_tool_timeout_seconds timeout.
+# All others use tool_timeout_seconds.
+ANALYSIS_TOOLS: frozenset[str] = frozenset({
+    "consult_data_science_team",
+    "consult_energy_analyst",
+    "consult_behavioral_analyst",
+    "consult_diagnostic_analyst",
+    "request_synthesis_review",
+    "analyze_energy",
+    "diagnose_issue",
+    "run_custom_analysis",
+    "discover_entities",
+})
 
 
 @lru_cache
