@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from src.api.rate_limit import limiter
@@ -337,7 +337,7 @@ async def clone_agent(agent_name: str) -> AgentResponse:
             await session.flush()
 
             # Auto-promote the config
-            await config_repo.promote(new_config.id, cloned.id)
+            await config_repo.promote(new_config.id)
             await session.flush()
 
         # Clone active prompt version as a draft
@@ -351,7 +351,7 @@ async def clone_agent(agent_name: str) -> AgentResponse:
             await session.flush()
 
             # Auto-promote the prompt
-            await prompt_repo.promote(new_prompt.id, cloned.id)
+            await prompt_repo.promote(new_prompt.id)
             await session.flush()
 
         await session.commit()
@@ -405,7 +405,7 @@ async def quick_model_switch(
             )
             await session.flush()
 
-            await config_repo.promote(version.id, agent.id)
+            await config_repo.promote(version.id)
             await session.flush()
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
@@ -514,12 +514,17 @@ async def promote_config_version(
     request: Request,
     agent_name: str,
     version_id: str,
+    bump_type: str = Query("patch", pattern="^(major|minor|patch)$"),
 ) -> ConfigVersionResponse:
-    """Promote a draft config version to active."""
+    """Promote a draft config version to active.
+
+    Query params:
+        bump_type: Semver bump type (major / minor / patch). Defaults to patch.
+    """
     async with get_session() as session:
         config_repo = AgentConfigVersionRepository(session)
         try:
-            version = await config_repo.promote(version_id)
+            version = await config_repo.promote(version_id, bump_type=bump_type)
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
 
@@ -668,12 +673,17 @@ async def promote_prompt_version(
     request: Request,
     agent_name: str,
     version_id: str,
+    bump_type: str = Query("patch", pattern="^(major|minor|patch)$"),
 ) -> PromptVersionResponse:
-    """Promote a draft prompt version to active."""
+    """Promote a draft prompt version to active.
+
+    Query params:
+        bump_type: Semver bump type (major / minor / patch). Defaults to patch.
+    """
     async with get_session() as session:
         prompt_repo = AgentPromptVersionRepository(session)
         try:
-            version = await prompt_repo.promote(version_id)
+            version = await prompt_repo.promote(version_id, bump_type=bump_type)
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
 
@@ -744,8 +754,14 @@ class PromoteBothResponse(BaseModel):
 
 
 @router.post("/{agent_name}/promote-all")
-async def promote_both(agent_name: str) -> PromoteBothResponse:
+async def promote_both(
+    agent_name: str,
+    bump_type: str = Query("patch", pattern="^(major|minor|patch)$"),
+) -> PromoteBothResponse:
     """Promote both config and prompt drafts to active in one operation.
+
+    Query params:
+        bump_type: Semver bump type (major / minor / patch). Defaults to patch.
 
     Promotes any existing drafts. If no drafts exist, returns a message.
     """
@@ -766,7 +782,9 @@ async def promote_both(agent_name: str) -> PromoteBothResponse:
         config_draft = await config_repo.get_draft(agent.id)
         if config_draft:
             try:
-                promoted_config = await config_repo.promote(config_draft.id)
+                promoted_config = await config_repo.promote(
+                    config_draft.id, bump_type=bump_type,
+                )
             except ValueError as e:
                 errors.append(f"Config: {e}")
 
@@ -774,7 +792,9 @@ async def promote_both(agent_name: str) -> PromoteBothResponse:
         prompt_draft = await prompt_repo.get_draft(agent.id)
         if prompt_draft:
             try:
-                promoted_prompt = await prompt_repo.promote(prompt_draft.id)
+                promoted_prompt = await prompt_repo.promote(
+                    prompt_draft.id, bump_type=bump_type,
+                )
             except ValueError as e:
                 errors.append(f"Prompt: {e}")
 

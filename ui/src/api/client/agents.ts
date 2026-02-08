@@ -49,9 +49,9 @@ export const agents = {
       { method: "PATCH", body: JSON.stringify(data) },
     ),
 
-  promoteConfigVersion: (name: string, versionId: string) =>
+  promoteConfigVersion: (name: string, versionId: string, bumpType: string = "patch") =>
     request<import("@/lib/types").ConfigVersion>(
-      `/agents/${name}/config/versions/${versionId}/promote`,
+      `/agents/${name}/config/versions/${versionId}/promote?bump_type=${bumpType}`,
       { method: "POST" },
     ),
 
@@ -85,9 +85,9 @@ export const agents = {
       { method: "PATCH", body: JSON.stringify(data) },
     ),
 
-  promotePromptVersion: (name: string, versionId: string) =>
+  promotePromptVersion: (name: string, versionId: string, bumpType: string = "patch") =>
     request<import("@/lib/types").PromptVersion>(
-      `/agents/${name}/prompt/versions/${versionId}/promote`,
+      `/agents/${name}/prompt/versions/${versionId}/promote?bump_type=${bumpType}`,
       { method: "POST" },
     ),
 
@@ -104,13 +104,13 @@ export const agents = {
     ),
 
   // Promote both config and prompt drafts in one operation
-  promoteBoth: (name: string) =>
+  promoteBoth: (name: string, bumpType: string = "patch") =>
     request<{
       config: import("@/lib/types").ConfigVersion | null;
       prompt: import("@/lib/types").PromptVersion | null;
       message: string;
     }>(
-      `/agents/${name}/promote-all`,
+      `/agents/${name}/promote-all?bump_type=${bumpType}`,
       { method: "POST" },
     ),
 

@@ -188,8 +188,12 @@ export function ConfigTab({ agentName }: { agentName: string }) {
             <VersionRow
               key={v.id}
               version={v}
-              onPromote={() =>
-                promoteMutation.mutate({ name: agentName, versionId: v.id })
+              onPromote={(bt) =>
+                promoteMutation.mutate({
+                  name: agentName,
+                  versionId: v.id,
+                  bumpType: bt,
+                })
               }
               onDelete={() =>
                 deleteMutation.mutate({ name: agentName, versionId: v.id })
@@ -219,11 +223,15 @@ function VersionRow({
   deletePending,
 }: {
   version: ConfigVersion;
-  onPromote: () => void;
+  onPromote: (bumpType: "major" | "minor" | "patch") => void;
   onDelete: () => void;
   promotePending: boolean;
   deletePending: boolean;
 }) {
+  const [promoteBump, setPromoteBump] = useState<"major" | "minor" | "patch">(
+    "patch",
+  );
+
   return (
     <div
       className={cn(
@@ -262,15 +270,32 @@ function VersionRow({
           )}
         </div>
       </div>
-      <div className="flex gap-1">
+      <div className="flex items-center gap-1">
         {version.status === "draft" && (
           <>
+            {/* Bump type selector */}
+            <div className="mr-1 flex items-center gap-0.5 rounded-md border border-border/50 bg-background/50 px-1 py-0.5">
+              {(["patch", "minor", "major"] as const).map((bt) => (
+                <button
+                  key={bt}
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] font-medium capitalize transition-colors",
+                    promoteBump === bt
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "text-muted-foreground/60 hover:text-muted-foreground",
+                  )}
+                  onClick={() => setPromoteBump(bt)}
+                >
+                  {bt}
+                </button>
+              ))}
+            </div>
             <Button
               size="sm"
               variant="ghost"
-              onClick={onPromote}
+              onClick={() => onPromote(promoteBump)}
               disabled={promotePending}
-              title="Promote to active"
+              title={`Promote as ${promoteBump} bump`}
             >
               <ArrowUpCircle className="h-4 w-4 text-emerald-400" />
             </Button>

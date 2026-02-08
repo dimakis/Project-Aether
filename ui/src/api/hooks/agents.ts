@@ -98,8 +98,15 @@ export function useCreateConfigVersion() {
 export function usePromoteConfigVersion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, versionId }: { name: string; versionId: string }) =>
-      agents.promoteConfigVersion(name, versionId),
+    mutationFn: ({
+      name,
+      versionId,
+      bumpType = "patch",
+    }: {
+      name: string;
+      versionId: string;
+      bumpType?: "major" | "minor" | "patch";
+    }) => agents.promoteConfigVersion(name, versionId, bumpType),
     onSuccess: (_data, { name }) => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.invalidateQueries({ queryKey: ["agents", name] });
@@ -139,8 +146,15 @@ export function useCreatePromptVersion() {
 export function usePromotePromptVersion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, versionId }: { name: string; versionId: string }) =>
-      agents.promotePromptVersion(name, versionId),
+    mutationFn: ({
+      name,
+      versionId,
+      bumpType = "patch",
+    }: {
+      name: string;
+      versionId: string;
+      bumpType?: "major" | "minor" | "patch";
+    }) => agents.promotePromptVersion(name, versionId, bumpType),
     onSuccess: (_data, { name }) => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.invalidateQueries({ queryKey: ["agents", name] });
@@ -185,8 +199,14 @@ export function useDeletePromptVersion() {
 export function usePromoteBoth() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => agents.promoteBoth(name),
-    onSuccess: (_data, name) => {
+    mutationFn: ({
+      name,
+      bumpType = "patch",
+    }: {
+      name: string;
+      bumpType?: "major" | "minor" | "patch";
+    }) => agents.promoteBoth(name, bumpType),
+    onSuccess: (_data, { name }) => {
       qc.invalidateQueries({ queryKey: ["agents", name] });
       qc.invalidateQueries({ queryKey: ["agents", name, "config", "versions"] });
       qc.invalidateQueries({ queryKey: ["agents", name, "prompt", "versions"] });

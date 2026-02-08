@@ -334,16 +334,20 @@ class AgentConfigVersionRepository:
         await self.session.flush()
         return version
 
-    async def promote(self, version_id: str) -> AgentConfigVersion:
+    async def promote(
+        self, version_id: str, bump_type: str = "patch",
+    ) -> AgentConfigVersion:
         """Promote a draft config version to active.
 
         Atomically:
         1. Archives the current active version
-        2. Sets the draft to active
-        3. Updates the agent's active_config_version_id
+        2. Recalculates the semver based on bump_type
+        3. Sets the draft to active
+        4. Updates the agent's active_config_version_id
 
         Args:
             version_id: Draft version ID to promote
+            bump_type: Semver bump type: 'major', 'minor', or 'patch'
 
         Returns:
             The newly active version
@@ -358,10 +362,14 @@ class AgentConfigVersionRepository:
         if version.status != VersionStatus.DRAFT.value:
             raise ValueError("Only draft versions can be promoted")
 
-        # Archive current active
+        # Archive current active and recalculate semver from it
         current_active = await self.get_active(version.agent_id)
+        base_semver = current_active.version if current_active else None
         if current_active:
             current_active.status = VersionStatus.ARCHIVED.value
+
+        # Recalculate version at promotion time
+        version.version = bump_semver(base_semver, bump_type)
 
         # Promote draft
         version.status = VersionStatus.ACTIVE.value
@@ -604,11 +612,14 @@ class AgentPromptVersionRepository:
         await self.session.flush()
         return version
 
-    async def promote(self, version_id: str) -> AgentPromptVersion:
+    async def promote(
+        self, version_id: str, bump_type: str = "patch",
+    ) -> AgentPromptVersion:
         """Promote a draft prompt version to active.
 
         Args:
             version_id: Draft version ID
+            bump_type: Semver bump type: 'major', 'minor', or 'patch'
 
         Returns:
             The newly active version
@@ -623,10 +634,14 @@ class AgentPromptVersionRepository:
         if version.status != VersionStatus.DRAFT.value:
             raise ValueError("Only draft versions can be promoted")
 
-        # Archive current active
+        # Archive current active and recalculate semver from it
         current_active = await self.get_active(version.agent_id)
+        base_semver = current_active.version if current_active else None
         if current_active:
             current_active.status = VersionStatus.ARCHIVED.value
+
+        # Recalculate version at promotion time
+        version.version = bump_semver(base_semver, bump_type)
 
         # Promote draft
         version.status = VersionStatus.ACTIVE.value
