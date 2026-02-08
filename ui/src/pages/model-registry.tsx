@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -37,7 +37,7 @@ const TIME_RANGES: { label: string; hours: number }[] = [
   { label: "30d", hours: 720 },
 ];
 
-const AGENT_ROLES = [
+const _FALLBACK_AGENT_ROLES = [
   "architect",
   "data_scientist",
   "orchestrator",
@@ -391,12 +391,25 @@ export function ModelRegistryPage() {
   const [roleFilter, setRoleFilter] = useState(initialRole);
   const [timeRange, setTimeRange] = useState(168);
 
-  const { data: perfData, isLoading } = useModelPerformance(
-    roleFilter || undefined,
-    timeRange,
-  );
+  // Always fetch ALL data — filter client-side for instant switching
+  const { data: perfData, isLoading } = useModelPerformance(undefined, timeRange);
 
-  const filtered = perfData ?? [];
+  // Derive role list from actual data (+ fallback for empty state)
+  const dataRoles = useMemo(() => {
+    if (!perfData || perfData.length === 0) return _FALLBACK_AGENT_ROLES;
+    const roles = new Set<string>();
+    for (const p of perfData) {
+      if (p.agent_role) roles.add(p.agent_role);
+    }
+    return Array.from(roles).sort();
+  }, [perfData]);
+
+  // Client-side filter
+  const filtered = useMemo(() => {
+    const all = perfData ?? [];
+    if (!roleFilter) return all;
+    return all.filter((p) => p.agent_role === roleFilter);
+  }, [perfData, roleFilter]);
 
   // Summary stats across all filtered rows
   const totalCalls = filtered.reduce((s, p) => s + p.call_count, 0);
@@ -468,7 +481,7 @@ export function ModelRegistryPage() {
           >
             All
           </Button>
-          {AGENT_ROLES.map((r) => (
+          {dataRoles.map((r) => (
             <Button
               key={r}
               size="sm"

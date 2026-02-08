@@ -45,11 +45,9 @@ export function ProposalCard({
               <TypeIcon className={cn("h-4 w-4", config.color)} />
             </div>
             <div className="flex flex-col">
-              {proposal.proposal_type && proposal.proposal_type !== "automation" && (
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                  {proposal.proposal_type.replace("_", " ")}
-                </span>
-              )}
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                {(proposal.proposal_type ?? "automation").replace("_", " ")}
+              </span>
               {proposal.conversation_id && (
                 <span className="text-[10px] text-muted-foreground">
                   from conversation

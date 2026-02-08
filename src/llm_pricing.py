@@ -24,14 +24,25 @@ class ModelPricing(TypedDict):
 # Default pricing table (USD per 1M tokens, as of early 2026)
 # Sources: provider pricing pages
 DEFAULT_PRICING: dict[str, ModelPricing] = {
-    # OpenAI
+    # OpenAI — GPT-5
+    "gpt-5": {"input_per_1m": 2.50, "output_per_1m": 10.00},
+    "gpt-5-mini": {"input_per_1m": 0.30, "output_per_1m": 1.25},
+    # OpenAI — GPT-4.x / GPT-4o
     "gpt-4o": {"input_per_1m": 2.50, "output_per_1m": 10.00},
     "gpt-4o-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60},
     "gpt-4-turbo": {"input_per_1m": 10.00, "output_per_1m": 30.00},
+    "gpt-4": {"input_per_1m": 30.00, "output_per_1m": 60.00},
+    "gpt-4.5-preview": {"input_per_1m": 75.00, "output_per_1m": 150.00},
     "gpt-4.1": {"input_per_1m": 2.00, "output_per_1m": 8.00},
     "gpt-4.1-mini": {"input_per_1m": 0.40, "output_per_1m": 1.60},
     "gpt-4.1-nano": {"input_per_1m": 0.10, "output_per_1m": 0.40},
+    # OpenAI — o-series reasoning
+    "o1": {"input_per_1m": 15.00, "output_per_1m": 60.00},
+    "o1-mini": {"input_per_1m": 3.00, "output_per_1m": 12.00},
+    "o1-preview": {"input_per_1m": 15.00, "output_per_1m": 60.00},
     "o3-mini": {"input_per_1m": 1.10, "output_per_1m": 4.40},
+    # OpenAI — Legacy
+    "gpt-3.5-turbo": {"input_per_1m": 0.50, "output_per_1m": 1.50},
     # Anthropic (via OpenRouter or direct)
     "anthropic/claude-sonnet-4": {"input_per_1m": 3.00, "output_per_1m": 15.00},
     "anthropic/claude-3.5-sonnet": {"input_per_1m": 3.00, "output_per_1m": 15.00},
