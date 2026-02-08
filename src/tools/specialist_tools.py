@@ -26,6 +26,7 @@ from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.config_cache import is_agent_enabled
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
+from src.agents.execution_context import emit_progress
 from src.agents.model_context import get_model_context, model_context
 from src.agents.synthesis import LLMSynthesizer, ProgrammaticSynthesizer, SynthesisStrategy
 from src.graph.state import AnalysisState, AnalysisType, TeamAnalysis
@@ -475,6 +476,7 @@ async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> s
     if not await is_agent_enabled("energy_analyst"):
         return "Energy Analyst is currently disabled."
     try:
+        emit_progress("status", "energy_analyst", f"Running energy analysis ({hours}h)...")
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = EnergyAnalyst()
         ta = _get_or_create_team_analysis(query)
@@ -505,6 +507,7 @@ async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) 
     if not await is_agent_enabled("behavioral_analyst"):
         return "Behavioral Analyst is currently disabled."
     try:
+        emit_progress("status", "behavioral_analyst", f"Running behavioral analysis ({hours}h)...")
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = BehavioralAnalyst()
         ta = _get_or_create_team_analysis(query)
@@ -535,6 +538,7 @@ async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) 
     if not await is_agent_enabled("diagnostic_analyst"):
         return "Diagnostic Analyst is currently disabled."
     try:
+        emit_progress("status", "diagnostic_analyst", f"Running diagnostic analysis ({hours}h)...")
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = DiagnosticAnalyst()
         ta = _get_or_create_team_analysis(query)
