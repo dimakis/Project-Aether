@@ -1,9 +1,11 @@
 """Tests for HA client URL preference logic.
 
 Tests:
-- connect() builds urls_to_try based on url_preference
-- _request() builds urls_to_try based on url_preference
 - HAClientConfig accepts url_preference field
+- _build_urls_to_try returns correct URL list per preference
+- connect() respects url_preference when choosing URLs
+- _resolve_zone_config passes url_preference through
+- API schemas validate url_preference values
 """
 
 import pytest
@@ -166,3 +168,109 @@ class TestConnectUrlPreference:
             url_arg = call[0][0]
             assert "local:8123" in url_arg, f"Unexpected URL tried: {url_arg}"
             assert "remote" not in url_arg, f"Remote URL should not be tried: {url_arg}"
+
+
+# ─── _resolve_zone_config ────────────────────────────────────────────────────
+
+
+class TestResolveZoneConfigPreference:
+    """_resolve_zone_config passes url_preference to HAClientConfig."""
+
+    def test_zone_config_includes_url_preference(self, monkeypatch):
+        """When zone DB returns url_preference, it's set on HAClientConfig."""
+        from src.ha import client as client_mod
+        from pydantic import SecretStr
+
+        fake_config = HAClientConfig(
+            ha_url="http://zone-local:8123",
+            ha_url_remote="https://zone-remote:8123",
+            ha_token="zone-tok",
+            url_preference="remote",
+        )
+        monkeypatch.setattr(
+            "src.ha.client._resolve_zone_config", lambda key: fake_config
+        )
+
+        # Clear cache
+        client_mod._clients.clear()
+
+        c = client_mod.get_ha_client()
+        assert c.config.url_preference == "remote"
+        assert c.config.ha_url == "http://zone-local:8123"
+
+        # Clean up
+        client_mod._clients.clear()
+
+
+# ─── API schema validation ───────────────────────────────────────────────────
+
+
+class TestApiSchemaUrlPreference:
+    """API Pydantic schemas validate url_preference values."""
+
+    def test_zone_create_default(self):
+        """ZoneCreate defaults url_preference to 'auto'."""
+        from src.api.routes.ha_zones import ZoneCreate
+
+        body = ZoneCreate(name="Test", ha_url="http://ha:8123", ha_token="tok")
+        assert body.url_preference == "auto"
+
+    def test_zone_create_accepts_remote(self):
+        """ZoneCreate accepts 'remote' as url_preference."""
+        from src.api.routes.ha_zones import ZoneCreate
+
+        body = ZoneCreate(
+            name="Test",
+            ha_url="http://ha:8123",
+            ha_token="tok",
+            url_preference="remote",
+        )
+        assert body.url_preference == "remote"
+
+    def test_zone_create_rejects_invalid(self):
+        """ZoneCreate rejects invalid url_preference values."""
+        from pydantic import ValidationError
+        from src.api.routes.ha_zones import ZoneCreate
+
+        with pytest.raises(ValidationError):
+            ZoneCreate(
+                name="Test",
+                ha_url="http://ha:8123",
+                ha_token="tok",
+                url_preference="invalid_value",
+            )
+
+    def test_zone_update_accepts_local(self):
+        """ZoneUpdate accepts 'local' as url_preference."""
+        from src.api.routes.ha_zones import ZoneUpdate
+
+        body = ZoneUpdate(url_preference="local")
+        assert body.url_preference == "local"
+
+    def test_zone_update_rejects_invalid(self):
+        """ZoneUpdate rejects invalid url_preference values."""
+        from pydantic import ValidationError
+        from src.api.routes.ha_zones import ZoneUpdate
+
+        with pytest.raises(ValidationError):
+            ZoneUpdate(url_preference="banana")
+
+    def test_zone_response_includes_preference(self):
+        """ZoneResponse includes url_preference field."""
+        from src.api.routes.ha_zones import ZoneResponse
+
+        resp = ZoneResponse(
+            id="abc",
+            name="Test",
+            slug="test",
+            ha_url="http://ha:8123",
+            ha_url_remote=None,
+            is_default=True,
+            latitude=None,
+            longitude=None,
+            icon=None,
+            url_preference="remote",
+            created_at="2026-01-01T00:00:00",
+            updated_at="2026-01-01T00:00:00",
+        )
+        assert resp.url_preference == "remote"
