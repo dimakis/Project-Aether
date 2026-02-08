@@ -89,28 +89,41 @@ def _select_specialists(
 
     return sorted(matched) if matched else sorted(_ALL_SPECIALISTS)
 
-# Module-level TeamAnalysis cache for the current analysis session.
-# Reset when a new analysis begins.
-_current_team_analysis: TeamAnalysis | None = None
-
-
 def _get_or_create_team_analysis(query: str) -> TeamAnalysis:
-    """Get the current team analysis or create a new one."""
-    global _current_team_analysis  # noqa: PLW0603
-    if _current_team_analysis is None:
-        from uuid import uuid4
+    """Get the current team analysis from the ExecutionContext, or create a new one.
 
-        _current_team_analysis = TeamAnalysis(
-            request_id=str(uuid4()),
-            request_summary=query,
-        )
-    return _current_team_analysis
+    Uses the per-request ExecutionContext (contextvars) instead of a module-level
+    global to ensure concurrent requests don't stomp on each other.
+    """
+    from src.agents.execution_context import get_execution_context
+
+    ctx = get_execution_context()
+    if ctx is not None and ctx.team_analysis is not None:
+        return ctx.team_analysis
+
+    from uuid import uuid4
+
+    ta = TeamAnalysis(
+        request_id=str(uuid4()),
+        request_summary=query,
+    )
+    if ctx is not None:
+        ctx.team_analysis = ta
+    return ta
+
+
+def _set_team_analysis(ta: TeamAnalysis | None) -> None:
+    """Store the team analysis in the ExecutionContext."""
+    from src.agents.execution_context import get_execution_context
+
+    ctx = get_execution_context()
+    if ctx is not None:
+        ctx.team_analysis = ta
 
 
 def reset_team_analysis() -> None:
     """Reset the team analysis for a new session."""
-    global _current_team_analysis  # noqa: PLW0603
-    _current_team_analysis = None
+    _set_team_analysis(None)
 
 
 def _format_findings(result: dict[str, Any]) -> str:
@@ -173,8 +186,7 @@ async def consult_energy_analyst(
 
         # Update shared team analysis
         if result.get("team_analysis"):
-            global _current_team_analysis  # noqa: PLW0603
-            _current_team_analysis = result["team_analysis"]
+            _set_team_analysis(result["team_analysis"])
 
         return _format_findings(result)
 
@@ -237,8 +249,7 @@ async def consult_behavioral_analyst(
         result = await analyst.invoke(state)
 
         if result.get("team_analysis"):
-            global _current_team_analysis  # noqa: PLW0603
-            _current_team_analysis = result["team_analysis"]
+            _set_team_analysis(result["team_analysis"])
 
         return _format_findings(result)
 
@@ -292,8 +303,7 @@ async def consult_diagnostic_analyst(
         result = await analyst.invoke(state)
 
         if result.get("team_analysis"):
-            global _current_team_analysis  # noqa: PLW0603
-            _current_team_analysis = result["team_analysis"]
+            _set_team_analysis(result["team_analysis"])
 
         return _format_findings(result)
 
@@ -323,9 +333,11 @@ async def request_synthesis_review(
     Returns:
         Enhanced synthesis with narrative conflict resolution
     """
-    global _current_team_analysis  # noqa: PLW0603
     try:
-        ta = _current_team_analysis
+        from src.agents.execution_context import get_execution_context
+
+        ctx = get_execution_context()
+        ta = ctx.team_analysis if ctx else None
         if ta is None or not ta.findings:
             return "No specialist findings to synthesize. Consult specialists first."
 
@@ -336,7 +348,7 @@ async def request_synthesis_review(
         result = await synth.synthesize(ta)
 
         # Update shared state
-        _current_team_analysis = result
+        _set_team_analysis(result)
 
         parts = [f"**LLM Synthesis** (reason: {reason})\n"]
         if result.consensus:
@@ -428,13 +440,14 @@ async def consult_data_science_team(
             emit_delegation(analyst_agent, "data_science_team", summary)
 
     # 4. Auto-synthesise if 2+ specialists contributed findings
-    global _current_team_analysis  # noqa: PLW0603
-    ta = _current_team_analysis
+    from src.agents.execution_context import get_execution_context as _get_ctx
+    _ctx = _get_ctx()
+    ta = _ctx.team_analysis if _ctx else None
     if ta and len(ta.findings) > 0 and len(selected) >= 2:
         try:
             synth = ProgrammaticSynthesizer()
             ta = synth.synthesize(ta)
-            _current_team_analysis = ta
+            _set_team_analysis(ta)
         except Exception as e:
             logger.warning("Programmatic synthesis failed: %s", e)
 
@@ -511,8 +524,7 @@ async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> s
         ):
             result = await analyst.invoke(state)
         if result.get("team_analysis"):
-            global _current_team_analysis  # noqa: PLW0603
-            _current_team_analysis = result["team_analysis"]
+            _set_team_analysis(result["team_analysis"])
         return _format_findings(result)
     except Exception as e:
         logger.error("Energy analysis failed: %s", e, exc_info=True)
@@ -545,8 +557,7 @@ async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) 
         ):
             result = await analyst.invoke(state)
         if result.get("team_analysis"):
-            global _current_team_analysis  # noqa: PLW0603
-            _current_team_analysis = result["team_analysis"]
+            _set_team_analysis(result["team_analysis"])
         return _format_findings(result)
     except Exception as e:
         logger.error("Behavioral analysis failed: %s", e, exc_info=True)
@@ -579,8 +590,7 @@ async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) 
         ):
             result = await analyst.invoke(state)
         if result.get("team_analysis"):
-            global _current_team_analysis  # noqa: PLW0603
-            _current_team_analysis = result["team_analysis"]
+            _set_team_analysis(result["team_analysis"])
         return _format_findings(result)
     except Exception as e:
         logger.error("Diagnostic analysis failed: %s", e, exc_info=True)

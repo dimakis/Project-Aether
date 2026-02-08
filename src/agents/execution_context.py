@@ -68,6 +68,9 @@ class ExecutionContext:
         task_label: Human-readable label for the current task/analysis.
         tool_timeout: Default timeout in seconds for simple tool calls.
         analysis_timeout: Timeout in seconds for long-running analysis tools.
+        team_analysis: Shared TeamAnalysis state for the current analysis
+            session.  Prevents race conditions across concurrent requests
+            (each request gets its own contextvars copy).
     """
 
     progress_queue: asyncio.Queue[ProgressEvent] | None = None
@@ -76,6 +79,7 @@ class ExecutionContext:
     task_label: str | None = None
     tool_timeout: float = 30.0
     analysis_timeout: float = 180.0
+    team_analysis: Any = None
 
 
 # Context variable holding the active execution context

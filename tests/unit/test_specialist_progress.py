@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.agents.execution_context import (
     ProgressEvent,
     execution_context,
+    get_execution_context,
 )
 
 
@@ -277,3 +278,51 @@ class TestDelegationEvents:
         ]
         assert len(analyst_delegations) >= 2, \
             f"Expected analyst->ds_team delegations, got: {[(e.agent, e.target) for e in delegation_events]}"
+
+
+class TestTeamAnalysisIsolation:
+    """Tests that team analysis state uses ExecutionContext, not globals."""
+
+    @pytest.mark.asyncio
+    async def test_team_analysis_stored_in_context_not_global(self):
+        """_get_or_create_team_analysis should use ExecutionContext.team_analysis."""
+        queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
+             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+            mock_instance = AsyncMock()
+            mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
+            MockAnalyst.return_value = mock_instance
+
+            from src.tools.specialist_tools import _get_or_create_team_analysis
+
+            async with execution_context(progress_queue=queue) as ctx:
+                ta = _get_or_create_team_analysis("test query")
+                assert ctx.team_analysis is ta, \
+                    "team_analysis should be stored in the ExecutionContext"
+
+    @pytest.mark.asyncio
+    async def test_concurrent_contexts_are_isolated(self):
+        """Two concurrent execution contexts should have independent team_analysis."""
+        queue1: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+        queue2: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        from src.tools.specialist_tools import _get_or_create_team_analysis
+
+        results = {}
+
+        async def run_in_context(name: str, queue: asyncio.Queue) -> None:
+            async with execution_context(progress_queue=queue) as ctx:
+                ta = _get_or_create_team_analysis(f"query for {name}")
+                results[name] = ta
+                # Verify the context's team_analysis is ours
+                assert ctx.team_analysis is ta
+
+        await asyncio.gather(
+            run_in_context("ctx1", queue1),
+            run_in_context("ctx2", queue2),
+        )
+
+        # Each context should have created its own TeamAnalysis
+        assert results["ctx1"] is not results["ctx2"], \
+            "Concurrent contexts should have independent TeamAnalysis instances"
