@@ -874,7 +874,7 @@ class ArchitectWorkflow:
         state.messages.append(HumanMessage(content=user_message))
         turn_number = (len(state.messages) + 1) // 2
 
-        # Capture trace ID
+        # Capture trace ID and emit it early so the frontend can start polling
         try:
             mlflow.set_tag("session.id", state.conversation_id)
             span = mlflow.get_current_active_span()
@@ -882,6 +882,7 @@ class ArchitectWorkflow:
                 request_id = getattr(span, "request_id", None)
                 if request_id:
                     state.last_trace_id = str(request_id)
+                    yield StreamEvent(type="trace_id", content=str(request_id))
         except Exception:
             pass
 
@@ -906,14 +907,19 @@ class ArchitectWorkflow:
         full_tool_calls: list[dict] = []
 
         async for chunk in tool_llm.astream(messages):
-            # Token content
-            if chunk.content:
+            has_tool_chunks = (
+                hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
+            )
+
+            # Token content — skip when tool call chunks are present in the
+            # same chunk to avoid leaking partial JSON from some models
+            if chunk.content and not has_tool_chunks:
                 token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
                 collected_content += token
                 yield StreamEvent(type="token", content=token)
 
             # Tool call chunks (accumulated across multiple stream chunks)
-            if hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks:
+            if has_tool_chunks:
                 for tc_chunk in chunk.tool_call_chunks:
                     # Merge into buffer by index
                     idx = tc_chunk.get("index", 0)

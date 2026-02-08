@@ -256,7 +256,11 @@ export function ChatPage() {
       for await (const chunk of streamChat(selectedModel, chatHistory)) {
         if (typeof chunk === "object" && "type" in chunk) {
           if (chunk.type === "metadata") {
-            traceId = chunk.trace_id;
+            if (chunk.trace_id) {
+              traceId = chunk.trace_id;
+              // Set immediately so the activity panel can start polling
+              setLastTraceId(traceId);
+            }
             continue;
           }
           if (chunk.type === "trace") {
@@ -295,10 +299,9 @@ export function ChatPage() {
         return updated;
       });
 
-      // Update trace ID in the global store for the activity panel
-      if (traceId) {
-        setLastTraceId(traceId);  // persisted to localStorage via global store
-      }
+      // Note: setLastTraceId is called immediately when the metadata event
+      // arrives (inside the loop above) so the activity panel can poll during
+      // streaming.  No need to set it again here.
     } catch {
       updateSessionMessages((prev) => {
         const updated = [...prev];

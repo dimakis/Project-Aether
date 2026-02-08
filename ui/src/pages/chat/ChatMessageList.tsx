@@ -28,20 +28,35 @@ export function ChatMessageList({
   onCreateProposal,
   onSuggestionClick,
 }: ChatMessageListProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(messages.length);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  /** True when the user is already at or near the bottom of the scroll area. */
+  const isNearBottom = () => {
+    const el = containerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+  };
+
   useEffect(() => {
-    scrollToBottom();
+    // Always scroll for new messages (user just sent); otherwise only if near bottom
+    const isNewMessage = messages.length !== prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+
+    if (isNewMessage || isNearBottom()) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div ref={containerRef} className="flex-1 overflow-auto">
       {isEmpty ? (
         <EmptyState onSuggestionClick={onSuggestionClick} />
       ) : (

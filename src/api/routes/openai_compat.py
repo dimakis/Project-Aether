@@ -400,6 +400,22 @@ async def _stream_chat_completion(
                         tool_calls_used: list[str] = []
                         final_state: ConversationState | None = None
                         full_content = ""
+                        trace_id: str | None = None
+                        tag_filter = _StreamingTagFilter()
+
+                        def _make_token_chunk(tok: str) -> str:
+                            """Build an SSE line for a single token delta."""
+                            return "data: " + json.dumps({
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "created": created,
+                                "model": request.model,
+                                "choices": [{
+                                    "index": 0,
+                                    "delta": {"content": tok},
+                                    "finish_reason": None,
+                                }],
+                            }) + "\n\n"
 
                         # --- Real token-by-token streaming ---
                         async for event in workflow.stream_conversation(
@@ -410,23 +426,23 @@ async def _stream_chat_completion(
                             event_type = event.get("type")
 
                             if event_type == "token":
-                                token = event.get("content", "")
-                                # Strip thinking tags incrementally
-                                full_content += token
-                                chunk_data = {
-                                    "id": completion_id,
-                                    "object": "chat.completion.chunk",
-                                    "created": created,
-                                    "model": request.model,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": {"content": token},
-                                            "finish_reason": None,
-                                        }
-                                    ],
-                                }
-                                yield f"data: {json.dumps(chunk_data)}\n\n"
+                                raw_token = event.get("content", "")
+                                full_content += raw_token
+                                # Filter out thinking tags incrementally
+                                for filtered in tag_filter.feed(raw_token):
+                                    if filtered:
+                                        yield _make_token_chunk(filtered)
+
+                            elif event_type == "trace_id":
+                                # Early trace_id — emit immediately so
+                                # the activity panel can start polling
+                                trace_id = event.get("content", "")
+                                if trace_id:
+                                    early_meta = {
+                                        "type": "metadata",
+                                        "trace_id": trace_id,
+                                    }
+                                    yield f"data: {json.dumps(early_meta)}\n\n"
 
                             elif event_type == "tool_start":
                                 tool_name = event.get("tool", "")
@@ -477,11 +493,17 @@ async def _stream_chat_completion(
                                 }
                                 yield f"data: {json.dumps(chunk_data)}\n\n"
 
+                        # Flush any remaining buffered content from the tag filter
+                        for flushed in tag_filter.flush():
+                            if flushed:
+                                yield _make_token_chunk(flushed)
+
                     # Use final state from stream, or fall back to original
                     state = final_state or state
 
                     # Capture trace ID from the state (set during streaming)
-                    trace_id = state.last_trace_id
+                    if not trace_id:
+                        trace_id = state.last_trace_id
 
                     # Send final chunk with finish_reason
                     final_chunk = {
@@ -578,6 +600,117 @@ def _extract_text_content(content: Any) -> str:
         return "\n".join(parts)
     # Fallback: coerce to string
     return str(content)
+
+
+# ─── Incremental thinking-tag filter for streaming ─────────────────────────
+
+_THINKING_TAGS = ["think", "thinking", "reasoning", "thought", "reflection"]
+_OPEN_TAGS = {f"<{t}>" for t in _THINKING_TAGS}
+_CLOSE_TAGS = {f"</{t}>" for t in _THINKING_TAGS}
+_MAX_TAG_LEN = max(len(t) for t in _OPEN_TAGS | _CLOSE_TAGS)
+
+
+class _StreamingTagFilter:
+    """Incremental filter that suppresses content inside thinking tags.
+
+    Feed token strings via ``feed()`` and iterate the yielded strings.
+    Content inside ``<think>…</think>`` (and siblings) is silently dropped.
+    Content outside those tags is yielded immediately, except for a small
+    look-ahead buffer to detect tag boundaries.
+    """
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._suppressing = False
+
+    # noinspection PyMethodMayBeStatic
+    def _is_open_tag(self, text: str) -> str | None:
+        low = text.lower()
+        for tag in _OPEN_TAGS:
+            if low.startswith(tag):
+                return tag
+        return None
+
+    def _is_close_tag(self, text: str) -> str | None:
+        low = text.lower()
+        for tag in _CLOSE_TAGS:
+            if low.startswith(tag):
+                return tag
+        return None
+
+    def feed(self, token: str) -> list[str]:
+        """Feed a token and return list of strings to emit (may be empty)."""
+        self._buf += token
+        out: list[str] = []
+
+        while self._buf:
+            if self._suppressing:
+                # Look for a closing tag in the buffer
+                close = self._is_close_tag(self._buf)
+                if close:
+                    # Drop the close tag and resume normal output
+                    self._buf = self._buf[len(close):]
+                    self._suppressing = False
+                    continue
+
+                # Check if buffer *could* start with a partial close tag
+                could_be_close = any(
+                    self._buf.lower().startswith(t[:len(self._buf)])
+                    for t in _CLOSE_TAGS
+                    if len(self._buf) < len(t)
+                )
+                if could_be_close:
+                    break  # Wait for more data
+
+                # Not a close tag — drop the first char and keep scanning
+                self._buf = self._buf[1:]
+                continue
+
+            # --- Not suppressing ---
+
+            # Check for an opening tag
+            open_tag = self._is_open_tag(self._buf)
+            if open_tag:
+                self._buf = self._buf[len(open_tag):]
+                self._suppressing = True
+                continue
+
+            # Could this be the start of an opening tag?  (e.g. "<thi")
+            if "<" in self._buf:
+                lt_pos = self._buf.index("<")
+                # Emit everything before the '<'
+                if lt_pos > 0:
+                    out.append(self._buf[:lt_pos])
+                    self._buf = self._buf[lt_pos:]
+
+                # Check if the remainder could still become a thinking tag
+                remainder = self._buf.lower()
+                could_be_open = any(
+                    t.startswith(remainder) for t in _OPEN_TAGS
+                )
+                if could_be_open and len(self._buf) < _MAX_TAG_LEN:
+                    break  # Wait for more data
+
+                # Not a thinking tag — emit the '<' and continue
+                out.append(self._buf[0])
+                self._buf = self._buf[1:]
+                continue
+
+            # No '<' at all — emit the entire buffer
+            out.append(self._buf)
+            self._buf = ""
+
+        return out
+
+    def flush(self) -> list[str]:
+        """Flush any remaining buffered content (call at end of stream)."""
+        if self._suppressing:
+            # Still inside a thinking tag at end of stream — drop it
+            self._buf = ""
+            return []
+        result = [self._buf] if self._buf else []
+        self._buf = ""
+        return result
 
 
 def _strip_thinking_tags(content: str | list) -> str:
