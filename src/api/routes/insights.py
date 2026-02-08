@@ -42,6 +42,8 @@ def _insight_to_response(insight) -> InsightResponse:
         script_output=insight.script_output,
         status=insight.status.value,
         mlflow_run_id=insight.mlflow_run_id,
+        conversation_id=getattr(insight, "conversation_id", None),
+        task_label=getattr(insight, "task_label", None),
         created_at=insight.created_at,
         reviewed_at=insight.reviewed_at,
         actioned_at=insight.actioned_at,

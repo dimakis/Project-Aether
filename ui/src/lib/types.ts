@@ -147,6 +147,8 @@ export interface Insight {
   script_output?: Record<string, unknown>;
   status: string;
   mlflow_run_id?: string;
+  conversation_id?: string;
+  task_label?: string;
   created_at: string;
   reviewed_at?: string;
   actioned_at?: string;

@@ -97,6 +97,8 @@ class InsightResponse(BaseModel):
     script_output: dict[str, Any] | None = Field(description="Script results")
     status: InsightStatus = Field(description="Current status")
     mlflow_run_id: str | None = Field(description="MLflow run ID")
+    conversation_id: str | None = Field(default=None, description="Originating conversation ID")
+    task_label: str | None = Field(default=None, description="Task/analysis label for context")
     created_at: datetime = Field(description="When generated")
     reviewed_at: datetime | None = Field(description="When reviewed")
     actioned_at: datetime | None = Field(description="When actioned")

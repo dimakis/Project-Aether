@@ -1,4 +1,5 @@
-import { ArrowRight, Lightbulb } from "lucide-react";
+import { ArrowRight, Lightbulb, MessageSquare } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Insight } from "@/lib/types";
@@ -94,7 +95,19 @@ export function InsightCard({
           {insight.description}
         </p>
 
-        {/* Bottom row: confidence + entities + arrow */}
+        {/* Task label badge */}
+        {insight.task_label && (
+          <div className="flex items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className="text-[10px] font-normal text-muted-foreground border-primary/20 bg-primary/5"
+            >
+              {insight.task_label}
+            </Badge>
+          </div>
+        )}
+
+        {/* Bottom row: confidence + entities + conversation link + arrow */}
         <div className="flex items-center gap-3 pt-1">
           {/* Confidence ring */}
           <div className="flex items-center gap-1.5">
@@ -108,6 +121,20 @@ export function InsightCard({
             <span className="text-[10px] text-muted-foreground">
               {insight.entities.length} entities
             </span>
+          )}
+
+          {/* Link to originating conversation */}
+          {insight.conversation_id && (
+            <Link
+              to="/chat"
+              state={{ conversationId: insight.conversation_id }}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary transition-colors"
+              title="View originating conversation"
+            >
+              <MessageSquare className="h-3 w-3" />
+              <span>Chat</span>
+            </Link>
           )}
 
           <div className="ml-auto text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
