@@ -237,3 +237,93 @@ class TestSeekApprovalTool:
 
             mock_repo.propose.assert_called_once_with(mock_proposal.id)
             mock_session.commit.assert_called_once()
+
+    # ── Validation: reject incomplete proposals ──────────────────────────
+
+    async def test_automation_rejects_missing_trigger(self):
+        """seek_approval rejects automation without trigger."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke({
+            "action_type": "automation",
+            "name": "Sunset lights",
+            "description": "Turn on lights at sunset",
+            "actions": [{"service": "light.turn_on"}],
+            # trigger intentionally omitted
+        })
+
+        assert "trigger" in result.lower()
+        assert "required" in result.lower()
+
+    async def test_automation_rejects_missing_actions(self):
+        """seek_approval rejects automation without actions."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke({
+            "action_type": "automation",
+            "name": "Sunset lights",
+            "description": "Turn on lights at sunset",
+            "trigger": {"platform": "sun", "event": "sunset"},
+            # actions intentionally omitted
+        })
+
+        assert "actions" in result.lower()
+        assert "required" in result.lower()
+
+    async def test_automation_rejects_empty_trigger(self):
+        """seek_approval rejects automation with empty trigger list."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke({
+            "action_type": "automation",
+            "name": "Sunset lights",
+            "description": "Turn on lights at sunset",
+            "trigger": [],
+            "actions": [{"service": "light.turn_on"}],
+        })
+
+        assert "trigger" in result.lower()
+        assert "required" in result.lower()
+
+    async def test_automation_rejects_empty_actions(self):
+        """seek_approval rejects automation with empty actions list."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke({
+            "action_type": "automation",
+            "name": "Sunset lights",
+            "description": "Turn on lights at sunset",
+            "trigger": {"platform": "sun", "event": "sunset"},
+            "actions": [],
+        })
+
+        assert "actions" in result.lower()
+        assert "required" in result.lower()
+
+    async def test_script_rejects_missing_actions(self):
+        """seek_approval rejects script without actions."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke({
+            "action_type": "script",
+            "name": "Movie mode",
+            "description": "Dim lights and turn on TV",
+            # actions intentionally omitted
+        })
+
+        assert "actions" in result.lower()
+        assert "required" in result.lower()
+
+    async def test_script_rejects_empty_actions(self):
+        """seek_approval rejects script with empty actions list."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke({
+            "action_type": "script",
+            "name": "Movie mode",
+            "description": "Dim lights and turn on TV",
+            "actions": [],
+        })
+
+        assert "actions" in result.lower()
+        assert "required" in result.lower()

@@ -56,9 +56,15 @@ async def seek_approval(
         service_domain: Service domain for entity_command (e.g., "light", "switch")
         service_action: Service action for entity_command (e.g., "turn_on", "toggle")
         service_data: Additional service call data (e.g., {"brightness": 255})
-        trigger: Trigger config for automation type
-        actions: Action config for automation/script type
-        conditions: Condition config for automation type
+        trigger: Trigger config for automation type.
+            REQUIRED for "automation" — must be a non-empty dict or list
+            describing what triggers the automation (e.g., sun event, state
+            change, time pattern). Do NOT omit this.
+        actions: Action config for automation/script type.
+            REQUIRED for "automation" and "script" — must be a non-empty dict
+            or list describing what the automation/script does (service calls,
+            delays, conditions, etc.). Do NOT omit this.
+        conditions: Condition config for automation type (optional)
         mode: Execution mode for automation/script (default: "single")
 
     Returns:
@@ -184,6 +190,20 @@ async def _create_automation_proposal(
         except Exception:
             pass  # Fall through to use explicit params
 
+    # Validate required fields — reject early so the LLM retries with full data
+    missing: list[str] = []
+    if not trigger:
+        missing.append("trigger")
+    if not actions:
+        missing.append("actions")
+    if missing:
+        fields = " and ".join(missing)
+        return (
+            f"{fields} {'are' if len(missing) > 1 else 'is'} required for automation "
+            f"proposals. Please provide the full trigger/condition/action configuration "
+            f"for '{name}' and call seek_approval again."
+        )
+
     try:
         async with get_session() as session:
             repo = ProposalRepository(session)
@@ -219,6 +239,13 @@ async def _create_script_proposal(
     mode: str,
 ) -> str:
     """Create a script proposal."""
+    # Validate required fields — reject early so the LLM retries with full data
+    if not actions:
+        return (
+            "actions is required for script proposals. Please provide the full "
+            f"action sequence for '{name}' and call seek_approval again."
+        )
+
     try:
         async with get_session() as session:
             repo = ProposalRepository(session)
