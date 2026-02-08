@@ -123,6 +123,24 @@ class AutomationMixin:
             f"/api/config/automation/config/{automation_id}",
         )
 
+    @_trace_ha_call("ha.get_script_config")
+    async def get_script_config(
+        self,
+        script_id: str,
+    ) -> dict[str, Any] | None:
+        """Get a script's configuration.
+
+        Args:
+            script_id: Script ID (e.g., "dim_s_light_on")
+
+        Returns:
+            Script config dict (alias, sequence, mode, etc.) or None
+        """
+        return await self._request(
+            "GET",
+            f"/api/config/script/config/{script_id}",
+        )
+
     @_trace_ha_call("ha.delete_automation")
     async def delete_automation(
         self,

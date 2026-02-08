@@ -32,14 +32,7 @@ MCP_GAPS: list[dict[str, Any]] = [
         "affects": ["Service registry", "Agent action validation"],
         "data_model_impact": ["Service completeness"],
     },
-    {
-        "tool": "get_script_config",
-        "priority": "P2",
-        "impact": "Cannot retrieve script sequences for analysis",
-        "workaround": "Store script entity with null sequence",
-        "affects": ["Script analysis", "Automation suggestions"],
-        "data_model_impact": ["Script.sequence", "Script.fields"],
-    },
+    # get_script_config gap closed — implemented in src/ha/automations.py
     {
         "tool": "get_scene_config",
         "priority": "P2",
