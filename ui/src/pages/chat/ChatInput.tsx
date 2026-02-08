@@ -23,7 +23,10 @@ export function ChatInput({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      // Allow typing while streaming, but don't send
+      if (!isStreaming) {
+        onSend();
+      }
     }
   };
 
@@ -51,7 +54,7 @@ export function ChatInput({
             placeholder="Message Aether..."
             rows={1}
             className="flex-1 resize-none border-0 bg-transparent px-2 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none"
-            disabled={isStreaming || disabled}
+            disabled={disabled}
           />
           <Button
             size="icon"
