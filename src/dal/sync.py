@@ -421,6 +421,120 @@ class DiscoverySyncService:
 
         return stats
 
+    async def _sync_entities_delta(
+        self,
+        entities: list[Any],
+        area_id_mapping: dict[str, str],
+        device_id_mapping: dict[str, str],
+    ) -> dict[str, int]:
+        """Sync entities using delta logic — skip unchanged ones.
+
+        Compares each entity's ``last_updated`` timestamp from HA against
+        the ``last_synced_at`` on the DB record.  Only upserts when the
+        entity is new or has been updated since the last sync.
+
+        Args:
+            entities: Parsed entities from MCP
+            area_id_mapping: Mapping of ha_area_id to internal id
+            device_id_mapping: Mapping of ha_device_id to internal id
+
+        Returns:
+            Stats dict with added, updated, skipped, removed counts
+        """
+        stats = {"added": 0, "updated": 0, "skipped": 0, "removed": 0}
+
+        existing_ids = await self.entity_repo.get_all_entity_ids()
+        seen_ids: set[str] = set()
+
+        for entity in entities:
+            seen_ids.add(entity.entity_id)
+
+            # Check if we can skip this entity
+            db_record = await self.entity_repo.get_by_entity_id(entity.entity_id)
+            if db_record is not None:
+                ha_updated = getattr(entity, "last_updated", None)
+                db_synced = db_record.last_synced_at
+                if (
+                    ha_updated is not None
+                    and db_synced is not None
+                    and ha_updated <= db_synced
+                ):
+                    stats["skipped"] += 1
+                    continue
+
+            # Entity is new or changed — upsert
+            metadata = extract_entity_metadata(entity)
+
+            internal_area_id = None
+            internal_device_id = None
+            if getattr(entity, "area_id", None):
+                internal_area_id = area_id_mapping.get(entity.area_id)
+            if getattr(entity, "device_id", None):
+                internal_device_id = device_id_mapping.get(entity.device_id)
+
+            entity_data = {
+                "entity_id": entity.entity_id,
+                "domain": entity.domain,
+                "name": entity.name,
+                "state": entity.state,
+                "attributes": getattr(entity, "attributes", None),
+                "area_id": internal_area_id,
+                "device_id": internal_device_id,
+                "device_class": metadata.get("device_class"),
+                "unit_of_measurement": metadata.get("unit_of_measurement"),
+                "supported_features": metadata.get("supported_features", 0),
+                "state_class": metadata.get("state_class"),
+                "icon": metadata.get("icon"),
+                "entity_category": metadata.get("entity_category"),
+                "platform": metadata.get("platform"),
+            }
+
+            _, created = await self.entity_repo.upsert(entity_data)
+            if created:
+                stats["added"] += 1
+            else:
+                stats["updated"] += 1
+
+        # Remove entities no longer in HA
+        removed_ids = existing_ids - seen_ids
+        for entity_id in removed_ids:
+            await self.entity_repo.delete(entity_id)
+            stats["removed"] += 1
+
+        return stats
+
+    async def run_delta_sync(self) -> dict[str, Any]:
+        """Run a lightweight delta sync.
+
+        Fetches all entities from HA, but only writes those that have
+        changed since the last sync.  Automation/script configs are
+        re-fetched for any registry items that were updated or whose
+        config is currently NULL.
+
+        Returns:
+            Stats dict with entity and registry sync counts.
+        """
+        start = time.monotonic()
+
+        raw_entities = await self.ha.list_entities(detailed=True)
+        entities = parse_entity_list(raw_entities)
+
+        # Delta entity sync (skips unchanged)
+        entity_stats = await self._sync_entities_delta(entities, {}, {})
+
+        # Registry sync (automations/scripts/scenes — always full)
+        registry_stats = await self._sync_automation_entities(entities)
+
+        duration = time.monotonic() - start
+
+        await self.session.commit()
+
+        return {
+            **entity_stats,
+            **registry_stats,
+            "duration_seconds": round(duration, 2),
+        }
+
 
 async def run_discovery(
     session: AsyncSession,
