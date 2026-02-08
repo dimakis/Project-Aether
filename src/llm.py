@@ -155,6 +155,7 @@ class ResilientLLM:
         """
         import time as _time
         start_ms = _time.perf_counter()
+        _publish_llm_activity("start", self._get_model_name())
         
         # Try primary provider with retries
         last_error: Exception | None = None
@@ -170,6 +171,7 @@ class ResilientLLM:
                 self._circuit_breaker.record_success()
                 latency_ms = int((_time.perf_counter() - start_ms) * 1000)
                 _log_usage_async(result, self.provider, self._get_model_name(), latency_ms)
+                _publish_llm_activity("end", self._get_model_name(), latency_ms=latency_ms)
                 return result
             except Exception as e:
                 last_error = e
@@ -239,6 +241,23 @@ class ResilientLLM:
     def __getattr__(self, name: str) -> Any:
         """Delegate other attributes to primary LLM."""
         return getattr(self.primary_llm, name)
+
+
+def _publish_llm_activity(event: str, model: str, **extra: Any) -> None:
+    """Broadcast an LLM activity event to the global SSE bus."""
+    try:
+        from src.llm_call_context import get_llm_call_context
+        ctx = get_llm_call_context()
+        from src.api.routes.activity_stream import publish_activity
+        publish_activity({
+            "type": "llm",
+            "event": event,
+            "model": model,
+            "agent_role": ctx.agent_role if ctx else None,
+            **extra,
+        })
+    except Exception:
+        pass  # Non-critical: never block on activity broadcast
 
 
 def _log_usage_async(result: Any, provider: str, model: str, latency_ms: int) -> None:

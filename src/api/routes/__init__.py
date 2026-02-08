@@ -26,6 +26,7 @@ from src.api.routes.model_ratings import router as model_ratings_router
 from src.api.routes.usage import router as usage_router
 from src.api.routes.webhooks import router as webhooks_router
 from src.api.routes.workflows import router as workflows_router
+from src.api.routes.activity_stream import router as activity_router
 
 # Main API router
 api_router = APIRouter()
@@ -63,5 +64,7 @@ api_router.include_router(diagnostics_router)
 api_router.include_router(workflows_router)
 # OpenAI-compatible API for Open WebUI
 api_router.include_router(openai_router)
+# Global activity stream
+api_router.include_router(activity_router)
 
 __all__ = ["api_router"]

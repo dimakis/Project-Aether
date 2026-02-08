@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useSystemStatus, useProposals } from "@/api/hooks";
+import { useGlobalActivityStream } from "@/lib/useGlobalActivityStream";
 import {
   useAgentActivity,
   useActivityPanel,
@@ -61,6 +62,9 @@ export function AppLayout() {
   const isHealthy = status?.status === "healthy";
   const agentActivity = useAgentActivity();
   const { panelOpen } = useActivityPanel();
+
+  // Global SSE subscription for system-wide LLM activity
+  useGlobalActivityStream();
 
   // Fetch pending proposal count for the sidebar badge
   const { data: pendingData } = useProposals("proposed");
