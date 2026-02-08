@@ -6,6 +6,142 @@ import { FileCheck } from "lucide-react";
 import { CodeBlock, InlineCode } from "@/components/ui/code-block";
 import { cn } from "@/lib/utils";
 
+// ─── JSON auto-detection ─────────────────────────────────────────────────────
+
+/** Regex that splits content on existing fenced code blocks so we never double-wrap. */
+const FENCE_SPLIT = /(```[\s\S]*?```)/g;
+
+/**
+ * Try to parse `text` as JSON. Returns the parsed value if it is a non-trivial
+ * object or array (i.e. not a bare string/number/boolean/null), otherwise null.
+ */
+function tryParseJson(text: string): object | unknown[] | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed !== null && typeof parsed === "object") {
+      return parsed as object | unknown[];
+    }
+  } catch {
+    /* not valid JSON */
+  }
+  return null;
+}
+
+/**
+ * Wrap a JSON value in a fenced code block with pretty-printing.
+ */
+function wrapJson(value: object | unknown[]): string {
+  return "```json\n" + JSON.stringify(value, null, 2) + "\n```";
+}
+
+/**
+ * Within a single *unfenced* text segment, find standalone multi-line JSON
+ * blocks (lines starting with `{` or `[` through to the matching close brace)
+ * and wrap them in ```json fences.
+ *
+ * Uses a simple brace/bracket depth counter so it works on prettified and
+ * minified JSON alike, without back-tracking regexes.
+ */
+function wrapJsonBlocksInSegment(segment: string): string {
+  const lines = segment.split("\n");
+  const result: string[] = [];
+  let jsonLines: string[] | null = null;
+  let depth = 0;
+  let openChar: "{" | "[" | null = null;
+  const closeFor = { "{": "}", "[": "]" } as const;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trimStart();
+
+    // Start accumulating if a line begins with { or [
+    if (jsonLines === null && (trimmed.startsWith("{") || trimmed.startsWith("["))) {
+      openChar = trimmed[0] as "{" | "[";
+      jsonLines = [line];
+      depth = 0;
+
+      // Count depth across the whole line
+      for (const ch of line) {
+        if (ch === openChar) depth++;
+        else if (ch === closeFor[openChar]) depth--;
+      }
+
+      if (depth <= 0) {
+        // Single-line JSON candidate
+        const candidate = jsonLines.join("\n");
+        const parsed = tryParseJson(candidate.trim());
+        if (parsed) {
+          result.push(wrapJson(parsed));
+        } else {
+          result.push(candidate);
+        }
+        jsonLines = null;
+        depth = 0;
+        openChar = null;
+      }
+      continue;
+    }
+
+    // Accumulating a JSON block
+    if (jsonLines !== null && openChar !== null) {
+      jsonLines.push(line);
+      for (const ch of line) {
+        if (ch === openChar) depth++;
+        else if (ch === closeFor[openChar]) depth--;
+      }
+
+      if (depth <= 0) {
+        const candidate = jsonLines.join("\n");
+        const parsed = tryParseJson(candidate.trim());
+        if (parsed) {
+          result.push(wrapJson(parsed));
+        } else {
+          // Not valid JSON — flush accumulated lines as-is
+          result.push(candidate);
+        }
+        jsonLines = null;
+        depth = 0;
+        openChar = null;
+      }
+      continue;
+    }
+
+    // Normal line
+    result.push(line);
+  }
+
+  // Flush any unterminated accumulation
+  if (jsonLines !== null) {
+    result.push(jsonLines.join("\n"));
+  }
+
+  return result.join("\n");
+}
+
+/**
+ * Pre-process content so that raw (unfenced) JSON blocks are wrapped in
+ * ```json fences before react-markdown sees them.
+ *
+ * Already-fenced code blocks are left untouched.
+ */
+function preprocessContent(content: string): string {
+  // Fast path: nothing that looks like JSON
+  if (!content.includes("{") && !content.includes("[")) return content;
+
+  // Split on existing code fences so we never modify them
+  const parts = content.split(FENCE_SPLIT);
+
+  return parts
+    .map((part) => {
+      // Existing fenced block — pass through unchanged
+      if (part.startsWith("```")) return part;
+      return wrapJsonBlocksInSegment(part);
+    })
+    .join("");
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 interface MarkdownRendererProps {
   content: string;
   className?: string;
@@ -149,13 +285,15 @@ export function MarkdownRenderer({ content, className, onCreateProposal }: Markd
     },
   }), [onCreateProposal]);
 
+  const processed = useMemo(() => preprocessContent(content), [content]);
+
   return (
     <div className={cn("markdown-body", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={components}
       >
-        {content}
+        {processed}
       </ReactMarkdown>
     </div>
   );
