@@ -251,8 +251,10 @@ export function ChatPage() {
       { role: "user" as const, content: content.trim() },
     ];
 
+    // Use a ref to accumulate content, avoiding stale closure issues
+    const fullContentRef = { current: "" };
+
     try {
-      let fullContent = "";
       let traceId: string | undefined;
 
       for await (const chunk of streamChat(selectedModel, chatHistory)) {
@@ -283,12 +285,13 @@ export function ChatPage() {
           }
         }
         const text = typeof chunk === "string" ? chunk : "";
-        fullContent += text;
+        fullContentRef.current += text;
+        const snapshot = fullContentRef.current;
         updateSessionMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
             role: "assistant",
-            content: fullContent,
+            content: snapshot,
             isStreaming: true,
             timestamp: assistantMsg.timestamp,
           };
@@ -296,12 +299,15 @@ export function ChatPage() {
         });
       }
 
-      // Mark streaming as done
+      // Mark streaming as done -- guard against saving empty content
+      const finalContent = fullContentRef.current;
       updateSessionMessages((prev) => {
         const updated = [...prev];
+        const last = updated[updated.length - 1];
         updated[updated.length - 1] = {
           role: "assistant",
-          content: fullContent,
+          // If stream produced no text, keep any partial content already in state
+          content: finalContent || last.content || "",
           isStreaming: false,
           timestamp: assistantMsg.timestamp,
           traceId,
@@ -312,12 +318,15 @@ export function ChatPage() {
       // Note: setLastTraceId is called immediately when the metadata event
       // arrives (inside the loop above) so the activity panel can poll during
       // streaming.  No need to set it again here.
-    } catch {
+    } catch (err) {
+      console.warn("[chat] Stream error:", err);
       updateSessionMessages((prev) => {
         const updated = [...prev];
+        // Preserve any partial content that was accumulated before the error
+        const partial = fullContentRef.current;
         updated[updated.length - 1] = {
           role: "assistant",
-          content:
+          content: partial ||
             "Sorry, I encountered an error processing your request. Please try again.",
           isStreaming: false,
           timestamp: assistantMsg.timestamp,

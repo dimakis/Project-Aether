@@ -158,11 +158,22 @@ export async function* streamChat(
           continue;
         }
 
+        // OpenAI-compat format: choices[0].delta.content
         const content = parsed.choices?.[0]?.delta?.content;
-        if (content) yield content;
+        if (content) {
+          yield content;
+          continue;
+        }
+
+        // Fallback: some backends send { content: "..." } directly
+        if (typeof parsed.content === "string" && parsed.content) {
+          yield parsed.content;
+          continue;
+        }
       } catch (e) {
         if (e instanceof ApiError) throw e;
-        // Skip malformed chunks
+        // Log malformed chunks for debugging instead of silently swallowing
+        console.warn("[streamChat] Failed to parse SSE chunk:", data, e);
       }
     }
   }
