@@ -16,6 +16,8 @@ import {
   LogOut,
   User,
   ChevronDown,
+  MapPin,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -43,6 +45,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/architecture", icon: Network, label: "Architecture" },
   { to: "/agents/registry", icon: Star, label: "Model Performance" },
+  { to: "/settings/zones", icon: MapPin, label: "HA Zones" },
 ];
 
 const AGENT_LABELS: Record<string, string> = {

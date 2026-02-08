@@ -78,3 +78,11 @@ export {
   useSubmitFlowGrade,
   useDeleteFlowGrade,
 } from "./flow-grades";
+export {
+  useHAZones,
+  useCreateZone,
+  useUpdateZone,
+  useDeleteZone,
+  useSetDefaultZone,
+  useTestZone,
+} from "./zones";
