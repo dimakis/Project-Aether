@@ -178,6 +178,75 @@ class TestStreamProgressEvents:
         assert "agent_end" not in event_types
 
 
+class TestDrainLoopExitsImmediately:
+    """Tests that the drain loop exits immediately when the tool finishes."""
+
+    @pytest.mark.asyncio
+    async def test_drain_loop_does_not_accumulate_dead_time(self):
+        """Tool completing fast should not wait 0.5s per iteration.
+
+        A tool that finishes in <50ms should complete the full stream
+        (including multi-turn follow-up) in well under 1 second.
+        """
+        import time as _time
+
+        workflow = _make_workflow()
+        state = ConversationState(messages=[])
+
+        async def instant_tool(args):
+            """Tool that completes instantly."""
+            return "instant"
+
+        mock_tool = MagicMock()
+        mock_tool.name = "get_entity_state"
+        mock_tool.ainvoke = instant_tool
+
+        chunks = [
+            _make_tool_call_chunk(
+                "get_entity_state", '{"entity_id": "light.x"}', "call-1"
+            ),
+        ]
+        follow_up_chunks = [AIMessageChunk(content="Done.")]
+
+        call_count = 0
+
+        async def mock_astream(messages, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                async for item in _async_iter(chunks):
+                    yield item
+            else:
+                async for item in _async_iter(follow_up_chunks):
+                    yield item
+
+        tool_llm_mock = MagicMock()
+        tool_llm_mock.astream = mock_astream
+
+        workflow.agent.llm = MagicMock()
+        workflow.agent.llm.bind_tools = MagicMock(return_value=tool_llm_mock)
+        workflow.agent._get_ha_tools.return_value = [mock_tool]
+
+        t0 = _time.monotonic()
+        events = []
+        async for event in workflow.stream_conversation(state, "quick test"):
+            events.append(dict(event))
+        elapsed = _time.monotonic() - t0
+
+        # The whole stream should complete in well under 1 second.
+        # The old buggy code would stall ~0.5s per drain iteration.
+        assert elapsed < 1.0, (
+            f"Drain loop accumulated dead time: {elapsed:.2f}s "
+            f"(should be <1s for an instant tool)"
+        )
+
+        # Sanity: tool was invoked and result streamed
+        event_types = [e["type"] for e in events]
+        assert "tool_start" in event_types
+        assert "tool_end" in event_types
+        assert "token" in event_types
+
+
 class TestToolTimeout:
     """Tests that tool execution respects configured timeouts."""
 

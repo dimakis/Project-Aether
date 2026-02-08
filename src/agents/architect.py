@@ -1011,18 +1011,23 @@ class ArchitectWorkflow:
                                 if remaining <= 0:
                                     timed_out = True
                                     break
-                                try:
-                                    event = await asyncio.wait_for(
-                                        progress_queue.get(),
-                                        timeout=min(0.5, remaining),
-                                    )
+                                queue_get = asyncio.ensure_future(
+                                    progress_queue.get()
+                                )
+                                done_set, _ = await asyncio.wait(
+                                    {tool_task, queue_get},
+                                    timeout=min(0.5, remaining),
+                                    return_when=asyncio.FIRST_COMPLETED,
+                                )
+                                if queue_get in done_set:
+                                    event = queue_get.result()
                                     yield StreamEvent(
                                         type=event.type,
                                         agent=event.agent,
                                         content=event.message,
                                     )
-                                except asyncio.TimeoutError:
-                                    continue
+                                else:
+                                    queue_get.cancel()
 
                             if timed_out:
                                 tool_task.cancel()
