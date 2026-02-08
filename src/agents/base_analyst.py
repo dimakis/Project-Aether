@@ -39,7 +39,7 @@ from src.ha import HAClient, get_ha_client
 from src.llm import get_llm
 from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
-from src.storage.entities.insight import InsightStatus, InsightType
+from src.storage.entities.insight import InsightType
 
 logger = logging.getLogger(__name__)
 
@@ -274,16 +274,24 @@ class BaseAnalyst(BaseAgent, ABC):
 
         for finding in findings:
             # Map finding_type to InsightType
-            insight_type = self._map_finding_type(finding.finding_type)
+            mapped_type = self._map_finding_type(finding.finding_type)
+
+            # Derive impact from confidence
+            if finding.confidence >= 0.8:
+                impact = "high"
+            elif finding.confidence >= 0.5:
+                impact = "medium"
+            else:
+                impact = "low"
 
             insight = await repo.create(
                 title=finding.title,
                 description=finding.description,
-                insight_type=insight_type,
+                type=mapped_type,
                 confidence=finding.confidence,
-                entity_ids=finding.entities,
-                data=finding.evidence,
-                status=InsightStatus.PENDING,
+                entities=finding.entities,
+                evidence=finding.evidence or {},
+                impact=impact,
                 conversation_id=conversation_id,
                 task_label=task_label,
             )

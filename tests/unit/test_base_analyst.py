@@ -262,3 +262,96 @@ class TestBaseAnalystPersistInsights:
             await analyst.persist_findings(findings, mock_session)
 
         mock_repo.create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_persist_findings_uses_correct_repo_params(self):
+        """persist_findings must pass correct kwargs to InsightRepository.create().
+
+        This guards against the parameter mismatch bug:
+        - type (not insight_type)
+        - entities (not entity_ids)
+        - evidence (not data)
+        - impact (required, derived from confidence)
+        - status must NOT be passed (hardcoded in repository)
+        """
+        from src.storage.entities.insight import InsightType
+
+        analyst = StubAnalyst(ha_client=MagicMock())
+        findings = [
+            SpecialistFinding(
+                specialist="energy_analyst",
+                finding_type="concern",
+                title="Anomaly detected",
+                description="Unexpected spike in power",
+                confidence=0.9,
+                entities=["sensor.power_total"],
+                evidence={"peak_watts": 4500},
+            ),
+        ]
+        mock_session = MagicMock()
+        mock_repo = MagicMock()
+        mock_repo.create = AsyncMock(return_value=MagicMock(id="fake-id"))
+
+        with patch("src.agents.base_analyst.InsightRepository", return_value=mock_repo):
+            ids = await analyst.persist_findings(findings, mock_session)
+
+        assert ids == ["fake-id"]
+        mock_repo.create.assert_called_once()
+        kwargs = mock_repo.create.call_args.kwargs
+
+        # Correct parameter names (not insight_type, entity_ids, data)
+        assert "type" in kwargs, f"Expected 'type' kwarg, got: {list(kwargs.keys())}"
+        assert "entities" in kwargs, f"Expected 'entities', got: {list(kwargs.keys())}"
+        assert "evidence" in kwargs, f"Expected 'evidence', got: {list(kwargs.keys())}"
+        assert "impact" in kwargs, f"Expected 'impact', got: {list(kwargs.keys())}"
+
+        # Must NOT pass status (repository hardcodes it)
+        assert "status" not in kwargs, "status should not be passed to repo.create()"
+
+        # Old wrong names must not be present
+        assert "insight_type" not in kwargs
+        assert "entity_ids" not in kwargs
+        assert "data" not in kwargs
+
+        # Value checks
+        assert kwargs["type"] == InsightType.ANOMALY_DETECTION
+        assert kwargs["entities"] == ["sensor.power_total"]
+        assert kwargs["evidence"] == {"peak_watts": 4500}
+        assert kwargs["confidence"] == 0.9
+        assert kwargs["impact"] == "high"  # 0.9 >= 0.8 -> "high"
+
+    @pytest.mark.asyncio
+    async def test_persist_findings_impact_derivation(self):
+        """Impact should be derived from confidence: >=0.8 high, >=0.5 medium, else low."""
+        analyst = StubAnalyst(ha_client=MagicMock())
+        mock_session = MagicMock()
+
+        test_cases = [
+            (0.95, "high"),
+            (0.8, "high"),
+            (0.79, "medium"),
+            (0.5, "medium"),
+            (0.49, "low"),
+            (0.1, "low"),
+        ]
+
+        for confidence, expected_impact in test_cases:
+            mock_repo = MagicMock()
+            mock_repo.create = AsyncMock(return_value=MagicMock(id="id"))
+
+            finding = SpecialistFinding(
+                specialist="energy_analyst",
+                finding_type="insight",
+                title="Test",
+                description="Test",
+                confidence=confidence,
+            )
+
+            with patch("src.agents.base_analyst.InsightRepository", return_value=mock_repo):
+                await analyst.persist_findings([finding], mock_session)
+
+            kwargs = mock_repo.create.call_args.kwargs
+            assert kwargs["impact"] == expected_impact, (
+                f"confidence={confidence} should map to impact='{expected_impact}', "
+                f"got '{kwargs.get('impact')}'"
+            )
