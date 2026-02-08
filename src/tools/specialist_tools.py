@@ -26,7 +26,7 @@ from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.config_cache import is_agent_enabled
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
-from src.agents.execution_context import emit_progress
+from src.agents.execution_context import emit_delegation, emit_progress
 from src.agents.model_context import get_model_context, model_context
 from src.agents.synthesis import LLMSynthesizer, ProgrammaticSynthesizer, SynthesisStrategy
 from src.graph.state import AnalysisState, AnalysisType, TeamAnalysis
@@ -393,6 +393,10 @@ async def consult_data_science_team(
     hours = min(max(hours, 1), 168)
     effective_query = custom_query or query
 
+    # Emit delegation: architect -> DS team
+    emit_delegation("architect", "data_science_team", effective_query)
+    emit_progress("agent_start", "data_science_team", "Data Science Team started")
+
     # 1. Smart routing
     selected = _select_specialists(effective_query, specialists)
     logger.info(
@@ -417,6 +421,11 @@ async def consult_data_science_team(
         if runner:
             result = await runner(effective_query, hours, entity_ids)
             results.append(f"**{name.title()} Analyst:** {result}")
+            # Emit delegation: analyst -> DS team with findings summary
+            analyst_agent = f"{name}_analyst"
+            # Truncate to first 200 chars to avoid bloating SSE events
+            summary = result[:200] + ("..." if len(result) > 200 else "")
+            emit_delegation(analyst_agent, "data_science_team", summary)
 
     # 4. Auto-synthesise if 2+ specialists contributed findings
     global _current_team_analysis  # noqa: PLW0603
@@ -444,7 +453,14 @@ async def consult_data_science_team(
         for i, r in enumerate(ta.holistic_recommendations, 1):
             parts.append(f"{i}. {r}")
 
-    return "\n".join(parts)
+    report = "\n".join(parts)
+
+    # Emit delegation: DS team -> architect with the synthesized report
+    report_summary = report[:300] + ("..." if len(report) > 300 else "")
+    emit_delegation("data_science_team", "architect", report_summary)
+    emit_progress("agent_end", "data_science_team", "Data Science Team completed")
+
+    return report
 
 
 # ---------------------------------------------------------------------------

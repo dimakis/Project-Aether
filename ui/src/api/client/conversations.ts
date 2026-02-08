@@ -62,6 +62,16 @@ export type StreamChunk =
       type: "thinking";
       /** Thinking/reasoning content from the LLM */
       content: string;
+    }
+  | {
+      type: "delegation";
+      /** Sending agent */
+      from: string;
+      /** Receiving agent */
+      to: string;
+      /** Inter-agent message content */
+      content: string;
+      ts?: number;
     };
 
 export async function* streamChat(
@@ -154,6 +164,18 @@ export async function* streamChat(
           yield {
             type: "thinking",
             content: parsed.content ?? "",
+          };
+          continue;
+        }
+
+        // Handle delegation events (inter-agent messages)
+        if (parsed.type === "delegation") {
+          yield {
+            type: "delegation",
+            from: parsed.from ?? "",
+            to: parsed.to ?? "",
+            content: parsed.content ?? "",
+            ts: parsed.ts,
           };
           continue;
         }

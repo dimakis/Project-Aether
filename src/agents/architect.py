@@ -1025,6 +1025,7 @@ class ArchitectWorkflow:
                                         type=event.type,
                                         agent=event.agent,
                                         content=event.message,
+                                        **({"target": event.target} if event.target else {}),
                                     )
                                 else:
                                     queue_get.cancel()
@@ -1050,6 +1051,7 @@ class ArchitectWorkflow:
                                         type=event.type,
                                         agent=event.agent,
                                         content=event.message,
+                                        **({"target": event.target} if event.target else {}),
                                     )
 
                                 # Collect result (tool is already done)

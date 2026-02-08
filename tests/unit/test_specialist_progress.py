@@ -1,9 +1,10 @@
 """Unit tests for specialist runner phase-level progress emission.
 
 Tests that the _run_energy, _run_behavioral, _run_diagnostic runners
-emit status progress events via the execution context.
+emit status progress events via the execution context, and that
+consult_data_science_team emits delegation events.
 
-TDD: Specialist runners emit phase-level progress.
+TDD: Specialist runners emit phase-level progress + delegation events.
 """
 
 import asyncio
@@ -203,3 +204,76 @@ class TestSpecialistLifecycleEvents:
         status_events = [e for e in events if e.type == "status"]
         assert len(status_events) >= 1
         assert any("diagnostic" in e.message.lower() for e in status_events)
+
+
+class TestDelegationEvents:
+    """Tests that consult_data_science_team emits delegation events."""
+
+    @pytest.mark.asyncio
+    async def test_consult_emits_delegation_to_ds_team(self):
+        """consult_data_science_team should emit a delegation from architect to DS team."""
+        queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
+             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+            mock_instance = AsyncMock()
+            mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
+            MockAnalyst.return_value = mock_instance
+
+            from src.tools.specialist_tools import consult_data_science_team
+
+            async with execution_context(progress_queue=queue):
+                await consult_data_science_team.ainvoke(
+                    {"query": "test query", "hours": 24, "specialists": ["energy"]}
+                )
+
+        events = []
+        while not queue.empty():
+            events.append(queue.get_nowait())
+
+        delegation_events = [e for e in events if e.type == "delegation"]
+        assert len(delegation_events) >= 2, \
+            f"Expected at least 2 delegation events, got {len(delegation_events)}: {[(e.agent, e.target) for e in delegation_events]}"
+
+        # First delegation: architect -> data_science_team
+        first = delegation_events[0]
+        assert first.agent == "architect"
+        assert first.target == "data_science_team"
+
+        # Last delegation: data_science_team -> architect (report)
+        last = delegation_events[-1]
+        assert last.agent == "data_science_team"
+        assert last.target == "architect"
+
+    @pytest.mark.asyncio
+    async def test_consult_emits_analyst_conclusion_delegation(self):
+        """Each analyst's findings should be emitted as a delegation back to DS team."""
+        queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
+             patch("src.tools.specialist_tools.EnergyAnalyst") as MockEnergy, \
+             patch("src.tools.specialist_tools.BehavioralAnalyst") as MockBehavioral:
+            for MockAnalyst in [MockEnergy, MockBehavioral]:
+                mock_instance = AsyncMock()
+                mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
+                MockAnalyst.return_value = mock_instance
+
+            from src.tools.specialist_tools import consult_data_science_team
+
+            async with execution_context(progress_queue=queue):
+                await consult_data_science_team.ainvoke(
+                    {"query": "test query", "hours": 24, "specialists": ["energy", "behavioral"]}
+                )
+
+        events = []
+        while not queue.empty():
+            events.append(queue.get_nowait())
+
+        delegation_events = [e for e in events if e.type == "delegation"]
+        # architect -> ds_team, energy -> ds_team, behavioral -> ds_team, ds_team -> architect
+        analyst_delegations = [
+            e for e in delegation_events
+            if e.target == "data_science_team" and e.agent != "architect"
+        ]
+        assert len(analyst_delegations) >= 2, \
+            f"Expected analyst->ds_team delegations, got: {[(e.agent, e.target) for e in delegation_events]}"

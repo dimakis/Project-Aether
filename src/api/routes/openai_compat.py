@@ -535,6 +535,14 @@ async def _stream_chat_completion(
                                     if agent_stack and agent_stack[-1] == agent_name:
                                         agent_stack.pop()
 
+                            elif event_type == "delegation":
+                                # Inter-agent message capture
+                                if not is_background:
+                                    from_agent = event.get("agent", "")
+                                    to_agent = event.get("target", "")
+                                    content = event.get("content", "")
+                                    yield f"data: {json.dumps({'type': 'delegation', 'from': from_agent, 'to': to_agent, 'content': content, 'ts': time.time()})}\n\n"
+
                             elif event_type == "status":
                                 # Progress: status message from a sub-agent
                                 status_content = event.get("content", "")

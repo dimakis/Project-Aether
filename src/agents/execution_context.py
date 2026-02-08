@@ -36,16 +36,19 @@ class ProgressEvent:
 
     Attributes:
         type: Event kind — ``agent_start`` / ``agent_end`` for lifecycle,
-              ``status`` for free-form progress messages.
+              ``status`` for free-form progress messages,
+              ``delegation`` for inter-agent message capture.
         agent: The agent role identifier (e.g. ``"energy_analyst"``).
         message: Human-readable description of what is happening.
         ts: Unix timestamp (auto-populated from ``time.time()``).
+        target: For delegation events, the target agent (e.g. ``"data_science_team"``).
     """
 
-    type: Literal["agent_start", "agent_end", "status"]
+    type: Literal["agent_start", "agent_end", "status", "delegation"]
     agent: str
     message: str
     ts: float = field(default_factory=time.time)
+    target: str | None = None
 
 
 @dataclass
@@ -148,9 +151,11 @@ async def execution_context(
 
 
 def emit_progress(
-    type: Literal["agent_start", "agent_end", "status"],
+    type: Literal["agent_start", "agent_end", "status", "delegation"],
     agent: str,
     message: str,
+    *,
+    target: str | None = None,
 ) -> None:
     """Emit a progress event to the active execution context's queue.
 
@@ -158,15 +163,16 @@ def emit_progress(
     is active, or the context has no progress queue, this is a silent no-op.
 
     Args:
-        type: Event type (``agent_start``, ``agent_end``, or ``status``).
+        type: Event type (``agent_start``, ``agent_end``, ``status``, or ``delegation``).
         agent: Agent role identifier.
         message: Human-readable progress message.
+        target: For delegation events, the target agent.
     """
     ctx = _exec_ctx.get()
     if ctx is None or ctx.progress_queue is None:
         return
 
-    event = ProgressEvent(type=type, agent=agent, message=message)
+    event = ProgressEvent(type=type, agent=agent, message=message, target=target)
     try:
         ctx.progress_queue.put_nowait(event)
     except asyncio.QueueFull:
@@ -175,10 +181,24 @@ def emit_progress(
         )
 
 
+def emit_delegation(from_agent: str, to_agent: str, content: str) -> None:
+    """Emit a delegation event capturing an inter-agent message.
+
+    Convenience wrapper around :func:`emit_progress` for delegation events.
+
+    Args:
+        from_agent: Sending agent role identifier.
+        to_agent: Receiving agent role identifier.
+        content: The message content being delegated.
+    """
+    emit_progress("delegation", from_agent, content, target=to_agent)
+
+
 __all__ = [
     "ExecutionContext",
     "ProgressEvent",
     "clear_execution_context",
+    "emit_delegation",
     "emit_progress",
     "execution_context",
     "get_execution_context",

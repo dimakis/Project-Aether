@@ -29,6 +29,14 @@ export interface LiveTimelineEntry {
 
 // ─── Activity State (streaming indicator) ────────────────────────────────────
 
+/** A captured inter-agent delegation message. */
+export interface DelegationMessage {
+  from: string;
+  to: string;
+  content: string;
+  ts: number;
+}
+
 export interface AgentActivity {
   isActive: boolean;
   activeAgent: string | null;
@@ -44,6 +52,8 @@ export interface AgentActivity {
   thinkingStream: string;
   /** Edges [from, to] that were activated during the current workflow. */
   activeEdges: [string, string][];
+  /** Inter-agent delegation messages captured during the workflow. */
+  delegationMessages: DelegationMessage[];
 }
 
 const DEFAULT_ACTIVITY: AgentActivity = {
@@ -54,6 +64,7 @@ const DEFAULT_ACTIVITY: AgentActivity = {
   liveTimeline: [],
   thinkingStream: "",
   activeEdges: [],
+  delegationMessages: [],
 };
 
 let currentActivity: AgentActivity = DEFAULT_ACTIVITY;

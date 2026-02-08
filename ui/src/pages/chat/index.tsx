@@ -310,6 +310,22 @@ export function ChatPage() {
             scheduleFlush();
             continue;
           }
+          if (chunk.type === "delegation") {
+            // Capture inter-agent delegation messages in the activity store
+            const current = getActivitySnapshot();
+            setAgentActivity({
+              delegationMessages: [
+                ...current.delegationMessages,
+                {
+                  from: chunk.from,
+                  to: chunk.to,
+                  content: chunk.content,
+                  ts: chunk.ts ?? Date.now() / 1000,
+                },
+              ],
+            });
+            continue;
+          }
         }
         const text = typeof chunk === "string" ? chunk : "";
         fullContentRef.current += text;

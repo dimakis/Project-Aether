@@ -9,7 +9,7 @@ import {
   useActivityPanel,
   setActivityPanelOpen,
 } from "@/lib/agent-activity-store";
-import type { LiveTimelineEntry } from "@/lib/agent-activity-store";
+import type { LiveTimelineEntry, DelegationMessage } from "@/lib/agent-activity-store";
 import { useTraceSpans } from "@/api/hooks";
 
 // ─── Agent colours ───────────────────────────────────────────────────────────
@@ -198,15 +198,24 @@ function LastSessionCard({
 
 // ─── Live Feed ───────────────────────────────────────────────────────────────
 
-function LiveEventFeed({ entries }: { entries: LiveTimelineEntry[] }) {
+function LiveEventFeed({
+  entries,
+  delegationMessages = [],
+}: {
+  entries: LiveTimelineEntry[];
+  delegationMessages?: DelegationMessage[];
+}) {
   const feedRef = useRef<HTMLDivElement>(null);
+  const [expandedDelegation, setExpandedDelegation] = useState<number | null>(null);
+
+  const totalCount = entries.length + delegationMessages.length;
 
   useEffect(() => {
     const el = feedRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [entries.length]);
+  }, [totalCount]);
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && delegationMessages.length === 0) {
     return (
       <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground/50">
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -215,42 +224,101 @@ function LiveEventFeed({ entries }: { entries: LiveTimelineEntry[] }) {
     );
   }
 
+  // Merge timeline entries and delegation messages, sorted by timestamp
+  type FeedItem =
+    | { kind: "event"; entry: LiveTimelineEntry; ts: number }
+    | { kind: "delegation"; msg: DelegationMessage; idx: number; ts: number };
+
+  const items: FeedItem[] = [
+    ...entries.map((entry): FeedItem => ({ kind: "event", entry, ts: entry.ts })),
+    ...delegationMessages.map((msg, idx): FeedItem => ({ kind: "delegation", msg, idx, ts: msg.ts })),
+  ].sort((a, b) => a.ts - b.ts);
+
   return (
     <div ref={feedRef} className="max-h-48 space-y-0 overflow-y-auto">
-      {entries.map((entry, i) => {
-        const color = AGENT_COLORS[entry.agent] ?? "text-muted-foreground";
-        const icon = EVENT_ICONS[entry.event] ?? "\u2022";
-        const label = EVENT_LABELS[entry.event] ?? entry.event;
+      {items.map((item, i) => {
+        if (item.kind === "event") {
+          const entry = item.entry;
+          const color = AGENT_COLORS[entry.agent] ?? "text-muted-foreground";
+          const icon = EVENT_ICONS[entry.event] ?? "\u2022";
+          const label = EVENT_LABELS[entry.event] ?? entry.event;
+
+          return (
+            <motion.div
+              key={`ev-${entry.ts}-${entry.event}-${i}`}
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-start gap-2 py-1"
+            >
+              <span className="shrink-0 w-[52px] text-right text-[10px] tabular-nums text-muted-foreground/40">
+                {formatTime(entry.ts)}
+              </span>
+              <div className="relative flex flex-col items-center">
+                <span className="text-[9px]">{icon}</span>
+                {i < items.length - 1 && (
+                  <div className="absolute top-4 h-full w-px bg-border/30" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] leading-tight">
+                  <span className={cn("font-medium", color)}>
+                    {friendlyAgent(entry.agent)}
+                  </span>
+                  <span className="text-muted-foreground/60"> {label}</span>
+                </p>
+                {entry.tool && (
+                  <p className="truncate text-[10px] text-muted-foreground/50">
+                    {entry.tool}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          );
+        }
+
+        // Delegation message
+        const { msg, idx } = item;
+        const fromColor = AGENT_COLORS[msg.from] ?? "text-muted-foreground";
+        const toColor = AGENT_COLORS[msg.to] ?? "text-muted-foreground";
+        const isExpanded = expandedDelegation === idx;
+        const preview = msg.content.length > 80 ? msg.content.slice(0, 80) + "..." : msg.content;
 
         return (
           <motion.div
-            key={`${entry.ts}-${entry.event}-${i}`}
+            key={`del-${msg.ts}-${idx}`}
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.15 }}
             className="flex items-start gap-2 py-1"
           >
             <span className="shrink-0 w-[52px] text-right text-[10px] tabular-nums text-muted-foreground/40">
-              {formatTime(entry.ts)}
+              {formatTime(msg.ts)}
             </span>
             <div className="relative flex flex-col items-center">
-              <span className="text-[9px]">{icon}</span>
-              {i < entries.length - 1 && (
+              <span className="text-[9px]">{"\u2709"}</span>
+              {i < items.length - 1 && (
                 <div className="absolute top-4 h-full w-px bg-border/30" />
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] leading-tight">
-                <span className={cn("font-medium", color)}>
-                  {friendlyAgent(entry.agent)}
-                </span>
-                <span className="text-muted-foreground/60"> {label}</span>
-              </p>
-              {entry.tool && (
-                <p className="truncate text-[10px] text-muted-foreground/50">
-                  {entry.tool}
+              <button
+                onClick={() => setExpandedDelegation(isExpanded ? null : idx)}
+                className="w-full text-left"
+              >
+                <p className="text-[11px] leading-tight">
+                  <span className={cn("font-medium", fromColor)}>
+                    {friendlyAgent(msg.from)}
+                  </span>
+                  <span className="text-muted-foreground/60"> {"\u2192"} </span>
+                  <span className={cn("font-medium", toColor)}>
+                    {friendlyAgent(msg.to)}
+                  </span>
                 </p>
-              )}
+                <p className="text-[10px] text-muted-foreground/50">
+                  {isExpanded ? msg.content : preview}
+                </p>
+              </button>
             </div>
           </motion.div>
         );
@@ -372,7 +440,10 @@ export function AgentActivityPanel() {
                     </span>
                   )}
                 </p>
-                <LiveEventFeed entries={activity.liveTimeline} />
+                <LiveEventFeed
+                  entries={activity.liveTimeline}
+                  delegationMessages={activity.delegationMessages}
+                />
               </div>
             )}
 
