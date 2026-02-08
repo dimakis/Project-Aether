@@ -42,7 +42,7 @@ const AGENT_NODES: AgentNodeDef[] = [
     bgColor: "bg-blue-400/10",
     borderColor: "border-blue-400/30",
     group: "orchestration",
-    description: "Primary orchestrator. Delegates to specialists and coordinates workflows.",
+    description: "Primary orchestrator. Delegates analysis to DS team via a single tool call.",
   },
   {
     id: "energy_analyst",
@@ -118,14 +118,15 @@ interface EdgeDef {
 }
 
 const EDGES: EdgeDef[] = [
-  // Architect delegates to everyone
-  { from: "architect", to: "energy_analyst", type: "delegation" },
-  { from: "architect", to: "behavioral_analyst", type: "delegation" },
-  { from: "architect", to: "diagnostic_analyst", type: "delegation" },
+  // Architect delegates to DS team via consult_data_science_team (single tool)
+  { from: "architect", to: "energy_analyst", type: "delegation", label: "via DS team" },
+  { from: "architect", to: "behavioral_analyst", type: "delegation", label: "via DS team" },
+  { from: "architect", to: "diagnostic_analyst", type: "delegation", label: "via DS team" },
+  // Architect delegates to other agents directly
   { from: "architect", to: "developer", type: "delegation" },
   { from: "architect", to: "dashboard_designer", type: "delegation" },
   { from: "architect", to: "librarian", type: "delegation" },
-  // DS team cross-consultation
+  // DS team cross-consultation (shared TeamAnalysis)
   { from: "energy_analyst", to: "behavioral_analyst", type: "consultation" },
   { from: "energy_analyst", to: "diagnostic_analyst", type: "consultation" },
   { from: "behavioral_analyst", to: "diagnostic_analyst", type: "consultation" },
@@ -451,7 +452,7 @@ export function TeamArchitectureTab({
           {/* Delegation flow indicators between groups */}
           <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground/40">
             <ArrowDown className="h-3 w-3" />
-            <span>Architect delegates tasks to all specialist groups</span>
+            <span>Architect delegates to DS team via consult_data_science_team</span>
           </div>
         </div>
 
