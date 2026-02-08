@@ -74,11 +74,51 @@ export function generateSessionId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Auto-title from first user message, truncated to ~40 chars */
+/**
+ * Generate a concise, meaningful title from the first user message.
+ *
+ * Instead of raw truncation, this:
+ *  1. Uses only the first line (for multi-line messages)
+ *  2. Strips conversational filler ("Can you", "I want to", "Please help me", …)
+ *  3. Capitalises the first letter
+ *  4. Removes trailing punctuation for a clean sidebar label
+ *  5. Truncates at the last word boundary within 60 chars
+ */
 export function autoTitle(messages: DisplayMessage[]): string {
   const firstUser = messages.find((m) => m.role === "user");
   if (!firstUser) return "New Chat";
-  const text = firstUser.content.trim();
-  if (text.length <= 40) return text;
-  return text.slice(0, 40).trimEnd() + "...";
+
+  // Use only the first non-empty line
+  let text = firstUser.content.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+  if (!text) return "New Chat";
+
+  // Strip leading filler phrases (case-insensitive)
+  const fillerPatterns = [
+    /^(hey\s+)?(can you|could you|would you)\s+(please\s+)?(help\s+me\s+)?(to\s+)?/i,
+    /^(i('d| would) like to|i want to|i need to|let('s| us))\s+/i,
+    /^(please\s+)?(help\s+me\s+)?(to\s+)?/i,
+  ];
+  for (const pattern of fillerPatterns) {
+    const stripped = text.replace(pattern, "");
+    if (stripped.length > 0 && stripped.length < text.length) {
+      text = stripped;
+      break; // apply only the first matching pattern
+    }
+  }
+
+  // Remove trailing punctuation
+  text = text.replace(/[?!.,;:]+$/, "");
+
+  // Capitalise first letter
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+
+  // Truncate at word boundary within limit
+  const MAX_LEN = 60;
+  if (text.length > MAX_LEN) {
+    const cut = text.lastIndexOf(" ", MAX_LEN);
+    text = cut > 20 ? text.slice(0, cut) : text.slice(0, MAX_LEN);
+    text = text.replace(/[,;:\s]+$/, ""); // clean trailing junk after cut
+  }
+
+  return text || "New Chat";
 }
