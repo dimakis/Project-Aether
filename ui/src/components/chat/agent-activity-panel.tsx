@@ -78,13 +78,16 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
   const [expanded, setExpanded] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom on every content change while streaming
   useEffect(() => {
-    if (!expanded && boxRef.current) {
+    if (boxRef.current) {
       boxRef.current.scrollTop = boxRef.current.scrollHeight;
     }
-  }, [content, expanded]);
+  }, [content]);
 
   if (!content && !isActive) return null;
+
+  const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0;
 
   return (
     <div className="rounded-lg border border-border/40 bg-muted/20">
@@ -101,6 +104,11 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
         <span className="font-medium text-muted-foreground">
           {isActive ? "Reasoning..." : "Thought process"}
         </span>
+        {wordCount > 0 && (
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground/50">
+            {wordCount}w
+          </span>
+        )}
         <motion.span
           animate={{ rotate: expanded ? 180 : 0 }}
           transition={{ duration: 0.15 }}
@@ -123,13 +131,13 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
               ref={boxRef}
               className={cn(
                 "overflow-auto border-t border-border/20 px-3 py-2",
-                expanded ? "max-h-80" : "max-h-[4.5rem]",
+                expanded ? "max-h-80" : "max-h-20",
               )}
             >
               <pre
                 className={cn(
                   "whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-muted-foreground/70",
-                  !expanded && "line-clamp-4",
+                  !expanded && "line-clamp-5",
                 )}
               >
                 {content}
