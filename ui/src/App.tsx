@@ -1,24 +1,80 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { AppLayout } from "@/layouts/app-layout";
-import { LoginPage } from "@/pages/login";
-import { DashboardPage } from "@/pages/dashboard";
-import { ChatPage } from "@/pages/chat";
-import { ProposalsPage } from "@/pages/proposals";
-import { InsightsPage } from "@/pages/insights";
-import { EntitiesPage } from "@/pages/entities";
-import { RegistryPage } from "@/pages/registry";
-import { DiagnosticsPage } from "@/pages/diagnostics";
-import { SchedulesPage } from "@/pages/schedules";
-import { UsagePage } from "@/pages/usage";
-import { AgentsPage } from "@/pages/agents";
-import { ArchitecturePage } from "@/pages/architecture";
-import { ModelRegistryPage } from "@/pages/model-registry";
-import { WebhooksPage } from "@/pages/webhooks";
-import { ZonesPage } from "@/pages/settings/zones";
 import { Loader2 } from "lucide-react";
+
+// ── Lazy-loaded page components ─────────────────────────────────────────────
+// Each page is loaded on demand; the browser only fetches the chunk when the
+// user navigates to the route.  Named-export pages are wrapped with
+// .then(m => ({ default: m.X })) to satisfy React.lazy's default-export
+// requirement.
+
+const LoginPage = lazy(() =>
+  import("@/pages/login").then((m) => ({ default: m.LoginPage })),
+);
+const DashboardPage = lazy(() =>
+  import("@/pages/dashboard").then((m) => ({ default: m.DashboardPage })),
+);
+const ChatPage = lazy(() => import("@/pages/chat"));
+const ProposalsPage = lazy(() => import("@/pages/proposals"));
+const InsightsPage = lazy(() => import("@/pages/insights"));
+const EntitiesPage = lazy(() =>
+  import("@/pages/entities").then((m) => ({ default: m.EntitiesPage })),
+);
+const RegistryPage = lazy(() => import("@/pages/registry"));
+const DiagnosticsPage = lazy(() =>
+  import("@/pages/diagnostics").then((m) => ({ default: m.DiagnosticsPage })),
+);
+const SchedulesPage = lazy(() =>
+  import("@/pages/schedules").then((m) => ({ default: m.SchedulesPage })),
+);
+const UsagePage = lazy(() =>
+  import("@/pages/usage").then((m) => ({ default: m.UsagePage })),
+);
+const AgentsPage = lazy(() =>
+  import("@/pages/agents").then((m) => ({ default: m.AgentsPage })),
+);
+const ArchitecturePage = lazy(() =>
+  import("@/pages/architecture").then((m) => ({ default: m.ArchitecturePage })),
+);
+const ModelRegistryPage = lazy(() =>
+  import("@/pages/model-registry").then((m) => ({ default: m.ModelRegistryPage })),
+);
+const WebhooksPage = lazy(() =>
+  import("@/pages/webhooks").then((m) => ({ default: m.WebhooksPage })),
+);
+const ZonesPage = lazy(() =>
+  import("@/pages/settings/zones").then((m) => ({ default: m.ZonesPage })),
+);
+
+// ── Shared loading fallback ────────────────────────────────────────────────
+
+function PageLoader() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+// ── Route-level error boundary ─────────────────────────────────────────────
+// Wraps each lazy route so a crash in one page doesn't take down the whole
+// app.  The user can navigate away or retry without a full reload.
+
+function RouteShell() {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+// ── Query client ───────────────────────────────────────────────────────────
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +85,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// ── Auth guard ─────────────────────────────────────────────────────────────
 
 /** Route guard — redirects to /login when unauthenticated. */
 function RequireAuth() {
@@ -45,6 +103,8 @@ function RequireAuth() {
   return authenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
+// ── Application root ──────────────────────────────────────────────────────
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -53,25 +113,34 @@ export default function App() {
           <BrowserRouter>
             <Routes>
               {/* Public route */}
-              <Route path="login" element={<LoginPage />} />
+              <Route
+                path="login"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <LoginPage />
+                  </Suspense>
+                }
+              />
 
               {/* Protected routes */}
               <Route element={<RequireAuth />}>
                 <Route element={<AppLayout />}>
-                  <Route index element={<DashboardPage />} />
-                  <Route path="chat" element={<ChatPage />} />
-                  <Route path="proposals" element={<ProposalsPage />} />
-                  <Route path="insights" element={<InsightsPage />} />
-                  <Route path="entities" element={<EntitiesPage />} />
-                  <Route path="registry" element={<RegistryPage />} />
-              <Route path="schedules" element={<SchedulesPage />} />
-              <Route path="usage" element={<UsagePage />} />
-              <Route path="diagnostics" element={<DiagnosticsPage />} />
-              <Route path="agents" element={<AgentsPage />} />
-              <Route path="architecture" element={<ArchitecturePage />} />
-              <Route path="agents/registry" element={<ModelRegistryPage />} />
-              <Route path="webhooks" element={<WebhooksPage />} />
-              <Route path="settings/zones" element={<ZonesPage />} />
+                  <Route element={<RouteShell />}>
+                    <Route index element={<DashboardPage />} />
+                    <Route path="chat" element={<ChatPage />} />
+                    <Route path="proposals" element={<ProposalsPage />} />
+                    <Route path="insights" element={<InsightsPage />} />
+                    <Route path="entities" element={<EntitiesPage />} />
+                    <Route path="registry" element={<RegistryPage />} />
+                    <Route path="schedules" element={<SchedulesPage />} />
+                    <Route path="usage" element={<UsagePage />} />
+                    <Route path="diagnostics" element={<DiagnosticsPage />} />
+                    <Route path="agents" element={<AgentsPage />} />
+                    <Route path="architecture" element={<ArchitecturePage />} />
+                    <Route path="agents/registry" element={<ModelRegistryPage />} />
+                    <Route path="webhooks" element={<WebhooksPage />} />
+                    <Route path="settings/zones" element={<ZonesPage />} />
+                  </Route>
                 </Route>
               </Route>
             </Routes>
