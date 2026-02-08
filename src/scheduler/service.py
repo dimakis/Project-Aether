@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 try:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
 
     _APSCHEDULER_AVAILABLE = True
 except ImportError:
     _APSCHEDULER_AVAILABLE = False
     AsyncIOScheduler = None  # type: ignore[assignment, misc]
     CronTrigger = None  # type: ignore[assignment, misc]
+    IntervalTrigger = None  # type: ignore[assignment, misc]
     logger.warning("APScheduler not installed — scheduled insights disabled. Install with: pip install apscheduler")
 
 class SchedulerService:
@@ -86,8 +88,12 @@ class SchedulerService:
         self._running = True
         SchedulerService._instance = self
 
-        # Sync jobs from DB
+        # Sync insight schedule jobs from DB
         await self.sync_jobs()
+
+        # Schedule periodic discovery sync
+        self._schedule_discovery_sync(settings)
+
         logger.info("Scheduler started")
 
     async def stop(self) -> None:
@@ -97,6 +103,34 @@ class SchedulerService:
             self._running = False
             SchedulerService._instance = None
             logger.info("Scheduler stopped")
+
+    def _schedule_discovery_sync(self, settings: object) -> None:
+        """Register a periodic delta sync job if enabled.
+
+        Uses an IntervalTrigger so the first run happens after one interval,
+        and subsequent runs repeat at the configured frequency.
+        """
+        if self._scheduler is None or IntervalTrigger is None:
+            return
+
+        if not getattr(settings, "discovery_sync_enabled", False):
+            logger.info("Discovery periodic sync disabled via settings")
+            return
+
+        interval = getattr(settings, "discovery_sync_interval_minutes", 30)
+
+        self._scheduler.add_job(
+            _execute_discovery_sync,
+            trigger=IntervalTrigger(minutes=interval),
+            id="discovery:periodic_sync",
+            replace_existing=True,
+            name="discovery:periodic_delta_sync",
+            misfire_grace_time=300,
+        )
+        logger.info(
+            "Discovery periodic sync scheduled every %d minutes",
+            interval,
+        )
 
     async def sync_jobs(self) -> None:
         """Sync APScheduler jobs with the insight_schedules DB table.
@@ -217,3 +251,34 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
             )
 
         await session.commit()
+
+
+async def _execute_discovery_sync() -> None:
+    """Execute a periodic delta discovery sync.
+
+    Called by APScheduler at the configured interval.
+    Runs run_delta_sync which only upserts changed entities.
+    """
+    from src.dal.sync import DiscoverySyncService
+    from src.ha import get_ha_client
+    from src.storage import get_session
+
+    logger.info("Starting periodic discovery delta sync")
+
+    try:
+        async with get_session() as session:
+            ha_client = get_ha_client()
+            service = DiscoverySyncService(session, ha_client)
+            stats = await service.run_delta_sync()
+
+        logger.info(
+            "Periodic discovery sync complete: added=%s, updated=%s, "
+            "skipped=%s, removed=%s, duration=%.1fs",
+            stats.get("added", 0),
+            stats.get("updated", 0),
+            stats.get("skipped", 0),
+            stats.get("removed", 0),
+            stats.get("duration_seconds", 0),
+        )
+    except Exception as e:
+        logger.exception("Periodic discovery sync failed: %s", e)
