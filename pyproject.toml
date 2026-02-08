@@ -20,40 +20,40 @@ classifiers = [
 
 dependencies = [
     # LangGraph for agent orchestration (Constitution: State)
-    "langgraph>=0.2.0",
-    "langchain-core>=0.3.0",
-    "langchain-openai>=0.2.0",
+    "langgraph>=0.2.0,<2.0.0",
+    "langchain-core>=0.3.0,<2.0.0",
+    "langchain-openai>=0.2.0,<2.0.0",
     # OpenAI for LLM (Research Decision #6)
-    "openai>=1.50.0",
+    "openai>=1.50.0,<3.0.0",
     # FastAPI for HTTP API (Research Decision #8)
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "websockets>=13.0",
+    "fastapi>=0.115.0,<1.0.0",
+    "uvicorn[standard]>=0.32.0,<1.0.0",
+    "websockets>=13.0,<15.0",
     # Database (Research Decision #5: PostgreSQL)
-    "sqlalchemy[asyncio]>=2.0.0",
-    "asyncpg>=0.30.0",
-    "alembic>=1.14.0",
+    "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
+    "asyncpg>=0.30.0,<1.0.0",
+    "alembic>=1.14.0,<2.0.0",
     # MLflow for observability (Constitution: Observability)
-    "mlflow>=2.18.0",
+    "mlflow>=2.18.0,<3.0.0",
     # Pydantic for validation
-    "pydantic>=2.10.0",
-    "pydantic-settings>=2.6.0",
+    "pydantic>=2.10.0,<3.0.0",
+    "pydantic-settings>=2.6.0,<3.0.0",
     # CLI
-    "typer>=0.14.0",
-    "rich>=13.9.0",
+    "typer>=0.14.0,<1.0.0",
+    "rich>=13.9.0,<15.0.0",
     # Scheduling (Feature 10: Scheduled & Event-Driven Insights)
-    "apscheduler>=3.10.0",
+    "apscheduler>=3.10.0,<4.0.0",
     # Utilities
-    "httpx>=0.28.0",
-    "python-dotenv>=1.0.0",
-    "structlog>=24.4.0",
-    "langchain-google-genai>=4.2.0",
-    "slowapi>=0.1.9",
-    "pyjwt",
-    "bcrypt",
-    "webauthn>=2.7.0",
-    "cryptography>=46.0.4",
-    "google-auth>=2.28.0",
+    "httpx>=0.28.0,<1.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+    "structlog>=24.4.0,<26.0.0",
+    "langchain-google-genai>=4.2.0,<5.0.0",
+    "slowapi>=0.1.9,<1.0.0",
+    "pyjwt>=2.0.0,<3.0.0",
+    "bcrypt>=4.0.0,<5.0.0",
+    "webauthn>=2.7.0,<3.0.0",
+    "cryptography>=46.0.4,<48.0.0",
+    "google-auth>=2.28.0,<3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -72,6 +72,9 @@ dev = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",
     "pre-commit>=4.0.0",
+    
+    # Security scanning (used by CI)
+    "bandit>=1.7.0,<2.0.0",
     
     # Type stubs
     "types-python-dateutil>=2.9.0",
