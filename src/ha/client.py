@@ -37,7 +37,8 @@ class HAClient(BaseHAClient, EntityMixin, AutomationMixin, DiagnosticMixin):
     All public methods are traced via MLflow for observability.
 
     Usage:
-        client = HAClient()
+        client = get_ha_client()  # default zone
+        client = get_ha_client(zone_id="...")  # specific zone
         overview = await client.system_overview()
         entities = await client.list_entities(domain="light")
     """
@@ -45,37 +46,104 @@ class HAClient(BaseHAClient, EntityMixin, AutomationMixin, DiagnosticMixin):
     pass
 
 
-# Singleton client (thread-safe via double-checked locking, T186)
-_client: HAClient | None = None
+# ─── Multi-zone client cache ─────────────────────────────────────────────────
+
+# Key: zone_id (or "__default__" for the legacy/env-var fallback)
+_clients: dict[str, HAClient] = {}
 _client_lock = __import__("threading").Lock()
+_DEFAULT_KEY = "__default__"
 
 
-def get_ha_client() -> HAClient:
-    """Get or create the HA client singleton.
+def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
+    """Try to resolve HA config from a specific zone in the DB.
 
-    Thread-safe: Uses double-checked locking to prevent concurrent
-    client creation in multi-threaded environments.
+    Returns HAClientConfig if found, None otherwise.
+    Runs synchronously (for singleton init outside async context).
+    """
+    import asyncio
+    import structlog
+
+    logger = structlog.get_logger(__name__)
+    try:
+        from src.api.auth import _get_jwt_secret
+        from src.dal.ha_zones import HAZoneRepository
+        from src.storage import get_session
+        from src.settings import get_settings
+
+        settings = get_settings()
+        jwt_secret = _get_jwt_secret(settings)
+
+        async def _fetch():
+            async with get_session() as session:
+                repo = HAZoneRepository(session)
+                if zone_id == _DEFAULT_KEY:
+                    zone = await repo.get_default()
+                else:
+                    zone = await repo.get_by_id(zone_id)
+                if not zone:
+                    return None
+                conn = await repo.get_connection(zone.id, jwt_secret)
+                if not conn:
+                    return None
+                ha_url, ha_url_remote, ha_token = conn
+                return HAClientConfig(
+                    ha_url=ha_url,
+                    ha_url_remote=ha_url_remote,
+                    ha_token=ha_token,
+                )
+
+        try:
+            asyncio.get_running_loop()
+            # Inside async context — can't use asyncio.run()
+            return None
+        except RuntimeError:
+            return asyncio.run(_fetch())
+    except Exception as exc:
+        logger.debug("zone_config_resolution_failed", zone_id=zone_id, reason=str(exc))
+        return None
+
+
+def get_ha_client(zone_id: str | None = None) -> HAClient:
+    """Get or create an HA client for a specific zone.
+
+    If zone_id is None, returns the default zone's client.
+    Falls back to environment variables if zone DB lookup fails.
+
+    Thread-safe: Uses double-checked locking per zone.
+
+    Args:
+        zone_id: UUID of the zone, or None for the default.
 
     Returns:
-        HAClient instance
+        HAClient instance for the specified zone.
     """
-    global _client  # noqa: PLW0603
-    if _client is None:
+    key = zone_id or _DEFAULT_KEY
+    if key not in _clients:
         with _client_lock:
-            if _client is None:
-                _client = HAClient()
-    return _client
+            if key not in _clients:
+                # Try zone-specific config from DB first
+                config = _resolve_zone_config(key)
+                if config:
+                    _clients[key] = HAClient(config=config)
+                else:
+                    # Fallback: resolve from env vars / system_config
+                    _clients[key] = HAClient()
+    return _clients[key]
 
 
-def reset_ha_client() -> None:
-    """Reset the HA client singleton.
+def reset_ha_client(zone_id: str | None = None) -> None:
+    """Reset HA client(s).
 
-    Called after first-time setup stores HA config in DB, so the
-    HA client re-initializes with the new connection details on
-    next access.
+    If zone_id is provided, resets only that zone's client.
+    If None, resets ALL cached clients (e.g. after setup).
 
-    Thread-safe: Acquires lock before modifying singleton.
+    Thread-safe: Acquires lock before modifying cache.
+
+    Args:
+        zone_id: UUID of a specific zone to reset, or None for all.
     """
-    global _client  # noqa: PLW0603
     with _client_lock:
-        _client = None
+        if zone_id is not None:
+            _clients.pop(zone_id, None)
+        else:
+            _clients.clear()
