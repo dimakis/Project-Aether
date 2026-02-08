@@ -6,6 +6,9 @@ Provides CRUD operations for managing agents and their versioned
 configurations (LLM settings and prompt templates).
 """
 
+from __future__ import annotations
+
+import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -15,6 +18,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.storage.entities.agent import Agent, AgentStatus, VALID_AGENT_STATUS_TRANSITIONS
 from src.storage.entities.agent_config_version import AgentConfigVersion, VersionStatus
 from src.storage.entities.agent_prompt_version import AgentPromptVersion
+
+# ─── Semver helpers ───────────────────────────────────────────────────────────
+
+_SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+
+def bump_semver(current: str | None, bump_type: str = "patch") -> str:
+    """Bump a semver string by the specified type.
+
+    Args:
+        current: Current version (e.g. '1.2.3') or None for initial
+        bump_type: 'major', 'minor', or 'patch'
+
+    Returns:
+        Bumped version string
+    """
+    if current is None:
+        return "0.1.0"
+
+    m = _SEMVER_RE.match(current)
+    if not m:
+        return "0.1.0"
+
+    major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+    if bump_type == "major":
+        return f"{major + 1}.0.0"
+    elif bump_type == "minor":
+        return f"{major}.{minor + 1}.0"
+    else:
+        return f"{major}.{minor}.{patch + 1}"
 
 
 class AgentRepository:
@@ -194,6 +228,19 @@ class AgentConfigVersionRepository:
         max_version = result.scalar()
         return (max_version or 0) + 1
 
+    async def _latest_semver(self, agent_id: str) -> str | None:
+        """Get the latest semver string for an agent's config versions."""
+        result = await self.session.execute(
+            select(AgentConfigVersion.version)
+            .where(
+                AgentConfigVersion.agent_id == agent_id,
+                AgentConfigVersion.version.isnot(None),
+            )
+            .order_by(AgentConfigVersion.version_number.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def create_draft(
         self,
         agent_id: str,
@@ -202,6 +249,7 @@ class AgentConfigVersionRepository:
         fallback_model: str | None = None,
         tools_enabled: list[str] | None = None,
         change_summary: str | None = None,
+        bump_type: str = "patch",
     ) -> AgentConfigVersion:
         """Create a new draft config version.
 
@@ -214,6 +262,7 @@ class AgentConfigVersionRepository:
             fallback_model: Fallback model name
             tools_enabled: List of tool names
             change_summary: Description of changes
+            bump_type: Semver bump type: 'major', 'minor', or 'patch'
 
         Returns:
             New draft config version
@@ -229,11 +278,14 @@ class AgentConfigVersionRepository:
             )
 
         version_number = await self._next_version_number(agent_id)
+        latest_sv = await self._latest_semver(agent_id)
+        semver = bump_semver(latest_sv, bump_type)
 
         version = AgentConfigVersion(
             id=str(uuid4()),
             agent_id=agent_id,
             version_number=version_number,
+            version=semver,
             status=VersionStatus.DRAFT.value,
             model_name=model_name,
             temperature=temperature,
@@ -460,11 +512,25 @@ class AgentPromptVersionRepository:
         max_version = result.scalar()
         return (max_version or 0) + 1
 
+    async def _latest_semver(self, agent_id: str) -> str | None:
+        """Get the latest semver string for an agent's prompt versions."""
+        result = await self.session.execute(
+            select(AgentPromptVersion.version)
+            .where(
+                AgentPromptVersion.agent_id == agent_id,
+                AgentPromptVersion.version.isnot(None),
+            )
+            .order_by(AgentPromptVersion.version_number.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def create_draft(
         self,
         agent_id: str,
         prompt_template: str,
         change_summary: str | None = None,
+        bump_type: str = "patch",
     ) -> AgentPromptVersion:
         """Create a new draft prompt version.
 
@@ -472,6 +538,7 @@ class AgentPromptVersionRepository:
             agent_id: Parent agent ID
             prompt_template: System prompt text
             change_summary: Description of changes
+            bump_type: Semver bump type: 'major', 'minor', or 'patch'
 
         Returns:
             New draft prompt version
@@ -487,11 +554,14 @@ class AgentPromptVersionRepository:
             )
 
         version_number = await self._next_version_number(agent_id)
+        latest_sv = await self._latest_semver(agent_id)
+        semver = bump_semver(latest_sv, bump_type)
 
         version = AgentPromptVersion(
             id=str(uuid4()),
             agent_id=agent_id,
             version_number=version_number,
+            version=semver,
             status=VersionStatus.DRAFT.value,
             prompt_template=prompt_template,
             change_summary=change_summary,

@@ -103,6 +103,17 @@ export const agents = {
       { method: "DELETE" },
     ),
 
+  // Promote both config and prompt drafts in one operation
+  promoteBoth: (name: string) =>
+    request<{
+      config: import("@/lib/types").ConfigVersion | null;
+      prompt: import("@/lib/types").PromptVersion | null;
+      message: string;
+    }>(
+      `/agents/${name}/promote-all`,
+      { method: "POST" },
+    ),
+
   // Prompt generation
   generatePrompt: (name: string, userInput?: string) =>
     request<{ generated_prompt: string; agent_name: string; agent_role: string }>(

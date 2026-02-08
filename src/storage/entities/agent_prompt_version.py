@@ -52,6 +52,11 @@ class AgentPromptVersion(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         doc="Auto-incrementing version number per agent",
     )
+    version: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        doc="Semantic version string (e.g. '1.2.0'). Computed from bump_type.",
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
@@ -97,6 +102,7 @@ class AgentPromptVersion(Base, UUIDMixin, TimestampMixin):
         version_number: int,
         prompt_template: str,
         *,
+        version: str | None = None,
         change_summary: str | None = None,
         status: str = VersionStatus.DRAFT.value,
     ) -> "AgentPromptVersion":
@@ -106,6 +112,7 @@ class AgentPromptVersion(Base, UUIDMixin, TimestampMixin):
             agent_id: Parent agent ID
             version_number: Version number for this agent
             prompt_template: System prompt text
+            version: Semantic version string (e.g. '1.2.0')
             change_summary: Description of the change
             status: Initial status (default: draft)
 
@@ -115,6 +122,7 @@ class AgentPromptVersion(Base, UUIDMixin, TimestampMixin):
         return cls(
             agent_id=agent_id,
             version_number=version_number,
+            version=version,
             status=status,
             prompt_template=prompt_template,
             change_summary=change_summary,

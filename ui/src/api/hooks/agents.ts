@@ -182,6 +182,18 @@ export function useDeletePromptVersion() {
   });
 }
 
+export function usePromoteBoth() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => agents.promoteBoth(name),
+    onSuccess: (_data, name) => {
+      qc.invalidateQueries({ queryKey: ["agents", name] });
+      qc.invalidateQueries({ queryKey: ["agents", name, "config", "versions"] });
+      qc.invalidateQueries({ queryKey: ["agents", name, "prompt", "versions"] });
+    },
+  });
+}
+
 export function useGeneratePrompt() {
   return useMutation({
     mutationFn: ({ name, userInput }: { name: string; userInput?: string }) =>

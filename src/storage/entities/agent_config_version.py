@@ -65,6 +65,11 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         doc="Auto-incrementing version number per agent",
     )
+    version: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        doc="Semantic version string (e.g. '1.2.0'). Computed from bump_type.",
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
@@ -124,6 +129,7 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
         agent_id: str,
         version_number: int,
         *,
+        version: str | None = None,
         model_name: str | None = None,
         temperature: float | None = None,
         fallback_model: str | None = None,
@@ -136,6 +142,7 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
         Args:
             agent_id: Parent agent ID
             version_number: Version number for this agent
+            version: Semantic version string (e.g. '1.2.0')
             model_name: LLM model identifier
             temperature: Generation temperature
             fallback_model: Fallback model name
@@ -149,6 +156,7 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
         return cls(
             agent_id=agent_id,
             version_number=version_number,
+            version=version,
             status=status,
             model_name=model_name,
             temperature=temperature,

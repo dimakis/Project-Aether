@@ -399,6 +399,7 @@ export interface ConfigVersion {
   id: string;
   agent_id: string;
   version_number: number;
+  version: string | null;
   status: VersionStatusValue;
   model_name: string | null;
   temperature: number | null;
@@ -414,6 +415,7 @@ export interface PromptVersion {
   id: string;
   agent_id: string;
   version_number: number;
+  version: string | null;
   status: VersionStatusValue;
   prompt_template: string;
   change_summary: string | null;
@@ -441,17 +443,21 @@ export interface AgentList {
   total: number;
 }
 
+export type BumpType = "major" | "minor" | "patch";
+
 export interface ConfigVersionCreate {
   model_name?: string;
   temperature?: number;
   fallback_model?: string;
   tools_enabled?: string[];
   change_summary?: string;
+  bump_type?: BumpType;
 }
 
 export interface PromptVersionCreate {
   prompt_template: string;
   change_summary?: string;
+  bump_type?: BumpType;
 }
 
 export interface SeedResult {

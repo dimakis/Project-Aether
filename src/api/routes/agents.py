@@ -41,6 +41,7 @@ class AgentConfigVersionCreate(BaseModel):
     fallback_model: str | None = Field(default=None, max_length=100)
     tools_enabled: list[str] | None = None
     change_summary: str | None = Field(default=None, max_length=2000)
+    bump_type: str = Field(default="patch", pattern="^(major|minor|patch)$")
 
 
 class AgentConfigVersionUpdate(BaseModel):
@@ -58,6 +59,7 @@ class AgentPromptVersionCreate(BaseModel):
 
     prompt_template: str = Field(..., min_length=1, max_length=50_000)
     change_summary: str | None = Field(default=None, max_length=2000)
+    bump_type: str = Field(default="patch", pattern="^(major|minor|patch)$")
 
 
 class AgentPromptVersionUpdate(BaseModel):
@@ -85,6 +87,7 @@ class ConfigVersionResponse(BaseModel):
     id: str
     agent_id: str
     version_number: int
+    version: str | None = None
     status: str
     model_name: str | None
     temperature: float | None
@@ -104,6 +107,7 @@ class PromptVersionResponse(BaseModel):
     id: str
     agent_id: str
     version_number: int
+    version: str | None = None
     status: str
     prompt_template: str
     change_summary: str | None
@@ -148,6 +152,7 @@ def _serialize_config(cv: Any) -> dict[str, Any]:
         "id": cv.id,
         "agent_id": cv.agent_id,
         "version_number": cv.version_number,
+        "version": getattr(cv, "version", None),
         "status": cv.status,
         "model_name": cv.model_name,
         "temperature": cv.temperature,
@@ -166,6 +171,7 @@ def _serialize_prompt(pv: Any) -> dict[str, Any]:
         "id": pv.id,
         "agent_id": pv.agent_id,
         "version_number": pv.version_number,
+        "version": getattr(pv, "version", None),
         "status": pv.status,
         "prompt_template": pv.prompt_template,
         "change_summary": pv.change_summary,
@@ -462,6 +468,7 @@ async def create_config_version(
                 fallback_model=body.fallback_model,
                 tools_enabled=body.tools_enabled,
                 change_summary=body.change_summary,
+                bump_type=body.bump_type,
             )
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
@@ -614,6 +621,7 @@ async def create_prompt_version(
                 agent_id=agent.id,
                 prompt_template=body.prompt_template,
                 change_summary=body.change_summary,
+                bump_type=body.bump_type,
             )
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
@@ -722,6 +730,87 @@ async def delete_prompt_version(agent_name: str, version_id: str) -> None:
             raise HTTPException(status_code=404, detail="Prompt version not found")
 
         await session.commit()
+
+
+# ─── Promote-Both Endpoint ─────────────────────────────────────────────────────
+
+
+class PromoteBothResponse(BaseModel):
+    """Response schema for promoting both config and prompt drafts."""
+
+    config: ConfigVersionResponse | None = None
+    prompt: PromptVersionResponse | None = None
+    message: str
+
+
+@router.post("/{agent_name}/promote-all")
+async def promote_both(agent_name: str) -> PromoteBothResponse:
+    """Promote both config and prompt drafts to active in one operation.
+
+    Promotes any existing drafts. If no drafts exist, returns a message.
+    """
+    async with get_session() as session:
+        agent_repo = AgentRepository(session)
+        agent = await agent_repo.get_by_name(agent_name)
+        if not agent:
+            raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+        config_repo = AgentConfigVersionRepository(session)
+        prompt_repo = AgentPromptVersionRepository(session)
+
+        promoted_config = None
+        promoted_prompt = None
+        errors: list[str] = []
+
+        # Promote config draft if it exists
+        config_draft = await config_repo.get_draft(agent.id)
+        if config_draft:
+            try:
+                promoted_config = await config_repo.promote(config_draft.id)
+            except ValueError as e:
+                errors.append(f"Config: {e}")
+
+        # Promote prompt draft if it exists
+        prompt_draft = await prompt_repo.get_draft(agent.id)
+        if prompt_draft:
+            try:
+                promoted_prompt = await prompt_repo.promote(prompt_draft.id)
+            except ValueError as e:
+                errors.append(f"Prompt: {e}")
+
+        if not config_draft and not prompt_draft:
+            raise HTTPException(
+                status_code=409,
+                detail="No drafts found to promote",
+            )
+
+        if errors:
+            raise HTTPException(status_code=409, detail="; ".join(errors))
+
+        # Update agent version from the latest promoted version
+        latest_version = (
+            promoted_config.version
+            if promoted_config and promoted_config.version
+            else promoted_prompt.version
+            if promoted_prompt and promoted_prompt.version
+            else None
+        )
+        if latest_version:
+            agent.version = latest_version
+
+        await session.commit()
+
+        parts: list[str] = []
+        if promoted_config:
+            parts.append(f"config v{promoted_config.version or promoted_config.version_number}")
+        if promoted_prompt:
+            parts.append(f"prompt v{promoted_prompt.version or promoted_prompt.version_number}")
+
+        return PromoteBothResponse(
+            config=ConfigVersionResponse(**_serialize_config(promoted_config)) if promoted_config else None,
+            prompt=PromptVersionResponse(**_serialize_prompt(promoted_prompt)) if promoted_prompt else None,
+            message=f"Promoted {' and '.join(parts)} to active",
+        )
 
 
 # ─── Prompt Generation Endpoint ────────────────────────────────────────────────
