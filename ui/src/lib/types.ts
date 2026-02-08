@@ -18,6 +18,8 @@ export interface ModelInfo {
   object: string;
   created: number;
   owned_by: string;
+  input_cost_per_1m: number | null;
+  output_cost_per_1m: number | null;
 }
 
 // ─── Conversations ───────────────────────────────────────────────────────────

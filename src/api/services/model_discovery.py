@@ -82,14 +82,19 @@ class ModelDiscovery:
     ]
 
     OPENAI_MODELS = [
-        # GPT-5 family (if you have access)
+        # GPT-5 family
         ("gpt-5", "GPT-5 - Next generation flagship"),
         ("gpt-5-mini", "GPT-5 Mini - Efficient next-gen"),
         # GPT-4.5 family
         ("gpt-4.5-preview", "GPT-4.5 Preview - Latest preview"),
+        # GPT-4.1 family
+        ("gpt-4.1", "GPT-4.1 - Latest balanced"),
+        ("gpt-4.1-mini", "GPT-4.1 Mini - Fast and efficient"),
+        ("gpt-4.1-nano", "GPT-4.1 Nano - Ultra-efficient"),
         # GPT-4o family
         ("gpt-4o", "GPT-4o - Flagship multimodal"),
         ("gpt-4o-mini", "GPT-4o Mini - Fast and efficient"),
+        # o-series reasoning
         ("o1", "o1 - Advanced reasoning"),
         ("o1-mini", "o1 Mini - Fast reasoning"),
         ("o1-preview", "o1 Preview - Reasoning preview"),

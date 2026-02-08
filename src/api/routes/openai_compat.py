@@ -121,6 +121,8 @@ class ModelInfo(BaseModel):
     object: str = "model"
     created: int = Field(default_factory=lambda: int(time.time()))
     owned_by: str = "aether"
+    input_cost_per_1m: float | None = None
+    output_cost_per_1m: float | None = None
 
 
 class ModelsResponse(BaseModel):
@@ -152,19 +154,24 @@ async def list_models() -> ModelsResponse:
     All models power the Architect agent with Home Assistant tools.
     """
     from src.api.services.model_discovery import get_model_discovery
-    
+    from src.llm_pricing import get_model_pricing
+
     discovery = get_model_discovery()
     models = await discovery.discover_all()
-    
-    return ModelsResponse(
-        data=[
+
+    data: list[ModelInfo] = []
+    for model in models:
+        pricing = get_model_pricing(model.id)
+        data.append(
             ModelInfo(
                 id=model.id,
                 owned_by=model.provider,
+                input_cost_per_1m=pricing["input_per_1m"] if pricing else None,
+                output_cost_per_1m=pricing["output_per_1m"] if pricing else None,
             )
-            for model in models
-        ]
-    )
+        )
+
+    return ModelsResponse(data=data)
 
 
 @router.post("/feedback")
