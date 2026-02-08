@@ -16,6 +16,7 @@ import { UsagePage } from "@/pages/usage";
 import { AgentsPage } from "@/pages/agents";
 import { ArchitecturePage } from "@/pages/architecture";
 import { ModelRegistryPage } from "@/pages/model-registry";
+import { WebhooksPage } from "@/pages/webhooks";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -68,6 +69,7 @@ export default function App() {
               <Route path="agents" element={<AgentsPage />} />
               <Route path="architecture" element={<ArchitecturePage />} />
               <Route path="agents/registry" element={<ModelRegistryPage />} />
+              <Route path="webhooks" element={<WebhooksPage />} />
                 </Route>
               </Route>
             </Routes>

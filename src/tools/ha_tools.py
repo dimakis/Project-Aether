@@ -405,6 +405,55 @@ async def fire_event(
         return f"❌ Failed to fire event: {exc}"
 
 
+@tool("send_ha_notification")
+@trace_with_uri(name="ha.send_notification", span_type="TOOL")
+async def send_ha_notification(
+    title: str,
+    message: str,
+    target: str = "notify.notify",
+    data: dict[str, Any] | None = None,
+) -> str:
+    """Send a notification via Home Assistant's notify service.
+
+    Uses HA service calls to send push notifications, emails, or other
+    notification targets configured in Home Assistant.
+
+    Args:
+        title: Notification title
+        message: Notification body text
+        target: Notify service target (default: 'notify.notify').
+            Examples: 'notify.mobile_app_phone', 'notify.email'
+        data: Optional extra data for the notification platform
+            (e.g., {"push": {"sound": "default"}})
+
+    Returns:
+        Success or error message
+    """
+    ha = get_ha_client()
+    try:
+        # Split target into domain.service
+        parts = target.split(".", 1)
+        if len(parts) != 2:
+            return f"❌ Invalid target format: '{target}'. Use 'notify.service_name'."
+
+        domain, service = parts
+        service_data: dict[str, Any] = {
+            "title": title,
+            "message": message,
+        }
+        if data:
+            service_data["data"] = data
+
+        result = await ha.call_service(domain, service, service_data)
+
+        if result.get("success"):
+            return f"✅ Notification sent via '{target}'."
+        else:
+            return f"❌ Failed to send notification: {result.get('error')}"
+    except Exception as exc:
+        return f"❌ Failed to send notification: {exc}"
+
+
 @tool("render_template")
 @trace_with_uri(name="ha.render_template", span_type="TOOL")
 async def render_template(template: str) -> str:
