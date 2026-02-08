@@ -133,6 +133,7 @@ export const ALL_TOPOLOGY_AGENTS: string[] = [
  *  - architect → data_science_team: consult_data_science_team tool
  *  - architect → developer: developer_deploy_node (approved proposals)
  *  - architect → librarian: discover_entities tool
+ *  - architect → dashboard_designer: dashboard generation workflow
  *  - data_science_team → analysts: specialist_tools routing
  *  - energy → behavioral → diagnostic: team_analysis sequential pipeline
  */
@@ -143,6 +144,7 @@ const EDGES: [string, string][] = [
   ["architect", "data_science_team"],
   ["architect", "developer"],
   ["architect", "librarian"],
+  ["architect", "dashboard_designer"],
   // DS team → specialist analysts
   ["data_science_team", "energy_analyst"],
   ["data_science_team", "behavioral_analyst"],
