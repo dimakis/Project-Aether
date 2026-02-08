@@ -1,6 +1,7 @@
 import { useMemo, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { isInlineCode } from "react-shiki";
 import { FileCheck } from "lucide-react";
 import { CodeBlock, InlineCode } from "@/components/ui/code-block";
@@ -290,7 +291,7 @@ export function MarkdownRenderer({ content, className, onCreateProposal }: Markd
   return (
     <div className={cn("markdown-body", className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         components={components}
       >
         {processed}
