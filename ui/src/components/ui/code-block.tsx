@@ -63,7 +63,7 @@ export function CodeBlock({
 
   const langLabel = LANG_LABELS[language] ?? language;
   const lineCount = code.split("\n").length;
-  const displayCode = collapsed ? code.split("\n").slice(0, 10).join("\n") + "\n..." : code;
+  const displayCode = collapsed ? code.split("\n").slice(0, 25).join("\n") + "\n..." : code;
 
   return (
     <div>

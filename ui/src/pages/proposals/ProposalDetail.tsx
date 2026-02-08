@@ -205,7 +205,6 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
               <div className="overflow-hidden rounded-lg border border-border">
                 <YamlViewer
                   content={detail.yaml_content}
-                  collapsible
                   maxHeight={400}
                 />
               </div>
