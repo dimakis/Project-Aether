@@ -200,10 +200,8 @@ class EnergyAnalyst(BaseAnalyst):
                 for finding in findings:
                     state = self.add_finding(state, finding)
 
-                # 6. Persist if session provided
-                session = kwargs.get("session")
-                if session and findings:
-                    await self.persist_findings(findings, session)
+                # 6. Persist (explicit session or execution context fallback)
+                await self._persist_with_fallback(findings, kwargs.get("session"))
 
                 span["outputs"] = {
                     "finding_count": len(findings),

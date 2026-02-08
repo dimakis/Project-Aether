@@ -280,6 +280,47 @@ class BaseAnalyst(BaseAgent, ABC):
 
         return ids
 
+    async def _persist_with_fallback(
+        self,
+        findings: list[SpecialistFinding],
+        session: Any | None = None,
+    ) -> list[str]:
+        """Persist findings using explicit session or execution context fallback.
+
+        Resolution order:
+            1. Explicit session (passed as argument)
+            2. Session from active execution context's session_factory
+            3. Skip persistence (no session available)
+
+        Args:
+            findings: Specialist findings to persist.
+            session: Optional explicit database session.
+
+        Returns:
+            List of persisted insight IDs, or empty list if no session.
+        """
+        if not findings:
+            return []
+
+        # Priority 1: Explicit session
+        if session is not None:
+            return await self.persist_findings(findings, session)
+
+        # Priority 2: Execution context session factory
+        from src.agents.execution_context import get_execution_context
+
+        ctx = get_execution_context()
+        if ctx and ctx.session_factory:
+            async with ctx.session_factory() as ctx_session:
+                return await self.persist_findings(findings, ctx_session)
+
+        # No session available — skip persistence
+        logger.debug(
+            "%s: skipping insight persistence (no session or execution context)",
+            self.NAME,
+        )
+        return []
+
     def _map_finding_type(self, finding_type: str) -> InsightType:
         """Map specialist finding_type to InsightType enum."""
         mapping = {

@@ -236,9 +236,8 @@ class DiagnosticAnalyst(BaseAnalyst):
                 for finding in findings:
                     state = self.add_finding(state, finding)
 
-                session = kwargs.get("session")
-                if session and findings:
-                    await self.persist_findings(findings, session)
+                # Persist (explicit session or execution context fallback)
+                await self._persist_with_fallback(findings, kwargs.get("session"))
 
                 span["outputs"] = {
                     "finding_count": len(findings),
