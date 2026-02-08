@@ -238,7 +238,14 @@ export function ChatPage() {
     setIsStreaming(true);
     setStreamStartTime(Date.now());
     setLastTraceId(null); // Clear stale trace from previous session
-    setAgentActivity({ isActive: true, activeAgent: "architect", thinkingStream: "" });
+    setAgentActivity({
+      isActive: true,
+      activeAgent: "architect",
+      thinkingStream: "",
+      agentsSeen: ["aether", "architect"],
+      agentStates: { aether: "firing", architect: "firing" },
+      activeEdges: [["aether", "architect"]],
+    });
 
     // Build OpenAI message history
     // Get current messages for this session (we need to read from state at this point)
