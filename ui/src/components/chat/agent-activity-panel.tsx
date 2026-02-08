@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Brain, ChevronDown, Loader2, Cpu, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentTopology } from "./agent-topology";
-import { TOPOLOGY_AGENT_IDS, agentColor, agentLabel } from "@/lib/agent-registry";
+import { TOPOLOGY_AGENT_IDS, agentColor } from "@/lib/agent-registry";
 import { TraceTimeline } from "./trace-timeline";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import {
@@ -11,24 +11,8 @@ import {
   useActivityPanel,
   setActivityPanelOpen,
 } from "@/lib/agent-activity-store";
-import type { LiveTimelineEntry, DelegationMessage } from "@/lib/agent-activity-store";
+import { buildNarrativeFeed, type NarrativeFeedEntry } from "@/lib/trace-event-handler";
 import { useTraceSpans } from "@/api/hooks";
-
-const EVENT_LABELS: Record<string, string> = {
-  start: "activated",
-  end: "finished",
-  tool_call: "tool",
-  tool_result: "result",
-  complete: "done",
-};
-
-const EVENT_ICONS: Record<string, string> = {
-  start: "\u26A1",
-  end: "\u2713",
-  tool_call: "\uD83D\uDD27",
-  tool_result: "\u2714",
-  complete: "\u2705",
-};
 
 function formatTime(ts: number): string {
   const d = new Date(ts * 1000);
@@ -194,20 +178,13 @@ function LastSessionCard({
   );
 }
 
-// ─── Live Feed ───────────────────────────────────────────────────────────────
+// ─── Narrative Feed ──────────────────────────────────────────────────────────
 
-function LiveEventFeed({
-  entries,
-  delegationMessages = [],
-}: {
-  entries: LiveTimelineEntry[];
-  delegationMessages?: DelegationMessage[];
-}) {
-  const totalCount = entries.length + delegationMessages.length;
-  const { ref: feedRef, onScroll } = useSmartAutoScroll(totalCount);
-  const [expandedDelegation, setExpandedDelegation] = useState<number | null>(null);
+function NarrativeFeed({ entries }: { entries: NarrativeFeedEntry[] }) {
+  const { ref: feedRef, onScroll } = useSmartAutoScroll(entries.length);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  if (entries.length === 0 && delegationMessages.length === 0) {
+  if (entries.length === 0) {
     return (
       <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground/50">
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -216,101 +193,56 @@ function LiveEventFeed({
     );
   }
 
-  // Merge timeline entries and delegation messages, sorted by timestamp
-  type FeedItem =
-    | { kind: "event"; entry: LiveTimelineEntry; ts: number }
-    | { kind: "delegation"; msg: DelegationMessage; idx: number; ts: number };
-
-  const items: FeedItem[] = [
-    ...entries.map((entry): FeedItem => ({ kind: "event", entry, ts: entry.ts })),
-    ...delegationMessages.map((msg, idx): FeedItem => ({ kind: "delegation", msg, idx, ts: msg.ts })),
-  ].sort((a, b) => a.ts - b.ts);
-
   return (
     <div ref={feedRef} onScroll={onScroll} className="max-h-48 space-y-0 overflow-y-auto">
-      {items.map((item, i) => {
-        if (item.kind === "event") {
-          const entry = item.entry;
-          const color = agentColor(entry.agent);
-          const icon = EVENT_ICONS[entry.event] ?? "\u2022";
-          const label = EVENT_LABELS[entry.event] ?? entry.event;
-
-          return (
-            <motion.div
-              key={`ev-${entry.ts}-${entry.event}-${i}`}
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex items-start gap-2 py-1"
-            >
-              <span className="shrink-0 w-[52px] text-right text-[10px] tabular-nums text-muted-foreground/40">
-                {formatTime(entry.ts)}
-              </span>
-              <div className="relative flex flex-col items-center">
-                <span className="text-[9px]">{icon}</span>
-                {i < items.length - 1 && (
-                  <div className="absolute top-4 h-full w-px bg-border/30" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] leading-tight">
-                  <span className={cn("font-medium", color)}>
-                    {agentLabel(entry.agent)}
-                  </span>
-                  <span className="text-muted-foreground/60"> {label}</span>
-                </p>
-                {entry.tool && (
-                  <p className="truncate text-[10px] text-muted-foreground/50">
-                    {entry.tool}
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          );
-        }
-
-        // Delegation message
-        const { msg, idx } = item;
-        const fromColor = agentColor(msg.from);
-        const toColor = agentColor(msg.to);
-        const isExpanded = expandedDelegation === idx;
-        const preview = msg.content.length > 80 ? msg.content.slice(0, 80) + "..." : msg.content;
+      {entries.map((entry, i) => {
+        const color = agentColor(entry.agentColor);
+        const isExpanded = expandedIdx === i;
 
         return (
           <motion.div
-            key={`del-${msg.ts}-${idx}`}
+            key={`${entry.ts}-${entry.kind}-${i}`}
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.15 }}
             className="flex items-start gap-2 py-1"
           >
             <span className="shrink-0 w-[52px] text-right text-[10px] tabular-nums text-muted-foreground/40">
-              {formatTime(msg.ts)}
+              {formatTime(entry.ts)}
             </span>
             <div className="relative flex flex-col items-center">
-              <span className="text-[9px]">{"\u2709"}</span>
-              {i < items.length - 1 && (
+              <span className="text-[9px]">{entry.icon}</span>
+              {i < entries.length - 1 && (
                 <div className="absolute top-4 h-full w-px bg-border/30" />
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <button
-                onClick={() => setExpandedDelegation(isExpanded ? null : idx)}
-                className="w-full text-left"
-              >
-                <p className="text-[11px] leading-tight">
-                  <span className={cn("font-medium", fromColor)}>
-                    {agentLabel(msg.from)}
-                  </span>
-                  <span className="text-muted-foreground/60"> {"\u2192"} </span>
-                  <span className={cn("font-medium", toColor)}>
-                    {agentLabel(msg.to)}
-                  </span>
+              {entry.detail ? (
+                <button
+                  onClick={() => setExpandedIdx(isExpanded ? null : i)}
+                  className="w-full text-left"
+                >
+                  <p className={cn("text-[11px] leading-tight", color)}>
+                    {entry.description}
+                  </p>
+                  {entry.detail && (
+                    <p className={cn(
+                      "text-[10px] text-muted-foreground/50",
+                      !isExpanded && "truncate",
+                    )}>
+                      {isExpanded
+                        ? entry.detail
+                        : entry.detail.length > 80
+                          ? entry.detail.slice(0, 80) + "..."
+                          : entry.detail}
+                    </p>
+                  )}
+                </button>
+              ) : (
+                <p className={cn("text-[11px] leading-tight", color)}>
+                  {entry.description}
                 </p>
-                <p className="text-[10px] text-muted-foreground/50">
-                  {isExpanded ? msg.content : preview}
-                </p>
-              </button>
+              )}
             </div>
           </motion.div>
         );
@@ -351,6 +283,12 @@ export function AgentActivityPanel() {
     const age = Date.now() - new Date(trace.started_at).getTime();
     return age > 24 * 60 * 60 * 1000;
   }, [trace?.started_at]);
+
+  // Build narrative feed from raw events + delegation messages
+  const narrativeFeed = useMemo(
+    () => buildNarrativeFeed(activity.liveTimeline, activity.delegationMessages),
+    [activity.liveTimeline, activity.delegationMessages],
+  );
 
   // Collapse trace details when a new stream starts
   useEffect(() => {
@@ -433,16 +371,13 @@ export function AgentActivityPanel() {
                 <div className="my-2 border-t border-border/50" />
                 <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                   Live Feed{" "}
-                  {activity.liveTimeline.length > 0 && (
+                  {narrativeFeed.length > 0 && (
                     <span className="font-normal text-muted-foreground/40">
-                      ({activity.liveTimeline.length})
+                      ({narrativeFeed.length})
                     </span>
                   )}
                 </p>
-                <LiveEventFeed
-                  entries={activity.liveTimeline}
-                  delegationMessages={activity.delegationMessages}
-                />
+                <NarrativeFeed entries={narrativeFeed} />
               </div>
               </ErrorBoundary>
             )}

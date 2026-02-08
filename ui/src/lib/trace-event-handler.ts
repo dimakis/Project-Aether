@@ -10,7 +10,9 @@ import type {
   AgentActivity,
   AgentNodeState,
   LiveTimelineEntry,
+  DelegationMessage,
 } from "@/lib/agent-activity-store";
+import { agentLabel } from "@/lib/agent-registry";
 
 /** Trace event shape from the SSE stream (subset of StreamChunk). */
 export interface TraceEventChunk {
@@ -162,4 +164,126 @@ export function handleTraceEvent(
       break;
     }
   }
+}
+
+// ─── Narrative Feed ──────────────────────────────────────────────────────────
+
+/** A single entry in the narrative feed (merged events + delegations). */
+export interface NarrativeFeedEntry {
+  ts: number;
+  /** Human-readable description of what happened. */
+  description: string;
+  /** Optional secondary line (e.g., delegation content, tool name). */
+  detail?: string;
+  /** Agent colour class for the primary agent. */
+  agentColor: string;
+  /** Icon character. */
+  icon: string;
+  /** Entry kind for styling. */
+  kind: "start" | "end" | "tool" | "delegation" | "complete";
+}
+
+const NARRATIVE_ICONS: Record<string, string> = {
+  start: "⚡",
+  end: "✓",
+  tool_call: "🔧",
+  tool_result: "✔",
+  complete: "✅",
+  delegation: "→",
+};
+
+/**
+ * Convert raw events + delegation messages into a unified narrative feed.
+ *
+ * The descriptions are human-readable sentences instead of raw event types.
+ */
+export function buildNarrativeFeed(
+  timeline: LiveTimelineEntry[],
+  delegations: DelegationMessage[],
+): NarrativeFeedEntry[] {
+  const entries: NarrativeFeedEntry[] = [];
+
+  // Track agent start times for duration calculation
+  const startTimes = new Map<string, number>();
+
+  for (const ev of timeline) {
+    const label = agentLabel(ev.agent);
+
+    switch (ev.event) {
+      case "start":
+        startTimes.set(ev.agent, ev.ts);
+        entries.push({
+          ts: ev.ts,
+          description: `${label} is analyzing...`,
+          agentColor: ev.agent,
+          icon: NARRATIVE_ICONS.start,
+          kind: "start",
+        });
+        break;
+
+      case "end": {
+        const startTs = startTimes.get(ev.agent);
+        const duration = startTs ? ev.ts - startTs : undefined;
+        const durationStr = duration ? ` (${duration.toFixed(1)}s)` : "";
+        entries.push({
+          ts: ev.ts,
+          description: `${label} completed${durationStr}`,
+          detail: ev.tool,
+          agentColor: ev.agent,
+          icon: NARRATIVE_ICONS.end,
+          kind: "end",
+        });
+        break;
+      }
+
+      case "tool_call":
+        entries.push({
+          ts: ev.ts,
+          description: `${label} called ${ev.tool ?? "tool"}`,
+          agentColor: ev.agent,
+          icon: NARRATIVE_ICONS.tool_call,
+          kind: "tool",
+        });
+        break;
+
+      case "tool_result":
+        entries.push({
+          ts: ev.ts,
+          description: `${label} received result`,
+          detail: ev.tool,
+          agentColor: ev.agent,
+          icon: NARRATIVE_ICONS.tool_result,
+          kind: "tool",
+        });
+        break;
+
+      case "complete":
+        entries.push({
+          ts: ev.ts,
+          description: "Workflow complete",
+          agentColor: "system",
+          icon: NARRATIVE_ICONS.complete,
+          kind: "complete",
+        });
+        break;
+    }
+  }
+
+  // Merge delegation messages
+  for (const del of delegations) {
+    const fromLabel = agentLabel(del.from);
+    const toLabel = agentLabel(del.to);
+    entries.push({
+      ts: del.ts,
+      description: `${fromLabel} → ${toLabel}`,
+      detail: del.content.length > 120 ? del.content.slice(0, 120) + "…" : del.content,
+      agentColor: del.from,
+      icon: NARRATIVE_ICONS.delegation,
+      kind: "delegation",
+    });
+  }
+
+  // Sort chronologically
+  entries.sort((a, b) => a.ts - b.ts);
+  return entries;
 }
