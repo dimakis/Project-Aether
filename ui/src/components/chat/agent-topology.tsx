@@ -1,43 +1,32 @@
+/**
+ * Obsidian-style force-directed agent topology graph.
+ *
+ * Uses d3-force (via useForceGraph) for physics-based layout:
+ * - Nodes float organically with ambient micro-drift
+ * - Drag a node and connected nodes follow via spring forces
+ * - Resizes automatically when the panel changes size
+ * - Framer Motion handles visual effects (glow, pulse, opacity)
+ *   while d3 owns the (x, y) positions
+ */
+
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { AgentNodeState } from "@/lib/agent-activity-store";
 import {
-  AGENTS,
   TOPOLOGY_AGENT_IDS,
   DELEGATION_EDGES,
   agentMeta,
 } from "@/lib/agent-registry";
+import { useForceGraph } from "@/hooks/use-force-graph";
 
 // Re-export for consumers that still import from here
 export { TOPOLOGY_AGENT_IDS as ALL_TOPOLOGY_AGENTS } from "@/lib/agent-registry";
 
-// ─── Organic brain layout ────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const SVG_SIZE = 300;
-const CENTER = SVG_SIZE / 2;
 const NODE_RADIUS = 15;
-
-/**
- * Hand-tuned positions for an organic brain-like layout.
- * Aether at center. Architect above as "cortex".
- * DS cluster left hemisphere. Tool agents right. Support agents lower.
- */
-const BRAIN_POSITIONS: Record<string, { x: number; y: number }> = {
-  aether:              { x: CENTER,      y: CENTER },       // dead center
-  architect:           { x: CENTER,      y: CENTER - 80 },  // top, cortex
-  // Left hemisphere — DS team cluster
-  data_science_team:   { x: CENTER - 75, y: CENTER - 30 },
-  energy_analyst:      { x: CENTER - 115, y: CENTER + 20 },
-  behavioral_analyst:  { x: CENTER - 60, y: CENTER + 55 },
-  diagnostic_analyst:  { x: CENTER - 110, y: CENTER + 75 },
-  // Right hemisphere — tool agents
-  sandbox:             { x: CENTER + 80, y: CENTER - 25 },
-  developer:           { x: CENTER + 110, y: CENTER + 30 },
-  // Lower — support agents
-  dashboard_designer:  { x: CENTER + 55, y: CENTER + 70 },
-  librarian:           { x: CENTER - 10, y: CENTER + 90 },
-};
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -52,15 +41,6 @@ interface AgentTopologyProps {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-/**
- * Deterministic pseudo-random per node for staggered idle timing.
- * Avoids synchronized pulsing -- each node breathes independently.
- */
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed * 9301 + 49297) * 49297;
-  return x - Math.floor(x);
-}
-
 export function AgentTopology({
   agents,
   activeAgent,
@@ -71,15 +51,24 @@ export function AgentTopology({
   const prefersReducedMotion = useReducedMotion();
   const displayAgents = agents.length > 0 ? agents : TOPOLOGY_AGENT_IDS;
 
-  const positions = useMemo(() => {
-    const pos: Record<string, { x: number; y: number }> = {};
-    for (const agent of displayAgents) {
-      pos[agent] = BRAIN_POSITIONS[agent] ?? { x: CENTER, y: CENTER };
-    }
-    return pos;
-  }, [displayAgents.join(",")]);
+  // ── Force-directed layout ────────────────────────────────────────
 
-  // All possible edges are always visible. Active edges get the glow treatment.
+  const {
+    positions,
+    containerRef,
+    onNodePointerDown,
+    onPointerMove,
+    onPointerUp,
+    draggedNode,
+  } = useForceGraph(
+    displayAgents,
+    DELEGATION_EDGES,
+    agentStates,
+    prefersReducedMotion ?? false,
+  );
+
+  // ── Edge visibility ──────────────────────────────────────────────
+
   const visibleEdges = useMemo(
     () =>
       DELEGATION_EDGES.filter(
@@ -89,7 +78,6 @@ export function AgentTopology({
     [displayAgents.join(",")],
   );
 
-  /** Check whether an edge is currently activated (event-driven). */
   const activeEdgeSet = useMemo(() => {
     const set = new Set<string>();
     if (activeEdges) {
@@ -100,6 +88,8 @@ export function AgentTopology({
     return set;
   }, [activeEdges]);
 
+  // ── Node state resolution ────────────────────────────────────────
+
   function getNodeState(agent: string): AgentNodeState {
     if (agentStates?.[agent]) return agentStates[agent];
     if (!isLive) return "done";
@@ -107,17 +97,23 @@ export function AgentTopology({
     return "idle";
   }
 
-  // Spring configs
+  // ── Spring configs for Framer Motion visual effects ──────────────
+
   const firingSpring = { type: "spring" as const, stiffness: 300, damping: 15 };
   const doneSpring = { type: "spring" as const, stiffness: 120, damping: 20 };
 
   return (
     <div className="flex items-center justify-center">
       <svg
+        ref={containerRef}
         viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
         width={SVG_SIZE}
         height={SVG_SIZE}
-        className="overflow-visible"
+        className="overflow-visible select-none"
+        style={{ cursor: draggedNode ? "grabbing" : "default" }}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
       >
         <defs>
           {displayAgents.map((agent) => {
@@ -152,14 +148,12 @@ export function AgentTopology({
         </defs>
 
         {/* ── Edges ─────────────────────────────────────────────── */}
-        {visibleEdges.map(([a, b], edgeIdx) => {
+        {visibleEdges.map(([a, b]) => {
           const pA = positions[a];
           const pB = positions[b];
           if (!pA || !pB) return null;
 
-          // An edge is "active" if it was explicitly activated via events
           const edgeActive = activeEdgeSet.has(`${a}-${b}`);
-
           const metaA = agentMeta(a);
           const metaB = agentMeta(b);
           const sA = getNodeState(a);
@@ -179,17 +173,17 @@ export function AgentTopology({
           const x2 = pB.x - nx * (rB + 2);
           const y2 = pB.y - ny * (rB + 2);
 
-          // Randomized shimmer timing per edge
-          const shimmerDur = 3.5 + seededRandom(edgeIdx + 100) * 3;
-          const shimmerDelay = seededRandom(edgeIdx + 200) * 2;
+          const edgeColor = edgeActive
+            ? aFiring ? metaA.hex : metaB.hex
+            : "hsl(var(--border))";
 
           return (
             <g key={`${a}-${b}`}>
-              {/* Active edge glow underlay (thick, blurred) */}
+              {/* Active edge glow underlay */}
               {edgeActive && (
                 <line
                   x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke={aFiring ? metaA.hex : metaB.hex}
+                  stroke={edgeColor}
                   strokeWidth={4}
                   strokeOpacity={0.3}
                   filter="url(#edge-glow)"
@@ -197,39 +191,17 @@ export function AgentTopology({
               )}
 
               {/* Edge line */}
-              <motion.line
+              <line
                 x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={
-                  edgeActive
-                    ? aFiring ? metaA.hex : metaB.hex
-                    : "hsl(var(--border))"
-                }
+                stroke={edgeColor}
                 strokeWidth={edgeActive ? 2.5 : 0.6}
                 strokeLinecap="round"
-                initial={false}
-                animate={{
-                  strokeOpacity: edgeActive
-                    ? 1
-                    : prefersReducedMotion
-                      ? 0.15
-                      : [0.1, 0.25, 0.1], // brighter idle shimmer
-                }}
-                transition={
-                  edgeActive
-                    ? doneSpring
-                    : {
-                        duration: shimmerDur,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: shimmerDelay,
-                      }
-                }
+                strokeOpacity={edgeActive ? 1 : 0.18}
               />
 
-              {/* Bidirectional traveling pulses when active */}
+              {/* Traveling pulses when active */}
               {edgeActive && !prefersReducedMotion && (
                 <>
-                  {/* A -> B pulse */}
                   <motion.circle
                     r={3}
                     fill={metaA.hex}
@@ -244,7 +216,6 @@ export function AgentTopology({
                       ease: "linear",
                     }}
                   />
-                  {/* B -> A pulse (reverse, offset) */}
                   <motion.circle
                     r={2}
                     fill={metaB.hex}
@@ -267,7 +238,7 @@ export function AgentTopology({
         })}
 
         {/* ── Nodes ─────────────────────────────────────────────── */}
-        {displayAgents.map((agent, nodeIdx) => {
+        {displayAgents.map((agent) => {
           const pos = positions[agent];
           if (!pos) return null;
           const meta = agentMeta(agent);
@@ -277,48 +248,27 @@ export function AgentTopology({
           const isDone = state === "done";
           const isAether = agent === "aether";
           const r = isAether ? NODE_RADIUS + 4 : NODE_RADIUS;
-
-          // Randomized breathing parameters per node (seeded by index for stability)
-          const rng = seededRandom(nodeIdx);
-          // Brighter idle: base 0.30-0.40, peak 0.50-0.62 (was 0.16-0.30)
-          const breatheBase = isAether ? 0.45 : 0.30 + rng * 0.10;
-          const breathePeak = isAether ? 0.70 : 0.50 + rng * 0.12;
-          const breatheDuration = isAether ? 2.5 : 2.5 + rng * 2.5; // 2.5-5s
-          const breatheDelay = seededRandom(nodeIdx + 50) * 2.5; // 0-2.5s offset
-          // Subtle scale oscillation range
-          const scaleMin = isAether ? 0.98 : 0.97;
-          const scaleMax = isAether ? 1.02 : 1.03;
+          const isDragging = draggedNode === agent;
 
           return (
             <motion.g
               key={agent}
+              // Framer Motion for visual state (opacity, scale) — NOT position
               initial={{ opacity: 0, scale: 0.5 }}
               animate={
                 isFiring
                   ? { opacity: 1, scale: 1.18 }
                   : isDone
                     ? { opacity: 0.9, scale: 1 }
-                    : prefersReducedMotion
-                      ? { opacity: breathePeak, scale: 1 }
-                      : {
-                          // Breathing animation for idle/dormant
-                          opacity: [breatheBase, breathePeak, breatheBase],
-                          scale: [scaleMin, scaleMax, scaleMin],
-                        }
+                    : { opacity: 0.55, scale: 1 }
               }
-              transition={
-                isFiring
-                  ? firingSpring
-                  : isDone
-                    ? doneSpring
-                    : {
-                        duration: breatheDuration,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: breatheDelay,
-                      }
-              }
-              style={{ transformOrigin: `${pos.x}px ${pos.y}px` }}
+              transition={isFiring ? firingSpring : doneSpring}
+              style={{
+                // Position is driven by d3-force, not Framer Motion
+                transformOrigin: `${pos.x}px ${pos.y}px`,
+                cursor: isDragging ? "grabbing" : "grab",
+              }}
+              onPointerDown={(e) => onNodePointerDown(agent, e)}
             >
               {/* Background circle */}
               <circle
@@ -332,7 +282,7 @@ export function AgentTopology({
                 filter={isFiring ? `url(#glow-${agent})` : undefined}
               />
 
-              {/* Aether ambient glow ring (always present, subtle) */}
+              {/* Aether ambient glow ring */}
               {isAether && !isFiring && !prefersReducedMotion && (
                 <motion.circle
                   cx={pos.x}
@@ -388,7 +338,7 @@ export function AgentTopology({
                 />
               )}
 
-              {/* Firing: second slower pulse ring for layered emphasis */}
+              {/* Firing: second slower pulse ring */}
               {isFiring && !prefersReducedMotion && (
                 <motion.circle
                   cx={pos.x}
