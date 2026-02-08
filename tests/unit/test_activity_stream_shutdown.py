@@ -4,6 +4,9 @@ Tests that the _subscribe() generator exits cleanly when the shutdown
 event is signaled, allowing uvicorn to complete its reload cycle.
 
 TDD: SSE stream shutdown for uvicorn reload support.
+
+Coordination uses asyncio.Event instead of fixed sleeps to avoid
+flaky timing under CI load.
 """
 
 import asyncio
@@ -16,6 +19,19 @@ from src.api.routes.activity_stream import (
     publish_activity,
     signal_shutdown,
 )
+
+
+async def _wait_for_subscriber(timeout: float = 2.0) -> None:
+    """Wait until at least one subscriber queue is registered.
+
+    Uses a tight yield loop instead of a fixed sleep, so it resolves
+    as soon as the generator adds itself to _subscribers.
+    """
+    deadline = asyncio.get_event_loop().time() + timeout
+    while len(_subscribers) == 0:
+        if asyncio.get_event_loop().time() > deadline:
+            raise TimeoutError("Subscriber never registered")  # pragma: no cover
+        await asyncio.sleep(0)
 
 
 class TestActivityStreamShutdown:
@@ -32,9 +48,9 @@ class TestActivityStreamShutdown:
         from src.api.routes.activity_stream import _subscribe
 
         gen = _subscribe()
-        # Schedule shutdown after a short delay
+
         async def fire_shutdown():
-            await asyncio.sleep(0.05)
+            await _wait_for_subscriber()
             signal_shutdown()
 
         shutdown_task = asyncio.create_task(fire_shutdown())
@@ -54,20 +70,27 @@ class TestActivityStreamShutdown:
         from src.api.routes.activity_stream import _subscribe
 
         gen = _subscribe()
+        event_consumed = asyncio.Event()
+
+        async def consume():
+            items_inner = []
+            async for item in gen:
+                items_inner.append(item)
+                event_consumed.set()
+            return items_inner
 
         async def publish_then_shutdown():
-            await asyncio.sleep(0.02)
+            await _wait_for_subscriber()
             publish_activity({"type": "test", "msg": "hello"})
-            await asyncio.sleep(0.05)
+            # Wait until the consumer has processed the event
+            await asyncio.wait_for(event_consumed.wait(), timeout=2.0)
             signal_shutdown()
 
-        task = asyncio.create_task(publish_then_shutdown())
+        consumer_task = asyncio.create_task(consume())
+        publisher_task = asyncio.create_task(publish_then_shutdown())
 
-        items = []
-        async for item in gen:
-            items.append(item)
-
-        await task
+        await publisher_task
+        items = await consumer_task
 
         # Should have received the one event before shutdown
         assert len(items) == 1
@@ -81,7 +104,7 @@ class TestActivityStreamShutdown:
         gen = _subscribe()
 
         async def fire_shutdown():
-            await asyncio.sleep(0.02)
+            await _wait_for_subscriber()
             signal_shutdown()
 
         task = asyncio.create_task(fire_shutdown())
