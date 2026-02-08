@@ -509,6 +509,33 @@ async def _stream_chat_completion(
                                     }
                                     yield f"data: {json.dumps(status_ev)}\n\n"
 
+                            elif event_type == "agent_start":
+                                # Progress: a sub-agent has started
+                                agent_name = event.get("agent", "")
+                                if not is_background and agent_name:
+                                    # End previous delegated agent if different
+                                    if active_delegated and active_delegated != agent_name:
+                                        yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
+                                    # Start new delegated agent
+                                    yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'start', 'ts': time.time()})}\n\n"
+                                    active_delegated = agent_name
+                                    if agent_name not in agents_seen:
+                                        agents_seen.append(agent_name)
+
+                            elif event_type == "agent_end":
+                                # Progress: a sub-agent has completed
+                                agent_name = event.get("agent", "")
+                                if not is_background and agent_name:
+                                    yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'end', 'ts': time.time()})}\n\n"
+                                    if active_delegated == agent_name:
+                                        active_delegated = None
+
+                            elif event_type == "status":
+                                # Progress: status message from a sub-agent
+                                status_content = event.get("content", "")
+                                if not is_background and status_content:
+                                    yield f"data: {json.dumps({'type': 'status', 'content': status_content})}\n\n"
+
                             elif event_type == "state":
                                 final_state = event.get("state")
 
