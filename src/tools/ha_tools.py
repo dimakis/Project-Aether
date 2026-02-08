@@ -231,6 +231,77 @@ async def list_automations() -> str:
         return f"Failed to list automations: {exc}"
 
 
+@tool("get_automation_config")
+@trace_with_uri(name="ha.get_automation_config", span_type="TOOL")
+async def get_automation_config(entity_id: str) -> str:
+    """Get the full trigger/condition/action YAML for an automation.
+
+    Reads the cached config from the discovery database. If the config
+    is not yet available, advises running a discovery sync.
+
+    Args:
+        entity_id: Automation entity ID (e.g., 'automation.sunset_lights')
+
+    Returns:
+        YAML string of the automation config, or guidance message
+    """
+    import yaml
+
+    async with get_session() as session:
+        repo = AutomationRepository(session)
+        auto = await repo.get_by_entity_id(entity_id)
+
+    if auto is None:
+        return f"Automation '{entity_id}' not found in discovery DB."
+
+    if auto.config is None:
+        return (
+            f"Automation '{entity_id}' exists but its config hasn't been "
+            "synced yet. Run a discovery sync to populate it."
+        )
+
+    return yaml.dump(auto.config, default_flow_style=False, sort_keys=False)
+
+
+@tool("get_script_config")
+@trace_with_uri(name="ha.get_script_config", span_type="TOOL")
+async def get_script_config(entity_id: str) -> str:
+    """Get the full sequence/fields YAML for a script.
+
+    Reads the cached config from the discovery database. If the config
+    is not yet available, advises running a discovery sync.
+
+    Args:
+        entity_id: Script entity ID (e.g., 'script.movie_mode')
+
+    Returns:
+        YAML string of the script config, or guidance message
+    """
+    import yaml
+
+    async with get_session() as session:
+        repo = ScriptRepository(session)
+        script = await repo.get_by_entity_id(entity_id)
+
+    if script is None:
+        return f"Script '{entity_id}' not found in discovery DB."
+
+    if script.sequence is None:
+        return (
+            f"Script '{entity_id}' exists but its sequence hasn't been "
+            "synced yet. Run a discovery sync to populate it."
+        )
+
+    config_data: dict[str, Any] = {
+        "alias": script.alias,
+        "sequence": script.sequence,
+    }
+    if script.fields:
+        config_data["fields"] = script.fields
+
+    return yaml.dump(config_data, default_flow_style=False, sort_keys=False)
+
+
 @tool("create_script")
 @trace_with_uri(name="ha.create_script", span_type="TOOL")
 async def create_script(

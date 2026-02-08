@@ -1,7 +1,8 @@
 """Tests for DB-backed HA tools.
 
 Verifies that list_entities_by_domain, search_entities, get_domain_summary,
-and list_automations read from the database rather than calling HA directly.
+list_automations, get_automation_config, and get_script_config read from the
+database rather than calling HA directly.
 """
 
 from __future__ import annotations
@@ -161,3 +162,150 @@ class TestListAutomationsDB:
 
         assert "Sunset Lights" in result
         assert "Motion Lights" in result
+
+
+def _mock_script(entity_id: str, alias: str, sequence: list | None = None, fields: dict | None = None) -> MagicMock:
+    """Create a mock Script."""
+    s = MagicMock()
+    s.entity_id = entity_id
+    s.alias = alias
+    s.sequence = sequence
+    s.fields = fields
+    return s
+
+
+@pytest.mark.asyncio
+class TestGetAutomationConfigDB:
+    """get_automation_config should return YAML from the DB."""
+
+    async def test_returns_yaml_when_config_exists(self):
+        from src.tools.ha_tools import get_automation_config
+
+        config = {
+            "id": "sunset_lights",
+            "alias": "Sunset Lights",
+            "trigger": [{"platform": "sun", "event": "sunset"}],
+            "action": [{"service": "light.turn_on"}],
+        }
+        auto = _mock_automation("automation.sunset_lights", "Sunset Lights", "on", True)
+        auto.config = config
+        auto.ha_automation_id = "sunset_lights"
+
+        mock_repo = AsyncMock()
+        mock_repo.get_by_entity_id = AsyncMock(return_value=auto)
+
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_tools.AutomationRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await get_automation_config.ainvoke({"entity_id": "automation.sunset_lights"})
+
+        assert "trigger" in result
+        assert "sunset" in result
+        mock_repo.get_by_entity_id.assert_called_once_with("automation.sunset_lights")
+
+    async def test_returns_message_when_config_is_null(self):
+        from src.tools.ha_tools import get_automation_config
+
+        auto = _mock_automation("automation.broken", "Broken", "on", False)
+        auto.config = None
+
+        mock_repo = AsyncMock()
+        mock_repo.get_by_entity_id = AsyncMock(return_value=auto)
+
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_tools.AutomationRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await get_automation_config.ainvoke({"entity_id": "automation.broken"})
+
+        assert "discovery" in result.lower() or "sync" in result.lower()
+
+    async def test_returns_not_found_when_missing(self):
+        from src.tools.ha_tools import get_automation_config
+
+        mock_repo = AsyncMock()
+        mock_repo.get_by_entity_id = AsyncMock(return_value=None)
+
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_tools.AutomationRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await get_automation_config.ainvoke({"entity_id": "automation.nonexist"})
+
+        assert "not found" in result.lower()
+
+
+@pytest.mark.asyncio
+class TestGetScriptConfigDB:
+    """get_script_config should return YAML from the DB."""
+
+    async def test_returns_yaml_when_sequence_exists(self):
+        from src.tools.ha_tools import get_script_config
+
+        sequence = [
+            {"service": "light.turn_on", "data": {"brightness": 255}},
+            {"service": "media_player.turn_on"},
+        ]
+        script = _mock_script("script.movie_mode", "Movie Mode", sequence=sequence)
+
+        mock_repo = AsyncMock()
+        mock_repo.get_by_entity_id = AsyncMock(return_value=script)
+
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_tools.ScriptRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await get_script_config.ainvoke({"entity_id": "script.movie_mode"})
+
+        assert "light.turn_on" in result
+        assert "brightness" in result
+        mock_repo.get_by_entity_id.assert_called_once_with("script.movie_mode")
+
+    async def test_returns_message_when_sequence_is_null(self):
+        from src.tools.ha_tools import get_script_config
+
+        script = _mock_script("script.broken", "Broken", sequence=None)
+
+        mock_repo = AsyncMock()
+        mock_repo.get_by_entity_id = AsyncMock(return_value=script)
+
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_tools.ScriptRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await get_script_config.ainvoke({"entity_id": "script.broken"})
+
+        assert "discovery" in result.lower() or "sync" in result.lower()
+
+    async def test_returns_not_found_when_missing(self):
+        from src.tools.ha_tools import get_script_config
+
+        mock_repo = AsyncMock()
+        mock_repo.get_by_entity_id = AsyncMock(return_value=None)
+
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_tools.ScriptRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await get_script_config.ainvoke({"entity_id": "script.nonexist"})
+
+        assert "not found" in result.lower()
