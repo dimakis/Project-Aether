@@ -475,6 +475,7 @@ async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> s
     """Run the Energy Analyst and return formatted findings."""
     if not await is_agent_enabled("energy_analyst"):
         return "Energy Analyst is currently disabled."
+    emit_progress("agent_start", "energy_analyst", "Energy Analyst started")
     try:
         emit_progress("status", "energy_analyst", f"Running energy analysis ({hours}h)...")
         model_name, temperature, parent_span_id = _capture_parent_span_context()
@@ -500,12 +501,15 @@ async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> s
     except Exception as e:
         logger.error("Energy analysis failed: %s", e, exc_info=True)
         return f"Energy analysis failed: {e}"
+    finally:
+        emit_progress("agent_end", "energy_analyst", "Energy Analyst completed")
 
 
 async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) -> str:
     """Run the Behavioral Analyst and return formatted findings."""
     if not await is_agent_enabled("behavioral_analyst"):
         return "Behavioral Analyst is currently disabled."
+    emit_progress("agent_start", "behavioral_analyst", "Behavioral Analyst started")
     try:
         emit_progress("status", "behavioral_analyst", f"Running behavioral analysis ({hours}h)...")
         model_name, temperature, parent_span_id = _capture_parent_span_context()
@@ -531,12 +535,15 @@ async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) 
     except Exception as e:
         logger.error("Behavioral analysis failed: %s", e, exc_info=True)
         return f"Behavioral analysis failed: {e}"
+    finally:
+        emit_progress("agent_end", "behavioral_analyst", "Behavioral Analyst completed")
 
 
 async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) -> str:
     """Run the Diagnostic Analyst and return formatted findings."""
     if not await is_agent_enabled("diagnostic_analyst"):
         return "Diagnostic Analyst is currently disabled."
+    emit_progress("agent_start", "diagnostic_analyst", "Diagnostic Analyst started")
     try:
         emit_progress("status", "diagnostic_analyst", f"Running diagnostic analysis ({hours}h)...")
         model_name, temperature, parent_span_id = _capture_parent_span_context()
@@ -562,6 +569,8 @@ async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) 
     except Exception as e:
         logger.error("Diagnostic analysis failed: %s", e, exc_info=True)
         return f"Diagnostic analysis failed: {e}"
+    finally:
+        emit_progress("agent_end", "diagnostic_analyst", "Diagnostic Analyst completed")
 
 
 def get_specialist_tools() -> list:

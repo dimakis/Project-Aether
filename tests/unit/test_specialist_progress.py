@@ -48,6 +48,114 @@ class TestSpecialistProgress:
         assert any("energy" in e.message.lower() for e in status_events), \
             f"Expected 'energy' in status messages: {[e.message for e in status_events]}"
 
+
+class TestSpecialistLifecycleEvents:
+    """Tests that specialist runners emit agent_start/agent_end events."""
+
+    @pytest.mark.asyncio
+    async def test_energy_runner_emits_lifecycle_events(self):
+        """_run_energy should emit agent_start and agent_end for energy_analyst."""
+        queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
+             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+            mock_instance = AsyncMock()
+            mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
+            MockAnalyst.return_value = mock_instance
+
+            from src.tools.specialist_tools import _run_energy
+
+            async with execution_context(progress_queue=queue):
+                await _run_energy("test query", 24, None)
+
+        events = []
+        while not queue.empty():
+            events.append(queue.get_nowait())
+
+        types = [e.type for e in events]
+        agents = [e.agent for e in events]
+
+        assert "agent_start" in types, f"Expected agent_start, got types: {types}"
+        assert "agent_end" in types, f"Expected agent_end, got types: {types}"
+
+        start_idx = types.index("agent_start")
+        end_idx = types.index("agent_end")
+        assert events[start_idx].agent == "energy_analyst"
+        assert events[end_idx].agent == "energy_analyst"
+        assert start_idx < end_idx, "agent_start should come before agent_end"
+
+    @pytest.mark.asyncio
+    async def test_energy_runner_emits_agent_end_on_failure(self):
+        """agent_end should still fire even if the analyst raises."""
+        queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
+             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+            mock_instance = AsyncMock()
+            mock_instance.invoke.side_effect = RuntimeError("boom")
+            MockAnalyst.return_value = mock_instance
+
+            from src.tools.specialist_tools import _run_energy
+
+            async with execution_context(progress_queue=queue):
+                result = await _run_energy("test query", 24, None)
+
+        events = []
+        while not queue.empty():
+            events.append(queue.get_nowait())
+
+        types = [e.type for e in events]
+        # agent_end should fire even on failure (via try/finally)
+        assert "agent_end" in types, f"Expected agent_end on failure, got: {types}"
+
+    @pytest.mark.asyncio
+    async def test_behavioral_runner_emits_lifecycle_events(self):
+        """_run_behavioral should emit agent_start/agent_end."""
+        queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
+             patch("src.tools.specialist_tools.BehavioralAnalyst") as MockAnalyst:
+            mock_instance = AsyncMock()
+            mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
+            MockAnalyst.return_value = mock_instance
+
+            from src.tools.specialist_tools import _run_behavioral
+
+            async with execution_context(progress_queue=queue):
+                await _run_behavioral("test query", 24, None)
+
+        events = []
+        while not queue.empty():
+            events.append(queue.get_nowait())
+
+        types = [e.type for e in events]
+        assert "agent_start" in types
+        assert "agent_end" in types
+
+    @pytest.mark.asyncio
+    async def test_diagnostic_runner_emits_lifecycle_events(self):
+        """_run_diagnostic should emit agent_start/agent_end."""
+        queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
+        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
+             patch("src.tools.specialist_tools.DiagnosticAnalyst") as MockAnalyst:
+            mock_instance = AsyncMock()
+            mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
+            MockAnalyst.return_value = mock_instance
+
+            from src.tools.specialist_tools import _run_diagnostic
+
+            async with execution_context(progress_queue=queue):
+                await _run_diagnostic("test query", 24, None)
+
+        events = []
+        while not queue.empty():
+            events.append(queue.get_nowait())
+
+        types = [e.type for e in events]
+        assert "agent_start" in types
+        assert "agent_end" in types
+
     @pytest.mark.asyncio
     async def test_behavioral_runner_emits_status(self):
         """_run_behavioral should emit a status event before running."""

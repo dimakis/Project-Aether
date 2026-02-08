@@ -411,7 +411,8 @@ async def _stream_chat_completion(
                         tag_filter = _StreamingTagFilter()
 
                         # --- Agent lifecycle tracking for the activity panel ---
-                        active_delegated: str | None = None
+                        # Use a stack to support nested agents (e.g. DS team -> energy_analyst)
+                        agent_stack: list[str] = []
                         agents_seen: list[str] = ["architect"]
                         stream_started = False
 
@@ -472,13 +473,10 @@ async def _stream_chat_completion(
                                     target = TOOL_AGENT_MAP.get(tool_name, "architect")
 
                                     # --- Agent lifecycle: delegate to new agent ---
-                                    if target != "architect" and target != active_delegated:
-                                        # End previous delegated agent if any
-                                        if active_delegated:
-                                            yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
-                                        # Start new delegated agent
+                                    if target != "architect" and (not agent_stack or agent_stack[-1] != target):
+                                        # Start new delegated agent (push onto stack)
                                         yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'start', 'ts': time.time()})}\n\n"
-                                        active_delegated = target
+                                        agent_stack.append(target)
                                         if target not in agents_seen:
                                             agents_seen.append(target)
 
@@ -499,10 +497,21 @@ async def _stream_chat_completion(
 
                             elif event_type == "tool_end":
                                 if not is_background:
-                                    # --- Agent lifecycle: end delegated agent ---
-                                    if active_delegated:
-                                        yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
-                                        active_delegated = None
+                                    # --- Agent lifecycle: pop the tool-level agent ---
+                                    # Only pop if the top of stack matches the tool's agent
+                                    tool_name = event.get("tool", "")
+                                    target = TOOL_AGENT_MAP.get(tool_name, "architect")
+                                    if agent_stack and agent_stack[-1] == target:
+                                        agent_stack.pop()
+                                        yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
+                                    elif agent_stack:
+                                        # Tool ended but didn't match top of stack -- pop all down to it
+                                        while agent_stack and agent_stack[-1] != target:
+                                            popped = agent_stack.pop()
+                                            yield f"data: {json.dumps({'type': 'trace', 'agent': popped, 'event': 'end', 'ts': time.time()})}\n\n"
+                                        if agent_stack and agent_stack[-1] == target:
+                                            agent_stack.pop()
+                                            yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
                                     status_ev = {
                                         "type": "status",
                                         "content": "",  # Clear status
@@ -510,25 +519,21 @@ async def _stream_chat_completion(
                                     yield f"data: {json.dumps(status_ev)}\n\n"
 
                             elif event_type == "agent_start":
-                                # Progress: a sub-agent has started
+                                # Progress: a sub-agent has started (push onto stack)
                                 agent_name = event.get("agent", "")
                                 if not is_background and agent_name:
-                                    # End previous delegated agent if different
-                                    if active_delegated and active_delegated != agent_name:
-                                        yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
-                                    # Start new delegated agent
                                     yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'start', 'ts': time.time()})}\n\n"
-                                    active_delegated = agent_name
+                                    agent_stack.append(agent_name)
                                     if agent_name not in agents_seen:
                                         agents_seen.append(agent_name)
 
                             elif event_type == "agent_end":
-                                # Progress: a sub-agent has completed
+                                # Progress: a sub-agent has completed (pop from stack)
                                 agent_name = event.get("agent", "")
                                 if not is_background and agent_name:
                                     yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'end', 'ts': time.time()})}\n\n"
-                                    if active_delegated == agent_name:
-                                        active_delegated = None
+                                    if agent_stack and agent_stack[-1] == agent_name:
+                                        agent_stack.pop()
 
                             elif event_type == "status":
                                 # Progress: status message from a sub-agent
@@ -568,9 +573,10 @@ async def _stream_chat_completion(
 
                     # --- Agent lifecycle: complete event ---
                     if stream_started and not is_background:
-                        # End any still-active delegated agent
-                        if active_delegated:
-                            yield f"data: {json.dumps({'type': 'trace', 'agent': active_delegated, 'event': 'end', 'ts': time.time()})}\n\n"
+                        # End any still-active agents in the stack (deepest first)
+                        while agent_stack:
+                            popped = agent_stack.pop()
+                            yield f"data: {json.dumps({'type': 'trace', 'agent': popped, 'event': 'end', 'ts': time.time()})}\n\n"
                         # Architect end
                         yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
                         # Complete event with all agents
