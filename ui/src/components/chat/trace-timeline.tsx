@@ -82,12 +82,25 @@ const AGENT_COLORS: Record<string, string> = {
   system: "text-muted-foreground",
 };
 
+/** Format a wall-clock Date as compact HH:MM:SS */
+function formatWallClock(date: Date): string {
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 interface TraceTimelineProps {
   rootSpan: SpanNode;
+  /** ISO-8601 trace start time for wall-clock display */
+  startedAt?: string | null;
   isLive?: boolean;
 }
 
-export function TraceTimeline({ rootSpan, isLive }: TraceTimelineProps) {
+export function TraceTimeline({ rootSpan, startedAt, isLive }: TraceTimelineProps) {
+  const traceStart = startedAt ? new Date(startedAt).getTime() : null;
   const events = flattenSpans(rootSpan);
 
   // Sort by time and deduplicate very close events from the same agent
@@ -128,8 +141,20 @@ export function TraceTimeline({ rootSpan, isLive }: TraceTimelineProps) {
           className="flex gap-2 py-1.5"
         >
           {/* Timestamp */}
-          <span className="w-10 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/50">
-            {(event.time_ms / 1000).toFixed(1)}s
+          <span
+            className={cn(
+              "shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/50",
+              traceStart ? "w-[52px]" : "w-10",
+            )}
+            title={
+              traceStart
+                ? new Date(traceStart + event.time_ms).toISOString()
+                : `+${(event.time_ms / 1000).toFixed(1)}s`
+            }
+          >
+            {traceStart
+              ? formatWallClock(new Date(traceStart + event.time_ms))
+              : `${(event.time_ms / 1000).toFixed(1)}s`}
           </span>
 
           {/* Timeline dot */}

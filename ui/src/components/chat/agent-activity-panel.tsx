@@ -93,6 +93,7 @@ export function AgentActivityPanel() {
                 </p>
                 <TraceTimeline
                   rootSpan={trace.root_span}
+                  startedAt={trace.started_at}
                   isLive={isStreaming}
                 />
               </div>

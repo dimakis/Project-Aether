@@ -44,6 +44,7 @@ class TraceResponse(BaseModel):
     trace_id: str
     status: str
     duration_ms: float
+    started_at: str | None = None  # ISO-8601 wall-clock start time
     root_span: SpanNode | None = None
     agents_involved: list[str] = []  # Unique agents seen in the trace
     span_count: int = 0
@@ -97,6 +98,7 @@ async def get_trace_spans(trace_id: str) -> TraceResponse:
             trace_id=trace_id,
             status=_get_trace_status(trace),
             duration_ms=_get_trace_duration(trace),
+            started_at=None,
             root_span=None,
             agents_involved=[],
             span_count=0,
@@ -105,10 +107,15 @@ async def get_trace_spans(trace_id: str) -> TraceResponse:
     # Build the span tree
     root_span, agents = _build_span_tree(spans, trace)
 
+    # Compute wall-clock start as ISO-8601
+    trace_start_ns = _get_trace_start_ns(trace, spans)
+    started_at = _ns_to_iso(trace_start_ns) if trace_start_ns > 0 else None
+
     return TraceResponse(
         trace_id=trace_id,
         status=_get_trace_status(trace),
         duration_ms=_get_trace_duration(trace),
+        started_at=started_at,
         root_span=root_span,
         agents_involved=sorted(agents),
         span_count=len(spans),
@@ -341,6 +348,13 @@ def _get_trace_start_ns(trace: Any, spans: list[Any]) -> int:
     """Get the earliest start time across all spans."""
     starts = [_get_start_time(s) for s in spans if _get_start_time(s) > 0]
     return min(starts) if starts else 0
+
+
+def _ns_to_iso(ns: int) -> str:
+    """Convert nanosecond timestamp to ISO-8601 string."""
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(ns / 1e9, tz=timezone.utc).isoformat()
 
 
 def _get_trace_status(trace: Any) -> str:
