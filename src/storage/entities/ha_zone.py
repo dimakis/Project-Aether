@@ -68,6 +68,12 @@ class HAZone(Base, UUIDMixin, TimestampMixin):
         nullable=True,
         doc="MDI icon name (e.g. 'mdi:home', 'mdi:beach')",
     )
+    url_preference: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        server_default="auto",
+        doc="Which URL to use: 'auto' (local then remote), 'local', or 'remote'",
+    )
 
     def __repr__(self) -> str:
         """Return string representation."""

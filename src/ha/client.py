@@ -85,11 +85,12 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
                 conn = await repo.get_connection(zone.id, jwt_secret)
                 if not conn:
                     return None
-                ha_url, ha_url_remote, ha_token = conn
+                ha_url, ha_url_remote, ha_token, url_preference = conn
                 return HAClientConfig(
                     ha_url=ha_url,
                     ha_url_remote=ha_url_remote,
                     ha_token=ha_token,
+                    url_preference=url_preference,
                 )
 
         try:

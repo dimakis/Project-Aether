@@ -22,6 +22,10 @@ class HAClientConfig(BaseModel):
     )
     ha_token: str = Field(..., description="Home Assistant token")
     timeout: int = Field(default=30, description="Request timeout in seconds")
+    url_preference: str = Field(
+        default="auto",
+        description="Which URL to use: 'auto' (local then remote), 'local', or 'remote'",
+    )
 
 
 def _try_get_db_config(settings) -> tuple[str, str] | None:
@@ -130,13 +134,11 @@ class BaseHAClient:
     async def connect(self) -> None:
         """Verify connection to Home Assistant.
 
-        Tries local URL first, falls back to remote if configured.
+        URL order is determined by url_preference setting.
         """
         import httpx
 
-        urls_to_try = [self.config.ha_url]
-        if self.config.ha_url_remote:
-            urls_to_try.append(self.config.ha_url_remote)
+        urls_to_try = self._build_urls_to_try()
 
         errors = []
         for url in urls_to_try:
@@ -158,6 +160,29 @@ class BaseHAClient:
             f"All connection attempts failed: {'; '.join(errors)}",
             "connect",
         )
+
+    def _build_urls_to_try(self) -> list[str]:
+        """Build ordered list of URLs to try based on url_preference.
+
+        Returns:
+            List of URLs in the order they should be attempted.
+        """
+        pref = self.config.url_preference
+
+        if pref == "remote":
+            if self.config.ha_url_remote:
+                return [self.config.ha_url_remote]
+            # Remote preferred but not configured — fall back to local
+            return [self.config.ha_url]
+
+        if pref == "local":
+            return [self.config.ha_url]
+
+        # "auto": local first, remote as fallback
+        urls = [self.config.ha_url]
+        if self.config.ha_url_remote:
+            urls.append(self.config.ha_url_remote)
+        return urls
 
     def _get_url(self) -> str:
         """Get the active HA URL."""
@@ -187,14 +212,15 @@ class BaseHAClient:
 
         start_time = time.perf_counter()
 
-        # Build list of URLs to try
-        urls_to_try = []
-        if self._active_url:
-            urls_to_try.append(self._active_url)
-        if self.config.ha_url not in urls_to_try:
-            urls_to_try.append(self.config.ha_url)
-        if self.config.ha_url_remote and self.config.ha_url_remote not in urls_to_try:
-            urls_to_try.append(self.config.ha_url_remote)
+        # Build list of URLs to try, prioritising the active URL
+        base_urls = self._build_urls_to_try()
+        if self._active_url and self._active_url in base_urls:
+            # Put active URL first, keep the rest as fallback
+            urls_to_try = [self._active_url] + [
+                u for u in base_urls if u != self._active_url
+            ]
+        else:
+            urls_to_try = base_urls
 
         errors = []
         for url in urls_to_try:

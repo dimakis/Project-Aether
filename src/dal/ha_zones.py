@@ -77,6 +77,7 @@ class HAZoneRepository:
         latitude: float | None = None,
         longitude: float | None = None,
         icon: str | None = None,
+        url_preference: str = "auto",
     ) -> HAZone:
         """Create a new zone with encrypted token.
 
@@ -129,6 +130,7 @@ class HAZoneRepository:
             latitude=latitude,
             longitude=longitude,
             icon=icon,
+            url_preference=url_preference,
         )
         self.session.add(zone)
         await self.session.flush()
@@ -146,6 +148,7 @@ class HAZoneRepository:
         latitude: float | None = ...,  # type: ignore[assignment]
         longitude: float | None = ...,  # type: ignore[assignment]
         icon: str | None = ...,  # type: ignore[assignment]
+        url_preference: str | None = None,
     ) -> HAZone | None:
         """Update a zone. Only provided fields are changed.
 
@@ -184,6 +187,8 @@ class HAZoneRepository:
             zone.longitude = longitude
         if icon is not ...:
             zone.icon = icon
+        if url_preference is not None:
+            zone.url_preference = url_preference
 
         await self.session.flush()
         return zone
@@ -233,7 +238,7 @@ class HAZoneRepository:
 
     async def get_connection(
         self, zone_id: str, secret: str
-    ) -> tuple[str, str | None, str] | None:
+    ) -> tuple[str, str | None, str, str] | None:
         """Get decrypted connection details for a zone.
 
         Args:
@@ -241,13 +246,13 @@ class HAZoneRepository:
             secret: Decryption secret.
 
         Returns:
-            Tuple of (ha_url, ha_url_remote, ha_token) or None.
+            Tuple of (ha_url, ha_url_remote, ha_token, url_preference) or None.
         """
         zone = await self.get_by_id(zone_id)
         if not zone:
             return None
         token = decrypt_token(zone.ha_token_encrypted, secret)
-        return zone.ha_url, zone.ha_url_remote, token
+        return zone.ha_url, zone.ha_url_remote, token, zone.url_preference
 
     async def _clear_defaults(self) -> None:
         """Unset is_default on all zones."""

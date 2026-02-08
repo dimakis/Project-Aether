@@ -4,6 +4,8 @@ Provides CRUD endpoints for creating, listing, updating, deleting,
 and testing connectivity to Home Assistant zones.
 """
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -32,6 +34,9 @@ class ZoneCreate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     icon: str | None = Field(None, max_length=100, description="MDI icon name")
+    url_preference: Literal["auto", "local", "remote"] = Field(
+        "auto", description="Which URL to use: auto (local then remote), local, or remote"
+    )
 
 
 class ZoneUpdate(BaseModel):
@@ -44,6 +49,9 @@ class ZoneUpdate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     icon: str | None = Field(None, max_length=100)
+    url_preference: Literal["auto", "local", "remote"] | None = Field(
+        None, description="Which URL to use: auto, local, or remote"
+    )
 
 
 class ZoneResponse(BaseModel):
@@ -58,6 +66,7 @@ class ZoneResponse(BaseModel):
     latitude: float | None
     longitude: float | None
     icon: str | None
+    url_preference: str
     created_at: str
     updated_at: str
 
@@ -88,6 +97,7 @@ def _serialize_zone(zone) -> dict:
         "latitude": zone.latitude,
         "longitude": zone.longitude,
         "icon": zone.icon,
+        "url_preference": zone.url_preference,
         "created_at": zone.created_at.isoformat() if zone.created_at else None,
         "updated_at": zone.updated_at.isoformat() if zone.updated_at else None,
     }
@@ -138,6 +148,7 @@ async def create_zone(body: ZoneCreate):
             latitude=body.latitude,
             longitude=body.longitude,
             icon=body.icon,
+            url_preference=body.url_preference,
         )
         await session.commit()
         return _serialize_zone(zone)
@@ -186,6 +197,8 @@ async def update_zone(zone_id: str, body: ZoneUpdate):
             kwargs["longitude"] = body.longitude
         if body.icon is not None:
             kwargs["icon"] = body.icon
+        if body.url_preference is not None:
+            kwargs["url_preference"] = body.url_preference
 
         zone = await repo.update(zone_id, **kwargs)
         if not zone:
@@ -241,7 +254,7 @@ async def test_zone(zone_id: str):
                 detail="Zone not found.",
             )
 
-    ha_url, ha_url_remote, ha_token = conn
+    ha_url, ha_url_remote, ha_token, _url_pref = conn
 
     # Test local URL
     local_ok = False
