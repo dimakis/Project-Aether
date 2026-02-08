@@ -253,13 +253,13 @@ export function AgentTopology({
               <filter
                 key={`glow-${agent}`}
                 id={`glow-${agent}`}
-                x="-50%"
-                y="-50%"
-                width="200%"
-                height="200%"
+                x="-80%"
+                y="-80%"
+                width="260%"
+                height="260%"
               >
-                <feGaussianBlur stdDeviation="4" result="blur" />
-                <feFlood floodColor={meta.hex} floodOpacity="0.5" />
+                <feGaussianBlur stdDeviation="6" result="blur" />
+                <feFlood floodColor={meta.hex} floodOpacity="0.8" />
                 <feComposite in2="blur" operator="in" />
                 <feMerge>
                   <feMergeNode />
@@ -268,6 +268,14 @@ export function AgentTopology({
               </filter>
             );
           })}
+          {/* Edge glow filter for active edges */}
+          <filter id="edge-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         {/* ── Edges ─────────────────────────────────────────────── */}
@@ -305,6 +313,17 @@ export function AgentTopology({
 
           return (
             <g key={`${a}-${b}`}>
+              {/* Active edge glow underlay (thick, blurred) */}
+              {edgeActive && (
+                <line
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke={aFiring ? metaA.hex : metaB.hex}
+                  strokeWidth={4}
+                  strokeOpacity={0.3}
+                  filter="url(#edge-glow)"
+                />
+              )}
+
               {/* Edge line */}
               <motion.line
                 x1={x1} y1={y1} x2={x2} y2={y2}
@@ -313,14 +332,15 @@ export function AgentTopology({
                     ? aFiring ? metaA.hex : metaB.hex
                     : "hsl(var(--border))"
                 }
-                strokeWidth={edgeActive ? 1.5 : 0.5}
+                strokeWidth={edgeActive ? 2.5 : 0.6}
+                strokeLinecap="round"
                 initial={false}
                 animate={{
                   strokeOpacity: edgeActive
-                    ? 0.7
+                    ? 1
                     : prefersReducedMotion
-                      ? 0.1
-                      : [0.06, 0.14, 0.06], // idle shimmer
+                      ? 0.15
+                      : [0.1, 0.25, 0.1], // brighter idle shimmer
                 }}
                 transition={
                   edgeActive
@@ -339,33 +359,33 @@ export function AgentTopology({
                 <>
                   {/* A -> B pulse */}
                   <motion.circle
-                    r={2}
+                    r={3}
                     fill={metaA.hex}
                     animate={{
                       cx: [x1, x2],
                       cy: [y1, y2],
-                      opacity: [0.9, 0.2],
+                      opacity: [1, 0.3],
                     }}
                     transition={{
-                      duration: 1.0,
+                      duration: 0.8,
                       repeat: Infinity,
                       ease: "linear",
                     }}
                   />
                   {/* B -> A pulse (reverse, offset) */}
                   <motion.circle
-                    r={1.5}
+                    r={2}
                     fill={metaB.hex}
                     animate={{
                       cx: [x2, x1],
                       cy: [y2, y1],
-                      opacity: [0.7, 0.15],
+                      opacity: [0.9, 0.2],
                     }}
                     transition={{
-                      duration: 1.3,
+                      duration: 1.1,
                       repeat: Infinity,
                       ease: "linear",
-                      delay: 0.4,
+                      delay: 0.3,
                     }}
                   />
                 </>
@@ -388,8 +408,9 @@ export function AgentTopology({
 
           // Randomized breathing parameters per node (seeded by index for stability)
           const rng = seededRandom(nodeIdx);
-          const breatheBase = isAether ? 0.3 : 0.16 + rng * 0.06;
-          const breathePeak = isAether ? 0.5 : 0.30 + rng * 0.08;
+          // Brighter idle: base 0.30-0.40, peak 0.50-0.62 (was 0.16-0.30)
+          const breatheBase = isAether ? 0.45 : 0.30 + rng * 0.10;
+          const breathePeak = isAether ? 0.70 : 0.50 + rng * 0.12;
           const breatheDuration = isAether ? 2.5 : 2.5 + rng * 2.5; // 2.5-5s
           const breatheDelay = seededRandom(nodeIdx + 50) * 2.5; // 0-2.5s offset
           // Subtle scale oscillation range
@@ -402,9 +423,9 @@ export function AgentTopology({
               initial={{ opacity: 0, scale: 0.5 }}
               animate={
                 isFiring
-                  ? { opacity: 1, scale: 1.08 }
+                  ? { opacity: 1, scale: 1.18 }
                   : isDone
-                    ? { opacity: 1, scale: 1 }
+                    ? { opacity: 0.9, scale: 1 }
                     : prefersReducedMotion
                       ? { opacity: breathePeak, scale: 1 }
                       : {
@@ -434,8 +455,8 @@ export function AgentTopology({
                 r={r}
                 fill="hsl(var(--card))"
                 stroke={isFiring ? meta.hex : isAether ? meta.hex : "hsl(var(--border))"}
-                strokeWidth={isFiring ? 2 : isAether ? 1.5 : 1}
-                strokeOpacity={isFiring ? 1 : isAether ? 0.6 : 1}
+                strokeWidth={isFiring ? 2.5 : isAether ? 1.5 : 1}
+                strokeOpacity={isFiring ? 1 : isAether ? 0.7 : 0.6}
                 filter={isFiring ? `url(#glow-${agent})` : undefined}
               />
 
@@ -447,10 +468,10 @@ export function AgentTopology({
                   r={r + 6}
                   fill="none"
                   stroke={meta.hex}
-                  strokeWidth={0.5}
+                  strokeWidth={0.8}
                   animate={{
                     r: [r + 3, r + 8, r + 3],
-                    opacity: [0.15, 0.3, 0.15],
+                    opacity: [0.2, 0.45, 0.2],
                   }}
                   transition={{
                     duration: 3,
@@ -460,7 +481,21 @@ export function AgentTopology({
                 />
               )}
 
-              {/* Firing pulse ring */}
+              {/* Firing: inner bright halo */}
+              {isFiring && (
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={r + 2}
+                  fill="none"
+                  stroke={meta.hex}
+                  strokeWidth={1.5}
+                  strokeOpacity={0.6}
+                  filter={`url(#glow-${agent})`}
+                />
+              )}
+
+              {/* Firing pulse ring (expanding outward) */}
               {isFiring && !prefersReducedMotion && (
                 <motion.circle
                   cx={pos.x}
@@ -468,15 +503,37 @@ export function AgentTopology({
                   r={r + 4}
                   fill="none"
                   stroke={meta.hex}
-                  strokeWidth={1}
+                  strokeWidth={1.5}
                   animate={{
-                    r: [r + 2, r + 10],
-                    opacity: [0.6, 0],
+                    r: [r + 2, r + 14],
+                    opacity: [0.8, 0],
                   }}
                   transition={{
-                    duration: 0.9,
+                    duration: 0.8,
                     repeat: Infinity,
                     ease: "easeOut",
+                  }}
+                />
+              )}
+
+              {/* Firing: second slower pulse ring for layered emphasis */}
+              {isFiring && !prefersReducedMotion && (
+                <motion.circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={r + 6}
+                  fill="none"
+                  stroke={meta.hex}
+                  strokeWidth={0.8}
+                  animate={{
+                    r: [r + 4, r + 18],
+                    opacity: [0.5, 0],
+                  }}
+                  transition={{
+                    duration: 1.4,
+                    repeat: Infinity,
+                    ease: "easeOut",
+                    delay: 0.3,
                   }}
                 />
               )}
@@ -524,9 +581,10 @@ export function AgentTopology({
                 y={pos.y + r + 10}
                 textAnchor="middle"
                 fontSize={isAether ? "9" : "8"}
-                fontWeight={isAether ? "600" : "400"}
-                fill="currentColor"
-                className={cn("fill-current", meta.color)}
+                fontWeight={isFiring ? "700" : isAether ? "600" : "500"}
+                fill={isFiring ? meta.hex : "currentColor"}
+                className={cn(!isFiring && "fill-current", !isFiring && meta.color)}
+                filter={isFiring ? `url(#glow-${agent})` : undefined}
               >
                 {meta.label}
               </text>
