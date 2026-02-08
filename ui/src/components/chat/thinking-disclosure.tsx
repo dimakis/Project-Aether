@@ -14,9 +14,9 @@ interface ThinkingDisclosureProps {
 /**
  * Collapsible disclosure for model reasoning/thinking content.
  *
- * During streaming (`isActive`): shows a compact 3-5 line window that
- * auto-scrolls to the latest reasoning. After streaming: collapses to
- * a "Thought for N words" summary bar, expandable on click.
+ * Shows a compact 5-line scrollable window during streaming that
+ * auto-scrolls. After streaming, collapses to a summary bar
+ * ("Thought for N words") that expands on click to the same 5-line box.
  */
 export function ThinkingDisclosure({
   thinking,
@@ -38,14 +38,13 @@ export function ThinkingDisclosure({
 
   if (thinking.length === 0 && !isActive) return null;
 
-  // During streaming: always show the compact scrollable window.
-  // After streaming: show collapsed summary, expandable on click.
+  // During streaming: always show. After: toggle via click.
   const showContent = isActive || isOpen;
 
   return (
     <div className={cn("mb-3", className)}>
       <button
-        onClick={() => !isActive && setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors",
           isActive
@@ -59,15 +58,13 @@ export function ThinkingDisclosure({
             ? "Reasoning..."
             : `Thought for ${wordCount} words`}
         </span>
-        {!isActive && (
-          <motion.span
-            animate={{ rotate: isOpen ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="ml-auto"
-          >
-            <ChevronDown className="h-3 w-3" />
-          </motion.span>
-        )}
+        <motion.span
+          animate={{ rotate: showContent ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="ml-auto"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </motion.span>
       </button>
 
       <AnimatePresence>
@@ -81,11 +78,7 @@ export function ThinkingDisclosure({
           >
             <div
               ref={scrollRef}
-              className={cn(
-                "mt-1 overflow-auto rounded-lg border border-border/30 bg-muted/30 px-3 py-2",
-                // During streaming: compact 3-5 line window. After: taller.
-                isActive ? "max-h-[4.5rem]" : "max-h-64",
-              )}
+              className="mt-1 max-h-[6rem] overflow-auto rounded-lg border border-border/30 bg-muted/30 px-3 py-2"
             >
               <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-muted-foreground">
                 {combinedThinking}

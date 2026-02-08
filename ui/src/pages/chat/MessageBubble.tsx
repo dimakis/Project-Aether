@@ -55,7 +55,7 @@ export const MessageBubble = memo(function MessageBubble({
     ? [msg.thinkingContent!]
     : (parsed?.thinking ?? []);
   const isModelThinking = hasStreamedThinking
-    ? !!msg.isStreaming && !msg.content
+    ? !!msg.isStreaming
     : (parsed?.isThinking ?? false);
 
   const timestamp = msg.timestamp ? new Date(msg.timestamp) : undefined;
