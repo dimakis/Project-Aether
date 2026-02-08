@@ -208,9 +208,9 @@ function SetupGuide() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function WebhooksPage() {
-  const { data: schedules } = useInsightSchedules();
+  const { data: schedulesData } = useInsightSchedules();
 
-  const webhookSchedules = (schedules ?? []).filter(
+  const webhookSchedules = (schedulesData?.items ?? []).filter(
     (s) => s.trigger_type === "webhook",
   );
   const enabledCount = webhookSchedules.filter((s) => s.enabled).length;
