@@ -37,6 +37,7 @@ export function ConfigTab({ agentName }: { agentName: string }) {
   const [temperature, setTemperature] = useState("");
   const [fallbackModel, setFallbackModel] = useState("");
   const [changeSummary, setChangeSummary] = useState("");
+  const [bumpType, setBumpType] = useState<"major" | "minor" | "patch">("patch");
 
   const createMutation = useCreateConfigVersion();
   const promoteMutation = usePromoteConfigVersion();
@@ -52,6 +53,7 @@ export function ConfigTab({ agentName }: { agentName: string }) {
           temperature: temperature ? parseFloat(temperature) : undefined,
           fallback_model: fallbackModel || undefined,
           change_summary: changeSummary || undefined,
+          bump_type: bumpType,
         },
       },
       {
@@ -61,6 +63,7 @@ export function ConfigTab({ agentName }: { agentName: string }) {
           setTemperature("");
           setFallbackModel("");
           setChangeSummary("");
+          setBumpType("patch");
         },
       },
     );
@@ -131,24 +134,42 @@ export function ConfigTab({ agentName }: { agentName: string }) {
                   value={changeSummary}
                   onChange={(e) => setChangeSummary(e.target.value)}
                 />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowCreate(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleCreate}
-                    disabled={createMutation.isPending}
-                  >
-                    {createMutation.isPending && (
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    )}
-                    Create Draft
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                      Bump
+                    </span>
+                    {(["patch", "minor", "major"] as const).map((bt) => (
+                      <Button
+                        key={bt}
+                        size="sm"
+                        variant={bumpType === bt ? "secondary" : "ghost"}
+                        className="h-6 px-2 text-[10px] capitalize"
+                        onClick={() => setBumpType(bt)}
+                      >
+                        {bt}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowCreate(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleCreate}
+                      disabled={createMutation.isPending}
+                    >
+                      {createMutation.isPending && (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Create Draft
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -214,7 +235,9 @@ function VersionRow({
     >
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">v{version.version_number}</span>
+          <span className="text-sm font-medium">
+            {version.version ? version.version : `v${version.version_number}`}
+          </span>
           <Badge
             variant="outline"
             className={cn(

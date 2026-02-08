@@ -77,7 +77,11 @@ export function OverviewTab({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Version</span>
-                  <span>v{agent.active_config.version_number}</span>
+                  <span>
+                    {agent.active_config.version
+                      ? agent.active_config.version
+                      : `v${agent.active_config.version_number}`}
+                  </span>
                 </div>
               </>
             ) : (
@@ -97,7 +101,11 @@ export function OverviewTab({
               <>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Version</span>
-                  <span>v{agent.active_prompt.version_number}</span>
+                  <span>
+                    {agent.active_prompt.version
+                      ? agent.active_prompt.version
+                      : `v${agent.active_prompt.version_number}`}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Length</span>

@@ -14,6 +14,7 @@ export function HistoryTab({ agentName }: { agentName: string }) {
   const events: Array<{
     type: "config" | "prompt";
     version_number: number;
+    version: string | null;
     status: string;
     summary: string | null;
     created_at: string;
@@ -25,6 +26,7 @@ export function HistoryTab({ agentName }: { agentName: string }) {
     events.push({
       type: "config",
       version_number: v.version_number,
+      version: v.version,
       status: v.status,
       summary: v.change_summary,
       created_at: v.created_at,
@@ -37,6 +39,7 @@ export function HistoryTab({ agentName }: { agentName: string }) {
     events.push({
       type: "prompt",
       version_number: v.version_number,
+      version: v.version,
       status: v.status,
       summary: v.change_summary,
       created_at: v.created_at,
@@ -76,8 +79,8 @@ export function HistoryTab({ agentName }: { agentName: string }) {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium">
-                    {event.type === "config" ? "Config" : "Prompt"} v
-                    {event.version_number}
+                    {event.type === "config" ? "Config" : "Prompt"}{" "}
+                    {event.version ? event.version : `v${event.version_number}`}
                   </span>
                   <Badge
                     variant="outline"

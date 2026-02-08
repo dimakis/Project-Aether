@@ -9,6 +9,7 @@ import {
   Trash2,
   FileText,
   Sparkles,
+  Copy,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ export function PromptTab({ agentName }: { agentName: string }) {
   const [showCreate, setShowCreate] = useState(false);
   const [promptTemplate, setPromptTemplate] = useState("");
   const [changeSummary, setChangeSummary] = useState("");
+  const [bumpType, setBumpType] = useState<"major" | "minor" | "patch">("patch");
   const [showGenerate, setShowGenerate] = useState(false);
   const [genInput, setGenInput] = useState("");
 
@@ -50,6 +52,7 @@ export function PromptTab({ agentName }: { agentName: string }) {
         data: {
           prompt_template: promptTemplate,
           change_summary: changeSummary || undefined,
+          bump_type: bumpType,
         },
       },
       {
@@ -57,6 +60,7 @@ export function PromptTab({ agentName }: { agentName: string }) {
           setShowCreate(false);
           setPromptTemplate("");
           setChangeSummary("");
+          setBumpType("patch");
         },
       },
     );
@@ -194,24 +198,42 @@ export function PromptTab({ agentName }: { agentName: string }) {
                   value={changeSummary}
                   onChange={(e) => setChangeSummary(e.target.value)}
                 />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowCreate(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleCreate}
-                    disabled={createMutation.isPending || !promptTemplate.trim()}
-                  >
-                    {createMutation.isPending && (
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    )}
-                    Create Draft
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                      Bump
+                    </span>
+                    {(["patch", "minor", "major"] as const).map((bt) => (
+                      <Button
+                        key={bt}
+                        size="sm"
+                        variant={bumpType === bt ? "secondary" : "ghost"}
+                        className="h-6 px-2 text-[10px] capitalize"
+                        onClick={() => setBumpType(bt)}
+                      >
+                        {bt}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowCreate(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleCreate}
+                      disabled={createMutation.isPending || !promptTemplate.trim()}
+                    >
+                      {createMutation.isPending && (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Create Draft
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -281,7 +303,7 @@ function PromptVersionRow({
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">
-              v{version.version_number}
+              {version.version ? version.version : `v${version.version_number}`}
             </span>
             <Badge
               variant="outline"
@@ -345,9 +367,22 @@ function PromptVersionRow({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
           >
-            <pre className="mt-3 max-h-[300px] overflow-auto rounded-md bg-background/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
-              {version.prompt_template}
-            </pre>
+            <div className="relative mt-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="absolute right-1 top-1 h-7 w-7 p-0"
+                title="Copy prompt"
+                onClick={() => {
+                  navigator.clipboard.writeText(version.prompt_template);
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+              <pre className="max-h-[300px] overflow-auto rounded-md bg-background/50 p-3 pr-10 font-mono text-xs leading-relaxed text-muted-foreground">
+                {version.prompt_template}
+              </pre>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
