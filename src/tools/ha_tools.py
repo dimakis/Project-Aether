@@ -1,7 +1,8 @@
 """Home Assistant tools for agents.
 
-Provides LangChain-compatible tools that wrap HA client calls
-for common Home Assistant interactions.
+Provides LangChain-compatible tools for HA queries. Listing/search/summary
+tools read from the discovery database for speed; get_entity_state stays
+live for real-time state. Mutation tools still call HA directly.
 """
 
 from __future__ import annotations
@@ -10,7 +11,10 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.dal.automations import AutomationRepository, ScriptRepository
+from src.dal.entities import EntityRepository
 from src.ha import get_ha_client
+from src.storage import get_session
 from src.tracing import trace_with_uri
 
 
@@ -45,55 +49,67 @@ async def get_entity_state(entity_id: str) -> str:
 @tool("list_entities_by_domain")
 @trace_with_uri(name="ha.list_entities_by_domain", span_type="TOOL")
 async def list_entities_by_domain(domain: str, state_filter: str | None = None) -> str:
-    """List entities for a given domain, optionally filtered by state."""
-    ha = get_ha_client()
-    payload = await ha.list_entities(domain=domain)
-    entities = _extract_results(payload)
+    """List entities for a given domain, optionally filtered by state.
+
+    Reads from the discovery database for fast, no-round-trip lookups.
+    Data is as fresh as the last discovery sync.
+    """
+    async with get_session() as session:
+        repo = EntityRepository(session)
+        entities = await repo.list_by_domain(domain)
 
     if state_filter:
         entities = [
-            e for e in entities if str(e.get("state", "")).lower() == state_filter.lower()
+            e for e in entities if str(e.state or "").lower() == state_filter.lower()
         ]
 
     if not entities:
         return f"No entities found for domain '{domain}'."
 
-    lines = [e.get("entity_id", "unknown") for e in entities]
+    lines = [e.entity_id for e in entities]
     return "\n".join(lines)
 
 
 @tool("search_entities")
 @trace_with_uri(name="ha.search_entities", span_type="TOOL")
 async def search_entities(query: str) -> str:
-    """Search entities by name or ID."""
-    ha = get_ha_client()
+    """Search entities by name or ID.
 
-    if hasattr(ha, "search_entities"):
-        payload = await ha.search_entities(query=query)
-        entities = _extract_results(payload)
-    else:
-        payload = await ha.list_entities(search_query=query)
-        entities = _extract_results(payload)
+    Reads from the discovery database for fast, no-round-trip lookups.
+    Data is as fresh as the last discovery sync.
+    """
+    async with get_session() as session:
+        repo = EntityRepository(session)
+        entities = await repo.search(query)
 
     if not entities:
         return f"No entities found for query '{query}'."
 
-    lines = [e.get("entity_id", "unknown") for e in entities]
+    lines = [e.entity_id for e in entities]
     return "\n".join(lines)
 
 
 @tool("get_domain_summary")
 @trace_with_uri(name="ha.get_domain_summary", span_type="TOOL")
 async def get_domain_summary(domain: str) -> str:
-    """Get a summary of entity counts and states for a domain."""
-    ha = get_ha_client()
-    summary = await ha.domain_summary(domain=domain)
-    if not summary:
-        return f"No summary available for domain '{domain}'."
+    """Get a summary of entity counts and states for a domain.
 
-    total = summary.get("total_count", 0)
-    states = summary.get("state_distribution", {})
-    return f"Domain '{domain}' has {total} entities. States: {states}"
+    Reads from the discovery database for fast, no-round-trip lookups.
+    Data is as fresh as the last discovery sync.
+    """
+    async with get_session() as session:
+        repo = EntityRepository(session)
+        total = await repo.count(domain=domain)
+        if total == 0:
+            return f"No entities found for domain '{domain}'."
+
+        entities = await repo.list_all(domain=domain)
+        state_counts: dict[str, int] = {}
+        for e in entities:
+            s = e.state or "unknown"
+            state_counts[s] = state_counts.get(s, 0) + 1
+
+    return f"Domain '{domain}' has {total} entities. States: {state_counts}"
 
 
 @tool("control_entity")
@@ -187,22 +203,28 @@ async def delete_automation(automation_id: str) -> str:
 async def list_automations() -> str:
     """List all automations in Home Assistant.
 
+    Reads from the discovery database. Use get_automation_config to
+    retrieve the full trigger/condition/action YAML for a specific
+    automation.
+
     Returns:
         Formatted list of automations with their status
     """
-    ha = get_ha_client()
     try:
-        automations = await ha.list_automations()
+        async with get_session() as session:
+            repo = AutomationRepository(session)
+            automations = await repo.list_all(limit=500)
+
         if not automations:
             return "No automations found."
 
         lines = []
         for auto in automations:
-            state = auto.get("state", "unknown")
-            alias = auto.get("alias", auto.get("entity_id", "unnamed"))
-            entity_id = auto.get("entity_id", "")
-            status_emoji = "🟢" if state == "on" else "🔴"
-            lines.append(f"{status_emoji} {alias} ({entity_id}) - {state}")
+            status_emoji = "🟢" if auto.state == "on" else "🔴"
+            config_tag = " [config ✓]" if auto.config else ""
+            lines.append(
+                f"{status_emoji} {auto.alias} ({auto.entity_id}) - {auto.state}{config_tag}"
+            )
 
         return "\n".join(lines)
     except Exception as exc:
