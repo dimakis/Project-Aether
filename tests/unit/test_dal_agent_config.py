@@ -205,7 +205,10 @@ class TestConfigVersionCreate:
         # Mock: max version number
         mock_max_result = MagicMock()
         mock_max_result.scalar.return_value = 1
-        mock_session.execute.side_effect = [mock_draft_result, mock_max_result]
+        # Mock: latest semver
+        mock_semver_result = MagicMock()
+        mock_semver_result.scalar_one_or_none.return_value = "0.1.0"
+        mock_session.execute.side_effect = [mock_draft_result, mock_max_result, mock_semver_result]
 
         result = await config_repo.create_draft(
             agent_id=sample_agent.id,
@@ -252,7 +255,10 @@ class TestConfigVersionCreate:
         mock_draft_result.scalar_one_or_none.return_value = None
         mock_max_result = MagicMock()
         mock_max_result.scalar.return_value = None  # No versions exist
-        mock_session.execute.side_effect = [mock_draft_result, mock_max_result]
+        # Mock: no existing semver
+        mock_semver_result = MagicMock()
+        mock_semver_result.scalar_one_or_none.return_value = None
+        mock_session.execute.side_effect = [mock_draft_result, mock_max_result, mock_semver_result]
 
         await config_repo.create_draft(
             agent_id=sample_agent.id,
@@ -439,7 +445,10 @@ class TestPromptVersionCreate:
         mock_draft_result.scalar_one_or_none.return_value = None
         mock_max_result = MagicMock()
         mock_max_result.scalar.return_value = 1
-        mock_session.execute.side_effect = [mock_draft_result, mock_max_result]
+        # Mock: latest semver
+        mock_semver_result = MagicMock()
+        mock_semver_result.scalar_one_or_none.return_value = "0.1.0"
+        mock_session.execute.side_effect = [mock_draft_result, mock_max_result, mock_semver_result]
 
         result = await prompt_repo.create_draft(
             agent_id=sample_agent.id,

@@ -41,12 +41,12 @@ class TestHITLWhitelist:
             "get_entity_state",
             "list_entities_by_domain",
             "search_entities",
-            "analyze_energy",
+            "get_domain_summary",
             "discover_entities",
             "seek_approval",
-            "propose_automation_from_insight",
-            "validate_config",
-            "check_integration_health",
+            "consult_data_science_team",
+            "create_insight_schedule",
+            "check_ha_config",
         ]
         for tool_name in read_only:
             assert tool_name in ArchitectAgent._READ_ONLY_TOOLS, (

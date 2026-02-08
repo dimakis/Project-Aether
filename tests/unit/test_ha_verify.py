@@ -1,9 +1,15 @@
 """Tests for HA token verification helper."""
 
+import socket
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import httpx
+
+
+# Fake DNS result for ha.local (avoids real DNS lookups in unit tests)
+_FAKE_ADDRINFO = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.100", 8123))]
 
 
 class TestVerifyHAConnection:
@@ -20,7 +26,8 @@ class TestVerifyHAConnection:
             request=httpx.Request("GET", "http://ha.local:8123/api/"),
         )
 
-        with patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
+        with patch("src.api.ha_verify.socket.getaddrinfo", return_value=_FAKE_ADDRINFO), \
+             patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -48,7 +55,8 @@ class TestVerifyHAConnection:
             request=httpx.Request("GET", "http://ha.local:8123/api/"),
         )
 
-        with patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
+        with patch("src.api.ha_verify.socket.getaddrinfo", return_value=_FAKE_ADDRINFO), \
+             patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -88,7 +96,8 @@ class TestVerifyHAConnection:
 
         from src.api.ha_verify import verify_ha_connection
 
-        with patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
+        with patch("src.api.ha_verify.socket.getaddrinfo", return_value=_FAKE_ADDRINFO), \
+             patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(
                 side_effect=httpx.TimeoutException("Connection timed out")
@@ -114,7 +123,8 @@ class TestVerifyHAConnection:
             request=httpx.Request("GET", "http://ha.local:8123/api/"),
         )
 
-        with patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
+        with patch("src.api.ha_verify.socket.getaddrinfo", return_value=_FAKE_ADDRINFO), \
+             patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -143,7 +153,8 @@ class TestVerifyHAConnection:
             request=httpx.Request("GET", "http://ha.local:8123/api/"),
         )
 
-        with patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
+        with patch("src.api.ha_verify.socket.getaddrinfo", return_value=_FAKE_ADDRINFO), \
+             patch("src.api.ha_verify.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)

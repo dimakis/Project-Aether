@@ -61,7 +61,13 @@ class TestDeveloperAgent:
         """Test automation deployment."""
         from src.agents.developer import DeveloperAgent
 
-        with patch.object(DeveloperAgent, "ha", mock_ha_client):
+        mock_deployer = AsyncMock()
+        mock_deployer.deploy_automation = AsyncMock(
+            return_value={"success": True, "method": "rest_api"}
+        )
+
+        with patch.object(DeveloperAgent, "ha", mock_ha_client), \
+             patch("src.agents.developer.AutomationDeployer", return_value=mock_deployer):
             agent = DeveloperAgent(ha_client=mock_ha_client)
 
             # Mock session and repo

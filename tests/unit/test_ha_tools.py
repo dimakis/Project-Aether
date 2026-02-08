@@ -51,15 +51,16 @@ class TestListEntitiesByDomainTool:
         """Test listing light entities."""
         from src.tools.ha_tools import list_entities_by_domain
 
-        mock_mcp = MagicMock()
-        mock_mcp.list_entities = AsyncMock(return_value={
-            "results": [
-                {"entity_id": "light.living_room", "state": "on"},
-                {"entity_id": "light.bedroom", "state": "off"},
-            ]
-        })
+        entity1 = MagicMock(entity_id="light.living_room", state="on")
+        entity2 = MagicMock(entity_id="light.bedroom", state="off")
 
-        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_session") as mock_gs, \
+             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+            mock_session = AsyncMock()
+            mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+            MockRepo.return_value.list_by_domain = AsyncMock(return_value=[entity1, entity2])
+
             result = await list_entities_by_domain.ainvoke({"domain": "light"})
 
         assert "light.living_room" in result
@@ -70,19 +71,20 @@ class TestListEntitiesByDomainTool:
         """Test listing entities filtered by state."""
         from src.tools.ha_tools import list_entities_by_domain
 
-        mock_mcp = MagicMock()
-        mock_mcp.list_entities = AsyncMock(return_value={
-            "results": [
-                {"entity_id": "light.living_room", "state": "on"},
-                {"entity_id": "light.bedroom", "state": "off"},
-            ]
-        })
+        entity1 = MagicMock(entity_id="light.living_room", state="on")
+        entity2 = MagicMock(entity_id="light.bedroom", state="off")
 
-        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_session") as mock_gs, \
+             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+            mock_session = AsyncMock()
+            mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+            MockRepo.return_value.list_by_domain = AsyncMock(return_value=[entity1, entity2])
+
             result = await list_entities_by_domain.ainvoke({"domain": "light", "state_filter": "on"})
 
         assert "light.living_room" in result
-        # bedroom is off, might not be in filtered result depending on implementation
+        # bedroom is off, should not be in filtered result
 
 
 class TestSearchEntitiesTool:
@@ -93,15 +95,16 @@ class TestSearchEntitiesTool:
         """Test searching entities by name."""
         from src.tools.ha_tools import search_entities
 
-        mock_mcp = MagicMock()
-        mock_mcp.search_entities = AsyncMock(return_value={
-            "results": [
-                {"entity_id": "light.kitchen", "state": "off"},
-                {"entity_id": "sensor.kitchen_temperature", "state": "22"},
-            ]
-        })
+        entity1 = MagicMock(entity_id="light.kitchen")
+        entity2 = MagicMock(entity_id="sensor.kitchen_temperature")
 
-        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_session") as mock_gs, \
+             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+            mock_session = AsyncMock()
+            mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+            MockRepo.return_value.search = AsyncMock(return_value=[entity1, entity2])
+
             result = await search_entities.ainvoke({"query": "kitchen"})
 
         assert "kitchen" in result.lower()
@@ -115,13 +118,27 @@ class TestGetDomainSummaryTool:
         """Test getting summary of light domain."""
         from src.tools.ha_tools import get_domain_summary
 
-        mock_mcp = MagicMock()
-        mock_mcp.domain_summary = AsyncMock(return_value={
-            "total_count": 10,
-            "state_distribution": {"on": 3, "off": 7},
-        })
+        entities = [
+            MagicMock(state="on"),
+            MagicMock(state="on"),
+            MagicMock(state="on"),
+            MagicMock(state="off"),
+            MagicMock(state="off"),
+            MagicMock(state="off"),
+            MagicMock(state="off"),
+            MagicMock(state="off"),
+            MagicMock(state="off"),
+            MagicMock(state="off"),
+        ]
 
-        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_session") as mock_gs, \
+             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+            mock_session = AsyncMock()
+            mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+            MockRepo.return_value.count = AsyncMock(return_value=10)
+            MockRepo.return_value.list_all = AsyncMock(return_value=entities)
+
             result = await get_domain_summary.ainvoke({"domain": "light"})
 
         assert "10" in result or "total" in result.lower()
@@ -283,13 +300,26 @@ class TestListAutomationsTool:
         """Test listing automations."""
         from src.tools.ha_tools import list_automations
 
-        mock_mcp = MagicMock()
-        mock_mcp.list_automations = AsyncMock(return_value=[
-            {"entity_id": "automation.morning_lights", "alias": "Morning Lights", "state": "on"},
-            {"entity_id": "automation.night_mode", "alias": "Night Mode", "state": "off"},
-        ])
+        auto1 = MagicMock(
+            entity_id="automation.morning_lights",
+            alias="Morning Lights",
+            state="on",
+            config=None,
+        )
+        auto2 = MagicMock(
+            entity_id="automation.night_mode",
+            alias="Night Mode",
+            state="off",
+            config=None,
+        )
 
-        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
+        with patch("src.tools.ha_tools.get_session") as mock_gs, \
+             patch("src.tools.ha_tools.AutomationRepository") as MockRepo:
+            mock_session = AsyncMock()
+            mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+            MockRepo.return_value.list_all = AsyncMock(return_value=[auto1, auto2])
+
             result = await list_automations.ainvoke({})
 
         assert "morning_lights" in result.lower() or "Morning Lights" in result
@@ -302,10 +332,13 @@ class TestListAutomationsTool:
         """Test listing when no automations exist."""
         from src.tools.ha_tools import list_automations
 
-        mock_mcp = MagicMock()
-        mock_mcp.list_automations = AsyncMock(return_value=[])
+        with patch("src.tools.ha_tools.get_session") as mock_gs, \
+             patch("src.tools.ha_tools.AutomationRepository") as MockRepo:
+            mock_session = AsyncMock()
+            mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+            MockRepo.return_value.list_all = AsyncMock(return_value=[])
 
-        with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await list_automations.ainvoke({})
 
         assert "no automations" in result.lower()

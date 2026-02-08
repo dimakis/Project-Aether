@@ -187,7 +187,7 @@ class TestFormatEnergyAnalysisWithSuggestion:
         )
 
         result = _format_energy_analysis(state, "energy_optimization", 24)
-        assert "Data Scientist Suggestion" in result
+        assert "DS Team Suggestion" in result
         assert "off-peak hours" in result
         assert "Would you like me to design an automation" in result
 
@@ -208,7 +208,7 @@ class TestFormatEnergyAnalysisWithSuggestion:
         state.automation_suggestion = None
 
         result = _format_energy_analysis(state, "energy_optimization", 24)
-        assert "Data Scientist Suggestion" not in result
+        assert "DS Team Suggestion" not in result
 
 
 class TestFormatDiagnosticResultsWithSuggestion:
@@ -238,5 +238,5 @@ class TestFormatDiagnosticResultsWithSuggestion:
         result = _format_diagnostic_results(
             state, ["sensor.zigbee"], 72,
         )
-        assert "Data Scientist Suggestion" in result
+        assert "DS Team Suggestion" in result
         assert "Zigbee pattern recurs" in result
