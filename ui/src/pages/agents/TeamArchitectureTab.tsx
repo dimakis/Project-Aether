@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bot,
@@ -11,8 +11,8 @@ import {
   Code,
   Server,
   BarChart3,
-  ArrowDown,
-  ArrowLeftRight,
+  Brain,
+  Tags,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,31 +27,61 @@ interface AgentNodeDef {
   label: string;
   icon: typeof Bot;
   color: string;
+  hex: string;
   bgColor: string;
   borderColor: string;
   group: "orchestration" | "ds-team" | "deployment" | "discovery";
+  agentType: "llm" | "programmatic";
   description: string;
 }
 
 const AGENT_NODES: AgentNodeDef[] = [
   {
+    id: "aether",
+    label: "Aether",
+    icon: Brain,
+    color: "text-primary",
+    hex: "#a855f7",
+    bgColor: "bg-primary/10",
+    borderColor: "border-primary/30",
+    group: "orchestration",
+    agentType: "programmatic",
+    description: "Central system hub. All signals flow through Aether.",
+  },
+  {
     id: "architect",
     label: "Architect",
     icon: Bot,
     color: "text-blue-400",
+    hex: "#60a5fa",
     bgColor: "bg-blue-400/10",
     borderColor: "border-blue-400/30",
     group: "orchestration",
+    agentType: "llm",
     description: "Primary orchestrator. Delegates analysis to DS team via a single tool call.",
+  },
+  {
+    id: "data_science_team",
+    label: "DS Coordinator",
+    icon: BarChart3,
+    color: "text-emerald-400",
+    hex: "#34d399",
+    bgColor: "bg-emerald-400/10",
+    borderColor: "border-emerald-400/30",
+    group: "ds-team",
+    agentType: "programmatic",
+    description: "Head Data Scientist. Programmatic coordinator that selects and dispatches specialist analysts.",
   },
   {
     id: "energy_analyst",
     label: "Energy Analyst",
     icon: Zap,
     color: "text-yellow-400",
+    hex: "#facc15",
     bgColor: "bg-yellow-400/10",
     borderColor: "border-yellow-400/30",
     group: "ds-team",
+    agentType: "llm",
     description: "Analyzes energy consumption, cost optimization, and usage patterns.",
   },
   {
@@ -59,9 +89,11 @@ const AGENT_NODES: AgentNodeDef[] = [
     label: "Behavioral Analyst",
     icon: Users,
     color: "text-teal-400",
+    hex: "#2dd4bf",
     bgColor: "bg-teal-400/10",
     borderColor: "border-teal-400/30",
     group: "ds-team",
+    agentType: "llm",
     description: "Detects user behavior patterns, routines, and automation opportunities.",
   },
   {
@@ -69,9 +101,11 @@ const AGENT_NODES: AgentNodeDef[] = [
     label: "Diagnostic Analyst",
     icon: Stethoscope,
     color: "text-rose-400",
+    hex: "#fb7185",
     bgColor: "bg-rose-400/10",
     borderColor: "border-rose-400/30",
     group: "ds-team",
+    agentType: "llm",
     description: "Monitors system health, diagnoses errors, and checks integrations.",
   },
   {
@@ -79,9 +113,11 @@ const AGENT_NODES: AgentNodeDef[] = [
     label: "Dashboard Designer",
     icon: LayoutDashboard,
     color: "text-indigo-400",
+    hex: "#818cf8",
     bgColor: "bg-indigo-400/10",
     borderColor: "border-indigo-400/30",
     group: "deployment",
+    agentType: "llm",
     description: "Designs Lovelace dashboards, consults DS team for data-driven layouts.",
   },
   {
@@ -89,22 +125,52 @@ const AGENT_NODES: AgentNodeDef[] = [
     label: "Developer",
     icon: Wrench,
     color: "text-amber-400",
+    hex: "#fbbf24",
     bgColor: "bg-amber-400/10",
     borderColor: "border-amber-400/30",
     group: "deployment",
+    agentType: "llm",
     description: "Deploys automations, scripts, and scenes to Home Assistant.",
+  },
+  {
+    id: "sandbox",
+    label: "Sandbox",
+    icon: Code,
+    color: "text-orange-400",
+    hex: "#fb923c",
+    bgColor: "bg-orange-400/10",
+    borderColor: "border-orange-400/30",
+    group: "deployment",
+    agentType: "programmatic",
+    description: "Isolated gVisor sandbox for running generated scripts safely.",
   },
   {
     id: "librarian",
     label: "Librarian",
     icon: BookOpen,
     color: "text-purple-400",
+    hex: "#c084fc",
     bgColor: "bg-purple-400/10",
     borderColor: "border-purple-400/30",
     group: "discovery",
+    agentType: "llm",
     description: "Discovers and catalogs HA entities, devices, and areas.",
   },
+  {
+    id: "categorizer",
+    label: "Categorizer",
+    icon: Tags,
+    color: "text-zinc-400",
+    hex: "#a1a1aa",
+    bgColor: "bg-zinc-400/10",
+    borderColor: "border-zinc-400/30",
+    group: "discovery",
+    agentType: "programmatic",
+    description: "Categorizes and normalizes discovered entities into the registry.",
+  },
 ];
+
+const AGENT_MAP = new Map(AGENT_NODES.map((n) => [n.id, n]));
 
 // ─── Edge Definitions ─────────────────────────────────────────────────────────
 
@@ -118,14 +184,19 @@ interface EdgeDef {
 }
 
 const EDGES: EdgeDef[] = [
-  // Architect delegates to DS team via consult_data_science_team (single tool)
-  { from: "architect", to: "energy_analyst", type: "delegation", label: "via DS team" },
-  { from: "architect", to: "behavioral_analyst", type: "delegation", label: "via DS team" },
-  { from: "architect", to: "diagnostic_analyst", type: "delegation", label: "via DS team" },
+  // Aether hub connections
+  { from: "aether", to: "architect", type: "data-flow" },
+  // Architect delegates to DS team via consult_data_science_team
+  { from: "architect", to: "data_science_team", type: "delegation", label: "consult DS" },
+  // DS coordinator dispatches to specialists
+  { from: "data_science_team", to: "energy_analyst", type: "delegation" },
+  { from: "data_science_team", to: "behavioral_analyst", type: "delegation" },
+  { from: "data_science_team", to: "diagnostic_analyst", type: "delegation" },
   // Architect delegates to other agents directly
   { from: "architect", to: "developer", type: "delegation" },
   { from: "architect", to: "dashboard_designer", type: "delegation" },
   { from: "architect", to: "librarian", type: "delegation" },
+  { from: "architect", to: "sandbox", type: "delegation" },
   // DS team cross-consultation (shared TeamAnalysis)
   { from: "energy_analyst", to: "behavioral_analyst", type: "consultation" },
   { from: "energy_analyst", to: "diagnostic_analyst", type: "consultation" },
@@ -133,148 +204,48 @@ const EDGES: EdgeDef[] = [
   // Dashboard Designer consults DS team
   { from: "dashboard_designer", to: "energy_analyst", type: "consultation", label: "consults" },
   { from: "dashboard_designer", to: "behavioral_analyst", type: "consultation", label: "consults" },
+  // Librarian -> Categorizer pipeline
+  { from: "librarian", to: "categorizer", type: "data-flow", label: "entities" },
 ];
 
-// ─── Group Metadata ───────────────────────────────────────────────────────────
+// ─── SVG Graph Layout ─────────────────────────────────────────────────────────
 
-const GROUPS: Record<string, { label: string; color: string; borderColor: string }> = {
-  orchestration: {
-    label: "Orchestration",
-    color: "bg-blue-400/5",
-    borderColor: "border-blue-400/20",
-  },
-  "ds-team": {
-    label: "Data Science Team",
-    color: "bg-emerald-400/5",
-    borderColor: "border-emerald-400/20",
-  },
-  deployment: {
-    label: "Deployment",
-    color: "bg-amber-400/5",
-    borderColor: "border-amber-400/20",
-  },
-  discovery: {
-    label: "Discovery",
-    color: "bg-purple-400/5",
-    borderColor: "border-purple-400/20",
-  },
+const SVG_W = 700;
+const SVG_H = 480;
+const NODE_R = 24;
+
+/** Hand-tuned positions for an organic architecture layout */
+const POSITIONS: Record<string, { x: number; y: number }> = {
+  aether:              { x: SVG_W / 2,       y: 40 },
+  architect:           { x: SVG_W / 2,       y: 130 },
+  // DS team cluster — left
+  data_science_team:   { x: 160,             y: 230 },
+  energy_analyst:      { x: 60,              y: 330 },
+  behavioral_analyst:  { x: 170,             y: 370 },
+  diagnostic_analyst:  { x: 280,             y: 330 },
+  // Deployment — right
+  dashboard_designer:  { x: 440,             y: 250 },
+  developer:           { x: 560,             y: 250 },
+  sandbox:             { x: 640,             y: 340 },
+  // Discovery — bottom center
+  librarian:           { x: SVG_W / 2 - 50,  y: 430 },
+  categorizer:         { x: SVG_W / 2 + 80,  y: 430 },
+};
+
+const EDGE_STYLES: Record<EdgeType, { dash: string; width: number }> = {
+  delegation:   { dash: "",          width: 1.5 },
+  consultation: { dash: "4 3",       width: 1 },
+  "data-flow":  { dash: "2 2",       width: 1 },
 };
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
-function AgentGraphNode({
-  node,
-  isSelected,
-  status,
-  onClick,
-}: {
-  node: AgentNodeDef;
-  isSelected: boolean;
-  status?: string;
-  onClick: () => void;
-}) {
-  const Icon = node.icon;
-
-  return (
-    <motion.button
-      onClick={onClick}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      className={cn(
-        "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all",
-        node.bgColor,
-        node.borderColor,
-        isSelected && "ring-2 ring-primary/50 shadow-lg",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-lg",
-          node.bgColor,
-        )}
-      >
-        <Icon className={cn("h-5 w-5", node.color)} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className={cn("text-sm font-semibold", node.color)}>
-            {node.label}
-          </span>
-          {status && (
-            <Badge
-              variant="outline"
-              className="text-[9px] font-medium"
-            >
-              {status}
-            </Badge>
-          )}
-        </div>
-        <p className="truncate text-[11px] text-muted-foreground">
-          {node.description}
-        </p>
-      </div>
-    </motion.button>
-  );
-}
-
-function GroupContainer({
-  groupId,
-  children,
-}: {
-  groupId: string;
-  children: React.ReactNode;
-}) {
-  const group = GROUPS[groupId];
-  if (!group) return <>{children}</>;
-
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-dashed p-3",
-        group.color,
-        group.borderColor,
-      )}
-    >
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-        {group.label}
-      </p>
-      {children}
-    </div>
-  );
-}
-
-function Legend() {
-  return (
-    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-      <div className="flex items-center gap-1.5">
-        <ArrowDown className="h-3 w-3" />
-        <span>Delegation</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <ArrowLeftRight className="h-3 w-3" />
-        <span className="border-b border-dashed border-muted-foreground">
-          Cross-consultation
-        </span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-        <span>Enabled</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="h-2 w-2 rounded-full bg-red-500" />
-        <span>Disabled</span>
-      </div>
-    </div>
-  );
-}
-
 function AgentDetailSidebar({ node }: { node: AgentNodeDef }) {
   const Icon = node.icon;
 
-  // Find edges involving this agent
   const delegatesTo = EDGES.filter(
     (e) => e.from === node.id && e.type === "delegation",
-  ).map((e) => AGENT_NODES.find((n) => n.id === e.to)?.label ?? e.to);
+  ).map((e) => AGENT_MAP.get(e.to)?.label ?? e.to);
 
   const consultsWith = EDGES.filter(
     (e) =>
@@ -282,37 +253,40 @@ function AgentDetailSidebar({ node }: { node: AgentNodeDef }) {
       e.type === "consultation",
   ).map((e) => {
     const otherId = e.from === node.id ? e.to : e.from;
-    return AGENT_NODES.find((n) => n.id === otherId)?.label ?? otherId;
+    return AGENT_MAP.get(otherId)?.label ?? otherId;
   });
 
   const delegatedBy = EDGES.filter(
     (e) => e.to === node.id && e.type === "delegation",
-  ).map((e) => AGENT_NODES.find((n) => n.id === e.from)?.label ?? e.from);
+  ).map((e) => AGENT_MAP.get(e.from)?.label ?? e.from);
+
+  const dataFlows = EDGES.filter(
+    (e) =>
+      (e.from === node.id || e.to === node.id) &&
+      e.type === "data-flow",
+  ).map((e) => {
+    const otherId = e.from === node.id ? e.to : e.from;
+    const dir = e.from === node.id ? "to" : "from";
+    return { name: AGENT_MAP.get(otherId)?.label ?? otherId, dir };
+  });
 
   return (
     <Card className="p-4">
       <div className="mb-3 flex items-center gap-3">
-        <div
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-xl",
-            node.bgColor,
-          )}
-        >
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", node.bgColor)}>
           <Icon className={cn("h-5 w-5", node.color)} />
         </div>
         <div>
-          <h3 className={cn("text-base font-bold", node.color)}>
-            {node.label}
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            {GROUPS[node.group]?.label}
-          </p>
+          <h3 className={cn("text-base font-bold", node.color)}>{node.label}</h3>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[9px]">
+              {node.agentType === "llm" ? "LLM Agent" : "Programmatic"}
+            </Badge>
+          </div>
         </div>
       </div>
 
-      <p className="mb-4 text-sm text-muted-foreground">
-        {node.description}
-      </p>
+      <p className="mb-4 text-sm text-muted-foreground">{node.description}</p>
 
       {delegatedBy.length > 0 && (
         <div className="mb-3">
@@ -321,9 +295,7 @@ function AgentDetailSidebar({ node }: { node: AgentNodeDef }) {
           </p>
           <div className="flex flex-wrap gap-1">
             {delegatedBy.map((name) => (
-              <Badge key={name} variant="outline" className="text-[10px]">
-                {name}
-              </Badge>
+              <Badge key={name} variant="outline" className="text-[10px]">{name}</Badge>
             ))}
           </div>
         </div>
@@ -336,29 +308,67 @@ function AgentDetailSidebar({ node }: { node: AgentNodeDef }) {
           </p>
           <div className="flex flex-wrap gap-1">
             {delegatesTo.map((name) => (
-              <Badge key={name} variant="outline" className="text-[10px]">
-                {name}
-              </Badge>
+              <Badge key={name} variant="outline" className="text-[10px]">{name}</Badge>
             ))}
           </div>
         </div>
       )}
 
       {consultsWith.length > 0 && (
-        <div>
+        <div className="mb-3">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
             Cross-consults with
           </p>
           <div className="flex flex-wrap gap-1">
             {consultsWith.map((name) => (
+              <Badge key={name} variant="outline" className="text-[10px]">{name}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {dataFlows.length > 0 && (
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+            Data flows
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {dataFlows.map(({ name, dir }) => (
               <Badge key={name} variant="outline" className="text-[10px]">
-                {name}
+                {dir === "to" ? `-> ${name}` : `<- ${name}`}
               </Badge>
             ))}
           </div>
         </div>
       )}
     </Card>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5">
+        <div className="h-px w-5 border-t-2 border-muted-foreground/40" />
+        <span>Delegation</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-px w-5 border-t-2 border-dashed border-muted-foreground/40" />
+        <span>Consultation</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-px w-5 border-t border-dotted border-muted-foreground/40" />
+        <span>Data flow</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-3 w-3 rounded-full border border-primary/40 bg-primary/10" />
+        <span>LLM</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-3 w-3 rounded-sm border border-muted-foreground/40 bg-muted/30" />
+        <span>Programmatic</span>
+      </div>
+    </div>
   );
 }
 
@@ -371,25 +381,13 @@ export function TeamArchitectureTab({
 }) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  // Build a status map from live agent data
-  const statusMap = new Map<string, string>();
-  agents?.forEach((a) => {
-    statusMap.set(a.name, a.status);
-  });
+  const statusMap = useMemo(() => {
+    const m = new Map<string, string>();
+    agents?.forEach((a) => m.set(a.name, a.status));
+    return m;
+  }, [agents]);
 
   const selectedNode = AGENT_NODES.find((n) => n.id === selectedNodeId);
-
-  // Group agents by their group
-  const groupedAgents: Record<string, AgentNodeDef[]> = {};
-  for (const node of AGENT_NODES) {
-    if (!groupedAgents[node.group]) {
-      groupedAgents[node.group] = [];
-    }
-    groupedAgents[node.group].push(node);
-  }
-
-  // Render order for groups
-  const groupOrder = ["orchestration", "ds-team", "deployment", "discovery"];
 
   return (
     <div className="space-y-4">
@@ -398,62 +396,205 @@ export function TeamArchitectureTab({
         <Legend />
         <div className="flex items-center gap-1 text-[10px] text-muted-foreground/50">
           <Info className="h-3 w-3" />
-          Click an agent for details
+          Click a node for details
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Graph area */}
-        <div className="space-y-3 lg:col-span-2">
-          {groupOrder.map((groupId) => {
-            const nodes = groupedAgents[groupId];
-            if (!nodes || nodes.length === 0) return null;
+        {/* SVG Graph */}
+        <div className="lg:col-span-2">
+          <svg
+            viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+            className="w-full overflow-visible"
+            style={{ maxHeight: 500 }}
+          >
+            <defs>
+              <marker
+                id="arrow-delegation"
+                markerWidth="8"
+                markerHeight="6"
+                refX="7"
+                refY="3"
+                orient="auto"
+              >
+                <polygon
+                  points="0 0, 8 3, 0 6"
+                  fill="hsl(var(--muted-foreground))"
+                  opacity={0.4}
+                />
+              </marker>
+            </defs>
 
-            return (
-              <GroupContainer key={groupId} groupId={groupId}>
-                <div
-                  className={cn(
-                    "grid gap-2",
-                    nodes.length === 1
-                      ? "grid-cols-1"
-                      : nodes.length === 2
-                        ? "grid-cols-2"
-                        : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+            {/* Edges */}
+            {EDGES.map((edge) => {
+              const pA = POSITIONS[edge.from];
+              const pB = POSITIONS[edge.to];
+              if (!pA || !pB) return null;
+
+              const style = EDGE_STYLES[edge.type];
+              const dx = pB.x - pA.x;
+              const dy = pB.y - pA.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 1) return null;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const x1 = pA.x + nx * (NODE_R + 3);
+              const y1 = pA.y + ny * (NODE_R + 3);
+              const x2 = pB.x - nx * (NODE_R + 3);
+              const y2 = pB.y - ny * (NODE_R + 3);
+
+              const midX = (x1 + x2) / 2;
+              const midY = (y1 + y2) / 2;
+
+              return (
+                <g key={`${edge.from}-${edge.to}`}>
+                  <line
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="hsl(var(--border))"
+                    strokeWidth={style.width}
+                    strokeDasharray={style.dash || undefined}
+                    strokeOpacity={0.5}
+                    markerEnd={
+                      edge.type === "delegation"
+                        ? "url(#arrow-delegation)"
+                        : undefined
+                    }
+                  />
+                  {edge.label && (
+                    <text
+                      x={midX}
+                      y={midY - 6}
+                      textAnchor="middle"
+                      fontSize="8"
+                      fill="hsl(var(--muted-foreground))"
+                      opacity={0.5}
+                    >
+                      {edge.label}
+                    </text>
                   )}
+                </g>
+              );
+            })}
+
+            {/* Nodes */}
+            {AGENT_NODES.map((node) => {
+              const pos = POSITIONS[node.id];
+              if (!pos) return null;
+              const Icon = node.icon;
+              const isSelected = selectedNodeId === node.id;
+              const status = statusMap.get(node.id);
+              const isAether = node.id === "aether";
+              const r = isAether ? NODE_R + 6 : NODE_R;
+
+              return (
+                <g
+                  key={node.id}
+                  className="cursor-pointer"
+                  onClick={() =>
+                    setSelectedNodeId(
+                      selectedNodeId === node.id ? null : node.id,
+                    )
+                  }
                 >
-                  {nodes.map((node) => (
-                    <AgentGraphNode
-                      key={node.id}
-                      node={node}
-                      isSelected={selectedNodeId === node.id}
-                      status={statusMap.get(node.id)}
-                      onClick={() =>
-                        setSelectedNodeId(
-                          selectedNodeId === node.id ? null : node.id,
-                        )
+                  {/* Selection ring */}
+                  {isSelected && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={r + 4}
+                      fill="none"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      strokeOpacity={0.5}
+                    />
+                  )}
+
+                  {/* Background */}
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={r}
+                    fill="hsl(var(--card))"
+                    stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--border))"}
+                    strokeWidth={isSelected ? 2 : 1}
+                  />
+
+                  {/* Programmatic marker: square corner hint */}
+                  {node.agentType === "programmatic" && !isAether && (
+                    <rect
+                      x={pos.x + r * 0.45}
+                      y={pos.y - r - 2}
+                      width={10}
+                      height={10}
+                      rx={2}
+                      fill="hsl(var(--muted))"
+                      stroke="hsl(var(--border))"
+                      strokeWidth={0.5}
+                    />
+                  )}
+                  {node.agentType === "programmatic" && !isAether && (
+                    <text
+                      x={pos.x + r * 0.45 + 5}
+                      y={pos.y - r + 5}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize="6"
+                      fill="hsl(var(--muted-foreground))"
+                    >
+                      P
+                    </text>
+                  )}
+
+                  {/* Status dot */}
+                  {status && (
+                    <circle
+                      cx={pos.x - r * 0.6}
+                      cy={pos.y - r * 0.6}
+                      r={4}
+                      fill={
+                        status === "enabled" || status === "primary"
+                          ? "#22c55e"
+                          : status === "disabled"
+                            ? "#ef4444"
+                            : "#a1a1aa"
                       }
                     />
-                  ))}
-                </div>
+                  )}
 
-                {/* Show cross-consultation arrows within DS team */}
-                {groupId === "ds-team" && (
-                  <div className="mt-2 flex items-center justify-center gap-2 text-[10px] text-emerald-400/60">
-                    <div className="h-px w-6 border-t border-dashed border-emerald-400/40" />
-                    <ArrowLeftRight className="h-3 w-3" />
-                    <span>mutual cross-consultation</span>
-                    <div className="h-px w-6 border-t border-dashed border-emerald-400/40" />
-                  </div>
-                )}
-              </GroupContainer>
-            );
-          })}
+                  {/* Icon */}
+                  <foreignObject
+                    x={pos.x - (isAether ? 12 : 10)}
+                    y={pos.y - (isAether ? 12 : 10)}
+                    width={isAether ? 24 : 20}
+                    height={isAether ? 24 : 20}
+                  >
+                    <Icon
+                      className={cn(
+                        isAether ? "h-6 w-6" : "h-5 w-5",
+                        node.color,
+                      )}
+                    />
+                  </foreignObject>
 
-          {/* Delegation flow indicators between groups */}
-          <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground/40">
-            <ArrowDown className="h-3 w-3" />
-            <span>Architect delegates to DS team via consult_data_science_team</span>
-          </div>
+                  {/* Label */}
+                  <text
+                    x={pos.x}
+                    y={pos.y + r + 14}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontWeight={isAether ? "600" : "500"}
+                    fill="currentColor"
+                    className={cn("fill-current", node.color)}
+                  >
+                    {node.label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
         </div>
 
         {/* Detail sidebar */}
@@ -472,7 +613,7 @@ export function TeamArchitectureTab({
               <div>
                 <Bot className="mx-auto mb-2 h-8 w-8 text-muted-foreground/20" />
                 <p className="text-xs text-muted-foreground/50">
-                  Select an agent to view details
+                  Select a node to view details
                 </p>
               </div>
             </Card>
