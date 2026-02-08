@@ -27,6 +27,7 @@ from src.api.routes.usage import router as usage_router
 from src.api.routes.webhooks import router as webhooks_router
 from src.api.routes.workflows import router as workflows_router
 from src.api.routes.activity_stream import router as activity_router
+from src.api.routes.flow_grades import router as flow_grades_router
 
 # Main API router
 api_router = APIRouter()
@@ -66,5 +67,7 @@ api_router.include_router(workflows_router)
 api_router.include_router(openai_router)
 # Global activity stream
 api_router.include_router(activity_router)
+# Flow grading
+api_router.include_router(flow_grades_router)
 
 __all__ = ["api_router"]
