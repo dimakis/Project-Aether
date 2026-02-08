@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
-import { useSystemStatus, useProposals } from "@/api/hooks";
+import { useSystemStatus, usePendingProposals } from "@/api/hooks";
 import { useGlobalActivityStream } from "@/lib/useGlobalActivityStream";
 import {
   useAgentActivity,
@@ -70,9 +70,9 @@ export function AppLayout() {
   // Global SSE subscription for system-wide LLM activity
   useGlobalActivityStream();
 
-  // Fetch pending proposal count for the sidebar badge
-  const { data: pendingData } = useProposals("proposed");
-  const pendingCount = pendingData?.total ?? 0;
+  // Fetch pending proposal count for the sidebar badge (polls every 30s)
+  const { data: pendingProposals } = usePendingProposals();
+  const pendingCount = pendingProposals?.length ?? 0;
 
   return (
     <div className="flex h-screen overflow-hidden">

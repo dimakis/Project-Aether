@@ -100,6 +100,7 @@ export function useCreateProposal() {
     }) => proposals.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.proposals });
+      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
     },
   });
 }
