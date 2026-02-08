@@ -26,9 +26,10 @@ from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.config_cache import is_agent_enabled
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
+from src.agents.model_context import get_model_context, model_context
 from src.agents.synthesis import LLMSynthesizer, ProgrammaticSynthesizer, SynthesisStrategy
 from src.graph.state import AnalysisState, AnalysisType, TeamAnalysis
-from src.tracing import trace_with_uri
+from src.tracing import get_active_span, trace_with_uri
 
 logger = logging.getLogger(__name__)
 
@@ -450,11 +451,31 @@ async def consult_data_science_team(
 # ---------------------------------------------------------------------------
 
 
+def _capture_parent_span_context() -> tuple[str | None, float | None, str | None]:
+    """Capture current model context + active span ID for trace propagation.
+
+    Returns (model_name, temperature, parent_span_id) so that analyst
+    spans appear as children of the coordinator span in the trace tree.
+    """
+    ctx = get_model_context()
+    model_name = ctx.model_name if ctx else None
+    temperature = ctx.temperature if ctx else None
+    parent_span_id = None
+    try:
+        active_span = get_active_span()
+        if active_span and hasattr(active_span, "span_id"):
+            parent_span_id = active_span.span_id
+    except Exception:
+        pass
+    return model_name, temperature, parent_span_id
+
+
 async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> str:
     """Run the Energy Analyst and return formatted findings."""
     if not await is_agent_enabled("energy_analyst"):
         return "Energy Analyst is currently disabled."
     try:
+        model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = EnergyAnalyst()
         ta = _get_or_create_team_analysis(query)
         state = AnalysisState(
@@ -464,7 +485,12 @@ async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> s
             custom_query=query,
             team_analysis=ta,
         )
-        result = await analyst.invoke(state)
+        with model_context(
+            model_name=model_name,
+            temperature=temperature,
+            parent_span_id=parent_span_id,
+        ):
+            result = await analyst.invoke(state)
         if result.get("team_analysis"):
             global _current_team_analysis  # noqa: PLW0603
             _current_team_analysis = result["team_analysis"]
@@ -479,6 +505,7 @@ async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) 
     if not await is_agent_enabled("behavioral_analyst"):
         return "Behavioral Analyst is currently disabled."
     try:
+        model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = BehavioralAnalyst()
         ta = _get_or_create_team_analysis(query)
         state = AnalysisState(
@@ -488,7 +515,12 @@ async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) 
             custom_query=query,
             team_analysis=ta,
         )
-        result = await analyst.invoke(state)
+        with model_context(
+            model_name=model_name,
+            temperature=temperature,
+            parent_span_id=parent_span_id,
+        ):
+            result = await analyst.invoke(state)
         if result.get("team_analysis"):
             global _current_team_analysis  # noqa: PLW0603
             _current_team_analysis = result["team_analysis"]
@@ -503,6 +535,7 @@ async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) 
     if not await is_agent_enabled("diagnostic_analyst"):
         return "Diagnostic Analyst is currently disabled."
     try:
+        model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = DiagnosticAnalyst()
         ta = _get_or_create_team_analysis(query)
         state = AnalysisState(
@@ -512,7 +545,12 @@ async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) 
             custom_query=query,
             team_analysis=ta,
         )
-        result = await analyst.invoke(state)
+        with model_context(
+            model_name=model_name,
+            temperature=temperature,
+            parent_span_id=parent_span_id,
+        ):
+            result = await analyst.invoke(state)
         if result.get("team_analysis"):
             global _current_team_analysis  # noqa: PLW0603
             _current_team_analysis = result["team_analysis"]
