@@ -24,7 +24,6 @@ from langchain_core.tools import tool
 
 from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.config_cache import is_agent_enabled
-from src.agents.dashboard_designer import DashboardDesignerAgent
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
 from src.agents.execution_context import emit_delegation, emit_progress
@@ -637,6 +636,7 @@ async def consult_dashboard_designer(
     try:
         from langchain_core.messages import HumanMessage
 
+        from src.agents.dashboard_designer import DashboardDesignerAgent
         from src.graph.state import DashboardState
 
         agent = DashboardDesignerAgent()

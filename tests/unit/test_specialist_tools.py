@@ -165,7 +165,7 @@ class TestConsultDashboardDesigner:
 
         with (
             patch(
-                "src.tools.specialist_tools.DashboardDesignerAgent",
+                "src.agents.dashboard_designer.DashboardDesignerAgent",
                 return_value=mock_agent,
             ),
             patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
@@ -189,7 +189,7 @@ class TestConsultDashboardDesigner:
 
         with (
             patch(
-                "src.tools.specialist_tools.DashboardDesignerAgent",
+                "src.agents.dashboard_designer.DashboardDesignerAgent",
                 return_value=mock_agent,
             ),
             patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
@@ -228,7 +228,7 @@ class TestConsultDashboardDesigner:
 
         with (
             patch(
-                "src.tools.specialist_tools.DashboardDesignerAgent",
+                "src.agents.dashboard_designer.DashboardDesignerAgent",
                 return_value=mock_agent,
             ),
             patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
