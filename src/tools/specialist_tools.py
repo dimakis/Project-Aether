@@ -7,11 +7,17 @@ LLM synthesis reviews for complex/conflicting findings.
 The Architect calls these tools during conversation to gather
 specialist insights, which are accumulated in a TeamAnalysis object
 for cross-consultation and synthesis.
+
+The primary entry point is ``consult_data_science_team`` which acts
+as a programmatic "Head DS" — it selects the right specialists based
+on query keywords (or an explicit override), runs them with shared
+TeamAnalysis, and auto-synthesises a unified response.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from langchain_core.tools import tool
@@ -20,11 +26,66 @@ from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.config_cache import is_agent_enabled
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
-from src.agents.synthesis import LLMSynthesizer, SynthesisStrategy
+from src.agents.synthesis import LLMSynthesizer, ProgrammaticSynthesizer, SynthesisStrategy
 from src.graph.state import AnalysisState, AnalysisType, TeamAnalysis
 from src.tracing import trace_with_uri
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Smart routing — keyword-based specialist selection
+# ---------------------------------------------------------------------------
+
+SPECIALIST_TRIGGERS: dict[str, frozenset[str]] = {
+    "energy": frozenset({
+        "energy", "power", "consumption", "solar", "battery", "batteries",
+        "kwh", "cost", "costs", "watt", "watts", "grid", "peak",
+        "tariff", "electricity",
+    }),
+    "behavioral": frozenset({
+        "pattern", "patterns", "behavior", "behaviour", "routine", "routines",
+        "habit", "habits", "automation", "automations", "scene", "scenes",
+        "script", "scripts", "usage", "schedule", "schedules",
+        "occupancy", "manual", "trigger", "triggers", "frequency", "gap", "gaps",
+    }),
+    "diagnostic": frozenset({
+        "error", "errors", "unavailable", "broken", "offline", "health",
+        "diagnose", "diagnosis", "troubleshoot", "fix", "issue", "issues",
+        "problem", "problems", "integration", "integrations",
+        "sensor", "sensors", "unreliable",
+    }),
+}
+
+_ALL_SPECIALISTS = ["energy", "behavioral", "diagnostic"]
+
+
+def _select_specialists(
+    query: str,
+    specialists: list[str] | None = None,
+) -> list[str]:
+    """Choose which specialists to invoke.
+
+    Resolution order:
+    1. If *specialists* is provided, use exactly those (explicit override).
+    2. Else tokenise *query* and match against ``SPECIALIST_TRIGGERS``.
+    3. If nothing matches (ambiguous / empty), fall back to all three.
+
+    Returns a sorted list of specialist keys (``"energy"``, ``"behavioral"``,
+    ``"diagnostic"``).
+    """
+    if specialists:
+        # Honour explicit override, filtering to valid keys
+        valid = [s for s in specialists if s in SPECIALIST_TRIGGERS]
+        return sorted(valid) if valid else sorted(_ALL_SPECIALISTS)
+
+    tokens = set(re.findall(r"[a-z]+", query.lower()))
+    matched: list[str] = []
+    for domain, keywords in SPECIALIST_TRIGGERS.items():
+        if tokens & keywords:
+            matched.append(domain)
+
+    return sorted(matched) if matched else sorted(_ALL_SPECIALISTS)
 
 # Module-level TeamAnalysis cache for the current analysis session.
 # Reset when a new analysis begins.
@@ -294,11 +355,179 @@ async def request_synthesis_review(
         return f"Synthesis review failed: {e}"
 
 
+@tool("consult_data_science_team")
+@trace_with_uri(name="agent.consult_data_science_team", span_type="TOOL")
+async def consult_data_science_team(
+    query: str,
+    hours: int = 24,
+    entity_ids: list[str] | None = None,
+    specialists: list[str] | None = None,
+    custom_query: str | None = None,
+) -> str:
+    """Consult the Data Science team for analysis, insights, and diagnostics.
+
+    This is the primary tool for ANY data analysis, pattern detection,
+    energy optimization, behavioral analysis, troubleshooting, or custom
+    investigation.  The team automatically selects the right specialist(s)
+    based on your query, runs their analyses with shared cross-consultation,
+    and returns a synthesised unified response.
+
+    Args:
+        query: What to analyze (e.g., "Why is energy high overnight?",
+            "Check system health", "Find automation opportunities")
+        hours: Hours of historical data to analyze (default: 24, max: 168)
+        entity_ids: Specific entity IDs to focus on (auto-discovers if empty)
+        specialists: Override auto-routing.  Valid values: "energy",
+            "behavioral", "diagnostic".  If omitted the team decides
+            based on query keywords.
+        custom_query: Free-form analysis prompt for ad-hoc investigations
+            (e.g., "Check if HVAC is short-cycling").  When provided,
+            the most relevant specialist will run a custom script.
+
+    Returns:
+        A unified, synthesised summary of all specialist findings
+        including cross-referenced insights and recommendations.
+    """
+    hours = min(max(hours, 1), 168)
+    effective_query = custom_query or query
+
+    # 1. Smart routing
+    selected = _select_specialists(effective_query, specialists)
+    logger.info(
+        "DS team routing: query=%r  selected=%s  explicit=%s",
+        effective_query[:80],
+        selected,
+        specialists is not None,
+    )
+
+    # 2. Reset shared state for a fresh analysis session
+    reset_team_analysis()
+
+    # 3. Run each selected specialist (sequentially — they share TeamAnalysis)
+    results: list[str] = []
+    specialist_runners = {
+        "energy": _run_energy,
+        "behavioral": _run_behavioral,
+        "diagnostic": _run_diagnostic,
+    }
+    for name in selected:
+        runner = specialist_runners.get(name)
+        if runner:
+            result = await runner(effective_query, hours, entity_ids)
+            results.append(f"**{name.title()} Analyst:** {result}")
+
+    # 4. Auto-synthesise if 2+ specialists contributed findings
+    global _current_team_analysis  # noqa: PLW0603
+    ta = _current_team_analysis
+    if ta and len(ta.findings) > 0 and len(selected) >= 2:
+        try:
+            synth = ProgrammaticSynthesizer()
+            ta = synth.synthesize(ta)
+            _current_team_analysis = ta
+        except Exception as e:
+            logger.warning("Programmatic synthesis failed: %s", e)
+
+    # 5. Format unified response
+    parts = [f"**Data Science Team Report** ({len(selected)} specialist(s), {hours}h window)\n"]
+    parts.extend(results)
+
+    if ta and ta.consensus:
+        parts.append(f"\n**Team Consensus:** {ta.consensus}")
+    if ta and ta.conflicts:
+        parts.append("\n**Conflicts:**")
+        for c in ta.conflicts:
+            parts.append(f"- {c}")
+    if ta and ta.holistic_recommendations:
+        parts.append("\n**Recommendations:**")
+        for i, r in enumerate(ta.holistic_recommendations, 1):
+            parts.append(f"{i}. {r}")
+
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Internal runners (thin wrappers around the consult_* functions' logic)
+# ---------------------------------------------------------------------------
+
+
+async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> str:
+    """Run the Energy Analyst and return formatted findings."""
+    if not await is_agent_enabled("energy_analyst"):
+        return "Energy Analyst is currently disabled."
+    try:
+        analyst = EnergyAnalyst()
+        ta = _get_or_create_team_analysis(query)
+        state = AnalysisState(
+            analysis_type=AnalysisType.ENERGY_OPTIMIZATION,
+            entity_ids=entity_ids or [],
+            time_range_hours=hours,
+            custom_query=query,
+            team_analysis=ta,
+        )
+        result = await analyst.invoke(state)
+        if result.get("team_analysis"):
+            global _current_team_analysis  # noqa: PLW0603
+            _current_team_analysis = result["team_analysis"]
+        return _format_findings(result)
+    except Exception as e:
+        logger.error("Energy analysis failed: %s", e, exc_info=True)
+        return f"Energy analysis failed: {e}"
+
+
+async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) -> str:
+    """Run the Behavioral Analyst and return formatted findings."""
+    if not await is_agent_enabled("behavioral_analyst"):
+        return "Behavioral Analyst is currently disabled."
+    try:
+        analyst = BehavioralAnalyst()
+        ta = _get_or_create_team_analysis(query)
+        state = AnalysisState(
+            analysis_type=AnalysisType.BEHAVIOR_ANALYSIS,
+            entity_ids=entity_ids or [],
+            time_range_hours=hours,
+            custom_query=query,
+            team_analysis=ta,
+        )
+        result = await analyst.invoke(state)
+        if result.get("team_analysis"):
+            global _current_team_analysis  # noqa: PLW0603
+            _current_team_analysis = result["team_analysis"]
+        return _format_findings(result)
+    except Exception as e:
+        logger.error("Behavioral analysis failed: %s", e, exc_info=True)
+        return f"Behavioral analysis failed: {e}"
+
+
+async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) -> str:
+    """Run the Diagnostic Analyst and return formatted findings."""
+    if not await is_agent_enabled("diagnostic_analyst"):
+        return "Diagnostic Analyst is currently disabled."
+    try:
+        analyst = DiagnosticAnalyst()
+        ta = _get_or_create_team_analysis(query)
+        state = AnalysisState(
+            analysis_type=AnalysisType.DIAGNOSTIC,
+            entity_ids=entity_ids or [],
+            time_range_hours=hours,
+            custom_query=query,
+            team_analysis=ta,
+        )
+        result = await analyst.invoke(state)
+        if result.get("team_analysis"):
+            global _current_team_analysis  # noqa: PLW0603
+            _current_team_analysis = result["team_analysis"]
+        return _format_findings(result)
+    except Exception as e:
+        logger.error("Diagnostic analysis failed: %s", e, exc_info=True)
+        return f"Diagnostic analysis failed: {e}"
+
+
 def get_specialist_tools() -> list:
-    """Return all specialist delegation tools."""
+    """Return all specialist delegation tools (including team tool)."""
     return [
         consult_energy_analyst,
         consult_behavioral_analyst,
         consult_diagnostic_analyst,
         request_synthesis_review,
+        consult_data_science_team,
     ]
