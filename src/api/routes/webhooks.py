@@ -6,6 +6,9 @@ HA automations fire webhooks to this endpoint when events occur
 (e.g., device goes unavailable, power spike, etc.). Aether matches
 the incoming event against registered InsightSchedule webhook triggers
 and runs the corresponding analysis.
+
+Also handles ``entity_registry_updated`` events from HA to trigger
+an immediate registry sync (automations/scripts/scenes).
 """
 
 from __future__ import annotations
@@ -97,6 +100,14 @@ async def receive_ha_webhook(
         raise HTTPException(
             status_code=500,
             detail="Webhook secret not configured. Set WEBHOOK_SECRET for production use.",
+        )
+
+    # Entity registry sync: trigger immediate sync on registry changes
+    if payload.event_type == "entity_registry_updated":
+        background_tasks.add_task(_run_registry_sync)
+        logger.info(
+            "Entity registry updated — queued registry sync (data=%s)",
+            payload.data,
         )
 
     # Find matching triggers
@@ -256,3 +267,23 @@ async def _run_webhook_analysis(
             logger.exception("Webhook analysis %s failed: %s", schedule.name, e)
 
         await session.commit()
+
+
+async def _run_registry_sync() -> None:
+    """Run a lightweight registry sync (automations/scripts/scenes).
+
+    Called as a background task when HA fires ``entity_registry_updated``.
+    Uses ``run_registry_sync`` which only re-syncs registry tables,
+    not all entities.
+    """
+    from src.dal.sync import run_registry_sync
+    from src.storage import get_session
+
+    logger.info("Running webhook-triggered registry sync")
+
+    try:
+        async with get_session() as session:
+            stats = await run_registry_sync(session)
+        logger.info("Webhook registry sync complete: %s", stats)
+    except Exception as e:
+        logger.exception("Webhook registry sync failed: %s", e)
