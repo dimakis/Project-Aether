@@ -3,12 +3,16 @@
  *
  * Connects to /api/v1/activity/stream and updates the agent activity
  * store so the neural panel reacts to ALL LLM calls — not just chat.
+ *
+ * Source coordination: when the chat stream is active (isActive === true
+ * and the chat page owns the stream), global events are silently
+ * dropped to prevent conflicting state updates.
  */
 
 import { useEffect, useRef } from "react";
 import {
   setAgentActivity,
-  clearAgentActivity,
+  completeAgentActivity,
   getActivitySnapshot,
 } from "@/lib/agent-activity-store";
 
@@ -19,6 +23,8 @@ export function useGlobalActivityStream() {
   const retriesRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const esRef = useRef<EventSource | null>(null);
+  /** Track all auto-complete timeouts so we can cancel on unmount. */
+  const pendingTimeouts = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
     function connect() {
@@ -42,14 +48,20 @@ export function useGlobalActivityStream() {
           const data = JSON.parse(ev.data);
           if (data.type !== "llm") return;
 
-          const role: string = data.agent_role ?? "system";
           const snap = getActivitySnapshot();
+
+          // If the chat stream is driving state, defer to it.
+          // The chat stream sets isActive=true with a completedAt=null;
+          // the global stream should only update when the panel is idle
+          // or showing a completed session.
+          if (snap.isActive) return;
+
+          const role: string = data.agent_role ?? "system";
 
           if (data.event === "start") {
             // Mark this agent as firing; set system as active
             const nextStates = { ...snap.agentStates };
             nextStates[role] = "firing";
-            // Also light up aether hub
             nextStates["aether"] = "firing";
 
             const seen = snap.agentsSeen.includes(role)
@@ -73,7 +85,6 @@ export function useGlobalActivityStream() {
           } else if (data.event === "end") {
             const nextStates = { ...snap.agentStates };
             nextStates[role] = "done";
-            // Keep aether firing if anything else is still firing
             const anyOtherFiring = Object.entries(nextStates).some(
               ([k, v]) => k !== "aether" && k !== role && v === "firing",
             );
@@ -97,30 +108,29 @@ export function useGlobalActivityStream() {
               ],
             });
 
-            // If nothing is firing, auto-clear after a short delay
+            // If nothing is still firing, transition to completed after a delay
             if (!anyOtherFiring) {
-              setTimeout(() => {
+              const handle = setTimeout(() => {
+                pendingTimeouts.current.delete(handle);
                 const latest = getActivitySnapshot();
                 const stillFiring = Object.values(latest.agentStates).some(
                   (v) => v === "firing",
                 );
-                if (!stillFiring && !latest.isActive) {
-                  // Don't clear — let the "done" state persist until next
-                  // conversation. Just mark inactive.
-                  setAgentActivity({ isActive: false });
+                if (!stillFiring) {
+                  completeAgentActivity();
                 }
               }, 2000);
+              pendingTimeouts.current.add(handle);
             }
           }
         } catch {
-          // Ignore parse errors
+          // Ignore parse errors from malformed SSE data
         }
       };
 
       es.onerror = () => {
         es.close();
         esRef.current = null;
-        // Exponential backoff reconnect
         const delay = Math.min(
           RECONNECT_BASE_MS * 2 ** retriesRef.current,
           RECONNECT_MAX_MS,
@@ -135,6 +145,11 @@ export function useGlobalActivityStream() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (esRef.current) esRef.current.close();
+      // Cancel all pending auto-complete timeouts
+      for (const handle of pendingTimeouts.current) {
+        clearTimeout(handle);
+      }
+      pendingTimeouts.current.clear();
     };
   }, []);
 }
