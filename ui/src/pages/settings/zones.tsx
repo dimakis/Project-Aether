@@ -11,6 +11,7 @@ import {
   Wifi,
   TestTube,
   Pencil,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,56 @@ import {
   useSetDefaultZone,
   useTestZone,
 } from "@/api/hooks";
-import type { HAZone, ZoneTestResult } from "@/api/client/zones";
+import type { HAZone, UrlPreference, ZoneTestResult } from "@/api/client/zones";
+
+// ─── URL Preference Toggle ──────────────────────────────────────────────────
+
+const URL_PREF_OPTIONS: { value: UrlPreference; label: string; icon: typeof Wifi; tip: string }[] = [
+  { value: "auto", label: "Auto", icon: RefreshCw, tip: "Try local first, fall back to remote" },
+  { value: "local", label: "Local", icon: Wifi, tip: "Local URL only" },
+  { value: "remote", label: "Remote", icon: Globe, tip: "Remote URL only" },
+];
+
+function UrlPreferenceToggle({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: UrlPreference;
+  onChange: (v: UrlPreference) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        Connect via
+      </span>
+      <div className="inline-flex rounded-md border border-border/50 bg-muted/30 p-0.5">
+        {URL_PREF_OPTIONS.map((opt) => {
+          const Icon = opt.icon;
+          const active = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(opt.value)}
+              title={opt.tip}
+              className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              <Icon className="h-3 w-3" />
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ─── Create / Edit Form ─────────────────────────────────────────────────────
 
@@ -39,6 +89,7 @@ function ZoneForm({
     ha_url_remote: string;
     ha_token: string;
     icon: string;
+    url_preference: UrlPreference;
   }) => void;
   isLoading: boolean;
   onCancel: () => void;
@@ -48,6 +99,7 @@ function ZoneForm({
   const [haUrlRemote, setHaUrlRemote] = useState("");
   const [haToken, setHaToken] = useState("");
   const [icon, setIcon] = useState("mdi:home");
+  const [urlPref, setUrlPref] = useState<UrlPreference>("auto");
 
   return (
     <Card>
@@ -62,7 +114,14 @@ function ZoneForm({
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            onSubmit({ name, ha_url: haUrl, ha_url_remote: haUrlRemote, ha_token: haToken, icon });
+            onSubmit({
+              name,
+              ha_url: haUrl,
+              ha_url_remote: haUrlRemote,
+              ha_token: haToken,
+              icon,
+              url_preference: urlPref,
+            });
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
@@ -98,6 +157,7 @@ function ZoneForm({
             onChange={(e) => setHaToken(e.target.value)}
             required
           />
+          <UrlPreferenceToggle value={urlPref} onChange={setUrlPref} />
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={isLoading || !name || !haUrl || !haToken}>
               {isLoading ? (
@@ -309,6 +369,15 @@ function ZoneCard({ zone }: { zone: HAZone }) {
           </div>
         )}
 
+        {/* URL preference toggle */}
+        <UrlPreferenceToggle
+          value={zone.url_preference}
+          onChange={(v) =>
+            updateMut.mutate({ id: zone.id, payload: { url_preference: v } })
+          }
+          disabled={updateMut.isPending}
+        />
+
         {/* Test connectivity */}
         <div className="flex items-center gap-2">
           <Button
@@ -369,6 +438,7 @@ export function ZonesPage() {
     ha_url_remote: string;
     ha_token: string;
     icon: string;
+    url_preference: UrlPreference;
   }) => {
     await createMut.mutateAsync({
       name: data.name,
@@ -376,6 +446,7 @@ export function ZonesPage() {
       ha_url_remote: data.ha_url_remote || null,
       ha_token: data.ha_token,
       icon: data.icon || null,
+      url_preference: data.url_preference,
     });
     setShowForm(false);
   };

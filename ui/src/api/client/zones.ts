@@ -2,6 +2,8 @@ import { request } from "./core";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export type UrlPreference = "auto" | "local" | "remote";
+
 export interface HAZone {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export interface HAZone {
   latitude: number | null;
   longitude: number | null;
   icon: string | null;
+  url_preference: UrlPreference;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +28,7 @@ export interface ZoneCreatePayload {
   latitude?: number | null;
   longitude?: number | null;
   icon?: string | null;
+  url_preference?: UrlPreference;
 }
 
 export interface ZoneUpdatePayload {
@@ -35,6 +39,7 @@ export interface ZoneUpdatePayload {
   latitude?: number | null;
   longitude?: number | null;
   icon?: string | null;
+  url_preference?: UrlPreference;
 }
 
 export interface ZoneTestResult {
