@@ -59,21 +59,14 @@ class TestStreamEvent:
 
 
 class TestToolAgentMap:
-    """Verify the module-level TOOL_AGENT_MAP has all expected mappings."""
+    """Verify the module-level TOOL_AGENT_MAP has the expected mappings.
 
-    def test_specialist_tools_mapped(self):
-        assert TOOL_AGENT_MAP["consult_energy_analyst"] == "energy_analyst"
-        assert TOOL_AGENT_MAP["consult_behavioral_analyst"] == "behavioral_analyst"
-        assert TOOL_AGENT_MAP["consult_diagnostic_analyst"] == "diagnostic_analyst"
+    After the architect tool reduction, the map only covers tools that
+    the Architect can actually invoke (12 tools).
+    """
 
-    def test_dashboard_tools_mapped(self):
-        assert TOOL_AGENT_MAP["generate_dashboard_yaml"] == "dashboard_designer"
-        assert TOOL_AGENT_MAP["validate_dashboard_yaml"] == "dashboard_designer"
-        assert TOOL_AGENT_MAP["list_dashboards"] == "dashboard_designer"
-
-    def test_developer_tools_mapped(self):
-        assert TOOL_AGENT_MAP["deploy_automation"] == "developer"
-        assert TOOL_AGENT_MAP["create_script"] == "developer"
+    def test_ds_team_tool_mapped(self):
+        assert TOOL_AGENT_MAP["consult_data_science_team"] == "data_science_team"
 
     def test_librarian_tools_mapped(self):
         assert TOOL_AGENT_MAP["discover_entities"] == "librarian"
@@ -82,9 +75,22 @@ class TestToolAgentMap:
         assert TOOL_AGENT_MAP["create_insight_schedule"] == "system"
         assert TOOL_AGENT_MAP["seek_approval"] == "system"
 
-    def test_data_scientist_tools_mapped(self):
-        assert TOOL_AGENT_MAP["analyze_energy"] == "data_scientist"
-        assert TOOL_AGENT_MAP["run_custom_analysis"] == "data_scientist"
+    def test_ha_query_tools_mapped_to_architect(self):
+        for tool_name in [
+            "get_entity_state", "list_entities_by_domain", "search_entities",
+            "get_domain_summary", "list_automations", "render_template",
+            "get_ha_logs", "check_ha_config",
+        ]:
+            assert TOOL_AGENT_MAP[tool_name] == "architect", f"{tool_name} not mapped"
+
+    def test_old_tools_removed(self):
+        """Old tools should no longer be in the map."""
+        for old_tool in [
+            "analyze_energy", "run_custom_analysis", "diagnose_issue",
+            "consult_energy_analyst", "consult_behavioral_analyst",
+            "consult_diagnostic_analyst", "deploy_automation",
+        ]:
+            assert old_tool not in TOOL_AGENT_MAP, f"{old_tool} should be removed"
 
 
 # ---------------------------------------------------------------------------

@@ -34,32 +34,22 @@ router = APIRouter(tags=["OpenAI Compatible"])
 # --- Agent mapping for tool calls (module-level for reuse in streaming) ---
 
 TOOL_AGENT_MAP: dict[str, str] = {
-    # Data Scientist tools
-    "analyze_energy": "data_scientist",
-    "run_custom_analysis": "data_scientist",
-    "diagnose_issue": "data_scientist",
-    # DS Team Specialists
-    "consult_energy_analyst": "energy_analyst",
-    "consult_behavioral_analyst": "behavioral_analyst",
-    "consult_diagnostic_analyst": "diagnostic_analyst",
-    "request_synthesis_review": "system",
-    # Dashboard Designer
-    "generate_dashboard_yaml": "dashboard_designer",
-    "validate_dashboard_yaml": "dashboard_designer",
-    "list_dashboards": "dashboard_designer",
+    # DS Team (single delegation tool routes to specialists internally)
+    "consult_data_science_team": "data_science_team",
     # Librarian
     "discover_entities": "librarian",
-    # Developer
-    "deploy_automation": "developer",
-    "delete_automation": "developer",
-    "create_script": "developer",
-    "create_scene": "developer",
-    # System tools
+    # System / utility tools
     "create_insight_schedule": "system",
     "seek_approval": "system",
-    "execute_service": "system",
-    # Insight tools
-    "propose_automation_from_insight": "architect",
+    # HA query tools (stay on architect)
+    "get_entity_state": "architect",
+    "list_entities_by_domain": "architect",
+    "search_entities": "architect",
+    "get_domain_summary": "architect",
+    "list_automations": "architect",
+    "render_template": "architect",
+    "get_ha_logs": "architect",
+    "check_ha_config": "architect",
 }
 
 
