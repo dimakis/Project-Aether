@@ -352,6 +352,11 @@ export function AgentActivityPanel() {
                         ALL_TOPOLOGY_AGENTS.map((a) => [a, "dormant" as const]),
                       )
                 }
+                activeEdges={
+                  isStreaming || hasLiveData
+                    ? activity.activeEdges
+                    : undefined
+                }
               />
             </div>
 

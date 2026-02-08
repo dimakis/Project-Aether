@@ -32,6 +32,18 @@ function addAgentSeen(seen: string[], agent: string): string[] {
 }
 
 /**
+ * Helper: add an edge [from, to] to activeEdges if not already present.
+ */
+function addEdge(
+  edges: [string, string][],
+  from: string,
+  to: string,
+): [string, string][] {
+  if (edges.some(([a, b]) => a === from && b === to)) return edges;
+  return [...edges, [from, to]];
+}
+
+/**
  * Process a single trace event and return the partial AgentActivity update.
  *
  * Pure function — all state changes are expressed as a Partial<AgentActivity>
@@ -67,12 +79,20 @@ export function handleTraceEvent(
         newStates["architect"] = "idle";
       }
 
+      // Build edge from the current active agent to the newly started agent
+      const parent = current.activeAgent || "architect";
+      const newEdges =
+        parent !== agent
+          ? addEdge(current.activeEdges, parent, agent)
+          : current.activeEdges;
+
       setActivity({
         isActive: true,
         activeAgent: agent,
         delegatingTo: isDelegated ? agent : null,
         agentsSeen: newSeen,
         agentStates: newStates,
+        activeEdges: newEdges,
         liveTimeline: [...current.liveTimeline, entry],
       });
       break;

@@ -42,6 +42,8 @@ export interface AgentActivity {
   liveTimeline: LiveTimelineEntry[];
   /** Accumulated thinking/reasoning content from the LLM stream. */
   thinkingStream: string;
+  /** Edges [from, to] that were activated during the current workflow. */
+  activeEdges: [string, string][];
 }
 
 const DEFAULT_ACTIVITY: AgentActivity = {
@@ -51,6 +53,7 @@ const DEFAULT_ACTIVITY: AgentActivity = {
   agentStates: {},
   liveTimeline: [],
   thinkingStream: "",
+  activeEdges: [],
 };
 
 let currentActivity: AgentActivity = DEFAULT_ACTIVITY;

@@ -188,6 +188,8 @@ interface AgentTopologyProps {
   rootSpan?: SpanNode | null;
   isLive?: boolean;
   agentStates?: Record<string, AgentNodeState>;
+  /** Edges activated during the current workflow (event-driven). */
+  activeEdges?: [string, string][];
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -206,6 +208,7 @@ export function AgentTopology({
   activeAgent,
   isLive,
   agentStates,
+  activeEdges,
 }: AgentTopologyProps) {
   const prefersReducedMotion = useReducedMotion();
   const displayAgents = agents.length > 0 ? agents : ALL_TOPOLOGY_AGENTS;
@@ -218,12 +221,22 @@ export function AgentTopology({
     return pos;
   }, [displayAgents.join(",")]);
 
+  // When we have event-driven edges, use those. Otherwise fall back to
+  // the static EDGES (for the dormant/post-stream display).
+  const hasEventEdges = activeEdges && activeEdges.length > 0;
+  const edgeKey = hasEventEdges
+    ? activeEdges!.map(([a, b]) => `${a}-${b}`).join(",")
+    : "static";
+
   const visibleEdges = useMemo(
-    () =>
-      EDGES.filter(
+    () => {
+      const source = hasEventEdges ? activeEdges! : EDGES;
+      return source.filter(
         ([a, b]) => displayAgents.includes(a) && displayAgents.includes(b),
-      ),
-    [displayAgents.join(",")],
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [displayAgents.join(","), edgeKey],
   );
 
   function getNodeState(agent: string): AgentNodeState {
