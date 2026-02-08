@@ -11,25 +11,31 @@ import {
   Users,
   Stethoscope,
   LayoutDashboard,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SpanNode } from "@/lib/types";
 import type { AgentNodeState } from "@/lib/agent-activity-store";
 
-/** Agent metadata for the topology visualization */
+// ─── Agent metadata ──────────────────────────────────────────────────────────
+
 const AGENTS: Record<
   string,
   {
     label: string;
     icon: typeof Bot;
     color: string;
-    /** RGB value (space-separated) for glow effects */
     glowRgb: string;
-    /** Hex colour for SVG edges */
     hex: string;
-    group?: string;
   }
 > = {
+  aether: {
+    label: "Aether",
+    icon: Brain,
+    color: "text-primary",
+    glowRgb: "168 85 247",
+    hex: "#a855f7",
+  },
   architect: {
     label: "Architect",
     icon: Bot,
@@ -43,7 +49,6 @@ const AGENTS: Record<
     color: "text-emerald-400",
     glowRgb: "52 211 153",
     hex: "#34d399",
-    group: "ds-team",
   },
   energy_analyst: {
     label: "Energy",
@@ -51,7 +56,6 @@ const AGENTS: Record<
     color: "text-yellow-400",
     glowRgb: "250 204 21",
     hex: "#facc15",
-    group: "ds-team",
   },
   behavioral_analyst: {
     label: "Behavioral",
@@ -59,7 +63,6 @@ const AGENTS: Record<
     color: "text-teal-400",
     glowRgb: "45 212 191",
     hex: "#2dd4bf",
-    group: "ds-team",
   },
   diagnostic_analyst: {
     label: "Diagnostic",
@@ -67,7 +70,6 @@ const AGENTS: Record<
     color: "text-rose-400",
     glowRgb: "251 113 133",
     hex: "#fb7185",
-    group: "ds-team",
   },
   dashboard_designer: {
     label: "Dashboard",
@@ -106,11 +108,10 @@ const AGENTS: Record<
   },
 };
 
-/**
- * The canonical ordered list of all agents in the system.
- * Used by the activity panel to always show the full neural network.
- */
+// ─── Canonical agent list ────────────────────────────────────────────────────
+
 export const ALL_TOPOLOGY_AGENTS: string[] = [
+  "aether",
   "architect",
   "data_science_team",
   "energy_analyst",
@@ -122,8 +123,21 @@ export const ALL_TOPOLOGY_AGENTS: string[] = [
   "developer",
 ];
 
-/** Edges: which agents are connected to which */
+// ─── Edges ───────────────────────────────────────────────────────────────────
+
+/** All edges in the brain. Every agent connects to Aether (the hub). */
 const EDGES: [string, string][] = [
+  // Hub-and-spoke: Aether connects to every agent
+  ["aether", "architect"],
+  ["aether", "data_science_team"],
+  ["aether", "energy_analyst"],
+  ["aether", "behavioral_analyst"],
+  ["aether", "diagnostic_analyst"],
+  ["aether", "dashboard_designer"],
+  ["aether", "sandbox"],
+  ["aether", "librarian"],
+  ["aether", "developer"],
+  // Architect delegates
   ["architect", "data_science_team"],
   ["architect", "dashboard_designer"],
   ["architect", "sandbox"],
@@ -133,61 +147,50 @@ const EDGES: [string, string][] = [
   ["data_science_team", "energy_analyst"],
   ["data_science_team", "behavioral_analyst"],
   ["data_science_team", "diagnostic_analyst"],
-  // Cross-consultation within DS team
+  // DS cross-consultation
   ["energy_analyst", "behavioral_analyst"],
   ["behavioral_analyst", "diagnostic_analyst"],
   ["energy_analyst", "diagnostic_analyst"],
 ];
 
+// ─── Organic brain layout ────────────────────────────────────────────────────
+
+const SVG_SIZE = 300;
+const CENTER = SVG_SIZE / 2;
+const NODE_RADIUS = 15;
+
+/**
+ * Hand-tuned positions for an organic brain-like layout.
+ * Aether at center. Architect above as "cortex".
+ * DS cluster left hemisphere. Tool agents right. Support agents lower.
+ */
+const BRAIN_POSITIONS: Record<string, { x: number; y: number }> = {
+  aether:              { x: CENTER,      y: CENTER },       // dead center
+  architect:           { x: CENTER,      y: CENTER - 80 },  // top, cortex
+  // Left hemisphere — DS team cluster
+  data_science_team:   { x: CENTER - 75, y: CENTER - 30 },
+  energy_analyst:      { x: CENTER - 115, y: CENTER + 20 },
+  behavioral_analyst:  { x: CENTER - 60, y: CENTER + 55 },
+  diagnostic_analyst:  { x: CENTER - 110, y: CENTER + 75 },
+  // Right hemisphere — tool agents
+  sandbox:             { x: CENTER + 80, y: CENTER - 25 },
+  developer:           { x: CENTER + 110, y: CENTER + 30 },
+  // Lower — support agents
+  dashboard_designer:  { x: CENTER + 55, y: CENTER + 70 },
+  librarian:           { x: CENTER - 10, y: CENTER + 90 },
+};
+
+// ─── Props ───────────────────────────────────────────────────────────────────
+
 interface AgentTopologyProps {
-  /** Agents to display */
   agents: string[];
-  /** Currently active agent (during streaming) */
   activeAgent?: string | null;
-  /** Root span for extracting delegation flow */
   rootSpan?: SpanNode | null;
-  /** Whether the trace is still in progress */
   isLive?: boolean;
-  /** Per-agent visual state for neural activity (live mode). */
   agentStates?: Record<string, AgentNodeState>;
 }
 
-// ─── SVG Radial Graph ────────────────────────────────────────────────────────
-
-const SVG_SIZE = 260;
-const CENTER = SVG_SIZE / 2;
-const RADIUS = 100;
-const NODE_RADIUS = 16;
-
-function getNodePositions(agents: string[]) {
-  const positions: Record<string, { x: number; y: number }> = {};
-  const n = agents.length;
-
-  // Place architect at the top center
-  const architectIdx = agents.indexOf("architect");
-
-  agents.forEach((agent, i) => {
-    let angle: number;
-    if (agent === "architect") {
-      // Architect at top
-      angle = -Math.PI / 2;
-    } else {
-      // Distribute others evenly around the circle, starting from top-right
-      const nonArchitectIdx = i > architectIdx ? i - 1 : i;
-      const totalOther = n - 1;
-      angle =
-        -Math.PI / 2 +
-        ((nonArchitectIdx + 1) * (2 * Math.PI)) / (totalOther + 1);
-    }
-
-    positions[agent] = {
-      x: CENTER + RADIUS * Math.cos(angle),
-      y: CENTER + RADIUS * Math.sin(angle),
-    };
-  });
-
-  return positions;
-}
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function AgentTopology({
   agents,
@@ -197,17 +200,18 @@ export function AgentTopology({
 }: AgentTopologyProps) {
   const displayAgents = agents.length > 0 ? agents : ALL_TOPOLOGY_AGENTS;
 
-  const positions = useMemo(
-    () => getNodePositions(displayAgents),
-    [displayAgents.join(",")],
-  );
+  const positions = useMemo(() => {
+    const pos: Record<string, { x: number; y: number }> = {};
+    for (const agent of displayAgents) {
+      pos[agent] = BRAIN_POSITIONS[agent] ?? { x: CENTER, y: CENTER };
+    }
+    return pos;
+  }, [displayAgents.join(",")]);
 
-  // Filter edges to only show those between displayed agents
   const visibleEdges = useMemo(
     () =>
       EDGES.filter(
-        ([a, b]) =>
-          displayAgents.includes(a) && displayAgents.includes(b),
+        ([a, b]) => displayAgents.includes(a) && displayAgents.includes(b),
       ),
     [displayAgents.join(",")],
   );
@@ -219,12 +223,10 @@ export function AgentTopology({
     return "idle";
   }
 
-  function isEdgeActive(a: string, b: string): boolean {
-    if (!isLive || !agentStates) return false;
-    const sA = agentStates[a];
-    const sB = agentStates[b];
-    return sA === "firing" || sB === "firing";
-  }
+  /** Is any streaming happening at all? */
+  const anyFiring = isLive && agentStates
+    ? Object.values(agentStates).some((s) => s === "firing")
+    : false;
 
   return (
     <div className="flex items-center justify-center">
@@ -234,7 +236,6 @@ export function AgentTopology({
         height={SVG_SIZE}
         className="overflow-visible"
       >
-        {/* SVG defs for glow filters */}
         <defs>
           {displayAgents.map((agent) => {
             const meta = AGENTS[agent];
@@ -248,8 +249,8 @@ export function AgentTopology({
                 width="200%"
                 height="200%"
               >
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feFlood floodColor={meta.hex} floodOpacity="0.6" />
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feFlood floodColor={meta.hex} floodOpacity="0.5" />
                 <feComposite in2="blur" operator="in" />
                 <feMerge>
                   <feMergeNode />
@@ -258,82 +259,108 @@ export function AgentTopology({
               </filter>
             );
           })}
-
-          {/* Animated pulse for active edges */}
-          <marker
-            id="arrowhead"
-            markerWidth="6"
-            markerHeight="4"
-            refX="5"
-            refY="2"
-            orient="auto"
-          >
-            <polygon
-              points="0 0, 6 2, 0 4"
-              fill="currentColor"
-              className="text-border"
-            />
-          </marker>
         </defs>
 
-        {/* Edges */}
-        {visibleEdges.map(([a, b]) => {
+        {/* ── Edges ─────────────────────────────────────────────── */}
+        {visibleEdges.map(([a, b], edgeIdx) => {
           const pA = positions[a];
           const pB = positions[b];
           if (!pA || !pB) return null;
 
-          const active = isEdgeActive(a, b);
-          const agentMeta = AGENTS[a] ?? AGENTS.system;
+          const sA = getNodeState(a);
+          const sB = getNodeState(b);
+          const aFiring = sA === "firing";
+          const bFiring = sB === "firing";
+          const edgeActive = aFiring || bFiring;
+
+          const metaA = AGENTS[a] ?? AGENTS.system;
+          const metaB = AGENTS[b] ?? AGENTS.system;
 
           // Shorten edge to not overlap with nodes
+          const rA = a === "aether" ? NODE_RADIUS + 4 : NODE_RADIUS;
+          const rB = b === "aether" ? NODE_RADIUS + 4 : NODE_RADIUS;
           const dx = pB.x - pA.x;
           const dy = pB.y - pA.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 1) return null;
           const nx = dx / dist;
           const ny = dy / dist;
-          const x1 = pA.x + nx * (NODE_RADIUS + 2);
-          const y1 = pA.y + ny * (NODE_RADIUS + 2);
-          const x2 = pB.x - nx * (NODE_RADIUS + 2);
-          const y2 = pB.y - ny * (NODE_RADIUS + 2);
+          const x1 = pA.x + nx * (rA + 2);
+          const y1 = pA.y + ny * (rA + 2);
+          const x2 = pB.x - nx * (rB + 2);
+          const y2 = pB.y - ny * (rB + 2);
 
           return (
             <g key={`${a}-${b}`}>
+              {/* Edge line */}
               <motion.line
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke={active ? agentMeta.hex : "hsl(var(--border))"}
-                strokeWidth={active ? 1.5 : 0.5}
-                strokeOpacity={active ? 0.8 : 0.2}
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.5 }}
+                x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={
+                  edgeActive
+                    ? aFiring ? metaA.hex : metaB.hex
+                    : "hsl(var(--border))"
+                }
+                strokeWidth={edgeActive ? 1.5 : 0.5}
+                initial={false}
+                animate={{
+                  strokeOpacity: edgeActive
+                    ? 0.7
+                    : [0.06, 0.14, 0.06], // idle shimmer
+                }}
+                transition={
+                  edgeActive
+                    ? { duration: 0.3 }
+                    : {
+                        duration: 4 + (edgeIdx % 3),
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: edgeIdx * 0.2,
+                      }
+                }
               />
-              {/* Traveling pulse on active edges */}
-              {active && (
-                <motion.circle
-                  r={2}
-                  fill={agentMeta.hex}
-                  initial={{ opacity: 0 }}
-                  animate={{
-                    cx: [x1, x2],
-                    cy: [y1, y2],
-                    opacity: [1, 0.3],
-                  }}
-                  transition={{
-                    duration: 1.2,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                />
+
+              {/* Bidirectional traveling pulses when active */}
+              {edgeActive && (
+                <>
+                  {/* A -> B pulse */}
+                  <motion.circle
+                    r={2}
+                    fill={metaA.hex}
+                    animate={{
+                      cx: [x1, x2],
+                      cy: [y1, y2],
+                      opacity: [0.9, 0.2],
+                    }}
+                    transition={{
+                      duration: 1.0,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                  {/* B -> A pulse (reverse, offset) */}
+                  <motion.circle
+                    r={1.5}
+                    fill={metaB.hex}
+                    animate={{
+                      cx: [x2, x1],
+                      cy: [y2, y1],
+                      opacity: [0.7, 0.15],
+                    }}
+                    transition={{
+                      duration: 1.3,
+                      repeat: Infinity,
+                      ease: "linear",
+                      delay: 0.4,
+                    }}
+                  />
+                </>
               )}
             </g>
           );
         })}
 
-        {/* Nodes */}
-        {displayAgents.map((agent) => {
+        {/* ── Nodes ─────────────────────────────────────────────── */}
+        {displayAgents.map((agent, nodeIdx) => {
           const pos = positions[agent];
           if (!pos) return null;
           const meta = AGENTS[agent] ?? AGENTS.system;
@@ -343,44 +370,89 @@ export function AgentTopology({
           const isDone = state === "done";
           const isDormant = state === "dormant";
           const isIdle = state === "idle";
+          const isAether = agent === "aether";
+          const r = isAether ? NODE_RADIUS + 4 : NODE_RADIUS;
+
+          // Breathing idle animation parameters
+          const breatheBase = isAether ? 0.3 : 0.18;
+          const breathePeak = isAether ? 0.5 : 0.32;
+          const breatheDuration = isAether ? 2.5 : 3.5 + (nodeIdx % 3) * 0.4;
 
           return (
             <motion.g
               key={agent}
               initial={{ opacity: 0, scale: 0.5 }}
-              animate={{
-                opacity: isDormant ? 0.2 : isIdle ? 0.4 : 1,
-                scale: isFiring ? 1.1 : 1,
-              }}
-              transition={{ duration: 0.3 }}
+              animate={
+                isFiring
+                  ? { opacity: 1, scale: 1.08 }
+                  : isDone
+                    ? { opacity: 1, scale: 1 }
+                    : {
+                        // Breathing animation for idle/dormant
+                        opacity: [breatheBase, breathePeak, breatheBase],
+                        scale: 1,
+                      }
+              }
+              transition={
+                isFiring || isDone
+                  ? { duration: 0.3 }
+                  : {
+                      duration: breatheDuration,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: nodeIdx * 0.3,
+                    }
+              }
               style={{ transformOrigin: `${pos.x}px ${pos.y}px` }}
             >
               {/* Background circle */}
               <circle
                 cx={pos.x}
                 cy={pos.y}
-                r={NODE_RADIUS}
+                r={r}
                 fill="hsl(var(--card))"
-                stroke={isFiring ? meta.hex : "hsl(var(--border))"}
-                strokeWidth={isFiring ? 2 : 1}
+                stroke={isFiring ? meta.hex : isAether ? meta.hex : "hsl(var(--border))"}
+                strokeWidth={isFiring ? 2 : isAether ? 1.5 : 1}
+                strokeOpacity={isFiring ? 1 : isAether ? 0.6 : 1}
                 filter={isFiring ? `url(#glow-${agent})` : undefined}
               />
+
+              {/* Aether ambient glow ring (always present, subtle) */}
+              {isAether && !isFiring && (
+                <motion.circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={r + 6}
+                  fill="none"
+                  stroke={meta.hex}
+                  strokeWidth={0.5}
+                  animate={{
+                    r: [r + 3, r + 8, r + 3],
+                    opacity: [0.15, 0.3, 0.15],
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              )}
 
               {/* Firing pulse ring */}
               {isFiring && (
                 <motion.circle
                   cx={pos.x}
                   cy={pos.y}
-                  r={NODE_RADIUS + 4}
+                  r={r + 4}
                   fill="none"
                   stroke={meta.hex}
                   strokeWidth={1}
                   animate={{
-                    r: [NODE_RADIUS + 2, NODE_RADIUS + 8],
+                    r: [r + 2, r + 10],
                     opacity: [0.6, 0],
                   }}
                   transition={{
-                    duration: 1,
+                    duration: 0.9,
                     repeat: Infinity,
                     ease: "easeOut",
                   }}
@@ -388,39 +460,38 @@ export function AgentTopology({
               )}
 
               {/* Done checkmark */}
-              {isDone && (
-                <circle
-                  cx={pos.x + NODE_RADIUS * 0.65}
-                  cy={pos.y - NODE_RADIUS * 0.65}
-                  r={5}
-                  fill="#22c55e"
-                />
-              )}
-              {isDone && (
-                <text
-                  x={pos.x + NODE_RADIUS * 0.65}
-                  y={pos.y - NODE_RADIUS * 0.65 + 1}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize="7"
-                  fill="white"
-                >
-                  ✓
-                </text>
+              {isDone && !isAether && (
+                <>
+                  <circle
+                    cx={pos.x + r * 0.6}
+                    cy={pos.y - r * 0.6}
+                    r={4.5}
+                    fill="#22c55e"
+                  />
+                  <text
+                    x={pos.x + r * 0.6}
+                    y={pos.y - r * 0.6 + 1}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize="6"
+                    fill="white"
+                  >
+                    ✓
+                  </text>
+                </>
               )}
 
-              {/* Icon (using foreignObject) */}
+              {/* Icon */}
               <foreignObject
-                x={pos.x - 8}
-                y={pos.y - 8}
-                width={16}
-                height={16}
+                x={pos.x - (isAether ? 10 : 8)}
+                y={pos.y - (isAether ? 10 : 8)}
+                width={isAether ? 20 : 16}
+                height={isAether ? 20 : 16}
               >
                 <Icon
                   className={cn(
-                    "h-4 w-4",
+                    isAether ? "h-5 w-5" : "h-4 w-4",
                     meta.color,
-                    (isIdle || isDormant) && "opacity-50",
                   )}
                 />
               </foreignObject>
@@ -428,15 +499,12 @@ export function AgentTopology({
               {/* Label */}
               <text
                 x={pos.x}
-                y={pos.y + NODE_RADIUS + 10}
+                y={pos.y + r + 10}
                 textAnchor="middle"
-                fontSize="8"
+                fontSize={isAether ? "9" : "8"}
+                fontWeight={isAether ? "600" : "400"}
                 fill="currentColor"
-                className={cn(
-                  "fill-current",
-                  meta.color,
-                  (isIdle || isDormant) && "opacity-50",
-                )}
+                className={cn("fill-current", meta.color)}
               >
                 {meta.label}
               </text>

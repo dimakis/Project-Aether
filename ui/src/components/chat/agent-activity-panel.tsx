@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Brain, ChevronDown, Loader2, Cpu } from "lucide-react";
+import { X, Brain, ChevronDown, Loader2, Cpu, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentTopology, ALL_TOPOLOGY_AGENTS } from "./agent-topology";
 import { TraceTimeline } from "./trace-timeline";
@@ -12,9 +12,10 @@ import {
 import type { LiveTimelineEntry } from "@/lib/agent-activity-store";
 import { useTraceSpans } from "@/api/hooks";
 
-// ─── Agent colours (mirrors topology) ────────────────────────────────────────
+// ─── Agent colours ───────────────────────────────────────────────────────────
 
 const AGENT_COLORS: Record<string, string> = {
+  aether: "text-primary",
   architect: "text-blue-400",
   data_scientist: "text-emerald-400",
   data_science_team: "text-emerald-400",
@@ -37,11 +38,11 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 const EVENT_ICONS: Record<string, string> = {
-  start: "\u26A1",   // ⚡
-  end: "\u2713",     // ✓
-  tool_call: "\uD83D\uDD27", // 🔧
-  tool_result: "\u2714",     // ✔
-  complete: "\u2705", // ✅
+  start: "\u26A1",
+  end: "\u2713",
+  tool_call: "\uD83D\uDD27",
+  tool_result: "\u2714",
+  complete: "\u2705",
 };
 
 function formatTime(ts: number): string {
@@ -60,17 +61,23 @@ function friendlyAgent(agent: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function timeAgo(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 // ─── Thinking Box ─────────────────────────────────────────────────────────────
 
-/**
- * Condensed thinking stream box.
- * Shows 3-5 lines by default, expandable to full content.
- */
 function ThinkingBox({ content, isActive }: { content: string; isActive: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll when new content arrives and not expanded
   useEffect(() => {
     if (!expanded && boxRef.current) {
       boxRef.current.scrollTop = boxRef.current.scrollHeight;
@@ -135,17 +142,60 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
   );
 }
 
+// ─── Last Session Summary Card ───────────────────────────────────────────────
+
+function LastSessionCard({
+  trace,
+  onExpand,
+  isExpanded,
+}: {
+  trace: {
+    agents_involved: string[];
+    span_count: number;
+    duration_ms: number;
+    started_at: string | null;
+    root_span: unknown;
+  };
+  onExpand: () => void;
+  isExpanded: boolean;
+}) {
+  const ago = trace.started_at ? timeAgo(trace.started_at) : "unknown";
+
+  return (
+    <div className="rounded-lg border border-border/40 bg-muted/20">
+      <button
+        onClick={onExpand}
+        className="flex w-full items-center gap-2 px-3 py-2 text-xs"
+      >
+        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="font-medium text-muted-foreground">
+          Last session
+        </span>
+        <span className="text-muted-foreground/50">
+          {trace.span_count} spans, {(trace.duration_ms / 1000).toFixed(1)}s
+        </span>
+        <span className="ml-auto text-[10px] text-muted-foreground/40">
+          {ago}
+        </span>
+        <motion.span
+          animate={{ rotate: isExpanded ? 180 : 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
+        </motion.span>
+      </button>
+    </div>
+  );
+}
+
 // ─── Live Feed ───────────────────────────────────────────────────────────────
 
 function LiveEventFeed({ entries }: { entries: LiveTimelineEntry[] }) {
   const feedRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to latest entry
   useEffect(() => {
     const el = feedRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (el) el.scrollTop = el.scrollHeight;
   }, [entries.length]);
 
   if (entries.length === 0) {
@@ -172,21 +222,15 @@ function LiveEventFeed({ entries }: { entries: LiveTimelineEntry[] }) {
             transition={{ duration: 0.15 }}
             className="flex items-start gap-2 py-1"
           >
-            {/* Timestamp */}
             <span className="shrink-0 w-[52px] text-right text-[10px] tabular-nums text-muted-foreground/40">
               {formatTime(entry.ts)}
             </span>
-
-            {/* Icon dot */}
             <div className="relative flex flex-col items-center">
               <span className="text-[9px]">{icon}</span>
-              {/* Vertical connector */}
               {i < entries.length - 1 && (
                 <div className="absolute top-4 h-full w-px bg-border/30" />
               )}
             </div>
-
-            {/* Description */}
             <div className="min-w-0 flex-1">
               <p className="text-[11px] leading-tight">
                 <span className={cn("font-medium", color)}>
@@ -209,31 +253,39 @@ function LiveEventFeed({ entries }: { entries: LiveTimelineEntry[] }) {
 
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
-/**
- * System Activity Panel.
- *
- * Default view: Thinking box (persistent) + agent network graph.
- * During streaming: Thinking box + live neural topology + event feed.
- * After streaming: Complete MLflow-based trace timeline.
- */
 export function AgentActivityPanel() {
   const activity = useAgentActivity();
   const { lastTraceId, panelOpen } = useActivityPanel();
   const isStreaming = activity.isActive;
   const { data: trace, isLoading } = useTraceSpans(lastTraceId, isStreaming);
   const activeAgent = activity.activeAgent || "architect";
+  const [traceExpanded, setTraceExpanded] = useState(false);
 
-  // During streaming we always have live data; prefer it over MLflow
   const hasLiveData =
     activity.agentsSeen.length > 0 || activity.liveTimeline.length > 0;
 
-  // Build full agent states: agents not yet seen are "dormant"
-  const fullAgentStates: Record<string, import("@/lib/agent-activity-store").AgentNodeState> = {};
-  for (const agent of ALL_TOPOLOGY_AGENTS) {
-    fullAgentStates[agent] = activity.agentStates[agent] ?? "dormant";
-  }
+  // Build full agent states: unseen agents are "dormant"
+  const fullAgentStates = useMemo(() => {
+    const states: Record<string, import("@/lib/agent-activity-store").AgentNodeState> = {};
+    for (const agent of ALL_TOPOLOGY_AGENTS) {
+      states[agent] = activity.agentStates[agent] ?? "dormant";
+    }
+    return states;
+  }, [activity.agentStates]);
 
   const hasThinking = !!activity.thinkingStream;
+
+  // Is the last trace stale (>24h old)?
+  const traceIsStale = useMemo(() => {
+    if (!trace?.started_at) return true;
+    const age = Date.now() - new Date(trace.started_at).getTime();
+    return age > 24 * 60 * 60 * 1000;
+  }, [trace?.started_at]);
+
+  // Collapse trace details when a new stream starts
+  useEffect(() => {
+    if (isStreaming) setTraceExpanded(false);
+  }, [isStreaming]);
 
   return (
     <AnimatePresence>
@@ -268,7 +320,7 @@ export function AgentActivityPanel() {
 
           {/* Content */}
           <div className="flex-1 overflow-auto p-3 space-y-3">
-            {/* Thinking box — always shown when there is content */}
+            {/* Thinking box */}
             {(hasThinking || isStreaming) && (
               <ThinkingBox
                 content={activity.thinkingStream}
@@ -276,23 +328,29 @@ export function AgentActivityPanel() {
               />
             )}
 
-            {isStreaming || hasLiveData ? (
-              /* ── Live neural view ─────────────────────────────────── */
+            {/* ── Neural graph — ALWAYS rendered ─────────────────── */}
+            <div>
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                {isStreaming || hasLiveData ? "Neural Activity" : "Agent Network"}
+              </p>
+              <AgentTopology
+                agents={ALL_TOPOLOGY_AGENTS}
+                activeAgent={isStreaming ? activeAgent : null}
+                isLive={isStreaming || hasLiveData}
+                agentStates={
+                  isStreaming || hasLiveData
+                    ? fullAgentStates
+                    : Object.fromEntries(
+                        ALL_TOPOLOGY_AGENTS.map((a) => [a, "dormant" as const]),
+                      )
+                }
+              />
+            </div>
+
+            {/* ── Live feed (during streaming) ───────────────────── */}
+            {(isStreaming || hasLiveData) && (
               <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-                  Neural Activity
-                </p>
-                <AgentTopology
-                  agents={ALL_TOPOLOGY_AGENTS}
-                  activeAgent={activeAgent}
-                  isLive
-                  agentStates={fullAgentStates}
-                />
-
-                {/* Divider */}
-                <div className="my-3 border-t border-border/50" />
-
-                {/* Live event feed */}
+                <div className="my-2 border-t border-border/50" />
                 <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                   Live Feed{" "}
                   {activity.liveTimeline.length > 0 && (
@@ -303,54 +361,48 @@ export function AgentActivityPanel() {
                 </p>
                 <LiveEventFeed entries={activity.liveTimeline} />
               </div>
-            ) : isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
-              </div>
-            ) : trace?.root_span ? (
-              /* ── Post-stream MLflow view ──────────────────────────── */
-              <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-                  Agent Flow
-                </p>
-                <AgentTopology
-                  agents={trace.agents_involved}
-                  activeAgent={null}
-                  rootSpan={trace.root_span}
-                  isLive={false}
-                />
+            )}
 
-                <div className="my-3 border-t border-border/50" />
-
-                <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-                  Timeline ({trace.span_count} spans,{" "}
-                  {(trace.duration_ms / 1000).toFixed(1)}s)
-                </p>
-                <TraceTimeline
-                  rootSpan={trace.root_span}
-                  startedAt={trace.started_at}
-                  isLive={false}
-                />
-              </div>
-            ) : !hasThinking ? (
-              /* ── Default: graph + waiting message ────────────────── */
+            {/* ── Post-stream: compact last session summary ──────── */}
+            {!isStreaming && !hasLiveData && trace?.root_span && !traceIsStale && (
               <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-                  Agent Network
-                </p>
-                <AgentTopology
-                  agents={ALL_TOPOLOGY_AGENTS}
-                  activeAgent={null}
-                  isLive={false}
-                  agentStates={Object.fromEntries(
-                    ALL_TOPOLOGY_AGENTS.map((a) => [a, "dormant" as const]),
+                <LastSessionCard
+                  trace={trace}
+                  onExpand={() => setTraceExpanded(!traceExpanded)}
+                  isExpanded={traceExpanded}
+                />
+                <AnimatePresence>
+                  {traceExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-2 space-y-2">
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                          Timeline ({trace.span_count} spans,{" "}
+                          {(trace.duration_ms / 1000).toFixed(1)}s)
+                        </p>
+                        <TraceTimeline
+                          rootSpan={trace.root_span}
+                          startedAt={trace.started_at}
+                          isLive={false}
+                        />
+                      </div>
+                    </motion.div>
                   )}
-                />
-                <p className="mt-3 text-center text-[10px] text-muted-foreground/40">
-                  Send a message to see system activity
-                </p>
+                </AnimatePresence>
               </div>
-            ) : null}
+            )}
+
+            {/* Loading state */}
+            {!isStreaming && !hasLiveData && isLoading && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/30" />
+              </div>
+            )}
           </div>
         </motion.div>
       )}
