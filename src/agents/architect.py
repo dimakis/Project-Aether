@@ -939,11 +939,17 @@ class ArchitectWorkflow:
                     if tc_chunk.get("id"):
                         buf["id"] = tc_chunk["id"]
 
-        # Process tool calls if any were accumulated
-        if tool_calls_buffer:
+        # Multi-turn tool loop: allow the LLM to chain tool calls
+        MAX_TOOL_ITERATIONS = 5
+        iteration = 0
+        all_new_messages: list[BaseMessage] = []
+
+        while tool_calls_buffer and iteration < MAX_TOOL_ITERATIONS:
+            iteration += 1
             import json as _json
 
             tool_results: dict[str, str] = {}  # tool_call_id -> result
+            full_tool_calls = []
 
             for tc_buf in tool_calls_buffer:
                 tool_name = tc_buf["name"]
@@ -1069,7 +1075,7 @@ class ArchitectWorkflow:
                 content=collected_content,
                 tool_calls=full_tool_calls,
             )
-            tool_messages = [
+            tool_messages_list = [
                 ToolMessage(
                     content=tool_results.get(tc["id"], ""),
                     tool_call_id=tc.get("id", ""),
@@ -1078,24 +1084,48 @@ class ArchitectWorkflow:
                 if not self.agent._is_mutating_tool(tc["name"])
             ]
 
-            # Get follow-up response by streaming
-            follow_up_messages = messages + [ai_msg] + tool_messages
-            follow_up_content = ""
-            async for chunk in llm.astream(follow_up_messages):
-                if chunk.content:
+            all_new_messages.extend([ai_msg, *tool_messages_list])
+
+            # Follow-up: stream using tool_llm (with tools bound) to allow chaining
+            follow_up_messages = messages + all_new_messages
+            collected_content = ""
+            tool_calls_buffer = []
+
+            async for chunk in tool_llm.astream(follow_up_messages):
+                has_tool_chunks = (
+                    hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
+                )
+
+                if chunk.content and not has_tool_chunks:
                     token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
-                    follow_up_content += token
+                    collected_content += token
                     yield StreamEvent(type="token", content=token)
 
-            # Update state with all messages
-            new_messages: list[BaseMessage] = [ai_msg, *tool_messages]
-            if follow_up_content:
-                new_messages.append(AIMessage(content=follow_up_content))
-            state.messages.extend(new_messages)
-        else:
-            # No tool calls — just the response
+                if has_tool_chunks:
+                    for tc_chunk in chunk.tool_call_chunks:
+                        idx = tc_chunk.get("index", 0)
+                        while len(tool_calls_buffer) <= idx:
+                            tool_calls_buffer.append({"name": "", "args": "", "id": ""})
+                        buf = tool_calls_buffer[idx]
+                        if tc_chunk.get("name"):
+                            buf["name"] = tc_chunk["name"]
+                        if tc_chunk.get("args"):
+                            buf["args"] += tc_chunk["args"]
+                        if tc_chunk.get("id"):
+                            buf["id"] = tc_chunk["id"]
+
+            # If no more tool calls, this was the final response — append & exit
+            if not tool_calls_buffer:
+                if collected_content:
+                    all_new_messages.append(AIMessage(content=collected_content))
+                break
+
+        # If the while loop never ran (no initial tool calls)
+        if iteration == 0:
             if collected_content:
-                state.messages.append(AIMessage(content=collected_content))
+                all_new_messages.append(AIMessage(content=collected_content))
+
+        state.messages.extend(all_new_messages)
 
         # Yield final state
         yield StreamEvent(type="state", state=state)
