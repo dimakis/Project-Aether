@@ -28,6 +28,7 @@ from src.api.routes.webhooks import router as webhooks_router
 from src.api.routes.workflows import router as workflows_router
 from src.api.routes.activity_stream import router as activity_router
 from src.api.routes.flow_grades import router as flow_grades_router
+from src.api.routes.ha_zones import router as ha_zones_router
 
 # Main API router
 api_router = APIRouter()
@@ -69,5 +70,7 @@ api_router.include_router(openai_router)
 api_router.include_router(activity_router)
 # Flow grading
 api_router.include_router(flow_grades_router)
+# HA Zones (multi-server)
+api_router.include_router(ha_zones_router)
 
 __all__ = ["api_router"]
