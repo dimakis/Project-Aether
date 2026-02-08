@@ -121,6 +121,23 @@ const DS_TEAM_AGENTS = new Set([
   "data_science_team",
 ]);
 
+/**
+ * The canonical ordered list of all agents in the system.
+ * Used by the activity panel to always show the full neural network.
+ * Order defines the visual layout: architect at top, system at bottom.
+ */
+export const ALL_TOPOLOGY_AGENTS: string[] = [
+  "architect",
+  "data_science_team",
+  "energy_analyst",
+  "behavioral_analyst",
+  "diagnostic_analyst",
+  "dashboard_designer",
+  "sandbox",
+  "librarian",
+  "developer",
+];
+
 interface AgentTopologyProps {
   /** Agents involved in the trace, in order */
   agents: string[];
@@ -154,12 +171,13 @@ function AgentNode({
   const isFiring = nodeState === "firing";
   const isDone = nodeState === "done";
   const isIdle = nodeState === "idle";
+  const isDormant = nodeState === "dormant";
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{
-        opacity: isIdle ? 0.4 : 1,
+        opacity: isDormant ? 0.2 : isIdle ? 0.4 : 1,
         scale: isFiring ? 1.05 : 1,
       }}
       transition={{ delay, duration: 0.3 }}
@@ -203,10 +221,10 @@ function AgentNode({
         className={cn(
           compact ? "h-3 w-3" : "h-3.5 w-3.5",
           agent.color,
-          isIdle && "opacity-50",
+          (isIdle || isDormant) && "opacity-50",
         )}
       />
-      <span className={cn(agent.color, isIdle && "opacity-50")}>
+      <span className={cn(agent.color, (isIdle || isDormant) && "opacity-50")}>
         {agent.label}
       </span>
     </motion.div>

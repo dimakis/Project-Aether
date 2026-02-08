@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Activity, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AgentTopology } from "./agent-topology";
+import { AgentTopology, ALL_TOPOLOGY_AGENTS } from "./agent-topology";
 import { TraceTimeline } from "./trace-timeline";
 import {
   useAgentActivity,
@@ -153,6 +153,12 @@ export function AgentActivityPanel() {
   const hasLiveData =
     activity.agentsSeen.length > 0 || activity.liveTimeline.length > 0;
 
+  // Build full agent states: agents not yet seen are "dormant"
+  const fullAgentStates: Record<string, import("@/lib/agent-activity-store").AgentNodeState> = {};
+  for (const agent of ALL_TOPOLOGY_AGENTS) {
+    fullAgentStates[agent] = activity.agentStates[agent] ?? "dormant";
+  }
+
   return (
     <AnimatePresence>
       {panelOpen && (
@@ -193,14 +199,10 @@ export function AgentActivityPanel() {
                   Neural Activity
                 </p>
                 <AgentTopology
-                  agents={
-                    activity.agentsSeen.length > 0
-                      ? activity.agentsSeen
-                      : [activeAgent]
-                  }
+                  agents={ALL_TOPOLOGY_AGENTS}
                   activeAgent={activeAgent}
                   isLive
-                  agentStates={activity.agentStates}
+                  agentStates={fullAgentStates}
                 />
 
                 {/* Divider */}

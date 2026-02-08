@@ -17,7 +17,7 @@ import { useSyncExternalStore } from "react";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /** Visual state of an agent node in the neural topology. */
-export type AgentNodeState = "idle" | "firing" | "done";
+export type AgentNodeState = "dormant" | "idle" | "firing" | "done";
 
 /** A single entry in the live event feed shown during streaming. */
 export interface LiveTimelineEntry {
