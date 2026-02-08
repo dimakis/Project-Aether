@@ -40,6 +40,9 @@ from src.storage.entities.user_profile import UserProfile
 # System Configuration
 from src.storage.entities.system_config import SystemConfig
 
+# HA Zones (multi-server support)
+from src.storage.entities.ha_zone import HAZone
+
 # LLM Usage Tracking
 from src.storage.entities.llm_usage import LLMUsage
 
@@ -83,6 +86,8 @@ __all__ = [
     "UserProfile",
     # System Configuration
     "SystemConfig",
+    # HA Zones
+    "HAZone",
     # LLM Usage
     "LLMUsage",
     # Model Ratings
