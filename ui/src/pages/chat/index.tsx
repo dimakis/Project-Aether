@@ -14,7 +14,7 @@ import {
 } from "@/lib/storage";
 import {
   setAgentActivity,
-  clearAgentActivity,
+  completeAgentActivity,
   setLastTraceId,
   useActivityPanel,
   toggleActivityPanel,
@@ -379,7 +379,7 @@ export function ChatPage() {
       setIsStreaming(false);
       setStreamStartTime(null);
       setStatusMessage("");
-      clearAgentActivity();
+      completeAgentActivity();
       inputRef.current?.focus();
     }
   };

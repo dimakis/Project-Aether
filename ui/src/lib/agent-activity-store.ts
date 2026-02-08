@@ -2,7 +2,7 @@
  * Lightweight global store for agent activity state.
  *
  * Used by:
- * - ChatPage: setAgentActivity / clearAgentActivity when streaming
+ * - ChatPage: setAgentActivity / completeAgentActivity when streaming
  * - AppLayout: useAgentActivity to show live indicator + render panel
  * - Any page: toggleActivityPanel / useActivityPanel for panel visibility
  *
@@ -54,6 +54,8 @@ export interface AgentActivity {
   activeEdges: [string, string][];
   /** Inter-agent delegation messages captured during the workflow. */
   delegationMessages: DelegationMessage[];
+  /** Epoch ms when the last workflow completed (null while active or idle). */
+  completedAt: number | null;
 }
 
 const DEFAULT_ACTIVITY: AgentActivity = {
@@ -65,6 +67,7 @@ const DEFAULT_ACTIVITY: AgentActivity = {
   thinkingStream: "",
   activeEdges: [],
   delegationMessages: [],
+  completedAt: null,
 };
 
 let currentActivity: AgentActivity = DEFAULT_ACTIVITY;
@@ -77,10 +80,49 @@ function notifyActivity() {
 }
 
 export function setAgentActivity(activity: Partial<AgentActivity>) {
-  currentActivity = { ...currentActivity, ...activity };
+  // When transitioning from completed/idle → active, clear stale state first
+  // so the new session starts fresh.
+  if (activity.isActive && !currentActivity.isActive) {
+    currentActivity = {
+      ...DEFAULT_ACTIVITY,
+      ...activity,
+    };
+  } else {
+    currentActivity = { ...currentActivity, ...activity };
+  }
   notifyActivity();
 }
 
+/**
+ * Transition to a "completed" state that preserves the timeline,
+ * agent states, and thinking content so the user can review them.
+ *
+ * The preserved state will be auto-cleared the next time
+ * setAgentActivity is called with `isActive: true`.
+ */
+export function completeAgentActivity() {
+  // Mark all seen agents as "done"
+  const doneStates: Record<string, AgentNodeState> = {};
+  for (const agent of currentActivity.agentsSeen) {
+    doneStates[agent] = "done";
+  }
+
+  currentActivity = {
+    ...currentActivity,
+    isActive: false,
+    activeAgent: null,
+    delegatingTo: null,
+    agentStates: doneStates,
+    completedAt: Date.now(),
+  };
+  notifyActivity();
+}
+
+/**
+ * Hard reset to default state. Prefer `completeAgentActivity()` for
+ * normal workflow endings — use this only for explicit user-initiated
+ * resets or error recovery.
+ */
 export function clearAgentActivity() {
   currentActivity = { ...DEFAULT_ACTIVITY };
   notifyActivity();
