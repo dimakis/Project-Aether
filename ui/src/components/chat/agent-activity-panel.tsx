@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Brain, ChevronDown, Loader2, Cpu, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentTopology } from "./agent-topology";
-import { TOPOLOGY_AGENT_IDS } from "@/lib/agent-registry";
+import { TOPOLOGY_AGENT_IDS, agentColor, agentLabel } from "@/lib/agent-registry";
 import { TraceTimeline } from "./trace-timeline";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import {
   useAgentActivity,
   useActivityPanel,
@@ -12,8 +13,6 @@ import {
 } from "@/lib/agent-activity-store";
 import type { LiveTimelineEntry, DelegationMessage } from "@/lib/agent-activity-store";
 import { useTraceSpans } from "@/api/hooks";
-
-import { agentColor, agentLabel } from "@/lib/agent-registry";
 
 const EVENT_LABELS: Record<string, string> = {
   start: "activated",
@@ -41,8 +40,6 @@ function formatTime(ts: number): string {
   });
 }
 
-// friendlyAgent is replaced by agentLabel() from the registry
-
 function timeAgo(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -54,18 +51,36 @@ function timeAgo(isoDate: string): string {
   return `${days}d ago`;
 }
 
+// ─── Smart Auto-Scroll ───────────────────────────────────────────────────────
+
+/** Only auto-scroll if the user is already near the bottom of the container. */
+function useSmartAutoScroll(dep: unknown) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isNearBottom = useRef(true);
+
+  const onScroll = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const threshold = 30; // px from bottom
+    isNearBottom.current =
+      el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el && isNearBottom.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [dep]);
+
+  return { ref, onScroll };
+}
+
 // ─── Thinking Box ─────────────────────────────────────────────────────────────
 
 function ThinkingBox({ content, isActive }: { content: string; isActive: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom on every content change while streaming
-  useEffect(() => {
-    if (boxRef.current) {
-      boxRef.current.scrollTop = boxRef.current.scrollHeight;
-    }
-  }, [content]);
+  const { ref: boxRef, onScroll } = useSmartAutoScroll(content);
 
   if (!content && !isActive) return null;
 
@@ -111,6 +126,7 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
           >
             <div
               ref={boxRef}
+              onScroll={onScroll}
               className={cn(
                 "overflow-auto border-t border-border/20 px-3 py-2",
                 expanded ? "max-h-80" : "max-h-20",
@@ -187,15 +203,9 @@ function LiveEventFeed({
   entries: LiveTimelineEntry[];
   delegationMessages?: DelegationMessage[];
 }) {
-  const feedRef = useRef<HTMLDivElement>(null);
-  const [expandedDelegation, setExpandedDelegation] = useState<number | null>(null);
-
   const totalCount = entries.length + delegationMessages.length;
-
-  useEffect(() => {
-    const el = feedRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [totalCount]);
+  const { ref: feedRef, onScroll } = useSmartAutoScroll(totalCount);
+  const [expandedDelegation, setExpandedDelegation] = useState<number | null>(null);
 
   if (entries.length === 0 && delegationMessages.length === 0) {
     return (
@@ -217,7 +227,7 @@ function LiveEventFeed({
   ].sort((a, b) => a.ts - b.ts);
 
   return (
-    <div ref={feedRef} className="max-h-48 space-y-0 overflow-y-auto">
+    <div ref={feedRef} onScroll={onScroll} className="max-h-48 space-y-0 overflow-y-auto">
       {items.map((item, i) => {
         if (item.kind === "event") {
           const entry = item.entry;
@@ -315,7 +325,9 @@ export function AgentActivityPanel() {
   const activity = useAgentActivity();
   const { lastTraceId, panelOpen } = useActivityPanel();
   const isStreaming = activity.isActive;
-  const { data: trace, isLoading } = useTraceSpans(lastTraceId, isStreaming);
+  // Don't poll during streaming — the backend builds the trace after the
+  // workflow completes, so polling mid-stream just gets 404s.
+  const { data: trace, isLoading } = useTraceSpans(lastTraceId, false);
   const activeAgent = activity.activeAgent || "architect";
   const [traceExpanded, setTraceExpanded] = useState(false);
 
@@ -380,13 +392,16 @@ export function AgentActivityPanel() {
           <div className="flex-1 overflow-auto p-3 space-y-3">
             {/* Thinking box */}
             {(hasThinking || isStreaming) && (
-              <ThinkingBox
-                content={activity.thinkingStream}
-                isActive={isStreaming}
-              />
+              <ErrorBoundary fallback="Thinking stream unavailable">
+                <ThinkingBox
+                  content={activity.thinkingStream}
+                  isActive={isStreaming}
+                />
+              </ErrorBoundary>
             )}
 
             {/* ── Neural graph — ALWAYS rendered ─────────────────── */}
+            <ErrorBoundary fallback="Topology unavailable">
             <div>
               <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                 {isStreaming || hasLiveData ? "Neural Activity" : "Agent Network"}
@@ -409,9 +424,11 @@ export function AgentActivityPanel() {
                 }
               />
             </div>
+            </ErrorBoundary>
 
             {/* ── Live feed (during streaming) ───────────────────── */}
             {(isStreaming || hasLiveData) && (
+              <ErrorBoundary fallback="Live feed unavailable">
               <div>
                 <div className="my-2 border-t border-border/50" />
                 <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
@@ -427,6 +444,7 @@ export function AgentActivityPanel() {
                   delegationMessages={activity.delegationMessages}
                 />
               </div>
+              </ErrorBoundary>
             )}
 
             {/* ── Post-stream: compact last session summary ──────── */}
@@ -468,6 +486,13 @@ export function AgentActivityPanel() {
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/30" />
               </div>
+            )}
+
+            {/* Idle state — no recent activity */}
+            {!isStreaming && !hasLiveData && !isLoading && (!trace?.root_span || traceIsStale) && (
+              <p className="text-center text-[10px] text-muted-foreground/40">
+                No recent activity
+              </p>
             )}
           </div>
         </motion.div>

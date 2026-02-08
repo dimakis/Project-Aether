@@ -73,6 +73,35 @@ const DEFAULT_ACTIVITY: AgentActivity = {
 let currentActivity: AgentActivity = DEFAULT_ACTIVITY;
 const activityListeners = new Set<() => void>();
 
+// ─── Array Caps (prevent unbounded growth) ────────────────────────────────
+
+const MAX_LIVE_TIMELINE = 200;
+const MAX_ACTIVE_EDGES = 50;
+const MAX_DELEGATION_MESSAGES = 50;
+
+/** FIFO-cap an array: keep the last `max` elements. */
+function cap<T>(arr: T[], max: number): T[] {
+  return arr.length > max ? arr.slice(arr.length - max) : arr;
+}
+
+/** Apply caps to all bounded arrays in the activity state. */
+function capArrays(state: AgentActivity): AgentActivity {
+  const { liveTimeline, activeEdges, delegationMessages } = state;
+  if (
+    liveTimeline.length <= MAX_LIVE_TIMELINE &&
+    activeEdges.length <= MAX_ACTIVE_EDGES &&
+    delegationMessages.length <= MAX_DELEGATION_MESSAGES
+  ) {
+    return state; // nothing to cap — avoid unnecessary object creation
+  }
+  return {
+    ...state,
+    liveTimeline: cap(liveTimeline, MAX_LIVE_TIMELINE),
+    activeEdges: cap(activeEdges, MAX_ACTIVE_EDGES),
+    delegationMessages: cap(delegationMessages, MAX_DELEGATION_MESSAGES),
+  };
+}
+
 function notifyActivity() {
   for (const listener of activityListeners) {
     listener();
@@ -83,12 +112,12 @@ export function setAgentActivity(activity: Partial<AgentActivity>) {
   // When transitioning from completed/idle → active, clear stale state first
   // so the new session starts fresh.
   if (activity.isActive && !currentActivity.isActive) {
-    currentActivity = {
+    currentActivity = capArrays({
       ...DEFAULT_ACTIVITY,
       ...activity,
-    };
+    });
   } else {
-    currentActivity = { ...currentActivity, ...activity };
+    currentActivity = capArrays({ ...currentActivity, ...activity });
   }
   notifyActivity();
 }
