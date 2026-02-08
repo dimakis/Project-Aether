@@ -10,6 +10,9 @@ import {
   useAgentActivity,
   useActivityPanel,
   setActivityPanelOpen,
+  setActivityPanelWidth,
+  PANEL_MIN_WIDTH,
+  PANEL_MAX_WIDTH,
 } from "@/lib/agent-activity-store";
 import { buildNarrativeFeed, type NarrativeFeedEntry } from "@/lib/trace-event-handler";
 import { useTraceSpans } from "@/api/hooks";
@@ -250,13 +253,38 @@ function NarrativeFeed({ entries }: { entries: NarrativeFeedEntry[] }) {
 
 export function AgentActivityPanel() {
   const activity = useAgentActivity();
-  const { lastTraceId, panelOpen } = useActivityPanel();
+  const { lastTraceId, panelOpen, panelWidth } = useActivityPanel();
   const isStreaming = activity.isActive;
   // Don't poll during streaming — the backend builds the trace after the
   // workflow completes, so polling mid-stream just gets 404s.
   const { data: trace, isLoading } = useTraceSpans(lastTraceId, false);
   const activeAgent = activity.activeAgent || "architect";
   const [traceExpanded, setTraceExpanded] = useState(false);
+
+  // ── Resize drag state ───────────────────────────────────────────
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartX = useRef<number>(0);
+  const resizeStartWidth = useRef<number>(panelWidth);
+
+  const onResizePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = panelWidth;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [panelWidth]);
+
+  const onResizePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isResizing) return;
+    // Dragging left increases width (panel is on the right)
+    const delta = resizeStartX.current - e.clientX;
+    const newWidth = Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, resizeStartWidth.current + delta));
+    setActivityPanelWidth(newWidth);
+  }, [isResizing]);
+
+  const onResizePointerUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
 
   const hasLiveData =
     activity.agentsSeen.length > 0 || activity.liveTimeline.length > 0;
@@ -295,11 +323,23 @@ export function AgentActivityPanel() {
       {panelOpen && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 300, opacity: 1 }}
+          animate={{ width: panelWidth, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
-          transition={{ duration: 0.25, ease: "easeInOut" }}
-          className="flex h-full flex-col overflow-hidden border-l border-border bg-card/50"
+          transition={isResizing ? { duration: 0 } : { duration: 0.25, ease: "easeInOut" }}
+          className="relative flex h-full flex-col overflow-hidden border-l border-border bg-card/50"
+          style={isResizing ? { width: panelWidth } : undefined}
         >
+          {/* ── Resize drag handle (left edge) ──────────────────── */}
+          <div
+            onPointerDown={onResizePointerDown}
+            onPointerMove={onResizePointerMove}
+            onPointerUp={onResizePointerUp}
+            className={cn(
+              "absolute inset-y-0 left-0 z-10 w-1 cursor-col-resize transition-colors",
+              isResizing ? "bg-primary/40" : "hover:bg-primary/20",
+            )}
+          />
+
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-3">
             <div className="flex items-center gap-2">

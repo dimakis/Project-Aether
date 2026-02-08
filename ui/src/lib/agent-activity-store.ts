@@ -176,19 +176,30 @@ export function useAgentActivity(): AgentActivity {
 
 const STORAGE_KEY_TRACE_ID = "aether:lastTraceId";
 const STORAGE_KEY_PANEL_OPEN = "aether:activityPanelOpen";
+const STORAGE_KEY_PANEL_WIDTH = "aether:activityPanelWidth";
+
+/** Resizable panel constraints (px). */
+export const PANEL_MIN_WIDTH = 240;
+export const PANEL_MAX_WIDTH = 480;
+export const PANEL_DEFAULT_WIDTH = 300;
 
 interface PanelState {
   lastTraceId: string | null;
   panelOpen: boolean;
+  panelWidth: number;
 }
 
 function loadPanelState(): PanelState {
   try {
     const traceId = localStorage.getItem(STORAGE_KEY_TRACE_ID) || null;
     const panelOpen = localStorage.getItem(STORAGE_KEY_PANEL_OPEN) !== "false"; // default open
-    return { lastTraceId: traceId, panelOpen };
+    const rawWidth = localStorage.getItem(STORAGE_KEY_PANEL_WIDTH);
+    const panelWidth = rawWidth
+      ? Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, Number(rawWidth)))
+      : PANEL_DEFAULT_WIDTH;
+    return { lastTraceId: traceId, panelOpen, panelWidth };
   } catch {
-    return { lastTraceId: null, panelOpen: true };
+    return { lastTraceId: null, panelOpen: true, panelWidth: PANEL_DEFAULT_WIDTH };
   }
 }
 
@@ -229,6 +240,17 @@ export function setActivityPanelOpen(open: boolean) {
   currentPanel = { ...currentPanel, panelOpen: open };
   try {
     localStorage.setItem(STORAGE_KEY_PANEL_OPEN, String(open));
+  } catch {
+    // localStorage may be unavailable
+  }
+  notifyPanel();
+}
+
+export function setActivityPanelWidth(width: number) {
+  const clamped = Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, width));
+  currentPanel = { ...currentPanel, panelWidth: clamped };
+  try {
+    localStorage.setItem(STORAGE_KEY_PANEL_WIDTH, String(clamped));
   } catch {
     // localStorage may be unavailable
   }

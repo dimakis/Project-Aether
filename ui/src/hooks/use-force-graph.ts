@@ -63,11 +63,14 @@ const NODE_RADIUS = 15;
 const AETHER_RADIUS = NODE_RADIUS + 4;
 
 /** Jitter amplitude for ambient micro-drift (px). */
-const JITTER_AMPLITUDE = 0.3;
+const JITTER_AMPLITUDE = 0.08;
 /** Alpha threshold below which jitter kicks in. */
 const JITTER_ALPHA_THRESHOLD = 0.02;
 /** Minimum alpha to keep simulation alive for jitter. */
-const JITTER_ALPHA_MIN = 0.005;
+const JITTER_ALPHA_MIN = 0.002;
+
+/** Padding from SVG edges to keep nodes (incl. labels) in view. */
+const BOUNDARY_PADDING = 25;
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
@@ -140,11 +143,11 @@ export function useForceGraph(
           d.id === "aether" ? AETHER_RADIUS + 8 : NODE_RADIUS + 8,
         ).strength(0.8),
       )
-      // Gentle gravity to keep nodes in view
-      .force("x", forceX<ForceNode>(cx).strength(0.02))
-      .force("y", forceY<ForceNode>(cy).strength(0.02))
+      // Gravity to keep nodes in view
+      .force("x", forceX<ForceNode>(cx).strength(0.04))
+      .force("y", forceY<ForceNode>(cy).strength(0.04))
       .alphaDecay(0.02)
-      .velocityDecay(0.3);
+      .velocityDecay(0.55);
 
     // Custom tick: update positions and apply ambient jitter
     sim.on("tick", () => {
@@ -162,6 +165,13 @@ export function useForceGraph(
         if (sim.alpha() < JITTER_ALPHA_MIN) {
           sim.alpha(JITTER_ALPHA_MIN);
         }
+      }
+
+      // Clamp nodes to stay within the SVG bounds
+      for (const node of nodes) {
+        if (node.fx != null) continue; // don't fight with drag pins
+        node.x = Math.max(BOUNDARY_PADDING, Math.min(width - BOUNDARY_PADDING, node.x ?? cx));
+        node.y = Math.max(BOUNDARY_PADDING, Math.min(height - BOUNDARY_PADDING, node.y ?? cy));
       }
 
       // Batch position updates via rAF to avoid excessive React renders
@@ -201,8 +211,8 @@ export function useForceGraph(
 
       // Update centering forces
       sim.force("center", forceCenter(cx, cy).strength(0.05));
-      sim.force("x", forceX<ForceNode>(cx).strength(0.02));
-      sim.force("y", forceY<ForceNode>(cy).strength(0.02));
+      sim.force("x", forceX<ForceNode>(cx).strength(0.04));
+      sim.force("y", forceY<ForceNode>(cy).strength(0.04));
       sim.alpha(0.3).restart();
     });
 
