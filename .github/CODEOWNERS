@@ -1,0 +1,9 @@
+# =============================================================================
+# CODEOWNERS — Default reviewers for pull requests
+# =============================================================================
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Order matters: later rules override earlier ones.
+
+# Default owner for everything
+* @dsaridak

@@ -1,0 +1,85 @@
+# =============================================================================
+# PR-Specific Checks
+# =============================================================================
+# Lightweight checks that only run on pull requests:
+# - Dependency review (flag vulnerable new deps)
+# - Conventional commit title validation
+# - PR size labelling
+
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ===========================================================================
+  # Dependency Review — flag vulnerable or problematic new deps
+  # ===========================================================================
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+  # ===========================================================================
+  # PR Title — must be a conventional commit
+  # ===========================================================================
+  pr-title:
+    name: PR Title (Conventional Commit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+          requireScope: false
+
+  # ===========================================================================
+  # PR Size Label — helps reviewers gauge effort
+  # ===========================================================================
+  pr-size:
+    name: PR Size Label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PR by size
+        uses: codelytv/pr-size-labeler@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          xs_label: "size/xs"
+          xs_max_size: 10
+          s_label: "size/s"
+          s_max_size: 100
+          m_label: "size/m"
+          m_max_size: 400
+          l_label: "size/l"
+          l_max_size: 800
+          xl_label: "size/xl"
+          fail_if_xl: false
+          files_to_ignore: |
+            uv.lock
+            *.lock
+            package-lock.json

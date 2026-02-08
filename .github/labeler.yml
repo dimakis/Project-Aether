@@ -1,0 +1,54 @@
+# =============================================================================
+# Path-based label rules for actions/labeler
+# =============================================================================
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file: "src/**"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: "ui/**"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/**"
+
+infrastructure:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "infrastructure/**"
+          - "*.yaml"
+          - "*.yml"
+          - "Makefile"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "alembic/**"
+          - "src/storage/**"
+          - "src/dal/**"
+
+agents:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/agents/**"
+          - "src/graph/**"
+          - "src/tools/**"
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/api/auth/**"
+          - "src/api/middleware/**"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "docs/**"
+          - "specs/**"

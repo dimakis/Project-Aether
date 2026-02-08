@@ -1,0 +1,25 @@
+# =============================================================================
+# Auto-Label PRs by Path
+# =============================================================================
+# Automatically applies labels based on which files were changed.
+
+name: Auto Label
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Label PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply labels
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true
