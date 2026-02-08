@@ -253,6 +253,9 @@ class BaseAnalyst(BaseAgent, ABC):
     ) -> list[str]:
         """Persist findings as Insights in the database.
 
+        Reads conversation_id and task_label from the active execution
+        context (if present) to tag insights with their originating task.
+
         Args:
             findings: Specialist findings to persist.
             session: Database session.
@@ -260,6 +263,12 @@ class BaseAnalyst(BaseAgent, ABC):
         Returns:
             List of persisted insight IDs.
         """
+        from src.agents.execution_context import get_execution_context
+
+        ctx = get_execution_context()
+        conversation_id = ctx.conversation_id if ctx else None
+        task_label = ctx.task_label if ctx else None
+
         repo = InsightRepository(session)
         ids = []
 
@@ -275,6 +284,8 @@ class BaseAnalyst(BaseAgent, ABC):
                 entity_ids=finding.entities,
                 data=finding.evidence,
                 status=InsightStatus.PENDING,
+                conversation_id=conversation_id,
+                task_label=task_label,
             )
             ids.append(str(insight.id))
 

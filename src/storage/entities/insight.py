@@ -115,6 +115,19 @@ class Insight(Base):
         index=True,
     )
 
+    # Conversation context (for task tagging)
+    conversation_id: Mapped[str | None] = mapped_column(
+        String(36),
+        nullable=True,
+        index=True,
+        doc="Originating conversation ID",
+    )
+    task_label: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        doc="Human-readable label for the task that produced this insight",
+    )
+
     # MLflow tracing (Constitution: Observability)
     mlflow_run_id: Mapped[str | None] = mapped_column(
         String(36),

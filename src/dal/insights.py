@@ -43,6 +43,8 @@ class InsightRepository:
         script_path: str | None = None,
         script_output: dict[str, Any] | None = None,
         mlflow_run_id: str | None = None,
+        conversation_id: str | None = None,
+        task_label: str | None = None,
     ) -> Insight:
         """Create a new insight.
 
@@ -57,6 +59,8 @@ class InsightRepository:
             script_path: Path to the analysis script (in MLflow artifacts)
             script_output: Script execution results
             mlflow_run_id: MLflow run ID for traceability
+            conversation_id: Originating conversation ID
+            task_label: Human-readable task label
 
         Returns:
             Created Insight
@@ -74,6 +78,8 @@ class InsightRepository:
             script_output=script_output,
             status=InsightStatus.PENDING,
             mlflow_run_id=mlflow_run_id,
+            conversation_id=conversation_id,
+            task_label=task_label,
         )
         self.session.add(insight)
         await self.session.flush()
