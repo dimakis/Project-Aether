@@ -272,6 +272,14 @@ export function ChatPage() {
             setStatusMessage(chunk.content);
             continue;
           }
+          if (chunk.type === "thinking") {
+            // Pipe thinking content to the activity store for the panel
+            const current = getActivitySnapshot();
+            setAgentActivity({
+              thinkingStream: (current.thinkingStream ?? "") + (chunk.content ?? ""),
+            });
+            continue;
+          }
         }
         const text = typeof chunk === "string" ? chunk : "";
         fullContent += text;

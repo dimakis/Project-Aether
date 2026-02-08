@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Bot,
@@ -22,9 +23,10 @@ const AGENTS: Record<
     label: string;
     icon: typeof Bot;
     color: string;
-    /** Tailwind colour value (without the text- prefix) for CSS custom properties. */
+    /** RGB value (space-separated) for glow effects */
     glowRgb: string;
-    bgColor: string;
+    /** Hex colour for SVG edges */
+    hex: string;
     group?: string;
   }
 > = {
@@ -33,22 +35,14 @@ const AGENTS: Record<
     icon: Bot,
     color: "text-blue-400",
     glowRgb: "96 165 250",
-    bgColor: "bg-blue-400/10 border-blue-400/30",
-  },
-  data_scientist: {
-    label: "Data Scientist",
-    icon: BarChart3,
-    color: "text-emerald-400",
-    glowRgb: "52 211 153",
-    bgColor: "bg-emerald-400/10 border-emerald-400/30",
-    group: "ds-team",
+    hex: "#60a5fa",
   },
   data_science_team: {
     label: "DS Team",
     icon: BarChart3,
     color: "text-emerald-400",
     glowRgb: "52 211 153",
-    bgColor: "bg-emerald-400/10 border-emerald-400/30",
+    hex: "#34d399",
     group: "ds-team",
   },
   energy_analyst: {
@@ -56,7 +50,7 @@ const AGENTS: Record<
     icon: Zap,
     color: "text-yellow-400",
     glowRgb: "250 204 21",
-    bgColor: "bg-yellow-400/10 border-yellow-400/30",
+    hex: "#facc15",
     group: "ds-team",
   },
   behavioral_analyst: {
@@ -64,7 +58,7 @@ const AGENTS: Record<
     icon: Users,
     color: "text-teal-400",
     glowRgb: "45 212 191",
-    bgColor: "bg-teal-400/10 border-teal-400/30",
+    hex: "#2dd4bf",
     group: "ds-team",
   },
   diagnostic_analyst: {
@@ -72,7 +66,7 @@ const AGENTS: Record<
     icon: Stethoscope,
     color: "text-rose-400",
     glowRgb: "251 113 133",
-    bgColor: "bg-rose-400/10 border-rose-400/30",
+    hex: "#fb7185",
     group: "ds-team",
   },
   dashboard_designer: {
@@ -80,51 +74,41 @@ const AGENTS: Record<
     icon: LayoutDashboard,
     color: "text-indigo-400",
     glowRgb: "129 140 248",
-    bgColor: "bg-indigo-400/10 border-indigo-400/30",
+    hex: "#818cf8",
   },
   sandbox: {
     label: "Sandbox",
     icon: Code,
     color: "text-orange-400",
     glowRgb: "251 146 60",
-    bgColor: "bg-orange-400/10 border-orange-400/30",
+    hex: "#fb923c",
   },
   librarian: {
     label: "Librarian",
     icon: BookOpen,
     color: "text-purple-400",
     glowRgb: "192 132 252",
-    bgColor: "bg-purple-400/10 border-purple-400/30",
+    hex: "#c084fc",
   },
   developer: {
     label: "Developer",
     icon: Wrench,
     color: "text-amber-400",
     glowRgb: "251 191 36",
-    bgColor: "bg-amber-400/10 border-amber-400/30",
+    hex: "#fbbf24",
   },
   system: {
     label: "System",
     icon: Server,
     color: "text-muted-foreground",
     glowRgb: "161 161 170",
-    bgColor: "bg-muted/30 border-border/50",
+    hex: "#a1a1aa",
   },
 };
-
-/** DS team specialists that form a consultation cluster */
-const DS_TEAM_AGENTS = new Set([
-  "energy_analyst",
-  "behavioral_analyst",
-  "diagnostic_analyst",
-  "data_scientist",
-  "data_science_team",
-]);
 
 /**
  * The canonical ordered list of all agents in the system.
  * Used by the activity panel to always show the full neural network.
- * Order defines the visual layout: architect at top, system at bottom.
  */
 export const ALL_TOPOLOGY_AGENTS: string[] = [
   "architect",
@@ -138,8 +122,25 @@ export const ALL_TOPOLOGY_AGENTS: string[] = [
   "developer",
 ];
 
+/** Edges: which agents are connected to which */
+const EDGES: [string, string][] = [
+  ["architect", "data_science_team"],
+  ["architect", "dashboard_designer"],
+  ["architect", "sandbox"],
+  ["architect", "librarian"],
+  ["architect", "developer"],
+  // DS team internal
+  ["data_science_team", "energy_analyst"],
+  ["data_science_team", "behavioral_analyst"],
+  ["data_science_team", "diagnostic_analyst"],
+  // Cross-consultation within DS team
+  ["energy_analyst", "behavioral_analyst"],
+  ["behavioral_analyst", "diagnostic_analyst"],
+  ["energy_analyst", "diagnostic_analyst"],
+];
+
 interface AgentTopologyProps {
-  /** Agents involved in the trace, in order */
+  /** Agents to display */
   agents: string[];
   /** Currently active agent (during streaming) */
   activeAgent?: string | null;
@@ -151,307 +152,298 @@ interface AgentTopologyProps {
   agentStates?: Record<string, AgentNodeState>;
 }
 
-// ─── Agent Node ──────────────────────────────────────────────────────────────
+// ─── SVG Radial Graph ────────────────────────────────────────────────────────
 
-function AgentNode({
-  agentKey,
-  nodeState,
-  delay,
-  compact,
-}: {
-  agentKey: string;
-  /** Neural state: firing (glow), done (checkmark), idle (dim), undefined (normal). */
-  nodeState?: AgentNodeState;
-  delay: number;
-  compact?: boolean;
-}) {
-  const agent = AGENTS[agentKey] ?? AGENTS.system;
-  const Icon = agent.icon;
+const SVG_SIZE = 260;
+const CENTER = SVG_SIZE / 2;
+const RADIUS = 100;
+const NODE_RADIUS = 16;
 
-  const isFiring = nodeState === "firing";
-  const isDone = nodeState === "done";
-  const isIdle = nodeState === "idle";
-  const isDormant = nodeState === "dormant";
+function getNodePositions(agents: string[]) {
+  const positions: Record<string, { x: number; y: number }> = {};
+  const n = agents.length;
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{
-        opacity: isDormant ? 0.2 : isIdle ? 0.4 : 1,
-        scale: isFiring ? 1.05 : 1,
-      }}
-      transition={{ delay, duration: 0.3 }}
-      className={cn(
-        "relative flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-all",
-        compact ? "px-2 py-1" : "px-3 py-1.5",
-        agent.bgColor,
-        isFiring && "ring-2 ring-primary/60",
-      )}
-      style={
-        isFiring
-          ? {
-              boxShadow: `0 0 12px 2px rgba(${agent.glowRgb} / 0.35), 0 0 24px 4px rgba(${agent.glowRgb} / 0.15)`,
-            }
-          : undefined
-      }
-    >
-      {/* Firing pulse indicator — fast, bright */}
-      {isFiring && (
-        <motion.div
-          className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full"
-          style={{ backgroundColor: `rgb(${agent.glowRgb})` }}
-          animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
-          transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
-        />
-      )}
+  // Place architect at the top center
+  const architectIdx = agents.indexOf("architect");
 
-      {/* Done checkmark */}
-      {isDone && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 15 }}
-          className="absolute -left-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 text-[7px] text-white"
-        >
-          ✓
-        </motion.div>
-      )}
+  agents.forEach((agent, i) => {
+    let angle: number;
+    if (agent === "architect") {
+      // Architect at top
+      angle = -Math.PI / 2;
+    } else {
+      // Distribute others evenly around the circle, starting from top-right
+      const nonArchitectIdx = i > architectIdx ? i - 1 : i;
+      const totalOther = n - 1;
+      angle =
+        -Math.PI / 2 +
+        ((nonArchitectIdx + 1) * (2 * Math.PI)) / (totalOther + 1);
+    }
 
-      <Icon
-        className={cn(
-          compact ? "h-3 w-3" : "h-3.5 w-3.5",
-          agent.color,
-          (isIdle || isDormant) && "opacity-50",
-        )}
-      />
-      <span className={cn(agent.color, (isIdle || isDormant) && "opacity-50")}>
-        {agent.label}
-      </span>
-    </motion.div>
-  );
+    positions[agent] = {
+      x: CENTER + RADIUS * Math.cos(angle),
+      y: CENTER + RADIUS * Math.sin(angle),
+    };
+  });
+
+  return positions;
 }
-
-// ─── Connection Arrow ────────────────────────────────────────────────────────
-
-function ConnectionArrow({
-  delay,
-  dashed,
-  isActive,
-}: {
-  delay: number;
-  dashed?: boolean;
-  /** Whether data is flowing through this connection right now. */
-  isActive?: boolean;
-}) {
-  return (
-    <div className="relative flex flex-col items-center">
-      <motion.div
-        className={cn(
-          "h-4 w-px",
-          dashed
-            ? "border-l border-dashed border-border"
-            : "bg-border",
-        )}
-        initial={{ scaleY: 0 }}
-        animate={{ scaleY: 1 }}
-        transition={{ delay, duration: 0.3 }}
-      />
-      {/* Traveling pulse dot when active */}
-      {isActive && (
-        <motion.div
-          className="absolute left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary"
-          animate={{ top: [0, 16] }}
-          transition={{ duration: 0.6, repeat: Infinity, ease: "linear" }}
-        />
-      )}
-      <motion.div
-        className={cn(
-          "h-0 w-0 border-l-[4px] border-r-[4px] border-t-[5px] border-l-transparent border-r-transparent",
-          isActive ? "border-t-primary" : "border-t-border",
-        )}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: delay + 0.2 }}
-      />
-    </div>
-  );
-}
-
-// ─── Cross-consultation indicator ────────────────────────────────────────────
-
-function CrossConsultationIndicator({ delay }: { delay: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay, duration: 0.4 }}
-      className="my-0.5 flex items-center justify-center gap-1"
-    >
-      <div className="h-px w-3 border-t border-dashed border-emerald-400/40" />
-      <span className="text-[8px] text-emerald-400/60">consults</span>
-      <div className="h-px w-3 border-t border-dashed border-emerald-400/40" />
-    </motion.div>
-  );
-}
-
-// ─── DS Team Cluster ─────────────────────────────────────────────────────────
-
-function DSTeamCluster({
-  dsAgents,
-  agentStates,
-  baseDelay,
-}: {
-  dsAgents: string[];
-  agentStates?: Record<string, AgentNodeState>;
-  baseDelay: number;
-}) {
-  if (dsAgents.length === 0) return null;
-
-  const showCluster = dsAgents.length > 1;
-  const clusterFiring = dsAgents.some((a) => agentStates?.[a] === "firing");
-
-  if (!showCluster) {
-    return (
-      <AgentNode
-        agentKey={dsAgents[0]}
-        nodeState={agentStates?.[dsAgents[0]]}
-        delay={baseDelay}
-      />
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: baseDelay, duration: 0.3 }}
-      className={cn(
-        "rounded-xl border border-dashed px-2 py-1.5 transition-all",
-        clusterFiring
-          ? "border-emerald-400/40 bg-emerald-400/10"
-          : "border-emerald-400/20 bg-emerald-400/5",
-      )}
-    >
-      <p className="mb-1 text-center text-[8px] font-medium uppercase tracking-wider text-emerald-400/50">
-        DS Team
-      </p>
-      <div className="flex flex-col items-center gap-0.5">
-        {dsAgents.map((agentKey, j) => (
-          <div key={agentKey} className="flex flex-col items-center">
-            {j > 0 && (
-              <CrossConsultationIndicator delay={baseDelay + j * 0.1} />
-            )}
-            <AgentNode
-              agentKey={agentKey}
-              nodeState={agentStates?.[agentKey]}
-              delay={baseDelay + j * 0.1}
-              compact
-            />
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Main Topology ───────────────────────────────────────────────────────────
 
 export function AgentTopology({
   agents,
   activeAgent,
-  rootSpan,
   isLive,
   agentStates,
 }: AgentTopologyProps) {
-  const orderedAgents = agents.length > 0 ? agents : ["architect"];
-  const knownAgents = orderedAgents.filter((a) => a in AGENTS);
-  if (knownAgents.length === 0) knownAgents.push("architect");
+  const displayAgents = agents.length > 0 ? agents : ALL_TOPOLOGY_AGENTS;
 
-  // If agentStates not provided (post-stream / legacy), derive from isLive + activeAgent
-  const effectiveStates: Record<string, AgentNodeState> | undefined =
-    agentStates && Object.keys(agentStates).length > 0
-      ? agentStates
-      : undefined;
+  const positions = useMemo(
+    () => getNodePositions(displayAgents),
+    [displayAgents.join(",")],
+  );
 
-  // Separate DS team for grouped rendering
-  const dsAgents = knownAgents.filter((a) => DS_TEAM_AGENTS.has(a));
+  // Filter edges to only show those between displayed agents
+  const visibleEdges = useMemo(
+    () =>
+      EDGES.filter(
+        ([a, b]) =>
+          displayAgents.includes(a) && displayAgents.includes(b),
+      ),
+    [displayAgents.join(",")],
+  );
 
-  type RenderItem =
-    | { type: "agent"; key: string }
-    | { type: "ds-cluster"; agents: string[] };
-
-  const renderItems: RenderItem[] = [];
-  let dsInserted = false;
-
-  for (const agentKey of knownAgents) {
-    if (DS_TEAM_AGENTS.has(agentKey)) {
-      if (!dsInserted) {
-        renderItems.push({ type: "ds-cluster", agents: dsAgents });
-        dsInserted = true;
-      }
-    } else {
-      renderItems.push({ type: "agent", key: agentKey });
-    }
-  }
-
-  /**
-   * Derive a node state when explicit agentStates aren't provided
-   * (post-stream / MLflow-driven view).
-   */
-  function deriveNodeState(agentKey: string): AgentNodeState | undefined {
-    if (effectiveStates) return effectiveStates[agentKey];
+  function getNodeState(agent: string): AgentNodeState {
+    if (agentStates?.[agent]) return agentStates[agent];
     if (!isLive) return "done";
-    if (activeAgent === agentKey) return "firing";
-    return undefined;
+    if (activeAgent === agent) return "firing";
+    return "idle";
   }
 
-  /** Is the connection between items[i-1] and items[i] actively carrying data? */
-  function isConnectionActive(toIndex: number): boolean {
-    if (!isLive || !effectiveStates) return false;
-    const item = renderItems[toIndex];
-    if (item.type === "agent") {
-      return effectiveStates[item.key] === "firing";
-    }
-    // DS cluster — active if any member is firing
-    return item.agents.some((a) => effectiveStates[a] === "firing");
+  function isEdgeActive(a: string, b: string): boolean {
+    if (!isLive || !agentStates) return false;
+    const sA = agentStates[a];
+    const sB = agentStates[b];
+    return sA === "firing" || sB === "firing";
   }
 
   return (
-    <div className="flex flex-col items-center gap-1 py-2">
-      {renderItems.map((item, i) => {
-        const delay = i * 0.15;
+    <div className="flex items-center justify-center">
+      <svg
+        viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
+        width={SVG_SIZE}
+        height={SVG_SIZE}
+        className="overflow-visible"
+      >
+        {/* SVG defs for glow filters */}
+        <defs>
+          {displayAgents.map((agent) => {
+            const meta = AGENTS[agent];
+            if (!meta) return null;
+            return (
+              <filter
+                key={`glow-${agent}`}
+                id={`glow-${agent}`}
+                x="-50%"
+                y="-50%"
+                width="200%"
+                height="200%"
+              >
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feFlood floodColor={meta.hex} floodOpacity="0.6" />
+                <feComposite in2="blur" operator="in" />
+                <feMerge>
+                  <feMergeNode />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            );
+          })}
 
-        return (
-          <div
-            key={item.type === "agent" ? item.key : "ds-cluster"}
-            className="flex flex-col items-center"
+          {/* Animated pulse for active edges */}
+          <marker
+            id="arrowhead"
+            markerWidth="6"
+            markerHeight="4"
+            refX="5"
+            refY="2"
+            orient="auto"
           >
-            {i > 0 && (
-              <div className="mb-1">
-                <ConnectionArrow
-                  delay={delay}
-                  dashed={item.type === "ds-cluster"}
-                  isActive={isConnectionActive(i)}
-                />
-              </div>
-            )}
+            <polygon
+              points="0 0, 6 2, 0 4"
+              fill="currentColor"
+              className="text-border"
+            />
+          </marker>
+        </defs>
 
-            {item.type === "agent" ? (
-              <AgentNode
-                agentKey={item.key}
-                nodeState={deriveNodeState(item.key)}
-                delay={delay}
+        {/* Edges */}
+        {visibleEdges.map(([a, b]) => {
+          const pA = positions[a];
+          const pB = positions[b];
+          if (!pA || !pB) return null;
+
+          const active = isEdgeActive(a, b);
+          const agentMeta = AGENTS[a] ?? AGENTS.system;
+
+          // Shorten edge to not overlap with nodes
+          const dx = pB.x - pA.x;
+          const dy = pB.y - pA.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const x1 = pA.x + nx * (NODE_RADIUS + 2);
+          const y1 = pA.y + ny * (NODE_RADIUS + 2);
+          const x2 = pB.x - nx * (NODE_RADIUS + 2);
+          const y2 = pB.y - ny * (NODE_RADIUS + 2);
+
+          return (
+            <g key={`${a}-${b}`}>
+              <motion.line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={active ? agentMeta.hex : "hsl(var(--border))"}
+                strokeWidth={active ? 1.5 : 0.5}
+                strokeOpacity={active ? 0.8 : 0.2}
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.5 }}
               />
-            ) : (
-              <DSTeamCluster
-                dsAgents={item.agents}
-                agentStates={effectiveStates}
-                baseDelay={delay}
+              {/* Traveling pulse on active edges */}
+              {active && (
+                <motion.circle
+                  r={2}
+                  fill={agentMeta.hex}
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    cx: [x1, x2],
+                    cy: [y1, y2],
+                    opacity: [1, 0.3],
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
+              )}
+            </g>
+          );
+        })}
+
+        {/* Nodes */}
+        {displayAgents.map((agent) => {
+          const pos = positions[agent];
+          if (!pos) return null;
+          const meta = AGENTS[agent] ?? AGENTS.system;
+          const Icon = meta.icon;
+          const state = getNodeState(agent);
+          const isFiring = state === "firing";
+          const isDone = state === "done";
+          const isDormant = state === "dormant";
+          const isIdle = state === "idle";
+
+          return (
+            <motion.g
+              key={agent}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{
+                opacity: isDormant ? 0.2 : isIdle ? 0.4 : 1,
+                scale: isFiring ? 1.1 : 1,
+              }}
+              transition={{ duration: 0.3 }}
+              style={{ transformOrigin: `${pos.x}px ${pos.y}px` }}
+            >
+              {/* Background circle */}
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r={NODE_RADIUS}
+                fill="hsl(var(--card))"
+                stroke={isFiring ? meta.hex : "hsl(var(--border))"}
+                strokeWidth={isFiring ? 2 : 1}
+                filter={isFiring ? `url(#glow-${agent})` : undefined}
               />
-            )}
-          </div>
-        );
-      })}
+
+              {/* Firing pulse ring */}
+              {isFiring && (
+                <motion.circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={NODE_RADIUS + 4}
+                  fill="none"
+                  stroke={meta.hex}
+                  strokeWidth={1}
+                  animate={{
+                    r: [NODE_RADIUS + 2, NODE_RADIUS + 8],
+                    opacity: [0.6, 0],
+                  }}
+                  transition={{
+                    duration: 1,
+                    repeat: Infinity,
+                    ease: "easeOut",
+                  }}
+                />
+              )}
+
+              {/* Done checkmark */}
+              {isDone && (
+                <circle
+                  cx={pos.x + NODE_RADIUS * 0.65}
+                  cy={pos.y - NODE_RADIUS * 0.65}
+                  r={5}
+                  fill="#22c55e"
+                />
+              )}
+              {isDone && (
+                <text
+                  x={pos.x + NODE_RADIUS * 0.65}
+                  y={pos.y - NODE_RADIUS * 0.65 + 1}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize="7"
+                  fill="white"
+                >
+                  ✓
+                </text>
+              )}
+
+              {/* Icon (using foreignObject) */}
+              <foreignObject
+                x={pos.x - 8}
+                y={pos.y - 8}
+                width={16}
+                height={16}
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4",
+                    meta.color,
+                    (isIdle || isDormant) && "opacity-50",
+                  )}
+                />
+              </foreignObject>
+
+              {/* Label */}
+              <text
+                x={pos.x}
+                y={pos.y + NODE_RADIUS + 10}
+                textAnchor="middle"
+                fontSize="8"
+                fill="currentColor"
+                className={cn(
+                  "fill-current",
+                  meta.color,
+                  (isIdle || isDormant) && "opacity-50",
+                )}
+              >
+                {meta.label}
+              </text>
+            </motion.g>
+          );
+        })}
+      </svg>
     </div>
   );
 }

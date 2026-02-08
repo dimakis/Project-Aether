@@ -57,6 +57,11 @@ export type StreamChunk =
       type: "status";
       /** Status message (e.g. "Running analyze_energy..."), empty string to clear */
       content: string;
+    }
+  | {
+      type: "thinking";
+      /** Thinking/reasoning content from the LLM */
+      content: string;
     };
 
 export async function* streamChat(
@@ -139,6 +144,15 @@ export async function* streamChat(
         if (parsed.type === "status") {
           yield {
             type: "status",
+            content: parsed.content ?? "",
+          };
+          continue;
+        }
+
+        // Handle thinking events (LLM reasoning content)
+        if (parsed.type === "thinking") {
+          yield {
+            type: "thinking",
             content: parsed.content ?? "",
           };
           continue;

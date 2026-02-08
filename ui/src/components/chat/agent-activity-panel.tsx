@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Activity, Loader2 } from "lucide-react";
+import { X, Brain, ChevronDown, Loader2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentTopology, ALL_TOPOLOGY_AGENTS } from "./agent-topology";
 import { TraceTimeline } from "./trace-timeline";
@@ -58,6 +58,81 @@ function friendlyAgent(agent: string): string {
   return agent
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ─── Thinking Box ─────────────────────────────────────────────────────────────
+
+/**
+ * Condensed thinking stream box.
+ * Shows 3-5 lines by default, expandable to full content.
+ */
+function ThinkingBox({ content, isActive }: { content: string; isActive: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll when new content arrives and not expanded
+  useEffect(() => {
+    if (!expanded && boxRef.current) {
+      boxRef.current.scrollTop = boxRef.current.scrollHeight;
+    }
+  }, [content, expanded]);
+
+  if (!content && !isActive) return null;
+
+  return (
+    <div className="rounded-lg border border-border/40 bg-muted/20">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-xs"
+      >
+        <Brain
+          className={cn(
+            "h-3.5 w-3.5",
+            isActive ? "animate-pulse text-primary" : "text-muted-foreground",
+          )}
+        />
+        <span className="font-medium text-muted-foreground">
+          {isActive ? "Reasoning..." : "Thought process"}
+        </span>
+        <motion.span
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.15 }}
+          className="ml-auto"
+        >
+          <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {content && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div
+              ref={boxRef}
+              className={cn(
+                "overflow-auto border-t border-border/20 px-3 py-2",
+                expanded ? "max-h-80" : "max-h-[4.5rem]",
+              )}
+            >
+              <pre
+                className={cn(
+                  "whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-muted-foreground/70",
+                  !expanded && "line-clamp-4",
+                )}
+              >
+                {content}
+              </pre>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 // ─── Live Feed ───────────────────────────────────────────────────────────────
@@ -135,12 +210,11 @@ function LiveEventFeed({ entries }: { entries: LiveTimelineEntry[] }) {
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
 /**
- * Global Agent Activity Panel.
+ * System Activity Panel.
  *
- * During streaming: shows a live "neural" topology with agents lighting up
- * as they activate, plus a scrolling event feed.
- *
- * After streaming: shows the complete MLflow-based trace timeline.
+ * Default view: Thinking box (persistent) + agent network graph.
+ * During streaming: Thinking box + live neural topology + event feed.
+ * After streaming: Complete MLflow-based trace timeline.
  */
 export function AgentActivityPanel() {
   const activity = useAgentActivity();
@@ -159,12 +233,14 @@ export function AgentActivityPanel() {
     fullAgentStates[agent] = activity.agentStates[agent] ?? "dormant";
   }
 
+  const hasThinking = !!activity.thinkingStream;
+
   return (
     <AnimatePresence>
       {panelOpen && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 280, opacity: 1 }}
+          animate={{ width: 300, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.25, ease: "easeInOut" }}
           className="flex h-full flex-col overflow-hidden border-l border-border bg-card/50"
@@ -172,8 +248,8 @@ export function AgentActivityPanel() {
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-3">
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Agent Activity</span>
+              <Cpu className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">System Activity</span>
               {isStreaming && (
                 <motion.div
                   className="h-2 w-2 rounded-full bg-primary"
@@ -191,11 +267,19 @@ export function AgentActivityPanel() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-auto p-3">
+          <div className="flex-1 overflow-auto p-3 space-y-3">
+            {/* Thinking box — always shown when there is content */}
+            {(hasThinking || isStreaming) && (
+              <ThinkingBox
+                content={activity.thinkingStream}
+                isActive={isStreaming}
+              />
+            )}
+
             {isStreaming || hasLiveData ? (
               /* ── Live neural view ─────────────────────────────────── */
               <div>
-                <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                   Neural Activity
                 </p>
                 <AgentTopology
@@ -226,7 +310,7 @@ export function AgentActivityPanel() {
             ) : trace?.root_span ? (
               /* ── Post-stream MLflow view ──────────────────────────── */
               <div>
-                <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                   Agent Flow
                 </p>
                 <AgentTopology
@@ -248,14 +332,25 @@ export function AgentActivityPanel() {
                   isLive={false}
                 />
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Activity className="mb-2 h-8 w-8 text-muted-foreground/20" />
-                <p className="text-xs text-muted-foreground/50">
-                  Send a message to see agent activity
+            ) : !hasThinking ? (
+              /* ── Default: graph + waiting message ────────────────── */
+              <div>
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                  Agent Network
+                </p>
+                <AgentTopology
+                  agents={ALL_TOPOLOGY_AGENTS}
+                  activeAgent={null}
+                  isLive={false}
+                  agentStates={Object.fromEntries(
+                    ALL_TOPOLOGY_AGENTS.map((a) => [a, "dormant" as const]),
+                  )}
+                />
+                <p className="mt-3 text-center text-[10px] text-muted-foreground/40">
+                  Send a message to see system activity
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
         </motion.div>
       )}

@@ -40,6 +40,8 @@ export interface AgentActivity {
   agentStates: Record<string, AgentNodeState>;
   /** Real-time event feed entries collected during streaming. */
   liveTimeline: LiveTimelineEntry[];
+  /** Accumulated thinking/reasoning content from the LLM stream. */
+  thinkingStream: string;
 }
 
 const DEFAULT_ACTIVITY: AgentActivity = {
@@ -48,6 +50,7 @@ const DEFAULT_ACTIVITY: AgentActivity = {
   agentsSeen: [],
   agentStates: {},
   liveTimeline: [],
+  thinkingStream: "",
 };
 
 let currentActivity: AgentActivity = DEFAULT_ACTIVITY;
