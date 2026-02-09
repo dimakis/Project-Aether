@@ -16,6 +16,7 @@ import type { AgentNodeState } from "@/lib/agent-activity-store";
 import {
   TOPOLOGY_AGENT_IDS,
   DELEGATION_EDGES,
+  BRAIN_LAYOUT,
   agentMeta,
 } from "@/lib/agent-registry";
 import { useForceGraph } from "@/hooks/use-force-graph";
@@ -51,7 +52,7 @@ export function AgentTopology({
   const prefersReducedMotion = useReducedMotion();
   const displayAgents = agents.length > 0 ? agents : TOPOLOGY_AGENT_IDS;
 
-  // ── Force-directed layout ────────────────────────────────────────
+  // ── Brain-layout force graph ─────────────────────────────────────
 
   const {
     positions,
@@ -63,6 +64,8 @@ export function AgentTopology({
   } = useForceGraph(
     displayAgents,
     DELEGATION_EDGES,
+    BRAIN_LAYOUT,
+    ["aether"],           // Pin Aether to the crown
     agentStates,
     prefersReducedMotion ?? false,
   );

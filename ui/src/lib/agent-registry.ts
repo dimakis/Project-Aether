@@ -88,8 +88,8 @@ export const AGENTS: Record<string, AgentMeta> = {
     hex: "#818cf8",
     glowRgb: "129 140 248",
   },
-  sandbox: {
-    label: "Sandbox",
+  synthesizer: {
+    label: "Synthesizer",
     icon: Code,
     color: "text-orange-400",
     hex: "#fb923c",
@@ -132,7 +132,7 @@ export const TOPOLOGY_AGENT_IDS: string[] = [
   "behavioral_analyst",
   "diagnostic_analyst",
   "dashboard_designer",
-  "sandbox",
+  "synthesizer",
   "librarian",
   "developer",
 ];
@@ -141,13 +141,14 @@ export const TOPOLOGY_AGENT_IDS: string[] = [
  * Edges that reflect actual workflow delegation paths in the codebase.
  *
  * Sources:
- *  - aether -> architect: conversation entry point
+ *  - aether -> architect: conversation entry point (system → primary agent)
  *  - architect -> data_science_team: consult_data_science_team tool
  *  - architect -> developer: developer_deploy_node (approved proposals)
  *  - architect -> librarian: discover_entities tool
  *  - architect -> dashboard_designer: dashboard generation workflow
  *  - data_science_team -> analysts: specialist_tools routing
  *  - energy -> behavioral -> diagnostic: team_analysis sequential pipeline
+ *  - data_science_team -> synthesizer: auto-synthesis when 2+ specialists contribute
  */
 export const DELEGATION_EDGES: [string, string][] = [
   // Entry point
@@ -164,7 +165,35 @@ export const DELEGATION_EDGES: [string, string][] = [
   // Team analysis sequential pipeline
   ["energy_analyst", "behavioral_analyst"],
   ["behavioral_analyst", "diagnostic_analyst"],
+  // Auto-synthesis after specialist analysis
+  ["data_science_team", "synthesizer"],
 ];
+
+/**
+ * Brain layout: fractional (0-1) target positions for each agent.
+ *
+ * Arranged as a top-down neural hierarchy:
+ *  - Tier 0 (crown): Aether — system entry, pinned at top
+ *  - Tier 1 (cortex): Architect — primary routing hub
+ *  - Tier 2 (lobes): Direct delegates fan out left-to-right
+ *  - Tier 3 (deep): DS specialist analysts
+ *  - Tier 4 (stem): Synthesizer — analysis output
+ */
+export const BRAIN_LAYOUT: Record<string, { x: number; y: number }> = {
+  aether:             { x: 0.50, y: 0.07 },
+  architect:          { x: 0.50, y: 0.26 },
+  // Left lobe — utility / knowledge
+  librarian:          { x: 0.12, y: 0.48 },
+  dashboard_designer: { x: 0.34, y: 0.50 },
+  // Center — execution
+  developer:          { x: 0.56, y: 0.52 },
+  // Right lobe — analytics
+  data_science_team:  { x: 0.82, y: 0.40 },
+  energy_analyst:     { x: 0.68, y: 0.68 },
+  behavioral_analyst: { x: 0.90, y: 0.68 },
+  diagnostic_analyst: { x: 0.79, y: 0.84 },
+  synthesizer:        { x: 0.92, y: 0.92 },
+};
 
 // ─── Lookup Helpers ──────────────────────────────────────────────────────────
 

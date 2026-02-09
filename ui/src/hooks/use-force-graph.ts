@@ -1,11 +1,15 @@
 /**
- * Obsidian-style force-directed graph layout hook.
+ * Brain-layout force-directed graph hook.
  *
- * Uses d3-force to simulate physics-based node positioning with:
- * - Full physics during drag (nodes connected by springs follow)
- * - ResizeObserver to reheat on container resize
- * - Ambient micro-drift when simulation settles (organic floating)
- * - Reduced motion support
+ * Hybrid approach: each node has a fixed target position (brain layout)
+ * with light d3-force physics for organic drift and drag interaction.
+ *
+ * - Nodes initialise at their target positions (no random scatter)
+ * - Per-node forceX/forceY pulls each node toward its brain target
+ * - Pinned nodes (e.g. Aether) are fixed and don't respond to physics
+ * - Gentle charge repulsion and link forces add organic breathing
+ * - ResizeObserver recomputes targets when the container resizes
+ * - Reduced motion support disables ambient jitter
  *
  * The hook owns the simulation lifecycle and exposes reactive positions
  * plus pointer-event handlers for drag interaction.
@@ -16,7 +20,6 @@ import {
   forceSimulation,
   forceLink,
   forceManyBody,
-  forceCenter,
   forceCollide,
   forceX,
   forceY,
@@ -30,11 +33,20 @@ import type { AgentNodeState } from "@/lib/agent-activity-store";
 
 export interface ForceNode extends SimulationNodeDatum {
   id: string;
+  /** Pixel target position computed from fractional brain layout. */
+  targetX?: number;
+  targetY?: number;
 }
 
 export interface ForceLink extends SimulationLinkDatum<ForceNode> {
   source: string | ForceNode;
   target: string | ForceNode;
+}
+
+/** Fractional (0-1) position for brain layout. */
+export interface FractionalPosition {
+  x: number;
+  y: number;
 }
 
 export interface ForceGraphPositions {
@@ -63,20 +75,25 @@ const NODE_RADIUS = 15;
 const AETHER_RADIUS = NODE_RADIUS + 4;
 
 /** Jitter amplitude for ambient micro-drift (px). */
-const JITTER_AMPLITUDE = 0.08;
+const JITTER_AMPLITUDE = 0.06;
 /** Alpha threshold below which jitter kicks in. */
-const JITTER_ALPHA_THRESHOLD = 0.02;
+const JITTER_ALPHA_THRESHOLD = 0.015;
 /** Minimum alpha to keep simulation alive for jitter. */
-const JITTER_ALPHA_MIN = 0.002;
+const JITTER_ALPHA_MIN = 0.001;
 
 /** Padding from SVG edges to keep nodes (incl. labels) in view. */
 const BOUNDARY_PADDING = 25;
+
+/** How strongly nodes are pulled toward their brain target (0-1). */
+const TARGET_STRENGTH = 0.12;
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useForceGraph(
   agentIds: string[],
   edges: [string, string][],
+  targetPositions: Record<string, FractionalPosition>,
+  pinnedNodes: string[] = [],
   agentStates?: Record<string, AgentNodeState>,
   prefersReducedMotion?: boolean,
 ): UseForceGraphReturn {
@@ -86,6 +103,8 @@ export function useForceGraph(
   const [positions, setPositions] = useState<ForceGraphPositions>({});
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const rafRef = useRef<number>(0);
+  const pinnedSetRef = useRef(new Set(pinnedNodes));
+  pinnedSetRef.current = new Set(pinnedNodes);
 
   // Stable references for the simulation tick callback
   const agentStatesRef = useRef(agentStates);
@@ -93,93 +112,122 @@ export function useForceGraph(
   const reducedMotionRef = useRef(prefersReducedMotion);
   reducedMotionRef.current = prefersReducedMotion;
 
+  // ── Compute pixel targets from fractional layout ──────────────────
+
+  function computeTargets(
+    width: number,
+    height: number,
+    nodes: ForceNode[],
+    targets: Record<string, FractionalPosition>,
+    pinned: Set<string>,
+  ) {
+    for (const node of nodes) {
+      const t = targets[node.id];
+      if (!t) continue;
+      node.targetX = t.x * width;
+      node.targetY = t.y * height;
+      // Pinned nodes get hard-fixed positions
+      if (pinned.has(node.id)) {
+        node.fx = node.targetX;
+        node.fy = node.targetY;
+      }
+    }
+  }
+
   // ── Initialise / rebuild simulation when agents or edges change ──────
 
   useEffect(() => {
     const svg = containerRef.current;
     const width = svg?.clientWidth ?? 300;
     const height = svg?.clientHeight ?? 300;
-    const cx = width / 2;
-    const cy = height / 2;
+    const pinnedSet = pinnedSetRef.current;
 
     // Create or reuse nodes (preserving positions across re-renders)
     const existingMap = new Map(nodesRef.current.map((n) => [n.id, n]));
-    const nodes: ForceNode[] = agentIds.map((id, i) => {
+    const nodes: ForceNode[] = agentIds.map((id) => {
       const existing = existingMap.get(id);
       if (existing) return existing;
-      // Initial positions: spread in a circle to give d3 a head start
-      const angle = (2 * Math.PI * i) / agentIds.length - Math.PI / 2;
-      const radius = id === "aether" ? 0 : 80;
+      // Initialise at the brain target position (not random)
+      const t = targetPositions[id];
       return {
         id,
-        x: cx + Math.cos(angle) * radius,
-        y: cy + Math.sin(angle) * radius,
+        x: t ? t.x * width : width / 2,
+        y: t ? t.y * height : height / 2,
       };
     });
     nodesRef.current = nodes;
+
+    // Compute pixel targets and apply pins
+    computeTargets(width, height, nodes, targetPositions, pinnedSet);
 
     const links: ForceLink[] = edges
       .filter(([a, b]) => agentIds.includes(a) && agentIds.includes(b))
       .map(([source, target]) => ({ source, target }));
 
     const sim = forceSimulation<ForceNode>(nodes)
+      // Light repulsion — layout is primarily target-driven
       .force(
         "charge",
         forceManyBody<ForceNode>().strength((d) =>
-          d.id === "aether" ? -300 : -180,
+          d.id === "aether" ? -80 : -50,
         ),
       )
+      // Gentle link springs for connected-node cohesion
       .force(
         "link",
         forceLink<ForceNode, ForceLink>(links)
           .id((d) => d.id)
-          .distance(65)
-          .strength(0.4),
+          .distance(50)
+          .strength(0.15),
       )
-      .force("center", forceCenter(cx, cy).strength(0.05))
       .force(
         "collide",
         forceCollide<ForceNode>((d) =>
-          d.id === "aether" ? AETHER_RADIUS + 8 : NODE_RADIUS + 8,
-        ).strength(0.8),
+          d.id === "aether" ? AETHER_RADIUS + 6 : NODE_RADIUS + 6,
+        ).strength(0.7),
       )
-      // Gravity to keep nodes in view
-      .force("x", forceX<ForceNode>(cx).strength(0.04))
-      .force("y", forceY<ForceNode>(cy).strength(0.04))
-      .alphaDecay(0.02)
-      .velocityDecay(0.55);
+      // Per-node positional forces → brain layout targets
+      .force(
+        "x",
+        forceX<ForceNode>((d) => (d as ForceNode).targetX ?? width / 2).strength(TARGET_STRENGTH),
+      )
+      .force(
+        "y",
+        forceY<ForceNode>((d) => (d as ForceNode).targetY ?? height / 2).strength(TARGET_STRENGTH),
+      )
+      .alphaDecay(0.025)
+      .velocityDecay(0.6);
 
-    // Custom tick: update positions and apply ambient jitter
+    // Custom tick: boundary clamping, ambient jitter, position updates
     sim.on("tick", () => {
-      // Apply ambient jitter when nearly settled (unless reduced motion)
+      // Ambient jitter when nearly settled (organic breathing)
       if (
         !reducedMotionRef.current &&
         sim.alpha() < JITTER_ALPHA_THRESHOLD
       ) {
         for (const node of nodes) {
-          if (node.fx != null) continue; // skip pinned/dragged nodes
+          if (node.fx != null) continue;
           node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * JITTER_AMPLITUDE;
           node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * JITTER_AMPLITUDE;
         }
-        // Keep alive at minimum alpha for continuous gentle drift
         if (sim.alpha() < JITTER_ALPHA_MIN) {
           sim.alpha(JITTER_ALPHA_MIN);
         }
       }
 
-      // Clamp nodes to stay within the SVG bounds
+      // Clamp unpinned nodes to SVG bounds
       for (const node of nodes) {
-        if (node.fx != null) continue; // don't fight with drag pins
-        node.x = Math.max(BOUNDARY_PADDING, Math.min(width - BOUNDARY_PADDING, node.x ?? cx));
-        node.y = Math.max(BOUNDARY_PADDING, Math.min(height - BOUNDARY_PADDING, node.y ?? cy));
+        if (node.fx != null) continue;
+        node.x = Math.max(BOUNDARY_PADDING, Math.min(width - BOUNDARY_PADDING, node.x ?? width / 2));
+        node.y = Math.max(BOUNDARY_PADDING, Math.min(height - BOUNDARY_PADDING, node.y ?? height / 2));
       }
 
-      // Batch position updates via rAF to avoid excessive React renders
+      // Batch position updates via rAF
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
         const next: ForceGraphPositions = {};
         for (const node of nodes) {
-          next[node.id] = { x: node.x ?? cx, y: node.y ?? cy };
+          next[node.id] = { x: node.x ?? width / 2, y: node.y ?? height / 2 };
         }
         setPositions(next);
       });
@@ -191,11 +239,16 @@ export function useForceGraph(
       sim.stop();
       cancelAnimationFrame(rafRef.current);
     };
-    // We intentionally only rebuild when the identity of agents/edges changes
+    // Rebuild when agents, edges, or target layout identity changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentIds.join(","), edges.map((e) => e.join("-")).join(",")]);
+  }, [
+    agentIds.join(","),
+    edges.map((e) => e.join("-")).join(","),
+    // Rerun if the target layout object changes identity
+    targetPositions,
+  ]);
 
-  // ── ResizeObserver: reheat on container resize ──────────────────────
+  // ── ResizeObserver: recompute targets and reheat on container resize ──
 
   useEffect(() => {
     const svg = containerRef.current;
@@ -203,33 +256,40 @@ export function useForceGraph(
 
     const observer = new ResizeObserver(() => {
       const sim = simRef.current;
-      if (!sim) return;
+      const nodes = nodesRef.current;
+      if (!sim || nodes.length === 0) return;
+
       const width = svg.clientWidth;
       const height = svg.clientHeight;
-      const cx = width / 2;
-      const cy = height / 2;
 
-      // Update centering forces
-      sim.force("center", forceCenter(cx, cy).strength(0.05));
-      sim.force("x", forceX<ForceNode>(cx).strength(0.04));
-      sim.force("y", forceY<ForceNode>(cy).strength(0.04));
-      sim.alpha(0.3).restart();
+      // Recompute pixel targets for new dimensions
+      computeTargets(width, height, nodes, targetPositions, pinnedSetRef.current);
+
+      // Update positional forces with new targets
+      sim.force(
+        "x",
+        forceX<ForceNode>((d) => (d as ForceNode).targetX ?? width / 2).strength(TARGET_STRENGTH),
+      );
+      sim.force(
+        "y",
+        forceY<ForceNode>((d) => (d as ForceNode).targetY ?? height / 2).strength(TARGET_STRENGTH),
+      );
+      sim.alpha(0.4).restart();
     });
 
     observer.observe(svg);
     return () => observer.disconnect();
-  }, []);
+  }, [targetPositions]);
 
-  // ── React to agent state changes (firing nodes push others away) ────
+  // ── React to agent state changes (firing nodes get a gentle nudge) ────
 
   useEffect(() => {
     const sim = simRef.current;
     if (!sim || !agentStates) return;
 
-    // Gently reheat when a new agent starts firing
     const anyFiring = Object.values(agentStates).some((s) => s === "firing");
-    if (anyFiring && sim.alpha() < 0.1) {
-      sim.alpha(0.08).restart();
+    if (anyFiring && sim.alpha() < 0.08) {
+      sim.alpha(0.06).restart();
     }
   }, [agentStates]);
 
@@ -238,15 +298,15 @@ export function useForceGraph(
   const onNodePointerDown = useCallback(
     (agentId: string, event: React.PointerEvent) => {
       event.stopPropagation();
+      // Don't allow dragging pinned nodes
+      if (pinnedSetRef.current.has(agentId)) return;
+
       const node = nodesRef.current.find((n) => n.id === agentId);
       if (!node) return;
 
-      // Pin node to current position
       node.fx = node.x;
       node.fy = node.y;
       setDraggedNode(agentId);
-
-      // Reheat simulation for spring response
       simRef.current?.alpha(0.3).restart();
     },
     [],
@@ -261,7 +321,6 @@ export function useForceGraph(
       const svg = containerRef.current;
       if (!svg) return;
 
-      // Convert screen coordinates to SVG coordinates
       const rect = svg.getBoundingClientRect();
       const svgWidth = svg.clientWidth;
       const svgHeight = svg.clientHeight;
@@ -281,12 +340,11 @@ export function useForceGraph(
     if (!draggedNode) return;
     const node = nodesRef.current.find((n) => n.id === draggedNode);
     if (node) {
-      // Release pin — let physics settle
       node.fx = null;
       node.fy = null;
     }
     setDraggedNode(null);
-    simRef.current?.alpha(0.2).restart();
+    simRef.current?.alpha(0.15).restart();
   }, [draggedNode]);
 
   // ── Public reheat ──────────────────────────────────────────────────
