@@ -47,7 +47,7 @@ async def _list_proposals(status: str | None, limit: int) -> None:
         proposals = []
         if status:
             try:
-                status_filter = ProposalStatus(status.upper())
+                status_filter = ProposalStatus(status.lower())
                 proposals = await repo.list_by_status(status_filter, limit=limit)
             except ValueError:
                 console.print(f"[red]Invalid status: {status}[/red]")
