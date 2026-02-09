@@ -96,6 +96,9 @@ class SchedulerService:
         # Schedule periodic discovery sync
         self._schedule_discovery_sync(settings)
 
+        # Schedule nightly trace evaluation (MLflow 3.x)
+        self._schedule_trace_evaluation(settings)
+
         logger.info("Scheduler started")
 
     async def stop(self) -> None:
@@ -105,6 +108,40 @@ class SchedulerService:
             self._running = False
             SchedulerService._instance = None
             logger.info("Scheduler stopped")
+
+    def _schedule_trace_evaluation(self, settings: object) -> None:
+        """Register a nightly trace evaluation job if enabled.
+
+        Uses MLflow 3.x GenAI scorers to evaluate recent agent traces,
+        creating a continuous quality feedback loop.
+        """
+        if self._scheduler is None or CronTrigger is None:
+            return
+
+        if not getattr(settings, "trace_eval_enabled", True):
+            logger.info("Trace evaluation disabled via settings")
+            return
+
+        cron_expr = getattr(settings, "trace_eval_cron", "0 2 * * *")
+
+        try:
+            trigger = CronTrigger.from_crontab(
+                cron_expr,
+                timezone=getattr(settings, "scheduler_timezone", "UTC"),
+            )
+        except ValueError:
+            logger.error("Invalid cron expression for trace evaluation: %s", cron_expr)
+            return
+
+        self._scheduler.add_job(
+            _execute_trace_evaluation,
+            trigger=trigger,
+            id="trace_eval:nightly",
+            replace_existing=True,
+            name="trace_eval:nightly_scorer_run",
+            misfire_grace_time=600,  # 10 min grace for misfires
+        )
+        logger.info("Nightly trace evaluation scheduled: %s", cron_expr)
 
     def _schedule_discovery_sync(self, settings: object) -> None:
         """Register a periodic delta sync job if enabled.
@@ -253,6 +290,66 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
             )
 
         await session.commit()
+
+
+async def _execute_trace_evaluation() -> None:
+    """Execute nightly trace evaluation using MLflow 3.x GenAI scorers.
+
+    Called by APScheduler. Searches recent traces and runs all
+    custom scorers, logging results back to MLflow.
+    """
+    logger.info("Starting nightly trace evaluation")
+
+    try:
+        import mlflow
+        import mlflow.genai
+
+        from src.settings import get_settings
+        from src.tracing import init_mlflow
+        from src.tracing.scorers import get_all_scorers
+
+        # Initialize MLflow
+        client = init_mlflow()
+        if client is None:
+            logger.warning("MLflow not available, skipping trace evaluation")
+            return
+
+        settings = get_settings()
+        scorers = get_all_scorers()
+        if not scorers:
+            logger.warning("No scorers available, skipping trace evaluation")
+            return
+
+        # Search traces from the last 24 hours
+        trace_df = mlflow.search_traces(
+            experiment_names=[settings.mlflow_experiment_name],
+            max_results=settings.trace_eval_max_traces,
+        )
+
+        if trace_df is None or len(trace_df) == 0:
+            logger.info("No traces found for evaluation")
+            return
+
+        logger.info(
+            "Evaluating %d traces with %d scorers",
+            len(trace_df),
+            len(scorers),
+        )
+
+        eval_result = mlflow.genai.evaluate(
+            data=trace_df,
+            scorers=scorers,
+        )
+
+        run_id = getattr(eval_result, "run_id", "unknown")
+        logger.info(
+            "Nightly trace evaluation complete: run_id=%s, traces=%d",
+            run_id,
+            len(trace_df),
+        )
+
+    except Exception as e:
+        logger.exception("Nightly trace evaluation failed: %s", e)
 
 
 async def _execute_discovery_sync() -> None:
