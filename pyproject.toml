@@ -64,6 +64,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pytest-mock>=3.14.0",
     "pytest-xdist>=3.6.0",  # Parallel test execution
+    "pytest-timeout>=2.3.0,<3.0.0",  # Per-test timeout to prevent hangs
     "factory-boy>=3.3.0",
     "testcontainers>=4.8.0",  # PostgreSQL integration tests
     "httpx>=0.28.0",  # FastAPI TestClient
@@ -184,6 +185,11 @@ addopts = [
     "--durations=20",           # Show 20 slowest tests for optimization
 ]
 asyncio_mode = "auto"
+# Global per-test timeout: prevents any single test from hanging the suite.
+# Unit tests should complete in well under 10s; integration tests can override
+# via @pytest.mark.timeout(60).  See Constitution Principle V.
+timeout = 10
+timeout_method = "thread"
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",

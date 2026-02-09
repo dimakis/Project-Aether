@@ -49,6 +49,8 @@ def sample_config(sample_agent):
     cv.created_at = datetime.now(timezone.utc)
     cv.updated_at = datetime.now(timezone.utc)
     cv.promoted_at = datetime.now(timezone.utc)
+    sample_agent.active_config_version_id = cv.id
+    sample_agent.active_config_version = cv
     return cv
 
 
@@ -66,6 +68,8 @@ def sample_prompt(sample_agent):
     pv.created_at = datetime.now(timezone.utc)
     pv.updated_at = datetime.now(timezone.utc)
     pv.promoted_at = datetime.now(timezone.utc)
+    sample_agent.active_prompt_version_id = pv.id
+    sample_agent.active_prompt_version = pv
     return pv
 
 
@@ -220,6 +224,8 @@ class TestConfigVersionPromote:
     @pytest.mark.asyncio
     async def test_promote_config_success(self, sample_config):
         """Test promoting a config version."""
+        from starlette.requests import Request
+
         from src.api.routes.agents import promote_config_version
 
         sample_config.status = VersionStatus.ACTIVE.value
@@ -235,7 +241,15 @@ class TestConfigVersionPromote:
 
             MockConfigRepo.return_value.promote = AsyncMock(return_value=sample_config)
 
-            result = await promote_config_version("architect", sample_config.id)
+            request = Request(
+                scope={
+                    "type": "http",
+                    "method": "POST",
+                    "path": "/",
+                    "headers": [],
+                }
+            )
+            result = await promote_config_version(request, "architect", sample_config.id)
 
             assert result.status == "active"
             assert result.promoted_at is not None

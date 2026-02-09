@@ -281,19 +281,72 @@ def mock_sandbox_runner() -> AsyncMock:
 
 @pytest.fixture
 def test_app(mock_settings: Settings) -> Any:
-    """Create FastAPI test application."""
+    """Create FastAPI test application.
+
+    WARNING: This fixture uses ``create_app()`` which registers route
+    dependencies that call ``get_session()`` / ``get_db()``.  Those will
+    attempt a real Postgres connection unless overridden.  For **unit
+    tests** prefer :func:`safe_test_app` or build a minimal FastAPI app
+    with only the router you need + dependency overrides.
+
+    This fixture is retained for **integration tests** that run against a
+    real database.
+    """
     from src.api.main import create_app
 
     return create_app(mock_settings)
 
 
 @pytest.fixture
+def safe_test_app(mock_settings: Settings) -> Any:
+    """Create a FastAPI test application with DB dependencies neutralised.
+
+    Uses ``create_app()`` but overrides **every** ``get_db`` / ``get_session``
+    style dependency so that no real Postgres connection is attempted.  This
+    is the correct fixture for unit tests that exercise API routes.
+    """
+    from src.api.main import create_app
+
+    app = create_app(mock_settings)
+
+    # Collect every ``get_db`` function registered as a dependency in any
+    # included router so we can override them all with a mock session.
+    from src.api.routes.areas import get_db as areas_get_db
+
+    async def _mock_get_db():  # type: ignore[override]
+        yield MagicMock()
+
+    app.dependency_overrides[areas_get_db] = _mock_get_db
+    return app
+
+
+@pytest.fixture
 async def async_client(test_app: Any) -> AsyncGenerator[Any, None]:
-    """Provide async HTTP client for API testing."""
+    """Provide async HTTP client for API testing.
+
+    WARNING: Uses ``test_app`` which may attempt real DB connections.
+    For unit tests prefer ``safe_async_client`` instead.
+    """
     from httpx import ASGITransport, AsyncClient
 
     async with AsyncClient(
         transport=ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def safe_async_client(safe_test_app: Any) -> AsyncGenerator[Any, None]:
+    """Async HTTP client backed by the DB-safe test app.
+
+    Use this in unit tests that hit API routes.  No real Postgres
+    connection is attempted.
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    async with AsyncClient(
+        transport=ASGITransport(app=safe_test_app),
         base_url="http://test",
     ) as client:
         yield client

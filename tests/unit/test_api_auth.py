@@ -150,16 +150,16 @@ class TestAPIKeyAuthentication:
         data = response.json()
         assert "status" in data
 
-    async def test_metrics_endpoint_works_without_auth(
+    async def test_metrics_endpoint_requires_auth(
         self,
         client_with_auth: AsyncClient,
     ):
-        """Test that metrics endpoint works without authentication."""
+        """Test that metrics endpoint requires authentication."""
         # Make request to metrics endpoint without API key
         response = await client_with_auth.get("/api/v1/metrics")
 
-        # Should succeed (metrics endpoint is exempt)
-        assert response.status_code == 200
+        # Should require auth
+        assert response.status_code == 401
 
     async def test_header_key_takes_precedence_over_query(
         self,

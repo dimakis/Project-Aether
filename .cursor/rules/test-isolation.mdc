@@ -1,0 +1,24 @@
+---
+description: Unit test isolation requirements and anti-hang guardrails
+alwaysApply: true
+---
+
+# Test Isolation
+
+- Unit tests must never open real DB connections, network calls, or filesystem I/O.
+- If a test uses `create_app()`, override all DB dependencies (`get_db`, `get_session`) with mocks.
+- Keep `pytest-timeout` configured with `timeout_method = "thread"` for async compatibility.
+- Do not disable or bypass the `tests/unit/conftest.py` autouse DB guard.
+- Do not use `asyncio.sleep()` for coordination; use `asyncio.Event` instead.
+- Avoid module-level side effects in tests (no eager DB/network setup on import).
+
+```python
+# ❌ Bad: create_app without DB overrides
+app = create_app()
+client = TestClient(app)
+
+# ✅ Good: override DB dependencies
+app = create_app()
+app.dependency_overrides[get_db] = lambda: fake_db
+app.dependency_overrides[get_session] = fake_session
+```

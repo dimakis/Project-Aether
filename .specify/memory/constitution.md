@@ -124,6 +124,15 @@ All code MUST be enterprise-grade with comprehensive test coverage following the
 - Flaky tests are bugs and must be fixed immediately
 - Test code follows same quality standards as production code
 
+**Test Isolation Requirements (Non-Negotiable)**:
+- Unit tests MUST NOT attempt real database connections, network calls, or filesystem I/O
+- All external dependencies MUST be mocked/stubbed at the dependency injection boundary
+- `pytest-timeout` MUST be configured globally with `timeout_method = "thread"` for async compatibility
+- Tests that use `create_app()` MUST override all DB dependencies (`get_db`, `get_session`) with mocks
+- Module-level imports in test files MUST NOT trigger side effects (no eager DB/network connections)
+- The `tests/unit/conftest.py` autouse DB guard MUST NOT be disabled or bypassed
+- Flaky tests caused by timing (`asyncio.sleep` for coordination) MUST use `asyncio.Event` instead
+
 **TDD Workflow (Required)**:
 
 Tests MUST be written FIRST and committed ATOMICALLY with their implementation. Batching tests at the end leads to incorrect assumptions, multiple fix cycles, and wasted effort. The required workflow for each task:

@@ -410,7 +410,7 @@ class TestHealthExemptionWithJWT:
         response = await auth_client.get("/api/v1/health")
         assert response.status_code == 200
 
-    async def test_metrics_works_without_jwt(self, auth_client: AsyncClient):
-        """Metrics endpoint works without any authentication."""
+    async def test_metrics_requires_auth(self, auth_client: AsyncClient):
+        """Metrics endpoint requires authentication."""
         response = await auth_client.get("/api/v1/metrics")
-        assert response.status_code == 200
+        assert response.status_code == 401
