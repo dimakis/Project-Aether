@@ -109,6 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-unit
+          include-hidden-files: true
           path: |
             coverage-unit.xml
             .coverage.unit
@@ -174,6 +175,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-integration
+          include-hidden-files: true
           path: |
             coverage-integration.xml
             .coverage.integration
@@ -236,6 +238,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-e2e
+          include-hidden-files: true
           path: |
             coverage-e2e.xml
             .coverage.e2e
