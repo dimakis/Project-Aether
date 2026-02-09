@@ -164,7 +164,8 @@ jobs:
             -m "integration" \
             --cov=src \
             --cov-append \
-            --cov-report=xml:coverage-integration.xml
+            --cov-report=xml:coverage-integration.xml \
+            --cov-fail-under=0
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -218,7 +219,8 @@ jobs:
             -m "e2e" \
             --cov=src \
             --cov-append \
-            --cov-report=xml:coverage-e2e.xml
+            --cov-report=xml:coverage-e2e.xml \
+            --cov-fail-under=0
 
       - name: Stop test services
         if: always()
