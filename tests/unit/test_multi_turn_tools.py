@@ -163,7 +163,7 @@ class TestMultiTurnToolLoop:
 
         # Should have tool calls, but limited by max iterations
         tool_starts = event_types.count("tool_start")
-        assert tool_starts <= 5, f"Expected max 5 tool rounds, got {tool_starts}"
+        assert tool_starts <= 10, f"Expected max 10 tool rounds, got {tool_starts}"
         assert tool_starts >= 2, f"Expected at least 2 rounds, got {tool_starts}"
 
     @pytest.mark.asyncio

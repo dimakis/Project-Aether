@@ -522,6 +522,17 @@ async def _stream_chat_completion(
                                         if agent_stack and agent_stack[-1] == target:
                                             agent_stack.pop()
                                             yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
+
+                                    # Emit proposal_created event when seek_approval
+                                    # successfully created a proposal (result contains
+                                    # "submitted" or "proposal").
+                                    tool_result = event.get("result", "")
+                                    if tool_name == "seek_approval" and (
+                                        "submitted" in tool_result.lower()
+                                        or "proposal for your approval" in tool_result.lower()
+                                    ):
+                                        yield f"data: {json.dumps({'type': 'proposal_created', 'content': tool_result})}\n\n"
+
                                     status_ev = {
                                         "type": "status",
                                         "content": "",  # Clear status

@@ -8,7 +8,7 @@ structured automation proposals.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
@@ -479,7 +479,7 @@ class ArchitectAgent(BaseAgent):
             return None
 
     def _extract_proposal(self, response: str) -> dict | None:
-        """Extract proposal JSON from response if present.
+        """Extract the first proposal JSON from response if present.
 
         Args:
             response: LLM response text
@@ -487,21 +487,40 @@ class ArchitectAgent(BaseAgent):
         Returns:
             Proposal dict or None
         """
+        proposals = self._extract_proposals(response)
+        return proposals[0] if proposals else None
+
+    def _extract_proposals(self, response: str) -> list[dict]:
+        """Extract all proposal JSON blocks from response.
+
+        Uses ``re.finditer`` to find ALL ```json code blocks, then
+        attempts to parse each as JSON containing a ``"proposal"`` key.
+
+        The regex uses ``(.*?)`` (not ``\\{.*?\\}``) to prevent a
+        truncated JSON block from consuming the *next* block when
+        ``re.DOTALL`` causes ``.*?`` to cross ````` boundaries.
+
+        Args:
+            response: LLM response text
+
+        Returns:
+            List of proposal dicts (may be empty)
+        """
         import json
         import re
 
-        # Look for JSON block in response
-        json_match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
-        if not json_match:
-            return None
-
-        try:
-            data = json.loads(json_match.group(1))
-            if "proposal" in data:
-                return cast("dict[str, Any] | None", data.get("proposal"))
-            return None
-        except json.JSONDecodeError:
-            return None
+        proposals: list[dict] = []
+        for block_match in re.finditer(r"```json\s*(.*?)\s*```", response, re.DOTALL):
+            raw = block_match.group(1).strip()
+            if not raw.startswith("{"):
+                continue
+            try:
+                data = json.loads(raw)
+                if "proposal" in data and isinstance(data["proposal"], dict):
+                    proposals.append(data["proposal"])
+            except json.JSONDecodeError:
+                continue
+        return proposals
 
     async def _create_proposal(
         self,
@@ -956,9 +975,10 @@ class ArchitectWorkflow:
                         buf["id"] = tc_chunk["id"]
 
         # Multi-turn tool loop: allow the LLM to chain tool calls
-        MAX_TOOL_ITERATIONS = 5
+        MAX_TOOL_ITERATIONS = 10
         iteration = 0
         all_new_messages: list[BaseMessage] = []
+        proposal_summaries: list[str] = []  # Track successful seek_approval results
 
         while tool_calls_buffer and iteration < MAX_TOOL_ITERATIONS:
             iteration += 1
@@ -970,10 +990,25 @@ class ArchitectWorkflow:
             for tc_buf in tool_calls_buffer:
                 tool_name = tc_buf["name"]
                 tool_call_id = tc_buf["id"]
+
+                # Skip truncated tool calls (empty name = output token limit hit)
+                if not tool_name:
+                    logger.warning(
+                        "Skipping tool call with empty name "
+                        "(likely truncated LLM output due to max_tokens)"
+                    )
+                    continue
+
                 try:
                     args = _json.loads(tc_buf["args"]) if tc_buf["args"] else {}
                 except _json.JSONDecodeError:
-                    args = {}
+                    logger.warning(
+                        "Skipping tool call '%s': args JSON could not be parsed "
+                        "(likely truncated LLM output). Raw args: %s",
+                        tool_name,
+                        tc_buf["args"][:200] if tc_buf["args"] else "(empty)",
+                    )
+                    continue
 
                 full_tool_calls.append(
                     {
@@ -1078,6 +1113,13 @@ class ArchitectWorkflow:
                                     result=result_str[:500],
                                 )
 
+                                # Track successful proposal creations
+                                if tool_name == "seek_approval" and (
+                                    "submitted" in result_str.lower()
+                                    or "proposal" in result_str.lower()
+                                ):
+                                    proposal_summaries.append(result_str)
+
                         except Exception as e:
                             if not tool_task.done():
                                 tool_task.cancel()
@@ -1143,6 +1185,46 @@ class ArchitectWorkflow:
         # If the while loop never ran (no initial tool calls)
         if iteration == 0 and collected_content:
             all_new_messages.append(AIMessage(content=collected_content))
+
+        # Fallback: if no visible text was streamed but proposals were created,
+        # emit the seek_approval results so the user sees something in the chat.
+        # This handles the case where the LLM only generated tool calls and the
+        # follow-up response was empty or truncated.
+        if not collected_content and proposal_summaries:
+            fallback = "\n\n---\n\n".join(proposal_summaries)
+            collected_content = fallback
+            yield StreamEvent(type="token", content=fallback)
+            all_new_messages.append(AIMessage(content=fallback))
+        elif not collected_content and iteration > 0:
+            # Tool calls were made but produced no proposals and no text.
+            # Emit a minimal fallback so the user isn't left with an empty chat.
+            fallback = (
+                "I processed your request using several tools but wasn't able to "
+                "generate a complete response. Please try rephrasing or breaking "
+                "your request into smaller steps."
+            )
+            collected_content = fallback
+            yield StreamEvent(type="token", content=fallback)
+            all_new_messages.append(AIMessage(content=fallback))
+
+        # Fallback proposal extraction: if the LLM wrote proposals inline
+        # (as ```json blocks) instead of using seek_approval, and no proposals
+        # were created via tools, extract and persist them now.
+        if session and collected_content and not proposal_summaries:
+            inline_proposals = self.agent._extract_proposals(collected_content)
+            for prop_data in inline_proposals:
+                try:
+                    proposal = await self.agent._create_proposal(
+                        session,
+                        state.conversation_id,
+                        prop_data,
+                    )
+                    logger.info(
+                        "Created inline proposal %s from streamed content",
+                        proposal.id,
+                    )
+                except Exception as e:
+                    logger.warning("Failed to create inline proposal: %s", e)
 
         state.messages.extend(all_new_messages)  # type: ignore[arg-type]
 
