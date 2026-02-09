@@ -208,6 +208,22 @@ class Settings(BaseSettings):
         description="Optional shared secret for webhook authentication (in addition to HA token)",
     )
 
+    # Trace evaluation (MLflow 3.x GenAI scorers)
+    trace_eval_enabled: bool = Field(
+        default=True,
+        description="Enable nightly trace evaluation via MLflow 3.x scorers",
+    )
+    trace_eval_cron: str = Field(
+        default="0 2 * * *",
+        description="Cron expression for trace evaluation (default: 2am daily)",
+    )
+    trace_eval_max_traces: int = Field(
+        default=200,
+        ge=10,
+        le=1000,
+        description="Max traces to evaluate per run",
+    )
+
     # Discovery sync (periodic + webhook-triggered)
     discovery_sync_enabled: bool = Field(
         default=True,
