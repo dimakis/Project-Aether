@@ -151,7 +151,7 @@ class BaseAgent(ABC):
                 if session_id:
                     try:
                         mlflow.update_current_trace(
-                            metadata={"mlflow.trace.session": session_id}
+                            tags={"mlflow.trace.session": session_id}
                         )
                     except Exception:
                         logger.debug("Failed to update trace session metadata", exc_info=True)
