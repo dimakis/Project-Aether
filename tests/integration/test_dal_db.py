@@ -185,7 +185,7 @@ class TestEntityRepositoryDB:
             )
 
         count = await repo.count(domain="sensor")
-        assert count >= 5
+        assert count == 5
 
     async def test_get_domain_counts(self, integration_session: AsyncSession):
         """Test getting entity counts per domain."""
@@ -292,7 +292,7 @@ class TestAreaRepositoryDB:
 
         areas = await repo.list_all()
 
-        assert len(areas) >= 3
+        assert len(areas) == 3
 
 
 @pytest.mark.integration

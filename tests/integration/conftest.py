@@ -11,7 +11,8 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from src.storage.models import Base
 
@@ -87,21 +88,32 @@ async def integration_session(
 ) -> AsyncGenerator[AsyncSession, None]:
     """Provide a database session for each integration test.
 
-    Each test gets a fresh transaction that is rolled back after.
-    Uses session loop_scope to share the event loop with the engine.
-    """
-    session_factory = async_sessionmaker(
-        bind=integration_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-        autoflush=False,
-    )
+    Uses a connection-level transaction that is always rolled back,
+    so even code that calls session.commit() won't persist data.
+    This gives each test a clean slate.
 
-    async with session_factory() as session:
-        # Start a transaction
-        async with session.begin():
-            yield session
-            # Transaction is rolled back when we exit
+    Pattern: https://docs.sqlalchemy.org/en/20/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites
+    """
+    async with integration_engine.connect() as conn:
+        trans = await conn.begin()
+
+        session = AsyncSession(bind=conn, join_transaction_in_progress=True)
+
+        # Start a SAVEPOINT so that session.commit() releases the savepoint
+        # rather than committing the real transaction.
+        await session.begin_nested()
+
+        # When code calls session.commit(), it releases the savepoint.
+        # Re-open a new savepoint so subsequent operations keep working.
+        @event.listens_for(session.sync_session, "after_transaction_end")
+        def restart_savepoint(session_sync, transaction):
+            if transaction.nested and not transaction._parent.nested:
+                session_sync.begin_nested()
+
+        yield session
+
+        await session.close()
+        await trans.rollback()
 
 
 @pytest_asyncio.fixture(loop_scope="session")
