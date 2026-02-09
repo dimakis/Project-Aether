@@ -2,6 +2,9 @@
 
 Provides endpoints for submitting and querying user feedback on
 conversation steps and overall flow quality.
+
+When an MLflow trace_id is provided, feedback is also logged to MLflow's
+assessment system (MLflow 3.x) for unified observability.
 """
 
 from fastapi import APIRouter, HTTPException
@@ -21,6 +24,10 @@ class FlowGradeCreate(BaseModel):
     span_id: str | None = Field(default=None, description="Span ID (null = overall)")
     comment: str | None = Field(default=None, max_length=2000)
     agent_role: str | None = Field(default=None, max_length=50)
+    trace_id: str | None = Field(
+        default=None,
+        description="MLflow trace ID for feedback bridging (optional)",
+    )
 
 
 class FlowGradeResponse(BaseModel):
@@ -37,7 +44,11 @@ class FlowGradeResponse(BaseModel):
 
 @router.post("", response_model=FlowGradeResponse, status_code=201)
 async def submit_grade(body: FlowGradeCreate) -> FlowGradeResponse:
-    """Submit or update a grade for a conversation step or overall."""
+    """Submit or update a grade for a conversation step or overall.
+
+    When trace_id is provided, feedback is also logged to MLflow's
+    assessment system for unified trace-level observability.
+    """
     if body.grade not in (1, -1):
         raise HTTPException(status_code=400, detail="Grade must be 1 or -1")
 
@@ -51,6 +62,20 @@ async def submit_grade(body: FlowGradeCreate) -> FlowGradeResponse:
             agent_role=body.agent_role,
         )
         await session.commit()
+
+        # Bridge feedback to MLflow 3.x assessment system (best-effort)
+        if body.trace_id:
+            from src.tracing import log_human_feedback
+
+            sentiment = "positive" if body.grade > 0 else "negative"
+            feedback_name = f"flow_grade.{body.agent_role}" if body.agent_role else "flow_grade"
+            log_human_feedback(
+                trace_id=body.trace_id,
+                name=feedback_name,
+                value=sentiment,
+                source_id="aether-ui",
+                rationale=body.comment,
+            )
 
         return FlowGradeResponse(
             id=fg.id,
