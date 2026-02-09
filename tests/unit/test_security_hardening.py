@@ -42,9 +42,12 @@ class TestHITLWhitelist:
             "list_entities_by_domain",
             "search_entities",
             "get_domain_summary",
+            "get_automation_config",
+            "get_script_config",
             "discover_entities",
             "seek_approval",
             "consult_data_science_team",
+            "consult_dashboard_designer",
             "create_insight_schedule",
             "check_ha_config",
         ]

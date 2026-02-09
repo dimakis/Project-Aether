@@ -271,19 +271,22 @@ class ArchitectAgent(BaseAgent):
     # Every tool in get_architect_tools() is read-only except seek_approval,
     # which is the approval mechanism itself (creating proposals, not mutations).
     _READ_ONLY_TOOLS: frozenset[str] = frozenset({
-        # HA query tools (8)
+        # HA query tools (10)
         "get_entity_state",
         "list_entities_by_domain",
         "search_entities",
         "get_domain_summary",
         "list_automations",
+        "get_automation_config",
+        "get_script_config",
         "render_template",
         "get_ha_logs",
         "check_ha_config",
         # Discovery (1)
         "discover_entities",
-        # DS Team delegation (1) — read-only analysis
+        # Specialist delegation (2) — read-only analysis
         "consult_data_science_team",
+        "consult_dashboard_designer",
         # Scheduling (1) — creates config, no HA mutation
         "create_insight_schedule",
         # Approval (1) — creating proposals IS the approval mechanism
@@ -773,7 +776,7 @@ class ArchitectWorkflow:
         async def _traced_invoke():
             # Set session for grouping multiple turns
             mlflow.update_current_trace(
-                metadata={"mlflow.trace.session": state.conversation_id}
+                tags={"mlflow.trace.session": state.conversation_id}
             )
             return await self.agent.invoke(state, session=session)
 
@@ -827,7 +830,7 @@ class ArchitectWorkflow:
         ):
             # Set session for grouping multiple turns
             mlflow.update_current_trace(
-                metadata={"mlflow.trace.session": conversation_id}
+                tags={"mlflow.trace.session": conversation_id}
             )
 
             # Capture the trace request_id so the SSE stream can include it
