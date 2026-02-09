@@ -6,6 +6,52 @@ without requiring external infrastructure.
 Constitution: Reliability & Quality - real service testing.
 """
 
+import os
+import shutil
+import subprocess
+
+
+def _configure_container_runtime() -> None:
+    """Auto-detect container runtime so testcontainers works with Docker or Podman.
+
+    Detection order (first match wins):
+      1. DOCKER_HOST already set — respect it.
+      2. /var/run/docker.sock exists — standard Docker.
+      3. Linux rootless Podman socket.
+      4. macOS Podman machine socket via ``podman machine inspect``.
+      5. None found — do nothing; tests will skip gracefully.
+    """
+    if os.environ.get("DOCKER_HOST"):
+        return
+    if os.path.exists("/var/run/docker.sock"):
+        return
+
+    # Linux rootless Podman
+    linux_socket = f"/run/user/{os.getuid()}/podman/podman.sock"
+    if os.path.exists(linux_socket):
+        os.environ["DOCKER_HOST"] = f"unix://{linux_socket}"
+        os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
+        return
+
+    # macOS Podman machine
+    if shutil.which("podman"):
+        try:
+            result = subprocess.run(
+                ["podman", "machine", "inspect",
+                 "--format", "{{.ConnectionInfo.PodmanSocket.Path}}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0:
+                sock = result.stdout.strip()
+                if sock and os.path.exists(sock):
+                    os.environ["DOCKER_HOST"] = f"unix://{sock}"
+                    os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+
+
+_configure_container_runtime()
+
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
@@ -14,6 +60,7 @@ import pytest_asyncio
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+import src.storage.entities  # noqa: F401 — register all models with Base.metadata
 from src.storage.models import Base
 
 # Try to import testcontainers, skip tests if not available
