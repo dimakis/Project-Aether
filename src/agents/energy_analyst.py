@@ -12,14 +12,13 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.base_analyst import BaseAnalyst
 from src.agents.model_context import get_model_context
 from src.agents.prompts import load_prompt
-from src.dal import EntityRepository
 from src.graph.state import (
     AgentRole,
     AnalysisState,
@@ -27,8 +26,10 @@ from src.graph.state import (
     SpecialistFinding,
 )
 from src.ha import EnergyHistoryClient
-from src.sandbox.runner import SandboxResult
 from src.tracing import log_metric, log_param
+
+if TYPE_CHECKING:
+    from src.sandbox.runner import SandboxResult
 
 logger = logging.getLogger(__name__)
 
@@ -211,8 +212,7 @@ class EnergyAnalyst(BaseAnalyst):
 
                 return {
                     "insights": [
-                        {"title": f.title, "description": f.description}
-                        for f in findings
+                        {"title": f.title, "description": f.description} for f in findings
                     ],
                     "generated_script": script,
                     "team_analysis": state.team_analysis,
@@ -226,9 +226,7 @@ class EnergyAnalyst(BaseAnalyst):
     # Private helpers
     # -----------------------------------------------------------------
 
-    def _build_analysis_prompt(
-        self, state: AnalysisState, data: dict[str, Any]
-    ) -> str:
+    def _build_analysis_prompt(self, state: AnalysisState, data: dict[str, Any]) -> str:
         """Build the energy analysis prompt."""
         entity_count = data.get("entity_count", len(state.entity_ids))
         total_kwh = data.get("total_kwh", 0.0)

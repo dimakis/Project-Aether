@@ -8,11 +8,11 @@ Tests:
 - API schemas validate url_preference values
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
-from src.ha.base import HAClientConfig, BaseHAClient
-
+from src.ha.base import BaseHAClient, HAClientConfig
 
 # ─── HAClientConfig ──────────────────────────────────────────────────────────
 
@@ -27,9 +27,7 @@ class TestHAClientConfigUrlPreference:
 
     def test_accepts_local(self):
         """url_preference accepts 'local'."""
-        config = HAClientConfig(
-            ha_url="http://local:8123", ha_token="tok", url_preference="local"
-        )
+        config = HAClientConfig(ha_url="http://local:8123", ha_token="tok", url_preference="local")
         assert config.url_preference == "local"
 
     def test_accepts_remote(self):
@@ -159,8 +157,10 @@ class TestConnectUrlPreference:
         mock_http.__aexit__ = AsyncMock(return_value=False)
         mock_http.get = AsyncMock(return_value=mock_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_http), \
-             pytest.raises(Exception, match="All connection attempts failed"):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_http),
+            pytest.raises(Exception, match="All connection attempts failed"),
+        ):
             await client.connect()
 
         # All get() calls must have been to local URL, never remote
@@ -178,8 +178,8 @@ class TestResolveZoneConfigPreference:
 
     def test_zone_config_includes_url_preference(self, monkeypatch):
         """When zone DB returns url_preference, it's set on HAClientConfig."""
+
         from src.ha import client as client_mod
-        from pydantic import SecretStr
 
         fake_config = HAClientConfig(
             ha_url="http://zone-local:8123",
@@ -187,9 +187,7 @@ class TestResolveZoneConfigPreference:
             ha_token="zone-tok",
             url_preference="remote",
         )
-        monkeypatch.setattr(
-            "src.ha.client._resolve_zone_config", lambda key: fake_config
-        )
+        monkeypatch.setattr("src.ha.client._resolve_zone_config", lambda key: fake_config)
 
         # Clear cache
         client_mod._clients.clear()
@@ -230,6 +228,7 @@ class TestApiSchemaUrlPreference:
     def test_zone_create_rejects_invalid(self):
         """ZoneCreate rejects invalid url_preference values."""
         from pydantic import ValidationError
+
         from src.api.routes.ha_zones import ZoneCreate
 
         with pytest.raises(ValidationError):
@@ -250,6 +249,7 @@ class TestApiSchemaUrlPreference:
     def test_zone_update_rejects_invalid(self):
         """ZoneUpdate rejects invalid url_preference values."""
         from pydantic import ValidationError
+
         from src.api.routes.ha_zones import ZoneUpdate
 
         with pytest.raises(ValidationError):

@@ -18,37 +18,37 @@ from src.dal.conversations import (
 )
 from src.dal.devices import DeviceRepository
 from src.dal.entities import EntityRepository
-from src.dal.insights import InsightRepository
 from src.dal.insight_schedules import InsightScheduleRepository
+from src.dal.insights import InsightRepository
 from src.dal.queries import NaturalLanguageQueryEngine, query_entities
 from src.dal.services import ServiceRepository, seed_services
 from src.dal.sync import DiscoverySyncService
 
 __all__ = [
-    # Agent configuration (Feature 23)
-    "AgentRepository",
     "AgentConfigVersionRepository",
     "AgentPromptVersionRepository",
-    # Entity repositories
-    "EntityRepository",
-    "DeviceRepository",
+    # Agent configuration (Feature 23)
+    "AgentRepository",
     "AreaRepository",
     # HA registry repositories
     "AutomationRepository",
-    "ScriptRepository",
-    "SceneRepository",
-    "ServiceRepository",
     # Conversation repositories (US2)
     "ConversationRepository",
-    "MessageRepository",
-    "ProposalRepository",
+    "DeviceRepository",
+    # Services
+    "DiscoverySyncService",
+    # Entity repositories
+    "EntityRepository",
     # Insight repositories (US3)
     "InsightRepository",
     # Insight schedules (Feature 10)
     "InsightScheduleRepository",
-    # Services
-    "DiscoverySyncService",
+    "MessageRepository",
     "NaturalLanguageQueryEngine",
+    "ProposalRepository",
+    "SceneRepository",
+    "ScriptRepository",
+    "ServiceRepository",
     "query_entities",
     "seed_services",
 ]

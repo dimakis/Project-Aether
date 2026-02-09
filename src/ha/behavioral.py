@@ -12,7 +12,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.ha.logbook import (
     ACTION_TYPE_AUTOMATION,
@@ -20,7 +20,9 @@ from src.ha.logbook import (
     LogbookHistoryClient,
     classify_action,
 )
-from src.ha.parsers import ParsedLogbookEntry
+
+if TYPE_CHECKING:
+    from src.ha.parsers import ParsedLogbookEntry
 
 logger = logging.getLogger(__name__)
 
@@ -130,9 +132,7 @@ class BehavioralAnalysisClient:
             for entry in entries:
                 if entry.when:
                     try:
-                        dt = datetime.fromisoformat(
-                            entry.when.replace("Z", "+00:00")
-                        )
+                        dt = datetime.fromisoformat(entry.when.replace("Z", "+00:00"))
                         report.by_hour[dt.hour] += 1
                         report.last_press = entry.when
                     except (ValueError, AttributeError):
@@ -166,7 +166,7 @@ class BehavioralAnalysisClient:
         manual_overrides: dict[str, int] = defaultdict(int)
 
         # Track which entities are controlled by automations
-        automation_entities: dict[str, set[str]] = defaultdict(set)
+        defaultdict(set)
 
         for entry in entries:
             action = classify_action(entry)
@@ -236,9 +236,7 @@ class BehavioralAnalysisClient:
         for entry in entries:
             if entry.when and entry.entity_id:
                 try:
-                    dt = datetime.fromisoformat(
-                        entry.when.replace("Z", "+00:00")
-                    )
+                    dt = datetime.fromisoformat(entry.when.replace("Z", "+00:00"))
                     timed_entries.append((dt, entry))
                 except (ValueError, AttributeError):
                     pass
@@ -305,9 +303,7 @@ class BehavioralAnalysisClient:
         for entry in manual_actions:
             if entry.entity_id and entry.when:
                 try:
-                    dt = datetime.fromisoformat(
-                        entry.when.replace("Z", "+00:00")
-                    )
+                    dt = datetime.fromisoformat(entry.when.replace("Z", "+00:00"))
                     # Group by entity and hour of day
                     key = (entry.entity_id, dt.hour)
                     patterns[key].append(entry)
@@ -374,16 +370,10 @@ class BehavioralAnalysisClient:
                 issue = f"Only {len(activity)} state change(s) in {hours}h"
 
             # Check for unavailable/unknown states
-            unavailable_count = sum(
-                1 for e in activity
-                if e.state in ("unavailable", "unknown")
-            )
+            unavailable_count = sum(1 for e in activity if e.state in ("unavailable", "unknown"))
             if unavailable_count > len(activity) * 0.3:
                 status = "unresponsive"
-                issue = (
-                    f"{unavailable_count}/{len(activity)} states "
-                    f"are unavailable/unknown"
-                )
+                issue = f"{unavailable_count}/{len(activity)} states are unavailable/unknown"
 
             health_entries.append(
                 DeviceHealthEntry(
@@ -402,10 +392,10 @@ class BehavioralAnalysisClient:
 
 
 __all__ = [
+    "AutomationEffectivenessReport",
+    "AutomationGap",
     "BehavioralAnalysisClient",
     "ButtonUsageReport",
-    "AutomationEffectivenessReport",
     "CorrelationResult",
-    "AutomationGap",
     "DeviceHealthEntry",
 ]

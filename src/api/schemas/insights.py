@@ -48,10 +48,10 @@ class InsightCreate(BaseModel):
 
     type: InsightType = Field(description="Insight category")
     title: str = Field(max_length=500, description="Brief summary")
-    description: str = Field(max_length=10_000, description="Detailed explanation (markdown supported)")
-    evidence: dict[str, Any] = Field(
-        description="Supporting data (charts, statistics, queries)"
+    description: str = Field(
+        max_length=10_000, description="Detailed explanation (markdown supported)"
     )
+    evidence: dict[str, Any] = Field(description="Supporting data (charts, statistics, queries)")
     confidence: float = Field(
         ge=0.0,
         le=1.0,
@@ -153,9 +153,7 @@ class AnalysisJob(BaseModel):
     """Schema for an analysis job status."""
 
     job_id: str = Field(description="Job UUID")
-    status: str = Field(
-        description="Job status: pending, running, completed, failed"
-    )
+    status: str = Field(description="Job status: pending, running, completed, failed")
     analysis_type: str = Field(description="Type of analysis")
     progress: float = Field(
         ge=0.0,
@@ -255,23 +253,23 @@ class EnergyOverviewResponse(BaseModel):
 
 # Exports
 __all__ = [
-    # Enums
-    "InsightType",
-    "InsightStatus",
-    # Insight CRUD
-    "InsightCreate",
-    "InsightResponse",
-    "InsightListResponse",
-    "InsightSummary",
-    # Analysis
-    "AnalysisRequest",
+    "ActionRequest",
     "AnalysisJob",
     "AnalysisJobResponse",
-    # Actions
-    "ReviewRequest",
-    "ActionRequest",
+    # Analysis
+    "AnalysisRequest",
     "DismissRequest",
+    "EnergyOverviewResponse",
     # Energy
     "EnergyStatsResponse",
-    "EnergyOverviewResponse",
+    # Insight CRUD
+    "InsightCreate",
+    "InsightListResponse",
+    "InsightResponse",
+    "InsightStatus",
+    "InsightSummary",
+    # Enums
+    "InsightType",
+    # Actions
+    "ReviewRequest",
 ]

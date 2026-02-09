@@ -6,9 +6,10 @@ consistent tracing, error handling, and state management.
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import Any, AsyncGenerator
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -84,7 +85,7 @@ class BaseAgent(ABC):
         span_metadata: dict[str, Any] = {
             "agent_role": self.role.value,
             "operation": operation,
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": datetime.now(UTC).isoformat(),
         }
 
         if state:
@@ -97,12 +98,13 @@ class BaseAgent(ABC):
             # First try to use conversation_id from state (most reliable)
             if state and hasattr(state, "conversation_id"):
                 session_id = getattr(state, "conversation_id", None)
-            
+
             # Fall back to session context if no conversation_id
             if not session_id:
                 from src.tracing.context import get_session_id
+
                 session_id = get_session_id()
-            
+
             if session_id:
                 span_metadata["session_id"] = session_id
         except Exception:
@@ -139,9 +141,7 @@ class BaseAgent(ABC):
                 # Try to create span
                 import mlflow
 
-                ctx = mlflow.start_span(
-                    name=span_name, span_type="CHAIN", attributes=span_attrs
-                )
+                ctx = mlflow.start_span(name=span_name, span_type="CHAIN", attributes=span_attrs)
                 ctx.__enter__()
                 span = get_active_span()
                 add_span_event(span, "start", {"operation": operation})
@@ -150,9 +150,7 @@ class BaseAgent(ABC):
                 # This enables MLflow UI to group traces by session
                 if session_id:
                     try:
-                        mlflow.update_current_trace(
-                            tags={"mlflow.trace.session": session_id}
-                        )
+                        mlflow.update_current_trace(tags={"mlflow.trace.session": session_id})
                     except Exception:
                         logger.debug("Failed to update trace session metadata", exc_info=True)
 
@@ -168,13 +166,11 @@ class BaseAgent(ABC):
 
         try:
             # Auto-emit agent_start to execution context progress queue
-            emit_progress(
-                "agent_start", self.role.value, f"{self.name} started"
-            )
+            emit_progress("agent_start", self.role.value, f"{self.name} started")
 
             yield span_metadata
 
-            span_metadata["completed_at"] = datetime.now(timezone.utc).isoformat()
+            span_metadata["completed_at"] = datetime.now(UTC).isoformat()
             span_metadata["status"] = "success"
 
             # Set span outputs if provided in metadata
@@ -184,12 +180,10 @@ class BaseAgent(ABC):
             add_span_event(span, "end", {"status": "success"})
 
             # Auto-emit agent_end on success
-            emit_progress(
-                "agent_end", self.role.value, f"{self.name} completed"
-            )
+            emit_progress("agent_end", self.role.value, f"{self.name} completed")
 
         except Exception as e:
-            span_metadata["completed_at"] = datetime.now(timezone.utc).isoformat()
+            span_metadata["completed_at"] = datetime.now(UTC).isoformat()
             span_metadata["status"] = "error"
             span_metadata["error"] = str(e)
 
@@ -201,9 +195,7 @@ class BaseAgent(ABC):
             add_span_event(span, "error", {"error": str(e)[:250]})
 
             # Auto-emit agent_end on error
-            emit_progress(
-                "agent_end", self.role.value, f"{self.name} failed"
-            )
+            emit_progress("agent_end", self.role.value, f"{self.name} failed")
             raise
 
         finally:
@@ -229,6 +221,7 @@ class BaseAgent(ABC):
             elif hasattr(span, "set_attribute"):
                 # Fallback for older MLflow versions
                 import json
+
                 span.set_attribute("inputs", json.dumps(inputs, default=str)[:4000])
         except Exception:
             logger.debug("Failed to set span inputs", exc_info=True)
@@ -248,6 +241,7 @@ class BaseAgent(ABC):
             elif hasattr(span, "set_attribute"):
                 # Fallback for older MLflow versions
                 import json
+
                 span.set_attribute("outputs", json.dumps(outputs, default=str)[:4000])
         except Exception:
             logger.debug("Failed to set span outputs", exc_info=True)
@@ -280,7 +274,7 @@ class BaseAgent(ABC):
 
         # Log conversation-specific context if available
         if hasattr(state, "conversation_id"):
-            log_param(f"{self.name}.conversation_id", getattr(state, "conversation_id"))
+            log_param(f"{self.name}.conversation_id", state.conversation_id)
 
         # Log messages if available (for conversation states)
         if hasattr(state, "messages") and state.messages:
@@ -297,7 +291,7 @@ class BaseAgent(ABC):
 
         # Log discovery-specific context if available
         if hasattr(state, "status"):
-            log_param(f"{self.name}.status", str(getattr(state, "status")))
+            log_param(f"{self.name}.status", str(state.status))
 
     def log_conversation(
         self,
@@ -362,7 +356,7 @@ class BaseAgent(ABC):
         artifact_data: dict[str, Any] = {
             "agent": self.name,
             "conversation_id": conversation_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "message_count": len(serialized),
             "messages": serialized,
         }
@@ -479,27 +473,27 @@ class LibrarianAgent(BaseAgent):
 
 # Import other agents
 from src.agents.architect import ArchitectAgent, ArchitectWorkflow, StreamEvent
+from src.agents.behavioral_analyst import BehavioralAnalyst
+from src.agents.dashboard_designer import DashboardDesignerAgent
 from src.agents.data_scientist import DataScientistAgent, DataScientistWorkflow
 from src.agents.developer import DeveloperAgent, DeveloperWorkflow
-from src.agents.dashboard_designer import DashboardDesignerAgent
-from src.agents.energy_analyst import EnergyAnalyst
-from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
+from src.agents.energy_analyst import EnergyAnalyst
 
 # Exports
 __all__ = [
     "AgentContext",
-    "BaseAgent",
-    "LibrarianAgent",
     "ArchitectAgent",
     "ArchitectWorkflow",
-    "StreamEvent",
+    "BaseAgent",
+    "BehavioralAnalyst",
+    "DashboardDesignerAgent",
     "DataScientistAgent",
     "DataScientistWorkflow",
     "DeveloperAgent",
     "DeveloperWorkflow",
-    "DashboardDesignerAgent",
-    "EnergyAnalyst",
-    "BehavioralAnalyst",
     "DiagnosticAnalyst",
+    "EnergyAnalyst",
+    "LibrarianAgent",
+    "StreamEvent",
 ]

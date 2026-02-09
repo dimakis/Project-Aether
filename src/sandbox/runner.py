@@ -9,7 +9,7 @@ Constitution: Isolation - All analysis scripts run in sandbox.
 import asyncio
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,7 @@ class SandboxResult(BaseModel):
     duration_seconds: float = Field(..., description="Execution time")
     timed_out: bool = Field(default=False, description="Whether execution timed out")
     policy_name: str = Field(..., description="Policy used for execution")
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
     # Resource usage (if available)
@@ -61,7 +61,7 @@ class SandboxRunner:
     # Use custom data science image with pandas, numpy, matplotlib, etc.
     # Build with: podman build -t aether-sandbox -f infrastructure/podman/Containerfile.sandbox .
     DEFAULT_IMAGE = "aether-sandbox:latest"
-    
+
     # Fallback image if custom image not available
     FALLBACK_IMAGE = "python:3.11-slim"
 
@@ -115,7 +115,7 @@ class SandboxRunner:
                 )
             return await self._run_unsandboxed(script, policy)
 
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         start_time = asyncio.get_event_loop().time()
 
         # Create temp file for the script
@@ -150,7 +150,7 @@ class SandboxRunner:
                         timeout=policy.timeout_seconds,
                     )
                     timed_out = False
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     process.kill()
                     await process.wait()
                     stdout_bytes = b""
@@ -171,7 +171,7 @@ class SandboxRunner:
                     duration_seconds=0,
                     policy_name=policy.name,
                     started_at=started_at,
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                 )
 
             except Exception as e:
@@ -182,11 +182,11 @@ class SandboxRunner:
                     duration_seconds=asyncio.get_event_loop().time() - start_time,
                     policy_name=policy.name,
                     started_at=started_at,
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                 )
 
             duration = asyncio.get_event_loop().time() - start_time
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
 
             return SandboxResult(
                 success=exit_code == 0 and not timed_out,
@@ -274,10 +274,12 @@ class SandboxRunner:
             logging.getLogger(__name__).warning(
                 "gVisor (runsc) not available - running with standard container isolation"
             )
-            policy = policy.model_copy(update={
-                "use_gvisor": False,
-                "seccomp_profile": None,  # Disable seccomp on non-gVisor systems
-            })
+            policy = policy.model_copy(
+                update={
+                    "use_gvisor": False,
+                    "seccomp_profile": None,  # Disable seccomp on non-gVisor systems
+                }
+            )
 
         # Add policy args
         cmd.extend(policy.to_podman_args())
@@ -373,7 +375,7 @@ class SandboxRunner:
         """
         import sys
 
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         start_time = asyncio.get_event_loop().time()
 
         with tempfile.NamedTemporaryFile(
@@ -398,7 +400,7 @@ class SandboxRunner:
                     timeout=policy.timeout_seconds,
                 )
                 timed_out = False
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 process.kill()
                 await process.wait()
                 stdout_bytes = b""
@@ -416,7 +418,7 @@ class SandboxRunner:
                 timed_out=timed_out,
                 policy_name=f"{policy.name}:unsandboxed",
                 started_at=started_at,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(UTC),
             )
 
         finally:

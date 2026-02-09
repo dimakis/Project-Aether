@@ -23,9 +23,7 @@ class Message(Base, UUIDMixin, TimestampMixin):
     """
 
     __tablename__ = "message"
-    __table_args__ = (
-        Index("ix_messages_conversation_created", "conversation_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_messages_conversation_created", "conversation_id", "created_at"),)
 
     conversation_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),

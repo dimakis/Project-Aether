@@ -7,7 +7,7 @@ timestamp is newer than the DB last_synced_at, or whose config is NULL.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -33,7 +33,7 @@ class FakeEntity:
 
 
 def _ts(minutes_ago: int = 0) -> datetime:
-    return datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+    return datetime.now(UTC) - timedelta(minutes=minutes_ago)
 
 
 @pytest.mark.asyncio
@@ -138,8 +138,14 @@ class TestDeltaSync:
 
         with patch.object(service, "_sync_entities_delta", new_callable=AsyncMock) as mock_delta:
             mock_delta.return_value = {"added": 1, "updated": 2, "skipped": 10, "removed": 0}
-            with patch.object(service, "_sync_automation_entities", new_callable=AsyncMock) as mock_auto:
-                mock_auto.return_value = {"automations_synced": 1, "scripts_synced": 0, "scenes_synced": 0}
+            with patch.object(
+                service, "_sync_automation_entities", new_callable=AsyncMock
+            ) as mock_auto:
+                mock_auto.return_value = {
+                    "automations_synced": 1,
+                    "scripts_synced": 0,
+                    "scenes_synced": 0,
+                }
                 with patch("src.dal.sync.parse_entity_list", return_value=[]):
                     stats = await service.run_delta_sync()
 

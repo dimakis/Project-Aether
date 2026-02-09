@@ -1,7 +1,7 @@
 """List commands for entities, areas, devices, etc."""
 
 import asyncio
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.panel import Panel
@@ -12,7 +12,7 @@ from src.cli.utils import console
 
 def entities(
     domain: Annotated[
-        Optional[str],  # noqa: UP007
+        str | None,
         typer.Option("--domain", "-d", help="Filter by domain"),
     ] = None,
     limit: Annotated[
@@ -54,12 +54,14 @@ async def _list_entities(domain: str | None, limit: int) -> None:
         rows = []
         for entity in entities:
             state_color = "green" if entity.state == "on" else "dim"
-            rows.append((
-                entity.entity_id,
-                entity.name or entity.entity_id,
-                entity.domain,
-                f"[{state_color}]{entity.state or 'unknown'}[/{state_color}]",
-            ))
+            rows.append(
+                (
+                    entity.entity_id,
+                    entity.name or entity.entity_id,
+                    entity.domain,
+                    f"[{state_color}]{entity.state or 'unknown'}[/{state_color}]",
+                )
+            )
 
     # Build table outside session (data already extracted)
     for row in rows:
@@ -133,7 +135,9 @@ async def _list_devices(limit: int) -> None:
     for device in device_list:
         entity_count = len(device.entities) if device.entities else 0
         table.add_row(
-            device.ha_device_id[:20] + "..." if len(device.ha_device_id) > 20 else device.ha_device_id,
+            device.ha_device_id[:20] + "..."
+            if len(device.ha_device_id) > 20
+            else device.ha_device_id,
             device.name,
             device.manufacturer or "-",
             device.model or "-",
@@ -146,7 +150,7 @@ async def _list_devices(limit: int) -> None:
 
 def automations(
     state: Annotated[
-        Optional[str],  # noqa: UP007
+        str | None,
         typer.Option("--state", "-s", help="Filter by state (on/off)"),
     ] = None,
     limit: Annotated[
@@ -168,7 +172,7 @@ async def _list_automations(state: str | None, limit: int) -> None:
         # Query entities with domain='automation'
         automation_list = await repo.list_all(domain="automation", limit=limit)
         total = await repo.count(domain="automation")
-        
+
         # Filter by state if specified
         if state:
             automation_list = [a for a in automation_list if a.state == state]
@@ -183,12 +187,14 @@ async def _list_automations(state: str | None, limit: int) -> None:
             state_color = "green" if auto.state == "on" else "dim"
             # Get mode from attributes if available
             mode = auto.attributes.get("mode", "single") if auto.attributes else "single"
-            rows.append((
-                auto.entity_id,
-                auto.name or auto.entity_id,
-                f"[{state_color}]{auto.state}[/{state_color}]",
-                mode,
-            ))
+            rows.append(
+                (
+                    auto.entity_id,
+                    auto.name or auto.entity_id,
+                    f"[{state_color}]{auto.state}[/{state_color}]",
+                    mode,
+                )
+            )
 
     table = Table(title=f"Automations ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
@@ -230,14 +236,18 @@ async def _list_scripts(limit: int) -> None:
         for script in script_list:
             state_color = "green" if script.state == "on" else "dim"
             mode = script.attributes.get("mode", "single") if script.attributes else "single"
-            icon = script.icon or (script.attributes.get("icon") if script.attributes else None) or "-"
-            rows.append((
-                script.entity_id,
-                script.name or script.entity_id,
-                f"[{state_color}]{script.state}[/{state_color}]",
-                mode,
-                icon,
-            ))
+            icon = (
+                script.icon or (script.attributes.get("icon") if script.attributes else None) or "-"
+            )
+            rows.append(
+                (
+                    script.entity_id,
+                    script.name or script.entity_id,
+                    f"[{state_color}]{script.state}[/{state_color}]",
+                    mode,
+                    icon,
+                )
+            )
 
     table = Table(title=f"Scripts ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
@@ -279,11 +289,13 @@ async def _list_scenes(limit: int) -> None:
         rows = []
         for scene in scene_list:
             icon = scene.icon or (scene.attributes.get("icon") if scene.attributes else None) or "-"
-            rows.append((
-                scene.entity_id,
-                scene.name or scene.entity_id,
-                icon,
-            ))
+            rows.append(
+                (
+                    scene.entity_id,
+                    scene.name or scene.entity_id,
+                    icon,
+                )
+            )
 
     table = Table(title=f"Scenes ({len(rows)}/{total})", show_header=True)
     table.add_column("Entity ID", style="cyan")
@@ -298,7 +310,7 @@ async def _list_scenes(limit: int) -> None:
 
 def services(
     domain: Annotated[
-        Optional[str],  # noqa: UP007
+        str | None,
         typer.Option("--domain", "-d", help="Filter by domain"),
     ] = None,
     limit: Annotated[

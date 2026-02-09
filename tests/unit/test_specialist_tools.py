@@ -4,15 +4,16 @@ TDD: Red phase — tests define the contract for tools that let the
 Architect delegate to DS team specialists and request synthesis.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from src.tools.specialist_tools import (
-    consult_energy_analyst,
     consult_behavioral_analyst,
     consult_diagnostic_analyst,
-    request_synthesis_review,
+    consult_energy_analyst,
     get_specialist_tools,
+    request_synthesis_review,
 )
 
 
@@ -23,21 +24,25 @@ class TestConsultEnergyAnalyst:
     async def test_returns_findings_summary(self):
         """Tool should return a summary of energy findings."""
         mock_analyst = MagicMock()
-        mock_analyst.invoke = AsyncMock(return_value={
-            "insights": [
-                {"title": "High peak usage", "description": "Peak at 18:00"},
-            ],
-            "team_analysis": MagicMock(findings=[]),
-        })
+        mock_analyst.invoke = AsyncMock(
+            return_value={
+                "insights": [
+                    {"title": "High peak usage", "description": "Peak at 18:00"},
+                ],
+                "team_analysis": MagicMock(findings=[]),
+            }
+        )
 
         with patch(
             "src.tools.specialist_tools.EnergyAnalyst",
             return_value=mock_analyst,
         ):
-            result = await consult_energy_analyst.ainvoke({
-                "query": "Analyze my energy usage",
-                "hours": 24,
-            })
+            result = await consult_energy_analyst.ainvoke(
+                {
+                    "query": "Analyze my energy usage",
+                    "hours": 24,
+                }
+            )
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -52,9 +57,11 @@ class TestConsultEnergyAnalyst:
             "src.tools.specialist_tools.EnergyAnalyst",
             return_value=mock_analyst,
         ):
-            result = await consult_energy_analyst.ainvoke({
-                "query": "Analyze energy",
-            })
+            result = await consult_energy_analyst.ainvoke(
+                {
+                    "query": "Analyze energy",
+                }
+            )
 
         assert "error" in result.lower() or "failed" in result.lower()
 
@@ -65,21 +72,25 @@ class TestConsultBehavioralAnalyst:
     @pytest.mark.asyncio
     async def test_returns_findings_summary(self):
         mock_analyst = MagicMock()
-        mock_analyst.invoke = AsyncMock(return_value={
-            "insights": [
-                {"title": "Manual override pattern", "description": "High override rate"},
-            ],
-            "team_analysis": MagicMock(findings=[]),
-        })
+        mock_analyst.invoke = AsyncMock(
+            return_value={
+                "insights": [
+                    {"title": "Manual override pattern", "description": "High override rate"},
+                ],
+                "team_analysis": MagicMock(findings=[]),
+            }
+        )
 
         with patch(
             "src.tools.specialist_tools.BehavioralAnalyst",
             return_value=mock_analyst,
         ):
-            result = await consult_behavioral_analyst.ainvoke({
-                "query": "Analyze user behavior patterns",
-                "hours": 168,
-            })
+            result = await consult_behavioral_analyst.ainvoke(
+                {
+                    "query": "Analyze user behavior patterns",
+                    "hours": 168,
+                }
+            )
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -91,21 +102,25 @@ class TestConsultDiagnosticAnalyst:
     @pytest.mark.asyncio
     async def test_returns_findings_summary(self):
         mock_analyst = MagicMock()
-        mock_analyst.invoke = AsyncMock(return_value={
-            "insights": [
-                {"title": "Sensor offline", "description": "Temp sensor offline 3h"},
-            ],
-            "team_analysis": MagicMock(findings=[]),
-        })
+        mock_analyst.invoke = AsyncMock(
+            return_value={
+                "insights": [
+                    {"title": "Sensor offline", "description": "Temp sensor offline 3h"},
+                ],
+                "team_analysis": MagicMock(findings=[]),
+            }
+        )
 
         with patch(
             "src.tools.specialist_tools.DiagnosticAnalyst",
             return_value=mock_analyst,
         ):
-            result = await consult_diagnostic_analyst.ainvoke({
-                "query": "Check system health",
-                "entity_ids": ["sensor.temperature_bedroom"],
-            })
+            result = await consult_diagnostic_analyst.ainvoke(
+                {
+                    "query": "Check system health",
+                    "entity_ids": ["sensor.temperature_bedroom"],
+                }
+            )
 
         assert isinstance(result, str)
 
@@ -134,20 +149,24 @@ class TestRequestSynthesisReview:
         )
 
         mock_synth = MagicMock()
-        mock_synth.synthesize = AsyncMock(return_value=ta.model_copy(
-            update={
-                "consensus": "LLM: Enhanced synthesis with reasoning",
-                "synthesis_strategy": "llm",
-            }
-        ))
+        mock_synth.synthesize = AsyncMock(
+            return_value=ta.model_copy(
+                update={
+                    "consensus": "LLM: Enhanced synthesis with reasoning",
+                    "synthesis_strategy": "llm",
+                }
+            )
+        )
 
         with patch(
             "src.tools.specialist_tools.LLMSynthesizer",
             return_value=mock_synth,
         ):
-            result = await request_synthesis_review.ainvoke({
-                "reason": "Conflicting findings need deeper analysis",
-            })
+            result = await request_synthesis_review.ainvoke(
+                {
+                    "reason": "Conflicting findings need deeper analysis",
+                }
+            )
 
         assert isinstance(result, str)
 
@@ -159,9 +178,13 @@ class TestConsultDashboardDesigner:
     async def test_returns_designer_response(self):
         """Tool should delegate to DashboardDesignerAgent and return its response."""
         mock_agent = MagicMock()
-        mock_agent.invoke = AsyncMock(return_value={
-            "messages": [MagicMock(content="Here is the Lovelace YAML for your energy dashboard.")],
-        })
+        mock_agent.invoke = AsyncMock(
+            return_value={
+                "messages": [
+                    MagicMock(content="Here is the Lovelace YAML for your energy dashboard.")
+                ],
+            }
+        )
 
         with (
             patch(
@@ -174,9 +197,11 @@ class TestConsultDashboardDesigner:
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
-            result = await consult_dashboard_designer.ainvoke({
-                "query": "Update my energy dashboard",
-            })
+            result = await consult_dashboard_designer.ainvoke(
+                {
+                    "query": "Update my energy dashboard",
+                }
+            )
 
         assert isinstance(result, str)
         assert "Lovelace YAML" in result or "energy dashboard" in result
@@ -198,9 +223,11 @@ class TestConsultDashboardDesigner:
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
-            result = await consult_dashboard_designer.ainvoke({
-                "query": "Update my energy dashboard",
-            })
+            result = await consult_dashboard_designer.ainvoke(
+                {
+                    "query": "Update my energy dashboard",
+                }
+            )
 
         assert "failed" in result.lower() or "error" in result.lower()
 
@@ -212,9 +239,11 @@ class TestConsultDashboardDesigner:
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
-            result = await consult_dashboard_designer.ainvoke({
-                "query": "Update my dashboard",
-            })
+            result = await consult_dashboard_designer.ainvoke(
+                {
+                    "query": "Update my dashboard",
+                }
+            )
 
         assert "disabled" in result.lower()
 
@@ -222,9 +251,11 @@ class TestConsultDashboardDesigner:
     async def test_emits_delegation_events(self):
         """Tool should emit delegation events for topology tracking."""
         mock_agent = MagicMock()
-        mock_agent.invoke = AsyncMock(return_value={
-            "messages": [MagicMock(content="Dashboard ready.")],
-        })
+        mock_agent.invoke = AsyncMock(
+            return_value={
+                "messages": [MagicMock(content="Dashboard ready.")],
+            }
+        )
 
         with (
             patch(
@@ -237,20 +268,28 @@ class TestConsultDashboardDesigner:
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
-            await consult_dashboard_designer.ainvoke({
-                "query": "Update my energy dashboard",
-            })
+            await consult_dashboard_designer.ainvoke(
+                {
+                    "query": "Update my energy dashboard",
+                }
+            )
 
         # Should delegate architect -> dashboard_designer
         mock_deleg.assert_any_call(
-            "architect", "dashboard_designer", "Update my energy dashboard",
+            "architect",
+            "dashboard_designer",
+            "Update my energy dashboard",
         )
         # Should emit agent_start and agent_end
         mock_prog.assert_any_call(
-            "agent_start", "dashboard_designer", "Dashboard Designer started",
+            "agent_start",
+            "dashboard_designer",
+            "Dashboard Designer started",
         )
         mock_prog.assert_any_call(
-            "agent_end", "dashboard_designer", "Dashboard Designer completed",
+            "agent_end",
+            "dashboard_designer",
+            "Dashboard Designer completed",
         )
 
 

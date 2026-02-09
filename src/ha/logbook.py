@@ -10,11 +10,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from src.ha.parsers import ParsedLogbookEntry, parse_logbook_list
-
 
 # Action type classification
 ACTION_TYPE_AUTOMATION = "automation_triggered"
@@ -162,10 +161,7 @@ class LogbookHistoryClient:
             Manual action entries
         """
         entries = await self.get_entries(hours=hours)
-        return [
-            e for e in entries
-            if classify_action(e) == ACTION_TYPE_BUTTON
-        ]
+        return [e for e in entries if classify_action(e) == ACTION_TYPE_BUTTON]
 
     def _calculate_stats(
         self,
@@ -200,9 +196,7 @@ class LogbookHistoryClient:
                 entity_counts[entry.entity_id] += 1
             if entry.when:
                 try:
-                    dt = datetime.fromisoformat(
-                        entry.when.replace("Z", "+00:00")
-                    )
+                    dt = datetime.fromisoformat(entry.when.replace("Z", "+00:00"))
                     hour_counts[dt.hour] += 1
                 except (ValueError, AttributeError):
                     pass
@@ -255,14 +249,14 @@ async def get_logbook_stats(
 
 
 __all__ = [
+    "ACTION_TYPE_AUTOMATION",
+    "ACTION_TYPE_BUTTON",
+    "ACTION_TYPE_SCRIPT",
+    "ACTION_TYPE_SERVICE",
+    "ACTION_TYPE_STATE_CHANGE",
+    "ACTION_TYPE_UNKNOWN",
     "LogbookHistoryClient",
     "LogbookStats",
     "classify_action",
     "get_logbook_stats",
-    "ACTION_TYPE_AUTOMATION",
-    "ACTION_TYPE_BUTTON",
-    "ACTION_TYPE_SCRIPT",
-    "ACTION_TYPE_STATE_CHANGE",
-    "ACTION_TYPE_SERVICE",
-    "ACTION_TYPE_UNKNOWN",
 ]

@@ -9,8 +9,6 @@ TDD: SSE mapping for generic agent progress visibility.
 
 import json
 
-import pytest
-
 from src.agents.architect import StreamEvent
 
 
@@ -18,13 +16,17 @@ class TestStreamEventNewTypes:
     """Verify StreamEvent supports the new progress event types."""
 
     def test_agent_start_event(self):
-        ev = StreamEvent(type="agent_start", agent="energy_analyst", content="EnergyAnalyst started")
+        ev = StreamEvent(
+            type="agent_start", agent="energy_analyst", content="EnergyAnalyst started"
+        )
         assert ev["type"] == "agent_start"
         assert ev["agent"] == "energy_analyst"
         assert ev["content"] == "EnergyAnalyst started"
 
     def test_agent_end_event(self):
-        ev = StreamEvent(type="agent_end", agent="energy_analyst", content="EnergyAnalyst completed")
+        ev = StreamEvent(
+            type="agent_end", agent="energy_analyst", content="EnergyAnalyst completed"
+        )
         assert ev["type"] == "agent_end"
         assert ev["agent"] == "energy_analyst"
 

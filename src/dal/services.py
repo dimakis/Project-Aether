@@ -19,10 +19,10 @@ class ServiceRepository(BaseRepository[Service]):
 
     Manages the service registry which is seeded with common services
     and expanded as services are discovered during agent operations.
-    
+
     Note: Service uses composite key (domain + service) instead of single HA ID.
     """
-    
+
     model = Service
     ha_id_field = "domain"  # Not used for Service, but required by base
     order_by_field = "domain"

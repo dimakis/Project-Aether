@@ -19,9 +19,9 @@ from src.api.routes.areas import get_db
 
 def _make_test_app():
     """Create a minimal FastAPI app with the area router and mock DB."""
-    from src.api.routes.areas import router
-
     from fastapi import FastAPI
+
+    from src.api.routes.areas import router
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")

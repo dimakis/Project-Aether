@@ -6,7 +6,7 @@ and automation deployment.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from langchain_core.messages import AIMessage
@@ -124,7 +124,7 @@ async def process_approval_node(
         if approved:
             approval.approved = True
             approval.approved_by = approved_by
-            approval.approved_at = datetime.now(timezone.utc)
+            approval.approved_at = datetime.now(UTC)
             approved_ids.append(approval.id)
 
             # Persist to DB if session available

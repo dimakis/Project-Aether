@@ -4,10 +4,10 @@ Provides methods for listing, getting, searching, and managing entities.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from src.ha.base import BaseHAClient, HAClientError, _trace_ha_call
+from src.ha.base import HAClientError, _trace_ha_call
 from src.tracing import log_param
 
 logger = logging.getLogger(__name__)
@@ -33,9 +33,7 @@ class EntityMixin:
                 return {}
 
             return {
-                entry.get("entity_id", ""): entry
-                for entry in registry
-                if entry.get("entity_id")
+                entry.get("entity_id", ""): entry for entry in registry if entry.get("entity_id")
             }
         except Exception as e:
             logger.warning("Failed to fetch entity registry (area_id will be blank): %s", e)
@@ -282,9 +280,7 @@ class EntityMixin:
         log_param("ha.call_service.domain", domain)
         log_param("ha.call_service.service", service)
 
-        result = await self._request(
-            "POST", f"/api/services/{domain}/{service}", json=data or {}
-        )
+        result = await self._request("POST", f"/api/services/{domain}/{service}", json=data or {})
         return result or {}
 
     @_trace_ha_call("ha.get_history")
@@ -305,7 +301,7 @@ class EntityMixin:
         log_param("ha.get_history.entity_id", entity_id)
         log_param("ha.get_history.hours", hours)
 
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         start_time = end_time - timedelta(hours=hours)
 
         history = await self._request(
@@ -324,8 +320,7 @@ class EntityMixin:
         return {
             "entity_id": entity_id,
             "states": [
-                {"state": s.get("state"), "last_changed": s.get("last_changed")}
-                for s in states
+                {"state": s.get("state"), "last_changed": s.get("last_changed")} for s in states
             ],
             "count": len(states),
             "first_changed": states[0].get("last_changed") if states else None,
@@ -354,7 +349,7 @@ class EntityMixin:
         if entity_id:
             log_param("ha.get_logbook.entity_id", entity_id)
 
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         start_time = end_time - timedelta(hours=hours)
 
         params: dict[str, Any] = {

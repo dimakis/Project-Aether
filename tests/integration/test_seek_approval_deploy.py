@@ -4,10 +4,11 @@ Tests that proposals of different types are deployed through
 the correct handler (MCP service call vs Developer workflow).
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
+
+import pytest
 
 from src.storage.entities.automation_proposal import (
     AutomationProposal,
@@ -18,7 +19,7 @@ from src.storage.entities.automation_proposal import (
 
 def _make_proposal(**kwargs) -> AutomationProposal:
     """Create a proposal with defaults."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     defaults = {
         "id": str(uuid4()),
         "name": "Test Proposal",

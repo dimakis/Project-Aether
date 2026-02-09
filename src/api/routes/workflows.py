@@ -11,7 +11,7 @@ import logging
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from src.graph.state import DEFAULT_WORKFLOW_PRESETS, WorkflowPreset
+from src.graph.state import DEFAULT_WORKFLOW_PRESETS
 
 logger = logging.getLogger(__name__)
 

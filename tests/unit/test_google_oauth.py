@@ -3,7 +3,7 @@
 TDD: Test for Plan 9 - Google Sign-In.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -33,6 +33,7 @@ class TestGoogleOAuthEndpoints:
             mock_settings_mod.get_settings.return_value = mock_settings
 
             from fastapi import HTTPException
+
             with pytest.raises(HTTPException) as exc_info:
                 await google_auth_url()
             assert exc_info.value.status_code == 501

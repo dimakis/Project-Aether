@@ -166,7 +166,7 @@ class TestDeviceRepositoryUpsert:
 
         device_repo.create = mock_create
 
-        result, created = await device_repo.upsert(sample_device)
+        _result, created = await device_repo.upsert(sample_device)
 
         assert created is True
 

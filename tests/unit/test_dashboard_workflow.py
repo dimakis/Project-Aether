@@ -4,8 +4,9 @@ Validates the LangGraph workflow for the Dashboard Designer agent,
 including graph structure, registry, and wrapper class.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 class TestBuildDashboardGraph:
@@ -13,8 +14,9 @@ class TestBuildDashboardGraph:
 
     def test_returns_state_graph(self):
         """build_dashboard_graph returns a StateGraph."""
-        from src.graph.workflows import build_dashboard_graph
         from langgraph.graph import StateGraph
+
+        from src.graph.workflows import build_dashboard_graph
 
         graph = build_dashboard_graph()
         assert isinstance(graph, StateGraph)

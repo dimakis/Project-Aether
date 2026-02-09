@@ -4,8 +4,8 @@ Feature 23: Agent Configuration Page.
 Constitution: Reliability & Quality - API route testing.
 """
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -25,8 +25,8 @@ def sample_agent():
         version="0.1.0",
         status=AgentStatus.ENABLED.value,
     )
-    agent.created_at = datetime.now(timezone.utc)
-    agent.updated_at = datetime.now(timezone.utc)
+    agent.created_at = datetime.now(UTC)
+    agent.updated_at = datetime.now(UTC)
     agent.active_config_version_id = None
     agent.active_prompt_version_id = None
     return agent
@@ -46,9 +46,9 @@ def sample_config(sample_agent):
         tools_enabled=["get_entity_state"],
         change_summary="Initial",
     )
-    cv.created_at = datetime.now(timezone.utc)
-    cv.updated_at = datetime.now(timezone.utc)
-    cv.promoted_at = datetime.now(timezone.utc)
+    cv.created_at = datetime.now(UTC)
+    cv.updated_at = datetime.now(UTC)
+    cv.promoted_at = datetime.now(UTC)
     sample_agent.active_config_version_id = cv.id
     sample_agent.active_config_version = cv
     return cv
@@ -65,9 +65,9 @@ def sample_prompt(sample_agent):
         prompt_template="You are the Architect.",
         change_summary="Initial",
     )
-    pv.created_at = datetime.now(timezone.utc)
-    pv.updated_at = datetime.now(timezone.utc)
-    pv.promoted_at = datetime.now(timezone.utc)
+    pv.created_at = datetime.now(UTC)
+    pv.updated_at = datetime.now(UTC)
+    pv.promoted_at = datetime.now(UTC)
     sample_agent.active_prompt_version_id = pv.id
     sample_agent.active_prompt_version = pv
     return pv
@@ -77,9 +77,7 @@ class TestListAgents:
     """Tests for GET /agents."""
 
     @pytest.mark.asyncio
-    async def test_list_agents_returns_all(
-        self, sample_agent, sample_config, sample_prompt
-    ):
+    async def test_list_agents_returns_all(self, sample_agent, sample_config, sample_prompt):
         """Test listing agents includes active config/prompt."""
         from src.api.routes.agents import list_agents
 
@@ -229,7 +227,7 @@ class TestConfigVersionPromote:
         from src.api.routes.agents import promote_config_version
 
         sample_config.status = VersionStatus.ACTIVE.value
-        sample_config.promoted_at = datetime.now(timezone.utc)
+        sample_config.promoted_at = datetime.now(UTC)
 
         with (
             patch("src.api.routes.agents.get_session") as mock_get_session,

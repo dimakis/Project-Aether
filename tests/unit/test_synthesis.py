@@ -6,64 +6,65 @@ TDD: Red phase — tests define contracts for:
 3. synthesize() dispatcher
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from src.agents.synthesis import (
+    LLMSynthesizer,
+    ProgrammaticSynthesizer,
+    SynthesisStrategy,
+    synthesize,
+)
 from src.graph.state import (
     AutomationSuggestion,
     SpecialistFinding,
     TeamAnalysis,
 )
-from src.agents.synthesis import (
-    ProgrammaticSynthesizer,
-    LLMSynthesizer,
-    synthesize,
-    SynthesisStrategy,
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _energy_finding(**overrides) -> SpecialistFinding:
-    defaults = dict(
-        specialist="energy_analyst",
-        finding_type="insight",
-        title="High overnight HVAC usage",
-        description="HVAC runs 8h overnight at full power.",
-        confidence=0.85,
-        entities=["climate.main_hvac"],
-        evidence={"avg_kwh": 4.2, "hours": 8},
-    )
+    defaults = {
+        "specialist": "energy_analyst",
+        "finding_type": "insight",
+        "title": "High overnight HVAC usage",
+        "description": "HVAC runs 8h overnight at full power.",
+        "confidence": 0.85,
+        "entities": ["climate.main_hvac"],
+        "evidence": {"avg_kwh": 4.2, "hours": 8},
+    }
     defaults.update(overrides)
     return SpecialistFinding(**defaults)
 
 
 def _behavioral_finding(**overrides) -> SpecialistFinding:
-    defaults = dict(
-        specialist="behavioral_analyst",
-        finding_type="insight",
-        title="Scheduled heating pattern",
-        description="Heating runs on winter schedule, occupancy normal.",
-        confidence=0.90,
-        entities=["climate.main_hvac", "binary_sensor.presence"],
-        evidence={"schedule": "winter", "occupancy_ratio": 0.95},
-    )
+    defaults = {
+        "specialist": "behavioral_analyst",
+        "finding_type": "insight",
+        "title": "Scheduled heating pattern",
+        "description": "Heating runs on winter schedule, occupancy normal.",
+        "confidence": 0.90,
+        "entities": ["climate.main_hvac", "binary_sensor.presence"],
+        "evidence": {"schedule": "winter", "occupancy_ratio": 0.95},
+    }
     defaults.update(overrides)
     return SpecialistFinding(**defaults)
 
 
 def _diagnostic_finding(**overrides) -> SpecialistFinding:
-    defaults = dict(
-        specialist="diagnostic_analyst",
-        finding_type="concern",
-        title="Temperature sensor drift",
-        description="Bedroom sensor shows 2°C drift over 7 days.",
-        confidence=0.75,
-        entities=["sensor.temperature_bedroom"],
-        evidence={"drift_celsius": 2.0, "period_days": 7},
-    )
+    defaults = {
+        "specialist": "diagnostic_analyst",
+        "finding_type": "concern",
+        "title": "Temperature sensor drift",
+        "description": "Bedroom sensor shows 2°C drift over 7 days.",
+        "confidence": 0.75,
+        "entities": ["sensor.temperature_bedroom"],
+        "evidence": {"drift_celsius": 2.0, "period_days": 7},
+    }
     defaults.update(overrides)
     return SpecialistFinding(**defaults)
 
@@ -195,7 +196,9 @@ class TestProgrammaticSynthesizer:
         result = synth.synthesize(ta)
 
         # Recommendations should include the automation suggestion
-        assert any("eco" in r.lower() or "hvac" in r.lower() for r in result.holistic_recommendations)
+        assert any(
+            "eco" in r.lower() or "hvac" in r.lower() for r in result.holistic_recommendations
+        )
 
     def test_does_not_mutate_input(self):
         """Synthesizer should return a new TeamAnalysis, not mutate the input."""
@@ -260,11 +263,7 @@ class TestLLMSynthesizer:
 
         mock_llm = AsyncMock()
         mock_llm.ainvoke.return_value = MagicMock(
-            content=(
-                '{"consensus": "OK", '
-                '"conflicts": [], '
-                '"holistic_recommendations": []}'
-            )
+            content=('{"consensus": "OK", "conflicts": [], "holistic_recommendations": []}')
         )
         synth = LLMSynthesizer(llm=mock_llm)
         result = await synth.synthesize(ta)

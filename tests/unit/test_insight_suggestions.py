@@ -8,10 +8,8 @@ TDD: T-MR08, T-MR09 - Insight automation suggestions.
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.agents.data_scientist import DataScientistAgent
-from src.graph.state import AnalysisState, AnalysisType, AgentRole, AutomationSuggestion
+from src.graph.state import AutomationSuggestion
 
 
 class TestGenerateAutomationSuggestion:
@@ -29,37 +27,43 @@ class TestGenerateAutomationSuggestion:
     def test_low_confidence_insight_returns_none(self):
         """Low confidence insight should not produce suggestion."""
         agent = self._make_agent()
-        insights = [{
-            "type": "energy_optimization",
-            "title": "Test",
-            "description": "Low confidence finding",
-            "confidence": 0.5,
-            "impact": "high",
-        }]
+        insights = [
+            {
+                "type": "energy_optimization",
+                "title": "Test",
+                "description": "Low confidence finding",
+                "confidence": 0.5,
+                "impact": "high",
+            }
+        ]
         assert agent._generate_automation_suggestion(insights) is None
 
     def test_low_impact_insight_returns_none(self):
         """Low impact insight should not produce suggestion."""
         agent = self._make_agent()
-        insights = [{
-            "type": "energy_optimization",
-            "title": "Test",
-            "description": "High confidence but low impact",
-            "confidence": 0.95,
-            "impact": "low",
-        }]
+        insights = [
+            {
+                "type": "energy_optimization",
+                "title": "Test",
+                "description": "High confidence but low impact",
+                "confidence": 0.95,
+                "impact": "low",
+            }
+        ]
         assert agent._generate_automation_suggestion(insights) is None
 
     def test_high_confidence_high_impact_energy_optimization(self):
         """High confidence + high impact energy optimization should suggest scheduling."""
         agent = self._make_agent()
-        insights = [{
-            "type": "energy_optimization",
-            "title": "Peak Hour Waste",
-            "description": "HVAC running at full power during peak rates",
-            "confidence": 0.92,
-            "impact": "high",
-        }]
+        insights = [
+            {
+                "type": "energy_optimization",
+                "title": "Peak Hour Waste",
+                "description": "HVAC running at full power during peak rates",
+                "confidence": 0.92,
+                "impact": "high",
+            }
+        ]
         suggestion = agent._generate_automation_suggestion(insights)
         assert suggestion is not None
         assert isinstance(suggestion, AutomationSuggestion)
@@ -69,29 +73,36 @@ class TestGenerateAutomationSuggestion:
     def test_high_confidence_critical_anomaly_detection(self):
         """High confidence + critical anomaly should suggest alert automation."""
         agent = self._make_agent()
-        insights = [{
-            "type": "anomaly_detection",
-            "title": "Unusual Spike",
-            "description": "Power consumption spike at 3 AM",
-            "confidence": 0.88,
-            "impact": "critical",
-        }]
+        insights = [
+            {
+                "type": "anomaly_detection",
+                "title": "Unusual Spike",
+                "description": "Power consumption spike at 3 AM",
+                "confidence": 0.88,
+                "impact": "critical",
+            }
+        ]
         suggestion = agent._generate_automation_suggestion(insights)
         assert suggestion is not None
         assert isinstance(suggestion, AutomationSuggestion)
         assert "Unusual Spike" in suggestion.pattern
-        assert "alert" in suggestion.proposed_action.lower() or "corrective" in suggestion.proposed_action.lower()
+        assert (
+            "alert" in suggestion.proposed_action.lower()
+            or "corrective" in suggestion.proposed_action.lower()
+        )
 
     def test_high_confidence_usage_pattern(self):
         """High confidence + high impact usage pattern should suggest optimization."""
         agent = self._make_agent()
-        insights = [{
-            "type": "usage_pattern",
-            "title": "Consistent Nighttime Waste",
-            "description": "Lights left on from 1-6 AM daily",
-            "confidence": 0.95,
-            "impact": "high",
-        }]
+        insights = [
+            {
+                "type": "usage_pattern",
+                "title": "Consistent Nighttime Waste",
+                "description": "Lights left on from 1-6 AM daily",
+                "confidence": 0.95,
+                "impact": "high",
+            }
+        ]
         suggestion = agent._generate_automation_suggestion(insights)
         assert suggestion is not None
         assert isinstance(suggestion, AutomationSuggestion)
@@ -101,13 +112,15 @@ class TestGenerateAutomationSuggestion:
     def test_generic_high_confidence_type(self):
         """Unknown insight type with high confidence should produce generic suggestion."""
         agent = self._make_agent()
-        insights = [{
-            "type": "custom",
-            "title": "Custom Finding",
-            "description": "Something important was found",
-            "confidence": 0.85,
-            "impact": "high",
-        }]
+        insights = [
+            {
+                "type": "custom",
+                "title": "Custom Finding",
+                "description": "Something important was found",
+                "confidence": 0.85,
+                "impact": "high",
+            }
+        ]
         suggestion = agent._generate_automation_suggestion(insights)
         assert suggestion is not None
         assert isinstance(suggestion, AutomationSuggestion)
@@ -147,13 +160,15 @@ class TestGenerateAutomationSuggestion:
     def test_cost_saving_type_suggests_scheduling(self):
         """Cost saving insight should suggest scheduling automation."""
         agent = self._make_agent()
-        insights = [{
-            "type": "cost_saving",
-            "title": "Rate Arbitrage Opportunity",
-            "description": "Could save $50/month by shifting load",
-            "confidence": 0.91,
-            "impact": "high",
-        }]
+        insights = [
+            {
+                "type": "cost_saving",
+                "title": "Rate Arbitrage Opportunity",
+                "description": "Could save $50/month by shifting load",
+                "confidence": 0.91,
+                "impact": "high",
+            }
+        ]
         suggestion = agent._generate_automation_suggestion(insights)
         assert suggestion is not None
         assert isinstance(suggestion, AutomationSuggestion)
@@ -169,13 +184,15 @@ class TestFormatEnergyAnalysisWithSuggestion:
         from src.tools.agent_tools import _format_energy_analysis
 
         state = MagicMock()
-        state.insights = [{
-            "type": "energy_optimization",
-            "title": "Test Finding",
-            "description": "Test description",
-            "confidence": 0.9,
-            "impact": "high",
-        }]
+        state.insights = [
+            {
+                "type": "energy_optimization",
+                "title": "Test Finding",
+                "description": "Test description",
+                "confidence": 0.9,
+                "impact": "high",
+            }
+        ]
         state.recommendations = ["Save energy"]
         state.entity_ids = ["sensor.power"]
         state.automation_suggestion = AutomationSuggestion(
@@ -196,13 +213,15 @@ class TestFormatEnergyAnalysisWithSuggestion:
         from src.tools.agent_tools import _format_energy_analysis
 
         state = MagicMock()
-        state.insights = [{
-            "type": "energy_optimization",
-            "title": "Test Finding",
-            "description": "Test",
-            "confidence": 0.5,
-            "impact": "medium",
-        }]
+        state.insights = [
+            {
+                "type": "energy_optimization",
+                "title": "Test Finding",
+                "description": "Test",
+                "confidence": 0.5,
+                "impact": "medium",
+            }
+        ]
         state.recommendations = []
         state.entity_ids = ["sensor.power"]
         state.automation_suggestion = None
@@ -219,13 +238,15 @@ class TestFormatDiagnosticResultsWithSuggestion:
         from src.tools.agent_tools import _format_diagnostic_results
 
         state = MagicMock()
-        state.insights = [{
-            "type": "diagnostic",
-            "title": "Integration Failure",
-            "description": "Zigbee integration dropping",
-            "confidence": 0.85,
-            "impact": "critical",
-        }]
+        state.insights = [
+            {
+                "type": "diagnostic",
+                "title": "Integration Failure",
+                "description": "Zigbee integration dropping",
+                "confidence": 0.85,
+                "impact": "critical",
+            }
+        ]
         state.recommendations = ["Restart Zigbee"]
         state.automation_suggestion = AutomationSuggestion(
             pattern="Alert when Zigbee pattern recurs",
@@ -236,7 +257,9 @@ class TestFormatDiagnosticResultsWithSuggestion:
         )
 
         result = _format_diagnostic_results(
-            state, ["sensor.zigbee"], 72,
+            state,
+            ["sensor.zigbee"],
+            72,
         )
         assert "DS Team Suggestion" in result
         assert "Zigbee pattern recurs" in result

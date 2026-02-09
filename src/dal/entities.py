@@ -1,9 +1,9 @@
 """Entity repository for HA entity CRUD operations."""
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.base import BaseRepository
 from src.storage.entities import HAEntity
@@ -29,7 +29,7 @@ class EntityRepository(BaseRepository[HAEntity]):
 
     Provides efficient entity querying with optional caching.
     """
-    
+
     model = HAEntity
     ha_id_field = "entity_id"
     order_by_field = "entity_id"
@@ -152,7 +152,6 @@ class EntityRepository(BaseRepository[HAEntity]):
         result = await self.session.execute(query)
         return {row[0]: row[1] for row in result.fetchall()}
 
-
     async def update(
         self,
         ha_entity_id: str,
@@ -175,10 +174,9 @@ class EntityRepository(BaseRepository[HAEntity]):
             if hasattr(entity, key):
                 setattr(entity, key, value)
 
-        entity.last_synced_at = datetime.now(timezone.utc)
+        entity.last_synced_at = datetime.now(UTC)
         await self.session.flush()
         return entity
-
 
     async def delete(self, ha_entity_id: str) -> bool:
         """Delete an entity by HA entity_id.

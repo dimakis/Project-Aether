@@ -20,9 +20,10 @@ import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Callable
     from contextlib import AbstractAsyncContextManager
 
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -83,9 +84,7 @@ class ExecutionContext:
 
 
 # Context variable holding the active execution context
-_exec_ctx: ContextVar[ExecutionContext | None] = ContextVar(
-    "execution_context", default=None
-)
+_exec_ctx: ContextVar[ExecutionContext | None] = ContextVar("execution_context", default=None)
 
 
 def get_execution_context() -> ExecutionContext | None:
@@ -180,9 +179,7 @@ def emit_progress(
     try:
         ctx.progress_queue.put_nowait(event)
     except asyncio.QueueFull:
-        logger.warning(
-            "Progress queue full, dropping event: %s %s", type, agent
-        )
+        logger.warning("Progress queue full, dropping event: %s %s", type, agent)
 
 
 def emit_delegation(from_agent: str, to_agent: str, content: str) -> None:

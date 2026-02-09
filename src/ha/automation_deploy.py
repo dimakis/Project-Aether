@@ -8,7 +8,7 @@ Workaround: Generate YAML for manual import, use automation.reload after.
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -122,7 +122,7 @@ class AutomationDeployer:
             return f"aether_{base_id}_{suffix}"
 
         # Use timestamp for uniqueness
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
         return f"aether_{base_id}_{timestamp}"
 
     def validate_automation_yaml(self, yaml_content: str) -> tuple[bool, list[str]]:
@@ -253,7 +253,7 @@ class AutomationDeployer:
             result["error"] = str(e)
             result["instructions"] = self._get_manual_instructions(automation_id)
 
-        result["deployed_at"] = datetime.now(timezone.utc).isoformat()
+        result["deployed_at"] = datetime.now(UTC).isoformat()
         return result
 
     def _get_manual_instructions(self, automation_id: str) -> str:
@@ -338,7 +338,7 @@ The automation will have the ID: automation.{automation_id}
             domain="automation",
             service="reload",
         )
-        return {"reloaded": True, "reloaded_at": datetime.now(timezone.utc).isoformat()}
+        return {"reloaded": True, "reloaded_at": datetime.now(UTC).isoformat()}
 
 
 # =============================================================================
@@ -471,10 +471,10 @@ def build_condition(
 # Exports
 __all__ = [
     "AutomationDeployer",
-    "build_state_trigger",
-    "build_time_trigger",
-    "build_sun_trigger",
-    "build_service_action",
-    "build_delay_action",
     "build_condition",
+    "build_delay_action",
+    "build_service_action",
+    "build_state_trigger",
+    "build_sun_trigger",
+    "build_time_trigger",
 ]

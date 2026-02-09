@@ -23,7 +23,10 @@ def _mock_entity(entity_id: str, domain: str, name: str, state: str = "on") -> M
 
 
 def _mock_automation(
-    entity_id: str, alias: str, state: str = "on", has_config: bool = True,
+    entity_id: str,
+    alias: str,
+    state: str = "on",
+    has_config: bool = True,
 ) -> MagicMock:
     """Create a mock HAAutomation."""
     a = MagicMock()
@@ -43,10 +46,12 @@ class TestListEntitiesByDomainDB:
         from src.tools.ha_tools import list_entities_by_domain
 
         mock_repo = AsyncMock()
-        mock_repo.list_by_domain = AsyncMock(return_value=[
-            _mock_entity("light.living_room", "light", "Living Room"),
-            _mock_entity("light.bedroom", "light", "Bedroom"),
-        ])
+        mock_repo.list_by_domain = AsyncMock(
+            return_value=[
+                _mock_entity("light.living_room", "light", "Living Room"),
+                _mock_entity("light.bedroom", "light", "Bedroom"),
+            ]
+        )
 
         with (
             patch("src.tools.ha_tools.get_session") as mock_get_session,
@@ -65,10 +70,12 @@ class TestListEntitiesByDomainDB:
         from src.tools.ha_tools import list_entities_by_domain
 
         mock_repo = AsyncMock()
-        mock_repo.list_by_domain = AsyncMock(return_value=[
-            _mock_entity("light.living_room", "light", "Living Room", "on"),
-            _mock_entity("light.bedroom", "light", "Bedroom", "off"),
-        ])
+        mock_repo.list_by_domain = AsyncMock(
+            return_value=[
+                _mock_entity("light.living_room", "light", "Living Room", "on"),
+                _mock_entity("light.bedroom", "light", "Bedroom", "off"),
+            ]
+        )
 
         with (
             patch("src.tools.ha_tools.get_session") as mock_get_session,
@@ -77,7 +84,9 @@ class TestListEntitiesByDomainDB:
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            result = await list_entities_by_domain.ainvoke({"domain": "light", "state_filter": "off"})
+            result = await list_entities_by_domain.ainvoke(
+                {"domain": "light", "state_filter": "off"}
+            )
 
         assert "light.bedroom" in result
         assert "light.living_room" not in result
@@ -91,9 +100,11 @@ class TestSearchEntitiesDB:
         from src.tools.ha_tools import search_entities
 
         mock_repo = AsyncMock()
-        mock_repo.search = AsyncMock(return_value=[
-            _mock_entity("light.living_room", "light", "Living Room"),
-        ])
+        mock_repo.search = AsyncMock(
+            return_value=[
+                _mock_entity("light.living_room", "light", "Living Room"),
+            ]
+        )
 
         with (
             patch("src.tools.ha_tools.get_session") as mock_get_session,
@@ -117,13 +128,15 @@ class TestGetDomainSummaryDB:
 
         mock_repo = AsyncMock()
         mock_repo.count = AsyncMock(return_value=5)
-        mock_repo.list_all = AsyncMock(return_value=[
-            _mock_entity("light.a", "light", "A", "on"),
-            _mock_entity("light.b", "light", "B", "on"),
-            _mock_entity("light.c", "light", "C", "off"),
-            _mock_entity("light.d", "light", "D", "off"),
-            _mock_entity("light.e", "light", "E", "on"),
-        ])
+        mock_repo.list_all = AsyncMock(
+            return_value=[
+                _mock_entity("light.a", "light", "A", "on"),
+                _mock_entity("light.b", "light", "B", "on"),
+                _mock_entity("light.c", "light", "C", "off"),
+                _mock_entity("light.d", "light", "D", "off"),
+                _mock_entity("light.e", "light", "E", "on"),
+            ]
+        )
 
         with (
             patch("src.tools.ha_tools.get_session") as mock_get_session,
@@ -146,10 +159,12 @@ class TestListAutomationsDB:
         from src.tools.ha_tools import list_automations
 
         mock_repo = AsyncMock()
-        mock_repo.list_all = AsyncMock(return_value=[
-            _mock_automation("automation.sunset", "Sunset Lights", "on", True),
-            _mock_automation("automation.motion", "Motion Lights", "off", False),
-        ])
+        mock_repo.list_all = AsyncMock(
+            return_value=[
+                _mock_automation("automation.sunset", "Sunset Lights", "on", True),
+                _mock_automation("automation.motion", "Motion Lights", "off", False),
+            ]
+        )
 
         with (
             patch("src.tools.ha_tools.get_session") as mock_get_session,
@@ -164,7 +179,9 @@ class TestListAutomationsDB:
         assert "Motion Lights" in result
 
 
-def _mock_script(entity_id: str, alias: str, sequence: list | None = None, fields: dict | None = None) -> MagicMock:
+def _mock_script(
+    entity_id: str, alias: str, sequence: list | None = None, fields: dict | None = None
+) -> MagicMock:
     """Create a mock Script."""
     s = MagicMock()
     s.entity_id = entity_id

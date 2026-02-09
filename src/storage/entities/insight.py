@@ -7,13 +7,13 @@ and other analytical outputs from the Data Science team.
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.storage.models import Base, TimestampMixin, UUIDMixin
+from src.storage.models import Base
 
 
 class InsightType(str, enum.Enum):
@@ -156,12 +156,12 @@ class Insight(Base):
     def mark_reviewed(self) -> None:
         """Mark insight as reviewed."""
         self.status = InsightStatus.REVIEWED
-        self.reviewed_at = datetime.now(timezone.utc)
+        self.reviewed_at = datetime.now(UTC)
 
     def mark_actioned(self) -> None:
         """Mark insight as actioned."""
         self.status = InsightStatus.ACTIONED
-        self.actioned_at = datetime.now(timezone.utc)
+        self.actioned_at = datetime.now(UTC)
 
     def dismiss(self) -> None:
         """Dismiss the insight."""

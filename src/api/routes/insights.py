@@ -3,14 +3,15 @@
 User Story 3: Energy Optimization Suggestions.
 """
 
+import contextlib
+from datetime import UTC
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from src.api.rate_limit import limiter
-
 from src.api.schemas import (
     ActionRequest,
     AnalysisJob,
-    AnalysisJobResponse,
     AnalysisRequest,
     DismissRequest,
     ErrorResponse,
@@ -71,20 +72,18 @@ async def list_insights(
         status_filter = None
 
         if type:
-            try:
+            with contextlib.suppress(ValueError):
                 type_filter = InsightType(type.lower())
-            except ValueError:
-                pass
 
         if status:
-            try:
+            with contextlib.suppress(ValueError):
                 status_filter = InsightStatus(status.lower())
-            except ValueError:
-                pass
 
         # Fetch based on filters
         if type_filter:
-            insights = await repo.list_by_type(type_filter, status=status_filter, limit=limit, offset=offset)
+            insights = await repo.list_by_type(
+                type_filter, status=status_filter, limit=limit, offset=offset
+            )
         elif status_filter:
             insights = await repo.list_by_status(status_filter, limit=limit, offset=offset)
         else:
@@ -255,7 +254,9 @@ async def action_insight(request: Request, insight_id: str, data: ActionRequest)
     responses={404: {"model": ErrorResponse}},
 )
 @limiter.limit("10/minute")
-async def dismiss_insight(request: Request, insight_id: str, data: DismissRequest) -> InsightResponse:
+async def dismiss_insight(
+    request: Request, insight_id: str, data: DismissRequest
+) -> InsightResponse:
     """Dismiss an insight."""
     async with get_session() as session:
         repo = InsightRepository(session)
@@ -308,7 +309,7 @@ async def start_analysis(
     This runs asynchronously in the background and returns
     a job ID that can be used to check status.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
     from uuid import uuid4
 
     # Create job placeholder
@@ -318,7 +319,7 @@ async def start_analysis(
         status="pending",
         analysis_type=data.analysis_type,
         progress=0.0,
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
 
     # Queue the actual analysis work
@@ -371,4 +372,5 @@ async def _run_analysis_job(
     except Exception as e:
         # Log error but don't raise (background task)
         import logging
+
         logging.getLogger(__name__).error(f"Analysis job {job_id} failed: {e}")

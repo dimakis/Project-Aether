@@ -4,16 +4,17 @@ Provides CRUD endpoints for creating, listing, updating, deleting,
 and testing connectivity to Home Assistant zones.
 """
 
+from contextlib import suppress
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+import src.settings as _settings_mod
 from src.api.auth import _get_jwt_secret
 from src.api.ha_verify import verify_ha_connection
 from src.dal.ha_zones import HAZoneRepository
 from src.storage import get_session
-import src.settings as _settings_mod
 
 router = APIRouter(prefix="/zones", tags=["HA Zones"])
 
@@ -26,9 +27,7 @@ class ZoneCreate(BaseModel):
 
     name: str = Field(max_length=200, description="Human-readable zone name")
     ha_url: str = Field(max_length=500, description="Primary/local HA URL")
-    ha_url_remote: str | None = Field(
-        None, max_length=500, description="Public/remote HA URL"
-    )
+    ha_url_remote: str | None = Field(None, max_length=500, description="Public/remote HA URL")
     ha_token: str = Field(description="HA long-lived access token")
     is_default: bool = False
     latitude: float | None = None
@@ -129,10 +128,10 @@ async def create_zone(body: ZoneCreate):
 
     # If remote URL provided, try it too (but don't fail on it)
     if body.ha_url_remote:
-        try:
-            await verify_ha_connection(body.ha_url_remote, body.ha_token)
-        except HTTPException:
-            pass  # Remote is optional; it may not be reachable from server
+        with suppress(HTTPException):
+            await verify_ha_connection(
+                body.ha_url_remote, body.ha_token
+            )  # Remote is optional; it may not be reachable from server
 
     secret = _get_secret()
 

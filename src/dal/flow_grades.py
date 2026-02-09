@@ -6,7 +6,7 @@ conversation steps and overall quality).
 
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.storage.entities.flow_grade import FlowGrade
@@ -102,9 +102,7 @@ class FlowGradeRepository:
 
     async def delete(self, grade_id: str) -> bool:
         """Delete a grade by ID."""
-        result = await self.session.execute(
-            select(FlowGrade).where(FlowGrade.id == grade_id)
-        )
+        result = await self.session.execute(select(FlowGrade).where(FlowGrade.id == grade_id))
         fg = result.scalar_one_or_none()
         if fg:
             await self.session.delete(fg)

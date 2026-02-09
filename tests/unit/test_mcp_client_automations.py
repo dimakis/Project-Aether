@@ -3,7 +3,7 @@
 Tests the new REST API-based automation CRUD operations.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -16,10 +16,12 @@ class TestCreateAutomation:
         """Test successful automation creation."""
         from src.ha.client import HAClient, HAClientConfig
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         # Mock the _request method
         client._request = AsyncMock(return_value={})
@@ -49,10 +51,12 @@ class TestCreateAutomation:
         """Test automation creation with conditions."""
         from src.ha.client import HAClient, HAClientConfig
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         client._request = AsyncMock(return_value={})
 
@@ -66,7 +70,7 @@ class TestCreateAutomation:
         )
 
         assert result["success"] is True
-        
+
         # Verify conditions were included
         call_json = client._request.call_args[1]["json"]
         assert "condition" in call_json
@@ -77,12 +81,16 @@ class TestCreateAutomation:
         """Test automation creation failure handling."""
         from src.ha.client import HAClient, HAClientConfig, HAClientError
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
-        client._request = AsyncMock(side_effect=HAClientError("Connection failed", "create_automation"))
+        client._request = AsyncMock(
+            side_effect=HAClientError("Connection failed", "create_automation")
+        )
 
         result = await client.create_automation(
             automation_id="test_automation",
@@ -104,10 +112,12 @@ class TestDeleteAutomation:
         """Test successful automation deletion."""
         from src.ha.client import HAClient, HAClientConfig
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         client._request = AsyncMock(return_value={})
 
@@ -115,7 +125,7 @@ class TestDeleteAutomation:
 
         assert result["success"] is True
         assert result["automation_id"] == "test_automation"
-        
+
         client._request.assert_called_once()
         call_args = client._request.call_args
         assert call_args[0][0] == "DELETE"
@@ -125,10 +135,12 @@ class TestDeleteAutomation:
         """Test deleting non-existent automation."""
         from src.ha.client import HAClient, HAClientConfig, HAClientError
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         client._request = AsyncMock(side_effect=HAClientError("Not found", "delete_automation"))
 
@@ -145,10 +157,12 @@ class TestGetAutomationConfig:
         """Test getting existing automation config."""
         from src.ha.client import HAClient, HAClientConfig
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         expected_config = {
             "id": "motion_lights",
@@ -168,10 +182,12 @@ class TestGetAutomationConfig:
         """Test getting non-existent automation config."""
         from src.ha.client import HAClient, HAClientConfig
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         client._request = AsyncMock(return_value=None)
 
@@ -188,10 +204,12 @@ class TestListAutomationConfigs:
         """Test listing all automation configs."""
         from src.ha.client import HAClient, HAClientConfig
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         expected = [
             {"id": "auto_1", "alias": "Automation 1"},
@@ -209,10 +227,12 @@ class TestListAutomationConfigs:
         """Test listing when no automations exist."""
         from src.ha.client import HAClient, HAClientConfig
 
-        client = HAClient(HAClientConfig(
-            ha_url="http://localhost:8123",
-            ha_token="test-token",
-        ))
+        client = HAClient(
+            HAClientConfig(
+                ha_url="http://localhost:8123",
+                ha_token="test-token",
+            )
+        )
 
         client._request = AsyncMock(return_value=None)
 

@@ -3,8 +3,6 @@
 TDD: Test for Plan 7 - Model Registry.
 """
 
-import pytest
-
 
 class TestModelRatingEntity:
     """Test ModelRating model."""

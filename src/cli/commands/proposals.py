@@ -1,7 +1,7 @@
 """Proposals commands."""
 
 import asyncio
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 import yaml
@@ -20,8 +20,10 @@ app = typer.Typer(
 @app.command("list")
 def proposals_list(
     status: Annotated[
-        Optional[str],
-        typer.Option("--status", "-s", help="Filter by status (proposed, approved, deployed, etc.)"),
+        str | None,
+        typer.Option(
+            "--status", "-s", help="Filter by status (proposed, approved, deployed, etc.)"
+        ),
     ] = None,
     limit: Annotated[
         int,
@@ -32,7 +34,7 @@ def proposals_list(
     asyncio.run(_list_proposals(status, limit))
 
 
-async def _list_proposals(status: Optional[str], limit: int) -> None:
+async def _list_proposals(status: str | None, limit: int) -> None:
     """List proposals."""
     from src.dal import ProposalRepository
     from src.storage import get_session
@@ -153,9 +155,7 @@ async def _approve_proposal(proposal_id: str, user: str) -> None:
             return
 
         if proposal.status != ProposalStatus.PROPOSED:
-            console.print(
-                f"[red]Cannot approve proposal in status {proposal.status.value}.[/red]"
-            )
+            console.print(f"[red]Cannot approve proposal in status {proposal.status.value}.[/red]")
             return
 
         await repo.approve(proposal_id, user)
@@ -189,9 +189,7 @@ async def _reject_proposal(proposal_id: str, reason: str) -> None:
             return
 
         if proposal.status not in (ProposalStatus.PROPOSED, ProposalStatus.APPROVED):
-            console.print(
-                f"[red]Cannot reject proposal in status {proposal.status.value}.[/red]"
-            )
+            console.print(f"[red]Cannot reject proposal in status {proposal.status.value}.[/red]")
             return
 
         await repo.reject(proposal_id, reason)
@@ -238,7 +236,7 @@ async def _deploy_proposal(proposal_id: str) -> None:
             result = await workflow.deploy(proposal_id, session)
             await session.commit()
 
-            console.print(f"[green]✅ Deployment successful![/green]")
+            console.print("[green]✅ Deployment successful![/green]")
             console.print(f"[dim]Method: {result.get('deployment_method', 'manual')}[/dim]")
             console.print(f"[dim]HA Automation ID: {result.get('ha_automation_id', 'N/A')}[/dim]")
 
@@ -289,7 +287,7 @@ async def _rollback_proposal(proposal_id: str) -> None:
             await session.commit()
 
             if result.get("rolled_back"):
-                console.print(f"[green]✅ Rollback successful![/green]")
+                console.print("[green]✅ Rollback successful![/green]")
                 if result.get("note"):
                     console.print(f"[dim]{result['note']}[/dim]")
             else:

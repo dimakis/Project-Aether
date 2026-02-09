@@ -4,6 +4,7 @@ Transforms raw HA responses into typed Pydantic models
 for use in the application.
 """
 
+import contextlib
 from datetime import datetime
 from typing import Any
 
@@ -108,15 +109,11 @@ def parse_entity_list(data: list[dict[str, Any]]) -> list[ParsedEntity]:
         last_changed = None
         last_updated = None
         if "last_changed" in item:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 last_changed = datetime.fromisoformat(item["last_changed"].replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
         if "last_updated" in item:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 last_updated = datetime.fromisoformat(item["last_updated"].replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
 
         entities.append(
             ParsedEntity(
@@ -251,17 +248,17 @@ def parse_logbook_list(data: list[dict[str, Any]]) -> list[ParsedLogbookEntry]:
 
 
 __all__ = [
-    "SystemOverview",
     "DomainInfo",
-    "ParsedEntity",
-    "ParsedAutomation",
     "DomainSummary",
+    "ParsedAutomation",
+    "ParsedEntity",
     "ParsedLogbookEntry",
-    "parse_system_overview",
-    "parse_entity_list",
-    "parse_entity",
-    "parse_domain_summary",
+    "SystemOverview",
     "parse_automation_list",
+    "parse_domain_summary",
+    "parse_entity",
+    "parse_entity_list",
     "parse_logbook_entry",
     "parse_logbook_list",
+    "parse_system_overview",
 ]

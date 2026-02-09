@@ -5,10 +5,7 @@ streaming endpoint. Covers closed tags, unclosed tags, list content
 (from LangChain providers), and edge cases.
 """
 
-import pytest
-
 from src.api.routes.openai_compat import _extract_text_content, _strip_thinking_tags
-
 
 # --- Closed tag pairs (existing behaviour) ---
 
@@ -37,10 +34,7 @@ class TestClosedTagPairs:
         assert _strip_thinking_tags(content) == "Final answer."
 
     def test_multiple_thinking_blocks(self):
-        content = (
-            "<think>step 1</think>Part A. "
-            "<think>step 2</think>Part B."
-        )
+        content = "<think>step 1</think>Part A. <think>step 2</think>Part B."
         assert _strip_thinking_tags(content) == "Part A. Part B."
 
     def test_multiple_tag_types(self):

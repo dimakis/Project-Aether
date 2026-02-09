@@ -18,6 +18,7 @@ from src.storage.models import Base
 # Try to import testcontainers, skip tests if not available
 try:
     from testcontainers.postgres import PostgresContainer
+
     TESTCONTAINERS_AVAILABLE = True
 except ImportError:
     TESTCONTAINERS_AVAILABLE = False
@@ -38,7 +39,7 @@ def postgres_container() -> Generator[Any, None, None]:
     """
     if not TESTCONTAINERS_AVAILABLE:
         pytest.skip("testcontainers not installed")
-    
+
     try:
         with PostgresContainer(
             image="postgres:16-alpine",

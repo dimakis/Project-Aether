@@ -6,11 +6,10 @@ for integration with Open WebUI and other OpenAI-compatible clients.
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import time
-from typing import Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
@@ -18,15 +17,16 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 
-from src.api.rate_limit import limiter
-
-from src.agents import ArchitectWorkflow, StreamEvent
+from src.agents import ArchitectWorkflow
 from src.agents.model_context import model_context
-from src.dal import ConversationRepository, MessageRepository
+from src.api.rate_limit import limiter
 from src.graph.state import ConversationState
 from src.storage import get_session
-from src.tracing import start_experiment_run, log_param
+from src.tracing import log_param, start_experiment_run
 from src.tracing.context import session_context
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 router = APIRouter(tags=["OpenAI Compatible"])
 
@@ -149,7 +149,7 @@ async def list_models() -> ModelsResponse:
     Dynamically discovers available models from:
     - Ollama (local models - if running)
     - Configured provider (openrouter, openai, google)
-    
+
     Results are cached for 5 minutes.
     All models power the Architect agent with Home Assistant tools.
     """
@@ -252,7 +252,7 @@ async def _create_chat_completion(
 
         with session_context(conversation_id):
             # Create MLflow run for full observability (runs + nested traces)
-            with start_experiment_run("conversation") as run:
+            with start_experiment_run("conversation"):
                 mlflow.set_tag("endpoint", "chat_completion")
                 mlflow.set_tag("session.id", conversation_id)
                 mlflow.set_tag("mlflow.trace.session", conversation_id)
@@ -363,7 +363,7 @@ async def _stream_chat_completion(
 
             with session_context(conversation_id):
                 # Create MLflow run for full observability (runs + nested traces)
-                with start_experiment_run("conversation") as run:
+                with start_experiment_run("conversation"):
                     mlflow.set_tag("endpoint", "chat_completion_stream")
                     mlflow.set_tag("session.id", conversation_id)
                     mlflow.set_tag("mlflow.trace.session", conversation_id)
@@ -418,17 +418,25 @@ async def _stream_chat_completion(
 
                         def _make_token_chunk(tok: str) -> str:
                             """Build an SSE line for a single token delta."""
-                            return "data: " + json.dumps({
-                                "id": completion_id,
-                                "object": "chat.completion.chunk",
-                                "created": created,
-                                "model": request.model,
-                                "choices": [{
-                                    "index": 0,
-                                    "delta": {"content": tok},
-                                    "finish_reason": None,
-                                }],
-                            }) + "\n\n"
+                            return (
+                                "data: "
+                                + json.dumps(
+                                    {
+                                        "id": completion_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": created,
+                                        "model": request.model,
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {"content": tok},
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                )
+                                + "\n\n"
+                            )
 
                         # --- Real token-by-token streaming ---
                         async for event in workflow.stream_conversation(
@@ -473,7 +481,9 @@ async def _stream_chat_completion(
                                     target = TOOL_AGENT_MAP.get(tool_name, "architect")
 
                                     # --- Agent lifecycle: delegate to new agent ---
-                                    if target != "architect" and (not agent_stack or agent_stack[-1] != target):
+                                    if target != "architect" and (
+                                        not agent_stack or agent_stack[-1] != target
+                                    ):
                                         # Start new delegated agent (push onto stack)
                                         yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'start', 'ts': time.time()})}\n\n"
                                         agent_stack.append(target)
@@ -705,7 +715,7 @@ _MAX_TAG_LEN = max(len(t) for t in _OPEN_TAGS | _CLOSE_TAGS)
 class FilteredToken:
     """A token emitted by ``_StreamingTagFilter`` with metadata."""
 
-    __slots__ = ("text", "is_thinking")
+    __slots__ = ("is_thinking", "text")
 
     def __init__(self, text: str, *, is_thinking: bool = False) -> None:
         self.text = text
@@ -753,16 +763,20 @@ class _StreamingTagFilter:
                 close = self._is_close_tag(self._buf)
                 if close:
                     # Emit accumulated thinking content before the close tag
-                    thought_text = self._buf[:self._buf.lower().index(close.lower())] if close.lower() in self._buf.lower() else ""
+                    (
+                        self._buf[: self._buf.lower().index(close.lower())]
+                        if close.lower() in self._buf.lower()
+                        else ""
+                    )
                     # Actually, the close tag sits at index 0 since we already
                     # consumed the open tag.  Emit the buffered thinking content.
-                    self._buf = self._buf[len(close):]
+                    self._buf = self._buf[len(close) :]
                     self._suppressing = False
                     continue
 
                 # Check if buffer *could* start with a partial close tag
                 could_be_close = any(
-                    self._buf.lower().startswith(t[:len(self._buf)])
+                    self._buf.lower().startswith(t[: len(self._buf)])
                     for t in _CLOSE_TAGS
                     if len(self._buf) < len(t)
                 )
@@ -779,7 +793,7 @@ class _StreamingTagFilter:
             # Check for an opening tag
             open_tag = self._is_open_tag(self._buf)
             if open_tag:
-                self._buf = self._buf[len(open_tag):]
+                self._buf = self._buf[len(open_tag) :]
                 self._suppressing = True
                 continue
 
@@ -793,9 +807,7 @@ class _StreamingTagFilter:
 
                 # Check if the remainder could still become a thinking tag
                 remainder = self._buf.lower()
-                could_be_open = any(
-                    t.startswith(remainder) for t in _OPEN_TAGS
-                )
+                could_be_open = any(t.startswith(remainder) for t in _OPEN_TAGS)
                 if could_be_open and len(self._buf) < _MAX_TAG_LEN:
                     break  # Wait for more data
 
@@ -843,17 +855,11 @@ def _strip_thinking_tags(content: str | list) -> str:
     thinking_tags = ["think", "thinking", "reasoning", "thought", "reflection"]
 
     # First: strip closed tag pairs  <tag>...</tag>
-    closed_pattern = "|".join(
-        rf"<{tag}>[\s\S]*?</{tag}>"
-        for tag in thinking_tags
-    )
+    closed_pattern = "|".join(rf"<{tag}>[\s\S]*?</{tag}>" for tag in thinking_tags)
     text = re.sub(closed_pattern, "", text, flags=re.IGNORECASE)
 
     # Second: strip unclosed tags  <tag>...$ (no closing tag found)
-    unclosed_pattern = "|".join(
-        rf"<{tag}>[\s\S]*$"
-        for tag in thinking_tags
-    )
+    unclosed_pattern = "|".join(rf"<{tag}>[\s\S]*$" for tag in thinking_tags)
     text = re.sub(unclosed_pattern, "", text, flags=re.IGNORECASE)
 
     return text.strip()
@@ -901,15 +907,18 @@ def _build_trace_events(
         return base_ts + offset
 
     # 1. Architect always starts
-    events.append({
-        "type": "trace",
-        "agent": "architect",
-        "event": "start",
-        "ts": _ts(),
-    })
+    events.append(
+        {
+            "type": "trace",
+            "agent": "architect",
+            "event": "start",
+            "ts": _ts(),
+        }
+    )
 
     # 2. Walk messages looking for AIMessage tool_calls and ToolMessage results
-    from langchain_core.messages import AIMessage as _AI, ToolMessage as _TM
+    from langchain_core.messages import AIMessage as _AI
+    from langchain_core.messages import ToolMessage as _TM
 
     # Track which delegated agents were encountered
     delegated_agents: set[str] = set()
@@ -928,68 +937,82 @@ def _build_trace_events(
                 if target_agent:
                     # End any previous delegated agent
                     if active_delegated and active_delegated != target_agent:
-                        events.append({
-                            "type": "trace",
-                            "agent": active_delegated,
-                            "event": "end",
-                            "ts": _ts(),
-                        })
+                        events.append(
+                            {
+                                "type": "trace",
+                                "agent": active_delegated,
+                                "event": "end",
+                                "ts": _ts(),
+                            }
+                        )
 
                     # Start new delegated agent if not already active
                     if active_delegated != target_agent:
-                        events.append({
-                            "type": "trace",
-                            "agent": target_agent,
-                            "event": "start",
-                            "ts": _ts(),
-                        })
+                        events.append(
+                            {
+                                "type": "trace",
+                                "agent": target_agent,
+                                "event": "start",
+                                "ts": _ts(),
+                            }
+                        )
                         active_delegated = target_agent
                         delegated_agents.add(target_agent)
 
                 # Emit tool_call event (under current agent)
-                events.append({
-                    "type": "trace",
-                    "agent": target_agent or "architect",
-                    "event": "tool_call",
-                    "tool": tool_name,
-                    "ts": _ts(),
-                })
+                events.append(
+                    {
+                        "type": "trace",
+                        "agent": target_agent or "architect",
+                        "event": "tool_call",
+                        "tool": tool_name,
+                        "ts": _ts(),
+                    }
+                )
 
         elif isinstance(msg, _TM):
             # Tool result - emit tool_result event
             current_agent = active_delegated or "architect"
-            events.append({
-                "type": "trace",
-                "agent": current_agent,
-                "event": "tool_result",
-                "ts": _ts(),
-            })
+            events.append(
+                {
+                    "type": "trace",
+                    "agent": current_agent,
+                    "event": "tool_result",
+                    "ts": _ts(),
+                }
+            )
 
     # End any remaining delegated agent
     if active_delegated:
-        events.append({
-            "type": "trace",
-            "agent": active_delegated,
-            "event": "end",
-            "ts": _ts(),
-        })
+        events.append(
+            {
+                "type": "trace",
+                "agent": active_delegated,
+                "event": "end",
+                "ts": _ts(),
+            }
+        )
 
     # 3. Architect end
-    events.append({
-        "type": "trace",
-        "agent": "architect",
-        "event": "end",
-        "ts": _ts(),
-    })
+    events.append(
+        {
+            "type": "trace",
+            "agent": "architect",
+            "event": "end",
+            "ts": _ts(),
+        }
+    )
 
     # 4. Complete event listing all agents involved
-    all_agents = ["architect"] + sorted(delegated_agents)
-    events.append({
-        "type": "trace",
-        "event": "complete",
-        "agents": all_agents,
-        "ts": _ts(),
-    })
+    all_agents = ["architect", *sorted(delegated_agents)]
+    events.append(
+        {
+            "type": "trace",
+            "event": "complete",
+            "agents": all_agents,
+            "ts": _ts(),
+        }
+    )
 
     return events
 
@@ -1018,14 +1041,14 @@ def _is_background_request(messages: list[ChatMessage]) -> bool:
         "what questions",
         "follow up questions",
     ]
-    
+
     for msg in messages:
         if msg.role == "system" and msg.content:
             content_lower = msg.content.lower()
             for pattern in background_patterns:
                 if pattern in content_lower:
                     return True
-    
+
     return False
 
 
@@ -1036,7 +1059,7 @@ def _derive_conversation_id(messages: list[ChatMessage]) -> str:
     Instead of generating a new UUID per request (which fragments MLflow traces),
     we derive a deterministic UUID from the conversation fingerprint.
 
-    Strategy: 
+    Strategy:
     - For background requests (title gen, suggestions): use random UUID
     - For main conversation: derive UUID from hash of first user message
 

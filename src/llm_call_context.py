@@ -19,9 +19,7 @@ class LLMCallContext:
 
 
 # Context variable holding the current LLM call context
-_llm_call_context: ContextVar[LLMCallContext | None] = ContextVar(
-    "llm_call_context", default=None
-)
+_llm_call_context: ContextVar[LLMCallContext | None] = ContextVar("llm_call_context", default=None)
 
 
 def set_llm_call_context(ctx: LLMCallContext) -> Token:

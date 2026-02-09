@@ -7,20 +7,20 @@ diagnose individual entities, and validate configuration.
 
 from __future__ import annotations
 
-import json
-
 from langchain_core.tools import tool
 
 from src.diagnostics.config_validator import run_config_check
 from src.diagnostics.entity_health import (
     correlate_unavailability,
+)
+from src.diagnostics.entity_health import (
     find_unavailable_entities as _find_unavailable,
 )
 from src.diagnostics.error_patterns import analyze_errors
 from src.diagnostics.integration_health import (
     find_unhealthy_integrations,
 )
-from src.diagnostics.log_parser import parse_error_log, get_error_summary
+from src.diagnostics.log_parser import get_error_summary, parse_error_log
 from src.ha import get_ha_client
 
 
@@ -160,8 +160,11 @@ async def diagnose_entity(entity_id: str) -> str:
             raw_log = await ha.get_error_log()
             if raw_log:
                 domain = entity_id.split(".")[0]
-                related = [line for line in raw_log.splitlines()
-                           if entity_id in line or domain in line.lower()]
+                related = [
+                    line
+                    for line in raw_log.splitlines()
+                    if entity_id in line or domain in line.lower()
+                ]
                 if related:
                     lines.append(f"\n  Related log entries: {len(related)}")
                     for entry in related[:3]:

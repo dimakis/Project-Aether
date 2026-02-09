@@ -8,14 +8,13 @@ TDD: Specialist runners emit phase-level progress + delegation events.
 """
 
 import asyncio
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.agents.execution_context import (
     ProgressEvent,
     execution_context,
-    get_execution_context,
 )
 
 
@@ -27,8 +26,10 @@ class TestSpecialistProgress:
         """_run_energy should emit a status event before running."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -44,11 +45,13 @@ class TestSpecialistProgress:
 
         # Should have at least one status event from the runner
         status_events = [e for e in events if e.type == "status"]
-        assert len(status_events) >= 1, \
+        assert len(status_events) >= 1, (
             f"Expected at least 1 status event, got {len(status_events)}: {[e.type for e in events]}"
+        )
         # Status should mention energy
-        assert any("energy" in e.message.lower() for e in status_events), \
+        assert any("energy" in e.message.lower() for e in status_events), (
             f"Expected 'energy' in status messages: {[e.message for e in status_events]}"
+        )
 
 
 class TestSpecialistLifecycleEvents:
@@ -59,8 +62,10 @@ class TestSpecialistLifecycleEvents:
         """_run_energy should emit agent_start and agent_end for energy_analyst."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -75,7 +80,7 @@ class TestSpecialistLifecycleEvents:
             events.append(queue.get_nowait())
 
         types = [e.type for e in events]
-        agents = [e.agent for e in events]
+        [e.agent for e in events]
 
         assert "agent_start" in types, f"Expected agent_start, got types: {types}"
         assert "agent_end" in types, f"Expected agent_end, got types: {types}"
@@ -91,8 +96,10 @@ class TestSpecialistLifecycleEvents:
         """agent_end should still fire even if the analyst raises."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.side_effect = RuntimeError("boom")
             MockAnalyst.return_value = mock_instance
@@ -100,7 +107,7 @@ class TestSpecialistLifecycleEvents:
             from src.tools.specialist_tools import _run_energy
 
             async with execution_context(progress_queue=queue):
-                result = await _run_energy("test query", 24, None)
+                await _run_energy("test query", 24, None)
 
         events = []
         while not queue.empty():
@@ -115,8 +122,10 @@ class TestSpecialistLifecycleEvents:
         """_run_behavioral should emit agent_start/agent_end."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.BehavioralAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.BehavioralAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -139,8 +148,10 @@ class TestSpecialistLifecycleEvents:
         """_run_diagnostic should emit agent_start/agent_end."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.DiagnosticAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.DiagnosticAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -163,8 +174,10 @@ class TestSpecialistLifecycleEvents:
         """_run_behavioral should emit a status event before running."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.BehavioralAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.BehavioralAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -187,8 +200,10 @@ class TestSpecialistLifecycleEvents:
         """_run_diagnostic should emit a status event before running."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.DiagnosticAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.DiagnosticAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -215,8 +230,10 @@ class TestDelegationEvents:
         """consult_data_science_team should emit a delegation from architect to DS team."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -233,8 +250,9 @@ class TestDelegationEvents:
             events.append(queue.get_nowait())
 
         delegation_events = [e for e in events if e.type == "delegation"]
-        assert len(delegation_events) >= 2, \
+        assert len(delegation_events) >= 2, (
             f"Expected at least 2 delegation events, got {len(delegation_events)}: {[(e.agent, e.target) for e in delegation_events]}"
+        )
 
         # First delegation: architect -> data_science_team
         first = delegation_events[0]
@@ -251,9 +269,11 @@ class TestDelegationEvents:
         """Each analyst's findings should be emitted as a delegation back to DS team."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.EnergyAnalyst") as MockEnergy, \
-             patch("src.tools.specialist_tools.BehavioralAnalyst") as MockBehavioral:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.EnergyAnalyst") as MockEnergy,
+            patch("src.tools.specialist_tools.BehavioralAnalyst") as MockBehavioral,
+        ):
             for MockAnalyst in [MockEnergy, MockBehavioral]:
                 mock_instance = AsyncMock()
                 mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -273,11 +293,13 @@ class TestDelegationEvents:
         delegation_events = [e for e in events if e.type == "delegation"]
         # architect -> ds_team, energy -> ds_team, behavioral -> ds_team, ds_team -> architect
         analyst_delegations = [
-            e for e in delegation_events
+            e
+            for e in delegation_events
             if e.target == "data_science_team" and e.agent != "architect"
         ]
-        assert len(analyst_delegations) >= 2, \
+        assert len(analyst_delegations) >= 2, (
             f"Expected analyst->ds_team delegations, got: {[(e.agent, e.target) for e in delegation_events]}"
+        )
 
 
 class TestTeamAnalysisIsolation:
@@ -288,8 +310,10 @@ class TestTeamAnalysisIsolation:
         """_get_or_create_team_analysis should use ExecutionContext.team_analysis."""
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
-        with patch("src.tools.specialist_tools.is_agent_enabled", return_value=True), \
-             patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst:
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
+            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+        ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
             MockAnalyst.return_value = mock_instance
@@ -298,8 +322,9 @@ class TestTeamAnalysisIsolation:
 
             async with execution_context(progress_queue=queue) as ctx:
                 ta = _get_or_create_team_analysis("test query")
-                assert ctx.team_analysis is ta, \
+                assert ctx.team_analysis is ta, (
                     "team_analysis should be stored in the ExecutionContext"
+                )
 
     @pytest.mark.asyncio
     async def test_concurrent_contexts_are_isolated(self):
@@ -324,5 +349,6 @@ class TestTeamAnalysisIsolation:
         )
 
         # Each context should have created its own TeamAnalysis
-        assert results["ctx1"] is not results["ctx2"], \
+        assert results["ctx1"] is not results["ctx2"], (
             "Concurrent contexts should have independent TeamAnalysis instances"
+        )

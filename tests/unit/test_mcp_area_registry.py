@@ -14,10 +14,12 @@ from src.ha.client import HAClient, HAClientConfig
 @pytest.fixture
 def ha_client():
     """Create an HA client with mocked _request."""
-    client = HAClient(HAClientConfig(
-        ha_url="http://localhost:8123",
-        ha_token="test-token",
-    ))
+    client = HAClient(
+        HAClientConfig(
+            ha_url="http://localhost:8123",
+            ha_token="test-token",
+        )
+    )
     return client
 
 
@@ -27,24 +29,26 @@ class TestGetAreaRegistry:
     @pytest.mark.asyncio
     async def test_returns_area_list(self, ha_client):
         """Test that get_area_registry returns parsed area list from HA."""
-        ha_client._request = AsyncMock(return_value=[
-            {
-                "area_id": "living_room",
-                "name": "Living Room",
-                "floor_id": "ground_floor",
-                "icon": "mdi:sofa",
-                "picture": None,
-                "aliases": [],
-            },
-            {
-                "area_id": "bedroom",
-                "name": "Bedroom",
-                "floor_id": "first_floor",
-                "icon": None,
-                "picture": "/local/bedroom.jpg",
-                "aliases": ["Master Bedroom"],
-            },
-        ])
+        ha_client._request = AsyncMock(
+            return_value=[
+                {
+                    "area_id": "living_room",
+                    "name": "Living Room",
+                    "floor_id": "ground_floor",
+                    "icon": "mdi:sofa",
+                    "picture": None,
+                    "aliases": [],
+                },
+                {
+                    "area_id": "bedroom",
+                    "name": "Bedroom",
+                    "floor_id": "first_floor",
+                    "icon": None,
+                    "picture": "/local/bedroom.jpg",
+                    "aliases": ["Master Bedroom"],
+                },
+            ]
+        )
 
         areas = await ha_client.get_area_registry()
 
@@ -57,9 +61,7 @@ class TestGetAreaRegistry:
         assert areas[1]["picture"] == "/local/bedroom.jpg"
 
         # Verify correct API endpoint called
-        ha_client._request.assert_called_once_with(
-            "GET", "/api/config/area_registry/list"
-        )
+        ha_client._request.assert_called_once_with("GET", "/api/config/area_registry/list")
 
     @pytest.mark.asyncio
     async def test_returns_empty_list_on_none(self, ha_client):

@@ -7,16 +7,13 @@ TDD: Progress consumer and timeout for tool execution in streaming.
 """
 
 import asyncio
-import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessageChunk, HumanMessage
 
-from src.agents.architect import ArchitectWorkflow, StreamEvent
+from src.agents.architect import ArchitectWorkflow
 from src.agents.execution_context import (
-    ExecutionContext,
-    ProgressEvent,
     emit_progress,
     get_execution_context,
 )
@@ -43,9 +40,7 @@ def _make_workflow():
 def _make_tool_call_chunk(name, args_str, call_id, index=0):
     """Create a mock AIMessageChunk with a tool call chunk."""
     chunk = AIMessageChunk(content="")
-    chunk.tool_call_chunks = [
-        {"name": name, "args": args_str, "id": call_id, "index": index}
-    ]
+    chunk.tool_call_chunks = [{"name": name, "args": args_str, "id": call_id, "index": index}]
     return chunk
 
 
@@ -112,19 +107,22 @@ class TestStreamProgressEvents:
         # Should contain progress events from the tool
         assert "agent_start" in event_types, f"Expected agent_start in {event_types}"
         assert "agent_end" in event_types, f"Expected agent_end in {event_types}"
-        assert "status" in event_types or "progress" in event_types, \
+        assert "status" in event_types or "progress" in event_types, (
             f"Expected status/progress in {event_types}"
+        )
 
         # Progress events should appear between tool_start and tool_end
         tool_start_idx = event_types.index("tool_start")
         tool_end_idx = event_types.index("tool_end")
         progress_indices = [
-            i for i, t in enumerate(event_types)
+            i
+            for i, t in enumerate(event_types)
             if t in ("agent_start", "agent_end", "status", "progress")
         ]
         for idx in progress_indices:
-            assert tool_start_idx < idx < tool_end_idx, \
+            assert tool_start_idx < idx < tool_end_idx, (
                 f"Progress event at {idx} should be between tool_start ({tool_start_idx}) and tool_end ({tool_end_idx})"
+            )
 
     @pytest.mark.asyncio
     async def test_tool_without_progress_events_works(self):
@@ -202,9 +200,7 @@ class TestDrainLoopExitsImmediately:
         mock_tool.ainvoke = instant_tool
 
         chunks = [
-            _make_tool_call_chunk(
-                "get_entity_state", '{"entity_id": "light.x"}', "call-1"
-            ),
+            _make_tool_call_chunk("get_entity_state", '{"entity_id": "light.x"}', "call-1"),
         ]
         follow_up_chunks = [AIMessageChunk(content="Done.")]
 
@@ -236,8 +232,7 @@ class TestDrainLoopExitsImmediately:
         # The whole stream should complete in well under 1 second.
         # The old buggy code would stall ~0.5s per drain iteration.
         assert elapsed < 1.0, (
-            f"Drain loop accumulated dead time: {elapsed:.2f}s "
-            f"(should be <1s for an instant tool)"
+            f"Drain loop accumulated dead time: {elapsed:.2f}s (should be <1s for an instant tool)"
         )
 
         # Sanity: tool was invoked and result streamed
@@ -265,7 +260,7 @@ class TestToolTimeout:
         mock_tool.ainvoke = slow_tool_invoke
 
         chunks = [
-            _make_tool_call_chunk("consult_data_science_team", '{}', "call-1"),
+            _make_tool_call_chunk("consult_data_science_team", "{}", "call-1"),
         ]
 
         follow_up_chunks = [
@@ -310,13 +305,15 @@ class TestToolTimeout:
         assert len(tool_end_events) >= 1
         # Result should mention timeout or error
         result = tool_end_events[0].get("result", "")
-        assert "error" in result.lower() or "timeout" in result.lower(), \
+        assert "error" in result.lower() or "timeout" in result.lower(), (
             f"Expected timeout/error in tool_end result, got: {result}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _async_iter(items):
     """Convert a list to an async iterator."""

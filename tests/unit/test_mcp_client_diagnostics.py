@@ -14,10 +14,12 @@ from src.ha.client import HAClient, HAClientConfig, HAClientError
 
 def _make_client() -> HAClient:
     """Create an HAClient with test config."""
-    return HAClient(HAClientConfig(
-        ha_url="http://localhost:8123",
-        ha_token="test-token",
-    ))
+    return HAClient(
+        HAClientConfig(
+            ha_url="http://localhost:8123",
+            ha_token="test-token",
+        )
+    )
 
 
 class TestListConfigEntries:
@@ -27,22 +29,24 @@ class TestListConfigEntries:
     async def test_returns_integration_list(self):
         """Test listing all integration config entries."""
         client = _make_client()
-        client._request = AsyncMock(return_value=[
-            {
-                "entry_id": "abc123",
-                "domain": "zha",
-                "title": "Zigbee Home Automation",
-                "state": "loaded",
-                "disabled_by": None,
-            },
-            {
-                "entry_id": "def456",
-                "domain": "mqtt",
-                "title": "MQTT",
-                "state": "loaded",
-                "disabled_by": None,
-            },
-        ])
+        client._request = AsyncMock(
+            return_value=[
+                {
+                    "entry_id": "abc123",
+                    "domain": "zha",
+                    "title": "Zigbee Home Automation",
+                    "state": "loaded",
+                    "disabled_by": None,
+                },
+                {
+                    "entry_id": "def456",
+                    "domain": "mqtt",
+                    "title": "MQTT",
+                    "state": "loaded",
+                    "disabled_by": None,
+                },
+            ]
+        )
 
         result = await client.list_config_entries()
 
@@ -65,11 +69,13 @@ class TestListConfigEntries:
     async def test_filters_by_domain(self):
         """Test filtering config entries by domain."""
         client = _make_client()
-        client._request = AsyncMock(return_value=[
-            {"entry_id": "abc", "domain": "zha", "title": "ZHA", "state": "loaded"},
-            {"entry_id": "def", "domain": "mqtt", "title": "MQTT", "state": "loaded"},
-            {"entry_id": "ghi", "domain": "zha", "title": "ZHA 2", "state": "loaded"},
-        ])
+        client._request = AsyncMock(
+            return_value=[
+                {"entry_id": "abc", "domain": "zha", "title": "ZHA", "state": "loaded"},
+                {"entry_id": "def", "domain": "mqtt", "title": "MQTT", "state": "loaded"},
+                {"entry_id": "ghi", "domain": "zha", "title": "ZHA 2", "state": "loaded"},
+            ]
+        )
 
         result = await client.list_config_entries(domain="zha")
 
@@ -84,10 +90,12 @@ class TestGetConfigEntryDiagnostics:
     async def test_returns_diagnostics(self):
         """Test fetching diagnostics for an integration."""
         client = _make_client()
-        client._request = AsyncMock(return_value={
-            "home_assistant": {"installation_type": "Home Assistant OS"},
-            "data": {"config": {"host": "192.168.1.100"}},
-        })
+        client._request = AsyncMock(
+            return_value={
+                "home_assistant": {"installation_type": "Home Assistant OS"},
+                "data": {"config": {"host": "192.168.1.100"}},
+            }
+        )
 
         result = await client.get_config_entry_diagnostics("abc123")
 
@@ -115,9 +123,11 @@ class TestReloadConfigEntry:
     async def test_reload_success(self):
         """Test successful integration reload."""
         client = _make_client()
-        client._request = AsyncMock(return_value={
-            "require_restart": False,
-        })
+        client._request = AsyncMock(
+            return_value={
+                "require_restart": False,
+            }
+        )
 
         result = await client.reload_config_entry("abc123")
 
@@ -130,9 +140,9 @@ class TestReloadConfigEntry:
     async def test_reload_failure_raises(self):
         """Test reload failure raises HAClientError."""
         client = _make_client()
-        client._request = AsyncMock(side_effect=HAClientError(
-            "All connection attempts failed", "request"
-        ))
+        client._request = AsyncMock(
+            side_effect=HAClientError("All connection attempts failed", "request")
+        )
 
         with pytest.raises(HAClientError):
             await client.reload_config_entry("bad_entry")
@@ -145,21 +155,23 @@ class TestListServices:
     async def test_returns_service_list(self):
         """Test listing available services."""
         client = _make_client()
-        client._request = AsyncMock(return_value=[
-            {
-                "domain": "light",
-                "services": {
-                    "turn_on": {"description": "Turn on a light"},
-                    "turn_off": {"description": "Turn off a light"},
+        client._request = AsyncMock(
+            return_value=[
+                {
+                    "domain": "light",
+                    "services": {
+                        "turn_on": {"description": "Turn on a light"},
+                        "turn_off": {"description": "Turn off a light"},
+                    },
                 },
-            },
-            {
-                "domain": "switch",
-                "services": {
-                    "toggle": {"description": "Toggle a switch"},
+                {
+                    "domain": "switch",
+                    "services": {
+                        "toggle": {"description": "Toggle a switch"},
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         result = await client.list_services()
 
@@ -186,11 +198,13 @@ class TestListEventTypes:
     async def test_returns_event_types(self):
         """Test listing event types."""
         client = _make_client()
-        client._request = AsyncMock(return_value=[
-            {"event_type": "state_changed", "listener_count": 50},
-            {"event_type": "call_service", "listener_count": 10},
-            {"event_type": "automation_triggered", "listener_count": 5},
-        ])
+        client._request = AsyncMock(
+            return_value=[
+                {"event_type": "state_changed", "listener_count": 50},
+                {"event_type": "call_service", "listener_count": 10},
+                {"event_type": "automation_triggered", "listener_count": 5},
+            ]
+        )
 
         result = await client.list_event_types()
 

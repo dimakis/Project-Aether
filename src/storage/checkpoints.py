@@ -214,11 +214,15 @@ class PostgresCheckpointer(BaseCheckpointSaver):
             return None
 
         # Get pending writes
-        writes_query = select(PendingWrite).where(
-            PendingWrite.thread_id == thread_id,
-            PendingWrite.checkpoint_ns == checkpoint_ns,
-            PendingWrite.checkpoint_id == record.checkpoint_id,
-        ).order_by(PendingWrite.task_id, PendingWrite.idx)
+        writes_query = (
+            select(PendingWrite)
+            .where(
+                PendingWrite.thread_id == thread_id,
+                PendingWrite.checkpoint_ns == checkpoint_ns,
+                PendingWrite.checkpoint_id == record.checkpoint_id,
+            )
+            .order_by(PendingWrite.task_id, PendingWrite.idx)
+        )
 
         writes_result = await self.session.execute(writes_query)
         pending_writes = [
@@ -265,7 +269,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
         self,
         config: dict[str, Any] | None,
         *,
-        filter: dict[str, Any] | None = None,  # noqa: A002
+        filter: dict[str, Any] | None = None,
         before: dict[str, Any] | None = None,
         limit: int | None = None,
     ) -> list[CheckpointTuple]:
@@ -554,7 +558,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
         self,
         config: dict[str, Any] | None,
         *,
-        filter: dict[str, Any] | None = None,  # noqa: A002
+        filter: dict[str, Any] | None = None,
         before: dict[str, Any] | None = None,
         limit: int | None = None,
     ) -> list[CheckpointTuple]:
@@ -583,8 +587,8 @@ class PostgresCheckpointer(BaseCheckpointSaver):
 
 # Exports
 __all__ = [
+    "CheckpointConfig",
     "CheckpointRecord",
     "PendingWrite",
-    "CheckpointConfig",
     "PostgresCheckpointer",
 ]

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -284,9 +284,7 @@ class Service(Base, UUIDMixin, TimestampMixin):
         doc="Discovery session that found this",
     )
 
-    __table_args__ = (
-        Index("ix_services_domain_service", "domain", "service", unique=True),
-    )
+    __table_args__ = (Index("ix_services_domain_service", "domain", "service", unique=True),)
 
     def __repr__(self) -> str:
         return f"<Service(domain={self.domain}, service={self.service})>"

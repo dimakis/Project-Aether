@@ -7,23 +7,25 @@ All SQLAlchemy ORM models for Project Aether.
 from src.storage.entities.agent import Agent
 from src.storage.entities.agent_config_version import AgentConfigVersion, VersionStatus
 from src.storage.entities.agent_prompt_version import AgentPromptVersion
-from src.storage.entities.conversation import Conversation, ConversationStatus
-from src.storage.entities.message import Message
 
 # HA Registry models (User Story 1)
 from src.storage.entities.area import Area
+
+# Automation Proposals (User Story 2)
+from src.storage.entities.automation_proposal import (
+    VALID_TRANSITIONS,
+    AutomationProposal,
+    ProposalStatus,
+    ProposalType,
+)
+from src.storage.entities.conversation import Conversation, ConversationStatus
 from src.storage.entities.device import Device
 from src.storage.entities.discovery_session import DiscoverySession, DiscoveryStatus
 from src.storage.entities.ha_automation import HAAutomation, Scene, Script, Service
 from src.storage.entities.ha_entity import HAEntity
 
-# Automation Proposals (User Story 2)
-from src.storage.entities.automation_proposal import (
-    AutomationProposal,
-    ProposalStatus,
-    ProposalType,
-    VALID_TRANSITIONS,
-)
+# HA Zones (multi-server support)
+from src.storage.entities.ha_zone import HAZone
 
 # Insights (User Story 3)
 from src.storage.entities.insight import Insight, InsightStatus, InsightType
@@ -31,65 +33,63 @@ from src.storage.entities.insight import Insight, InsightStatus, InsightType
 # Insight Schedules (Feature 10)
 from src.storage.entities.insight_schedule import InsightSchedule, TriggerType
 
-# Authentication
-from src.storage.entities.passkey_credential import PasskeyCredential
-
-# User Profiles
-from src.storage.entities.user_profile import UserProfile
-
-# System Configuration
-from src.storage.entities.system_config import SystemConfig
-
-# HA Zones (multi-server support)
-from src.storage.entities.ha_zone import HAZone
-
 # LLM Usage Tracking
 from src.storage.entities.llm_usage import LLMUsage
+from src.storage.entities.message import Message
 
 # Model Ratings
 from src.storage.entities.model_rating import ModelRating
 
+# Authentication
+from src.storage.entities.passkey_credential import PasskeyCredential
+
+# System Configuration
+from src.storage.entities.system_config import SystemConfig
+
+# User Profiles
+from src.storage.entities.user_profile import UserProfile
+
 __all__ = [
+    "VALID_TRANSITIONS",
     # Core
     "Agent",
     "AgentConfigVersion",
     "AgentPromptVersion",
-    "VersionStatus",
-    "Conversation",
-    "ConversationStatus",
-    "Message",
     # HA Registry
     "Area",
+    # Automation Proposals
+    "AutomationProposal",
+    "Conversation",
+    "ConversationStatus",
     "Device",
-    "HAEntity",
     "DiscoverySession",
     "DiscoveryStatus",
     "HAAutomation",
-    "Script",
-    "Scene",
-    "Service",
-    # Automation Proposals
-    "AutomationProposal",
-    "ProposalStatus",
-    "ProposalType",
-    "VALID_TRANSITIONS",
-    # Insights
-    "Insight",
-    "InsightType",
-    "InsightStatus",
-    # Insight Schedules (Feature 10)
-    "InsightSchedule",
-    "TriggerType",
-    # Authentication
-    "PasskeyCredential",
-    # User Profiles
-    "UserProfile",
-    # System Configuration
-    "SystemConfig",
+    "HAEntity",
     # HA Zones
     "HAZone",
+    # Insights
+    "Insight",
+    # Insight Schedules (Feature 10)
+    "InsightSchedule",
+    "InsightStatus",
+    "InsightType",
     # LLM Usage
     "LLMUsage",
+    "Message",
     # Model Ratings
     "ModelRating",
+    # Authentication
+    "PasskeyCredential",
+    "ProposalStatus",
+    "ProposalType",
+    "Scene",
+    "Script",
+    "Service",
+    # System Configuration
+    "SystemConfig",
+    "TriggerType",
+    # User Profiles
+    "UserProfile",
+    "VersionStatus",
 ]

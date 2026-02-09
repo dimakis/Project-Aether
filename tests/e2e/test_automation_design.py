@@ -3,8 +3,6 @@
 T099: Full conversation → proposal → approval flow.
 """
 
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -33,9 +31,7 @@ class TestAutomationDesignWorkflow:
 
         # Simulate architect response
         state.messages.append(
-            AIMessage(
-                content="I'll create an automation that turns on the lights at sunset."
-            )
+            AIMessage(content="I'll create an automation that turns on the lights at sunset.")
         )
 
         # Verify conversation progressed

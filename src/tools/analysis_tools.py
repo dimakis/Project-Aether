@@ -123,7 +123,7 @@ def _format_custom_analysis(state: Any, description: str, hours: int) -> str:
 
     if not insights:
         return (
-            f"I analyzed {hours} hours of data for your question: *\"{description}\"*\n\n"
+            f'I analyzed {hours} hours of data for your question: *"{description}"*\n\n'
             "I didn't find any significant patterns or issues matching your query. "
             "This could mean everything is operating normally, or the data may not "
             "contain enough information for this specific analysis.\n\n"
@@ -134,12 +134,12 @@ def _format_custom_analysis(state: Any, description: str, hours: int) -> str:
         )
 
     parts = [
-        f"Here are the results for: *\"{description}\"* "
+        f'Here are the results for: *"{description}"* '
         f"({hours}h lookback, {len(insights)} insight(s) found):\n"
     ]
 
     # Key insights
-    for i, insight in enumerate(insights[:5], 1):
+    for _i, insight in enumerate(insights[:5], 1):
         confidence = insight.get("confidence", 0) * 100
         impact = insight.get("impact", "medium")
         title = insight.get("title", "Finding")

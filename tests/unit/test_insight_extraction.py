@@ -5,12 +5,11 @@ T110: Insight extraction tests.
 """
 
 import json
-from unittest.mock import MagicMock
 
 import pytest
 
 from src.agents.data_scientist import DataScientistAgent
-from src.graph.state import AnalysisState, AnalysisType, AgentRole
+from src.graph.state import AgentRole, AnalysisState, AnalysisType
 from src.sandbox.runner import SandboxResult
 
 
@@ -39,17 +38,21 @@ class TestInsightExtractionFromJSON:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [{
-                    "type": "energy_optimization",
-                    "title": "High Grid Usage",
-                    "description": "Grid power usage is 20% above average",
-                    "confidence": 0.85,
-                    "impact": "high",
-                    "evidence": {"avg_usage": 5.2, "current_usage": 6.24},
-                    "entities": ["sensor.grid_power"],
-                }]
-            }),
+            stdout=json.dumps(
+                {
+                    "insights": [
+                        {
+                            "type": "energy_optimization",
+                            "title": "High Grid Usage",
+                            "description": "Grid power usage is 20% above average",
+                            "confidence": 0.85,
+                            "impact": "high",
+                            "evidence": {"avg_usage": 5.2, "current_usage": 6.24},
+                            "entities": ["sensor.grid_power"],
+                        }
+                    ]
+                }
+            ),
             stderr="",
             duration_seconds=1.5,
             policy_name="standard",
@@ -68,24 +71,26 @@ class TestInsightExtractionFromJSON:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [
-                    {
-                        "type": "energy_optimization",
-                        "title": "Peak Usage",
-                        "description": "Peak at 2PM",
-                        "confidence": 0.9,
-                        "impact": "medium",
-                    },
-                    {
-                        "type": "anomaly_detection",
-                        "title": "Unusual Spike",
-                        "description": "Spike detected at 3AM",
-                        "confidence": 0.75,
-                        "impact": "high",
-                    },
-                ]
-            }),
+            stdout=json.dumps(
+                {
+                    "insights": [
+                        {
+                            "type": "energy_optimization",
+                            "title": "Peak Usage",
+                            "description": "Peak at 2PM",
+                            "confidence": 0.9,
+                            "impact": "medium",
+                        },
+                        {
+                            "type": "anomaly_detection",
+                            "title": "Unusual Spike",
+                            "description": "Spike detected at 3AM",
+                            "confidence": 0.75,
+                            "impact": "high",
+                        },
+                    ]
+                }
+            ),
             stderr="",
             duration_seconds=2.0,
             policy_name="standard",
@@ -102,11 +107,15 @@ class TestInsightExtractionFromJSON:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [{
-                    "title": "Simple Insight",
-                }]
-            }),
+            stdout=json.dumps(
+                {
+                    "insights": [
+                        {
+                            "title": "Simple Insight",
+                        }
+                    ]
+                }
+            ),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",
@@ -129,9 +138,7 @@ class TestConfidenceNormalization:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [{"confidence": 1.5, "title": "Test"}]
-            }),
+            stdout=json.dumps({"insights": [{"confidence": 1.5, "title": "Test"}]}),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",
@@ -146,9 +153,7 @@ class TestConfidenceNormalization:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [{"confidence": -0.5, "title": "Test"}]
-            }),
+            stdout=json.dumps({"insights": [{"confidence": -0.5, "title": "Test"}]}),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",
@@ -163,9 +168,7 @@ class TestConfidenceNormalization:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [{"confidence": 0.73, "title": "Test"}]
-            }),
+            stdout=json.dumps({"insights": [{"confidence": 0.73, "title": "Test"}]}),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",
@@ -278,13 +281,15 @@ class TestRecommendationExtraction:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [],
-                "recommendations": [
-                    "Shift high-power appliances to off-peak hours",
-                    "Consider adding solar battery storage",
-                ]
-            }),
+            stdout=json.dumps(
+                {
+                    "insights": [],
+                    "recommendations": [
+                        "Shift high-power appliances to off-peak hours",
+                        "Consider adding solar battery storage",
+                    ],
+                }
+            ),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",
@@ -335,12 +340,16 @@ class TestEntityAssociation:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [{
-                    "title": "Test",
-                    "entities": ["sensor.specific_sensor"],
-                }]
-            }),
+            stdout=json.dumps(
+                {
+                    "insights": [
+                        {
+                            "title": "Test",
+                            "entities": ["sensor.specific_sensor"],
+                        }
+                    ]
+                }
+            ),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",
@@ -355,9 +364,11 @@ class TestEntityAssociation:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [{"title": "Test"}]  # No entities specified
-            }),
+            stdout=json.dumps(
+                {
+                    "insights": [{"title": "Test"}]  # No entities specified
+                }
+            ),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",

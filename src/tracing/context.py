@@ -4,9 +4,9 @@ Provides a session ID that flows through all operations within a request,
 enabling correlation of related spans across agents, tools, and workflows.
 """
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Generator
 from uuid import uuid4
 
 # Context variable for current session ID
@@ -79,9 +79,9 @@ def clear_session() -> None:
 
 
 __all__ = [
-    "start_session",
-    "get_session_id",
-    "set_session_id",
-    "session_context",
     "clear_session",
+    "get_session_id",
+    "session_context",
+    "set_session_id",
+    "start_session",
 ]

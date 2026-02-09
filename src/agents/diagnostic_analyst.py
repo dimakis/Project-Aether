@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -26,15 +26,16 @@ from src.diagnostics.entity_health import (
     find_unavailable_entities,
 )
 from src.diagnostics.integration_health import find_unhealthy_integrations
-from src.diagnostics.log_parser import parse_error_log, get_error_summary
+from src.diagnostics.log_parser import get_error_summary, parse_error_log
 from src.graph.state import (
     AgentRole,
     AnalysisState,
-    AnalysisType,
     SpecialistFinding,
 )
-from src.sandbox.runner import SandboxResult
 from src.tracing import log_metric, log_param
+
+if TYPE_CHECKING:
+    from src.sandbox.runner import SandboxResult
 
 logger = logging.getLogger(__name__)
 
@@ -247,8 +248,7 @@ class DiagnosticAnalyst(BaseAnalyst):
 
                 return {
                     "insights": [
-                        {"title": f.title, "description": f.description}
-                        for f in findings
+                        {"title": f.title, "description": f.description} for f in findings
                     ],
                     "generated_script": script,
                     "team_analysis": state.team_analysis,
@@ -262,9 +262,7 @@ class DiagnosticAnalyst(BaseAnalyst):
     # Private helpers
     # -----------------------------------------------------------------
 
-    def _build_analysis_prompt(
-        self, state: AnalysisState, data: dict[str, Any]
-    ) -> str:
+    def _build_analysis_prompt(self, state: AnalysisState, data: dict[str, Any]) -> str:
         """Build diagnostic analysis prompt."""
         unavailable_count = len(data.get("unavailable_entities", []))
         unhealthy_count = len(data.get("unhealthy_integrations", []))

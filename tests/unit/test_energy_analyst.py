@@ -4,9 +4,11 @@ TDD: Red phase — tests define the contract for the Energy Analyst,
 which handles energy optimization, cost analysis, and usage patterns.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from src.agents.energy_analyst import EnergyAnalyst
 from src.graph.state import (
     AgentRole,
     AnalysisState,
@@ -14,7 +16,6 @@ from src.graph.state import (
     SpecialistFinding,
     TeamAnalysis,
 )
-from src.agents.energy_analyst import EnergyAnalyst
 
 
 class TestEnergyAnalystInit:
@@ -92,9 +93,7 @@ class TestEnergyAnalystCollectData:
         analyst = EnergyAnalyst(ha_client=mock_ha)
 
         mock_energy_client = MagicMock()
-        mock_energy_client.get_aggregated_energy = AsyncMock(
-            return_value={"total_kwh": 5.0}
-        )
+        mock_energy_client.get_aggregated_energy = AsyncMock(return_value={"total_kwh": 5.0})
 
         state = AnalysisState(
             analysis_type=AnalysisType.DIAGNOSTIC,

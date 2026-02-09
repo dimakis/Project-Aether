@@ -9,7 +9,6 @@ the insight_schedules DB table on startup and after any CRUD operation.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 from src.settings import get_settings
 
@@ -26,7 +25,10 @@ except ImportError:
     AsyncIOScheduler = None  # type: ignore[assignment, misc]
     CronTrigger = None  # type: ignore[assignment, misc]
     IntervalTrigger = None  # type: ignore[assignment, misc]
-    logger.warning("APScheduler not installed — scheduled insights disabled. Install with: pip install apscheduler")
+    logger.warning(
+        "APScheduler not installed — scheduled insights disabled. Install with: pip install apscheduler"
+    )
+
 
 class SchedulerService:
     """Manages cron-based insight schedules via APScheduler.

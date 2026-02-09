@@ -8,16 +8,15 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass
 
 # HA log line format: "YYYY-MM-DD HH:MM:SS.mmm LEVEL (Thread) [logger] message"
 _LOG_LINE_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+"  # timestamp
-    r"(ERROR|WARNING|INFO|DEBUG|CRITICAL)\s+"                     # level
-    r"\([^)]*\)\s+"                                               # thread (ignored)
-    r"\[([^\]]+)\]\s+"                                            # logger
-    r"(.+)$"                                                      # message
+    r"(ERROR|WARNING|INFO|DEBUG|CRITICAL)\s+"  # level
+    r"\([^)]*\)\s+"  # thread (ignored)
+    r"\[([^\]]+)\]\s+"  # logger
+    r"(.+)$"  # message
 )
 
 # Extract integration name from logger path like "homeassistant.components.zha"
@@ -153,13 +152,15 @@ def find_patterns(
     patterns = []
     for (level, logger, message), count in message_counts.most_common():
         if count >= min_occurrences:
-            patterns.append({
-                "level": level,
-                "logger": logger,
-                "message": message,
-                "count": count,
-                "integration": _extract_integration(logger),
-            })
+            patterns.append(
+                {
+                    "level": level,
+                    "logger": logger,
+                    "message": message,
+                    "count": count,
+                    "integration": _extract_integration(logger),
+                }
+            )
 
     return patterns
 

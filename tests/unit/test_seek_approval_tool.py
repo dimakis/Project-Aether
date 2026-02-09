@@ -4,9 +4,10 @@ Tests creation of proposals for entity commands, automations,
 scripts, and scenes via the seek_approval tool.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 
 @pytest.mark.asyncio
@@ -47,14 +48,16 @@ class TestSeekApprovalTool:
 
             from src.tools.approval_tools import seek_approval
 
-            result = await seek_approval.ainvoke({
-                "action_type": "entity_command",
-                "name": "Turn on living room lights",
-                "description": "Turn on the living room lights",
-                "entity_id": "light.living_room",
-                "service_domain": "light",
-                "service_action": "turn_on",
-            })
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "entity_command",
+                    "name": "Turn on living room lights",
+                    "description": "Turn on the living room lights",
+                    "entity_id": "light.living_room",
+                    "service_domain": "light",
+                    "service_action": "turn_on",
+                }
+            )
 
             assert "submitted a proposal" in result
             assert "Entity Command" in result
@@ -79,13 +82,15 @@ class TestSeekApprovalTool:
 
             from src.tools.approval_tools import seek_approval
 
-            result = await seek_approval.ainvoke({
-                "action_type": "entity_command",
-                "name": "Toggle switch",
-                "description": "Toggle the kitchen switch",
-                "entity_id": "switch.kitchen",
-                "service_action": "toggle",
-            })
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "entity_command",
+                    "name": "Toggle switch",
+                    "description": "Toggle the kitchen switch",
+                    "entity_id": "switch.kitchen",
+                    "service_action": "toggle",
+                }
+            )
 
             assert "submitted a proposal" in result
             call_kwargs = mock_repo.create.call_args.kwargs
@@ -95,11 +100,13 @@ class TestSeekApprovalTool:
         """seek_approval with entity_command fails without entity_id."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "entity_command",
-            "name": "Bad command",
-            "description": "No entity",
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "entity_command",
+                "name": "Bad command",
+                "description": "No entity",
+            }
+        )
 
         assert "entity_id is required" in result
 
@@ -114,13 +121,15 @@ class TestSeekApprovalTool:
 
             from src.tools.approval_tools import seek_approval
 
-            result = await seek_approval.ainvoke({
-                "action_type": "automation",
-                "name": "Sunset lights",
-                "description": "Turn on lights at sunset",
-                "trigger": {"platform": "sun", "event": "sunset"},
-                "actions": [{"service": "light.turn_on", "target": {"area_id": "living_room"}}],
-            })
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "automation",
+                    "name": "Sunset lights",
+                    "description": "Turn on lights at sunset",
+                    "trigger": {"platform": "sun", "event": "sunset"},
+                    "actions": [{"service": "light.turn_on", "target": {"area_id": "living_room"}}],
+                }
+            )
 
             assert "submitted an automation proposal" in result
             assert "Sunset lights" in result
@@ -140,15 +149,17 @@ class TestSeekApprovalTool:
 
             from src.tools.approval_tools import seek_approval
 
-            result = await seek_approval.ainvoke({
-                "action_type": "script",
-                "name": "Movie mode",
-                "description": "Dim lights and turn on TV",
-                "actions": [
-                    {"service": "light.turn_on", "data": {"brightness": 50}},
-                    {"service": "media_player.turn_on"},
-                ],
-            })
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "script",
+                    "name": "Movie mode",
+                    "description": "Dim lights and turn on TV",
+                    "actions": [
+                        {"service": "light.turn_on", "data": {"brightness": 50}},
+                        {"service": "media_player.turn_on"},
+                    ],
+                }
+            )
 
             assert "submitted a script proposal" in result
             call_kwargs = mock_repo.create.call_args.kwargs
@@ -165,14 +176,16 @@ class TestSeekApprovalTool:
 
             from src.tools.approval_tools import seek_approval
 
-            result = await seek_approval.ainvoke({
-                "action_type": "scene",
-                "name": "Cozy evening",
-                "description": "Warm lighting for the evening",
-                "actions": {
-                    "light.living_room": {"state": "on", "brightness": 128, "color_temp": 400},
-                },
-            })
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "scene",
+                    "name": "Cozy evening",
+                    "description": "Warm lighting for the evening",
+                    "actions": {
+                        "light.living_room": {"state": "on", "brightness": 128, "color_temp": 400},
+                    },
+                }
+            )
 
             assert "submitted a scene proposal" in result
             call_kwargs = mock_repo.create.call_args.kwargs
@@ -182,11 +195,13 @@ class TestSeekApprovalTool:
         """seek_approval with invalid action_type returns helpful error."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "invalid_type",
-            "name": "Bad",
-            "description": "Bad",
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "invalid_type",
+                "name": "Bad",
+                "description": "Bad",
+            }
+        )
 
         assert "Invalid action_type" in result
         assert "entity_command" in result
@@ -203,15 +218,17 @@ class TestSeekApprovalTool:
 
             from src.tools.approval_tools import seek_approval
 
-            result = await seek_approval.ainvoke({
-                "action_type": "entity_command",
-                "name": "Set brightness",
-                "description": "Set living room to 50%",
-                "entity_id": "light.living_room",
-                "service_domain": "light",
-                "service_action": "turn_on",
-                "service_data": {"brightness": 128},
-            })
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "entity_command",
+                    "name": "Set brightness",
+                    "description": "Set living room to 50%",
+                    "entity_id": "light.living_room",
+                    "service_domain": "light",
+                    "service_action": "turn_on",
+                    "service_data": {"brightness": 128},
+                }
+            )
 
             assert "submitted a proposal" in result
             call_kwargs = mock_repo.create.call_args.kwargs
@@ -228,12 +245,14 @@ class TestSeekApprovalTool:
 
             from src.tools.approval_tools import seek_approval
 
-            await seek_approval.ainvoke({
-                "action_type": "entity_command",
-                "name": "Test",
-                "description": "Test",
-                "entity_id": "switch.test",
-            })
+            await seek_approval.ainvoke(
+                {
+                    "action_type": "entity_command",
+                    "name": "Test",
+                    "description": "Test",
+                    "entity_id": "switch.test",
+                }
+            )
 
             mock_repo.propose.assert_called_once_with(mock_proposal.id)
             mock_session.commit.assert_called_once()
@@ -244,13 +263,15 @@ class TestSeekApprovalTool:
         """seek_approval rejects automation without trigger."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "automation",
-            "name": "Sunset lights",
-            "description": "Turn on lights at sunset",
-            "actions": [{"service": "light.turn_on"}],
-            # trigger intentionally omitted
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "automation",
+                "name": "Sunset lights",
+                "description": "Turn on lights at sunset",
+                "actions": [{"service": "light.turn_on"}],
+                # trigger intentionally omitted
+            }
+        )
 
         assert "trigger" in result.lower()
         assert "required" in result.lower()
@@ -259,13 +280,15 @@ class TestSeekApprovalTool:
         """seek_approval rejects automation without actions."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "automation",
-            "name": "Sunset lights",
-            "description": "Turn on lights at sunset",
-            "trigger": {"platform": "sun", "event": "sunset"},
-            # actions intentionally omitted
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "automation",
+                "name": "Sunset lights",
+                "description": "Turn on lights at sunset",
+                "trigger": {"platform": "sun", "event": "sunset"},
+                # actions intentionally omitted
+            }
+        )
 
         assert "actions" in result.lower()
         assert "required" in result.lower()
@@ -274,13 +297,15 @@ class TestSeekApprovalTool:
         """seek_approval rejects automation with empty trigger list."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "automation",
-            "name": "Sunset lights",
-            "description": "Turn on lights at sunset",
-            "trigger": [],
-            "actions": [{"service": "light.turn_on"}],
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "automation",
+                "name": "Sunset lights",
+                "description": "Turn on lights at sunset",
+                "trigger": [],
+                "actions": [{"service": "light.turn_on"}],
+            }
+        )
 
         assert "trigger" in result.lower()
         assert "required" in result.lower()
@@ -289,13 +314,15 @@ class TestSeekApprovalTool:
         """seek_approval rejects automation with empty actions list."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "automation",
-            "name": "Sunset lights",
-            "description": "Turn on lights at sunset",
-            "trigger": {"platform": "sun", "event": "sunset"},
-            "actions": [],
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "automation",
+                "name": "Sunset lights",
+                "description": "Turn on lights at sunset",
+                "trigger": {"platform": "sun", "event": "sunset"},
+                "actions": [],
+            }
+        )
 
         assert "actions" in result.lower()
         assert "required" in result.lower()
@@ -304,12 +331,14 @@ class TestSeekApprovalTool:
         """seek_approval rejects script without actions."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "script",
-            "name": "Movie mode",
-            "description": "Dim lights and turn on TV",
-            # actions intentionally omitted
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "script",
+                "name": "Movie mode",
+                "description": "Dim lights and turn on TV",
+                # actions intentionally omitted
+            }
+        )
 
         assert "actions" in result.lower()
         assert "required" in result.lower()
@@ -318,12 +347,14 @@ class TestSeekApprovalTool:
         """seek_approval rejects script with empty actions list."""
         from src.tools.approval_tools import seek_approval
 
-        result = await seek_approval.ainvoke({
-            "action_type": "script",
-            "name": "Movie mode",
-            "description": "Dim lights and turn on TV",
-            "actions": [],
-        })
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "script",
+                "name": "Movie mode",
+                "description": "Dim lights and turn on TV",
+                "actions": [],
+            }
+        )
 
         assert "actions" in result.lower()
         assert "required" in result.lower()

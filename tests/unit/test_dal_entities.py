@@ -4,7 +4,6 @@ Tests EntityRepository CRUD operations with mocked database.
 Constitution: Reliability & Quality - comprehensive DAL testing.
 """
 
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -190,7 +189,7 @@ class TestEntityRepositoryUpsert:
             mock_new_entity = MagicMock()
             mock_create.return_value = mock_new_entity
 
-            result, created = await entity_repo.upsert(sample_entity)
+            _result, created = await entity_repo.upsert(sample_entity)
 
             assert created is True
             mock_create.assert_called_once()

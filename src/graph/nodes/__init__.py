@@ -8,29 +8,6 @@ for backward compatibility with existing imports.
 """
 
 # Discovery workflow nodes
-from src.graph.nodes.discovery import (
-    error_handler_node,
-    fetch_entities_node,
-    finalize_discovery_node,
-    infer_areas_node,
-    infer_devices_node,
-    initialize_discovery_node,
-    persist_entities_node,
-    run_discovery_node,
-    sync_automations_node,
-)
-
-# Conversation workflow nodes
-from src.graph.nodes.conversation import (
-    approval_gate_node,
-    architect_propose_node,
-    architect_refine_node,
-    conversation_error_node,
-    developer_deploy_node,
-    developer_rollback_node,
-    process_approval_node,
-)
-
 # Analysis workflow nodes
 from src.graph.nodes.analysis import (
     analysis_error_node,
@@ -44,34 +21,56 @@ from src.graph.nodes.analysis import (
     present_recommendations_node,
 )
 
+# Conversation workflow nodes
+from src.graph.nodes.conversation import (
+    approval_gate_node,
+    architect_propose_node,
+    architect_refine_node,
+    conversation_error_node,
+    developer_deploy_node,
+    developer_rollback_node,
+    process_approval_node,
+)
+from src.graph.nodes.discovery import (
+    error_handler_node,
+    fetch_entities_node,
+    finalize_discovery_node,
+    infer_areas_node,
+    infer_devices_node,
+    initialize_discovery_node,
+    persist_entities_node,
+    run_discovery_node,
+    sync_automations_node,
+)
+
 __all__ = [
-    # Discovery nodes
-    "initialize_discovery_node",
-    "fetch_entities_node",
-    "infer_areas_node",
-    "infer_devices_node",
-    "persist_entities_node",
-    "sync_automations_node",
-    "finalize_discovery_node",
-    "error_handler_node",
-    "run_discovery_node",
+    "analysis_error_node",
+    "analyze_and_suggest_node",
+    "approval_gate_node",
     # Conversation nodes
     "architect_propose_node",
     "architect_refine_node",
-    "approval_gate_node",
-    "process_approval_node",
-    "developer_deploy_node",
-    "developer_rollback_node",
-    "conversation_error_node",
-    # Analysis nodes
-    "collect_energy_data_node",
-    "generate_script_node",
-    "execute_sandbox_node",
-    "extract_insights_node",
-    "analysis_error_node",
+    "architect_review_node",
     # Optimization nodes
     "collect_behavioral_data_node",
-    "analyze_and_suggest_node",
-    "architect_review_node",
+    # Analysis nodes
+    "collect_energy_data_node",
+    "conversation_error_node",
+    "developer_deploy_node",
+    "developer_rollback_node",
+    "error_handler_node",
+    "execute_sandbox_node",
+    "extract_insights_node",
+    "fetch_entities_node",
+    "finalize_discovery_node",
+    "generate_script_node",
+    "infer_areas_node",
+    "infer_devices_node",
+    # Discovery nodes
+    "initialize_discovery_node",
+    "persist_entities_node",
     "present_recommendations_node",
+    "process_approval_node",
+    "run_discovery_node",
+    "sync_automations_node",
 ]

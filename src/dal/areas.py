@@ -1,7 +1,6 @@
 """Area repository for HA area CRUD operations."""
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.base import BaseRepository
 from src.storage.entities import Area
@@ -9,7 +8,7 @@ from src.storage.entities import Area
 
 class AreaRepository(BaseRepository[Area]):
     """Repository for Area CRUD operations."""
-    
+
     model = Area
     ha_id_field = "ha_area_id"
     order_by_field = "name"
@@ -57,7 +56,5 @@ class AreaRepository(BaseRepository[Area]):
         Returns:
             Dictionary mapping ha_area_id to id
         """
-        result = await self.session.execute(
-            select(Area.ha_area_id, Area.id)
-        )
+        result = await self.session.execute(select(Area.ha_area_id, Area.id))
         return {row[0]: row[1] for row in result.fetchall()}

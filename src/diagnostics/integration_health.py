@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 _HEALTHY_STATES = {"loaded"}
 
 
@@ -97,8 +96,8 @@ async def diagnose_integration(
 
     # Find unavailable entities for this integration's domain
     from src.diagnostics.entity_health import (
-        _entities_from_response,
         _UNHEALTHY_STATES,
+        _entities_from_response,
     )
 
     all_entities = await ha.list_entities()
@@ -106,9 +105,14 @@ async def diagnose_integration(
     unavailable = [
         e.get("entity_id")
         for e in entities
-        if (e.get("entity_id", "").startswith(f"{domain}.")
-            or e.get("entity_id", "").split(".", 1)[0] in ("sensor", "binary_sensor", "switch", "light")
-            and domain in e.get("entity_id", ""))
+        if (
+            e.get("entity_id", "").startswith(f"{domain}.")
+            or (
+                e.get("entity_id", "").split(".", 1)[0]
+                in ("sensor", "binary_sensor", "switch", "light")
+                and domain in e.get("entity_id", "")
+            )
+        )
         and str(e.get("state", "")).lower() in _UNHEALTHY_STATES
     ]
 

@@ -4,23 +4,23 @@ TDD: Red phase — tests define the contract for the base analyst class
 that all DS team specialists inherit from.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
+
+from src.agents.base_analyst import BaseAnalyst
 from src.graph.state import (
     AgentRole,
     AnalysisState,
-    AnalysisType,
     SpecialistFinding,
     TeamAnalysis,
 )
-from src.agents.base_analyst import BaseAnalyst
-
 
 # ---------------------------------------------------------------------------
 # Concrete subclass for testing (BaseAnalyst is abstract)
 # ---------------------------------------------------------------------------
+
 
 class StubAnalyst(BaseAnalyst):
     """Concrete analyst for testing abstract base."""

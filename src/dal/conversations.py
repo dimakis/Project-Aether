@@ -4,7 +4,6 @@ User Story 2: Conversational Design with Architect Agent.
 """
 
 from datetime import datetime
-from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -309,9 +308,7 @@ class MessageRepository:
         Returns:
             Message or None
         """
-        result = await self.session.execute(
-            select(Message).where(Message.id == message_id)
-        )
+        result = await self.session.execute(select(Message).where(Message.id == message_id))
         return result.scalar_one_or_none()
 
     async def list_by_conversation(
@@ -367,11 +364,7 @@ class MessageRepository:
         ).subquery()
 
         # Get those messages in chronological order
-        query = (
-            select(Message)
-            .where(Message.id.in_(select(subquery)))
-            .order_by(Message.created_at)
-        )
+        query = select(Message).where(Message.id.in_(select(subquery))).order_by(Message.created_at)
 
         result = await self.session.execute(query)
         return list(result.scalars().all())
@@ -386,9 +379,7 @@ class MessageRepository:
             Message count
         """
         result = await self.session.execute(
-            select(func.count(Message.id)).where(
-                Message.conversation_id == conversation_id
-            )
+            select(func.count(Message.id)).where(Message.conversation_id == conversation_id)
         )
         return result.scalar() or 0
 
@@ -402,9 +393,7 @@ class MessageRepository:
             Total tokens used
         """
         result = await self.session.execute(
-            select(func.sum(Message.tokens_used)).where(
-                Message.conversation_id == conversation_id
-            )
+            select(func.sum(Message.tokens_used)).where(Message.conversation_id == conversation_id)
         )
         return result.scalar() or 0
 

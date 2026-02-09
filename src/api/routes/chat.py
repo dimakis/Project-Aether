@@ -3,16 +3,14 @@
 User Story 2: Conversational Design with Architect Agent.
 """
 
-from typing import AsyncGenerator
+import contextlib
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.rate_limit import limiter
-
 from src.agents.model_context import model_context
+from src.api.rate_limit import limiter
 from src.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -21,10 +19,9 @@ from src.api.schemas import (
     ConversationListResponse,
     ConversationResponse,
     ErrorResponse,
-    MessageCreate,
     MessageResponse,
 )
-from src.dal import ConversationRepository, MessageRepository, ProposalRepository
+from src.dal import ConversationRepository, MessageRepository
 from src.storage import get_session
 from src.storage.entities import Agent, ConversationStatus
 
@@ -42,9 +39,7 @@ async def get_or_create_architect_agent(session: AsyncSession) -> Agent:
     """
     from sqlalchemy import select
 
-    result = await session.execute(
-        select(Agent).where(Agent.name == "Architect")
-    )
+    result = await session.execute(select(Agent).where(Agent.name == "Architect"))
     agent = result.scalar_one_or_none()
 
     if not agent:
@@ -91,7 +86,7 @@ async def create_conversation(
 
         # Create initial user message
         msg_repo = MessageRepository(session)
-        user_message = await msg_repo.create(
+        await msg_repo.create(
             conversation_id=conversation.id,
             role="user",
             content=data.initial_message,
@@ -102,6 +97,7 @@ async def create_conversation(
 
         # Set model context so delegated agents inherit the default model
         from src.settings import get_settings as _get_settings
+
         _chat_settings = _get_settings()
         with model_context(
             model_name=_chat_settings.llm_model,
@@ -123,7 +119,7 @@ async def create_conversation(
 
         # Save assistant message
         if assistant_content:
-            assistant_message = await msg_repo.create(
+            await msg_repo.create(
                 conversation_id=conversation.id,
                 role="assistant",
                 content=assistant_content,
@@ -188,10 +184,8 @@ async def list_conversations(
         # Parse status if provided
         status_filter = None
         if status:
-            try:
+            with contextlib.suppress(ValueError):
                 status_filter = ConversationStatus(status)
-            except ValueError:
-                pass
 
         conversations = await conv_repo.list_by_user(
             user_id="default_user",
@@ -297,7 +291,7 @@ async def send_message(
             raise HTTPException(status_code=404, detail="Conversation not found")
 
         # Create user message
-        user_message = await msg_repo.create(
+        await msg_repo.create(
             conversation_id=conversation_id,
             role="user",
             content=data.message,
@@ -318,7 +312,8 @@ async def send_message(
         state = ConversationState(
             conversation_id=conversation_id,
             messages=[
-                HumanMessage(content=m.content) if m.role == "user"
+                HumanMessage(content=m.content)
+                if m.role == "user"
                 else type("AIMessage", (), {"content": m.content, "type": "ai"})()
                 for m in messages_list
             ],
@@ -326,6 +321,7 @@ async def send_message(
 
         # Set model context so delegated agents inherit the default model
         from src.settings import get_settings as _get_settings
+
         _chat_settings = _get_settings()
         with model_context(
             model_name=_chat_settings.llm_model,
@@ -421,6 +417,7 @@ async def stream_conversation(
             # Try as API key
             elif has_api_key:
                 import secrets as _secrets
+
                 configured_key = settings.api_key.get_secret_value()
                 if _secrets.compare_digest(token, configured_key):
                     authenticated = True
@@ -458,15 +455,18 @@ async def stream_conversation(
                     continue
 
                 # Send acknowledgment
-                await websocket.send_json({
-                    "type": "ack",
-                    "content": "Processing...",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "ack",
+                        "content": "Processing...",
+                    }
+                )
 
                 # Process message (simplified - full streaming would use async generator)
+                from langchain_core.messages import HumanMessage
+
                 from src.agents import ArchitectWorkflow
                 from src.graph.state import ConversationState
-                from langchain_core.messages import HumanMessage
 
                 msg_repo = MessageRepository(session)
                 messages_list = await msg_repo.list_by_conversation(conversation_id)
@@ -474,7 +474,8 @@ async def stream_conversation(
                 state = ConversationState(
                     conversation_id=conversation_id,
                     messages=[
-                        HumanMessage(content=m.content) if m.role == "user"
+                        HumanMessage(content=m.content)
+                        if m.role == "user"
                         else type("AIMessage", (), {"content": m.content, "type": "ai"})()
                         for m in messages_list
                     ],
@@ -498,18 +499,24 @@ async def stream_conversation(
                 # Send response in chunks (simulated streaming)
                 chunk_size = 50
                 for i in range(0, len(assistant_content), chunk_size):
-                    chunk = assistant_content[i:i + chunk_size]
-                    await websocket.send_json({
-                        "type": "text",
-                        "content": chunk,
-                    })
+                    chunk = assistant_content[i : i + chunk_size]
+                    await websocket.send_json(
+                        {
+                            "type": "text",
+                            "content": chunk,
+                        }
+                    )
 
                 # Send completion
-                await websocket.send_json({
-                    "type": "done",
-                    "has_proposal": bool(state.pending_approvals),
-                    "proposal_id": state.pending_approvals[0].id if state.pending_approvals else None,
-                })
+                await websocket.send_json(
+                    {
+                        "type": "done",
+                        "has_proposal": bool(state.pending_approvals),
+                        "proposal_id": state.pending_approvals[0].id
+                        if state.pending_approvals
+                        else None,
+                    }
+                )
 
                 await session.commit()
 

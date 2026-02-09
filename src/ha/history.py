@@ -7,7 +7,7 @@ aggregation, and statistical calculations.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.ha.client import HAClient
@@ -40,11 +40,11 @@ class EnergyStats:
     max_value: float = 0.0
     count: int = 0
     unit: str = "kWh"
-    
+
     # Peak usage tracking
     peak_value: float = 0.0
     peak_timestamp: datetime | None = None
-    
+
     # Daily aggregates
     daily_totals: dict[str, float] = field(default_factory=dict)
     hourly_averages: dict[int, float] = field(default_factory=dict)
@@ -104,7 +104,7 @@ class EnergyHistoryClient:
 
     # Energy-related device classes (excluding battery - those are percentages, not power)
     ENERGY_DEVICE_CLASSES = {"energy", "power"}
-    
+
     # Energy units and their conversions to kWh
     UNIT_CONVERSIONS = {
         "kWh": 1.0,
@@ -139,25 +139,25 @@ class EnergyHistoryClient:
         """
         # Get entity details for metadata
         entity_info = await self.ha.get_entity(entity_id, detailed=True)
-        
+
         # Get raw history
         history = await self.ha.get_history(entity_id, hours=hours)
-        
+
         # HAClient uses "attributes" key for detailed entity info
         attrs = entity_info.get("attributes", {})
-        
+
         # Parse into data points
         data_points = self._parse_history_to_datapoints(
             history.get("states", []),
             attrs.get("unit_of_measurement", "kWh"),
         )
-        
+
         # Calculate statistics
         stats = self._calculate_stats(data_points)
-        
-        end_time = datetime.now(timezone.utc)
+
+        end_time = datetime.now(UTC)
         start_time = end_time - timedelta(hours=hours)
-        
+
         return EnergyHistory(
             entity_id=entity_id,
             friendly_name=attrs.get("friendly_name"),
@@ -183,7 +183,7 @@ class EnergyHistoryClient:
         """
         # Get all sensors (list_entities returns a list directly)
         entities = await self.ha.list_entities(domain=domain, detailed=True, limit=500)
-        
+
         # Filter for energy-related sensors
         energy_sensors = []
         for entity in entities:
@@ -191,22 +191,21 @@ class EnergyHistoryClient:
             attrs = entity.get("attributes", {})
             device_class = attrs.get("device_class", "")
             unit = attrs.get("unit_of_measurement", "")
-            
+
             # Check if it's an energy sensor
-            is_energy = (
-                device_class in self.ENERGY_DEVICE_CLASSES
-                or unit in self.UNIT_CONVERSIONS
-            )
-            
+            is_energy = device_class in self.ENERGY_DEVICE_CLASSES or unit in self.UNIT_CONVERSIONS
+
             if is_energy:
-                energy_sensors.append({
-                    "entity_id": entity.get("entity_id"),
-                    "friendly_name": attrs.get("friendly_name"),
-                    "device_class": device_class,
-                    "unit": unit,
-                    "state": entity.get("state"),
-                })
-        
+                energy_sensors.append(
+                    {
+                        "entity_id": entity.get("entity_id"),
+                        "friendly_name": attrs.get("friendly_name"),
+                        "device_class": device_class,
+                        "unit": unit,
+                        "state": entity.get("state"),
+                    }
+                )
+
         return energy_sensors
 
     async def get_aggregated_energy(
@@ -242,16 +241,14 @@ class EnergyHistoryClient:
 
         # Aggregate totals
         total_kwh = sum(h.stats.total for h in histories)
-        
+
         return {
             "entities": [h.to_dict() for h in histories],
             "total_kwh": total_kwh,
             "average_kwh": total_kwh / len(histories) if histories else 0.0,
             "entity_count": len(histories),
             "hours": hours,
-            "by_entity": {
-                h.entity_id: h.stats.total for h in histories
-            },
+            "by_entity": {h.entity_id: h.stats.total for h in histories},
         }
 
     async def get_daily_breakdown(
@@ -269,7 +266,7 @@ class EnergyHistoryClient:
             Daily breakdown with totals per day
         """
         history = await self.get_energy_history(entity_id, hours=days * 24)
-        
+
         return {
             "entity_id": entity_id,
             "days": days,
@@ -293,15 +290,18 @@ class EnergyHistoryClient:
             Peak usage data
         """
         history = await self.get_energy_history(entity_id, hours)
-        
+
         return {
             "entity_id": entity_id,
             "peak_value": history.stats.peak_value,
-            "peak_timestamp": history.stats.peak_timestamp.isoformat() if history.stats.peak_timestamp else None,
+            "peak_timestamp": history.stats.peak_timestamp.isoformat()
+            if history.stats.peak_timestamp
+            else None,
             "average": history.stats.average,
             "peak_to_average_ratio": (
                 history.stats.peak_value / history.stats.average
-                if history.stats.average > 0 else 0.0
+                if history.stats.average > 0
+                else 0.0
             ),
         }
 
@@ -320,29 +320,29 @@ class EnergyHistoryClient:
             List of EnergyDataPoints
         """
         data_points = []
-        
+
         for state in states:
             state_value = state.get("state")
             timestamp_str = state.get("last_changed")
-            
+
             # Skip unavailable/unknown states
             if state_value in ("unavailable", "unknown", None):
                 continue
-            
+
             try:
                 value = float(state_value)
-                timestamp = datetime.fromisoformat(
-                    timestamp_str.replace("Z", "+00:00")
+                timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                data_points.append(
+                    EnergyDataPoint(
+                        timestamp=timestamp,
+                        value=value,
+                        unit=unit,
+                    )
                 )
-                data_points.append(EnergyDataPoint(
-                    timestamp=timestamp,
-                    value=value,
-                    unit=unit,
-                ))
             except (ValueError, TypeError):
                 # Skip invalid values
                 continue
-        
+
         return data_points
 
     def _calculate_stats(
@@ -359,26 +359,26 @@ class EnergyHistoryClient:
         """
         if not data_points:
             return EnergyStats()
-        
+
         values = [dp.value for dp in data_points]
         unit = data_points[0].unit if data_points else "kWh"
-        
+
         # Basic stats
         total = sum(values)
         average = total / len(values)
         min_value = min(values)
         max_value = max(values)
-        
+
         # Find peak
         peak_idx = values.index(max_value)
         peak_timestamp = data_points[peak_idx].timestamp
-        
+
         # Daily aggregates
         daily_totals: dict[str, float] = {}
         for dp in data_points:
             day_key = dp.timestamp.strftime("%Y-%m-%d")
             daily_totals[day_key] = daily_totals.get(day_key, 0.0) + dp.value
-        
+
         # Hourly averages
         hourly_sums: dict[int, list[float]] = {}
         for dp in data_points:
@@ -386,12 +386,9 @@ class EnergyHistoryClient:
             if hour not in hourly_sums:
                 hourly_sums[hour] = []
             hourly_sums[hour].append(dp.value)
-        
-        hourly_averages = {
-            hour: sum(vals) / len(vals)
-            for hour, vals in hourly_sums.items()
-        }
-        
+
+        hourly_averages = {hour: sum(vals) / len(vals) for hour, vals in hourly_sums.items()}
+
         return EnergyStats(
             total=total,
             average=average,

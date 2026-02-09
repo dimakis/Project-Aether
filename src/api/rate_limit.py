@@ -22,9 +22,8 @@ Usage in route modules:
         ...
 """
 
-from starlette.requests import Request
-
 from slowapi import Limiter
+from starlette.requests import Request
 
 
 def _get_real_client_ip(request: Request) -> str:

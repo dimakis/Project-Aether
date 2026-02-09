@@ -91,7 +91,7 @@ class TestLibrarianAgent:
                 "status": DiscoveryStatus.COMPLETED,
             }
 
-            result = await agent.invoke(state)
+            await agent.invoke(state)
 
             mock_node.assert_called_once()
 

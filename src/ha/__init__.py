@@ -13,6 +13,7 @@ from src.ha.automation_deploy import (
     build_sun_trigger,
     build_time_trigger,
 )
+from src.ha.behavioral import BehavioralAnalysisClient
 from src.ha.client import HAClient, get_ha_client
 from src.ha.constants import COMMON_SERVICES
 from src.ha.history import (
@@ -23,7 +24,6 @@ from src.ha.history import (
     discover_energy_sensors,
     get_energy_history,
 )
-from src.ha.behavioral import BehavioralAnalysisClient
 from src.ha.logbook import (
     LogbookHistoryClient,
     LogbookStats,
@@ -42,42 +42,42 @@ from src.ha.parsers import (
 from src.ha.workarounds import infer_areas_from_entities, infer_devices_from_entities
 
 __all__ = [
-    # Client
-    "HAClient",
-    "get_ha_client",
-    # Parsers
-    "parse_system_overview",
-    "parse_entity_list",
-    "parse_entity",
-    "parse_domain_summary",
-    "parse_automation_list",
-    # Workarounds
-    "infer_devices_from_entities",
-    "infer_areas_from_entities",
+    # Constants
+    "COMMON_SERVICES",
     # Automation Deployment
     "AutomationDeployer",
-    "build_state_trigger",
-    "build_time_trigger",
-    "build_sun_trigger",
-    "build_service_action",
-    "build_delay_action",
-    "build_condition",
-    # Energy History (US3)
-    "EnergyHistoryClient",
-    "EnergyHistory",
-    "EnergyDataPoint",
-    "EnergyStats",
-    "get_energy_history",
-    "discover_energy_sensors",
     # Behavioral Analysis (US5 / Feature 03)
     "BehavioralAnalysisClient",
+    "EnergyDataPoint",
+    "EnergyHistory",
+    # Energy History (US3)
+    "EnergyHistoryClient",
+    "EnergyStats",
+    # Client
+    "HAClient",
     # Logbook (US5 / Feature 03)
     "LogbookHistoryClient",
     "LogbookStats",
     "ParsedLogbookEntry",
+    "build_condition",
+    "build_delay_action",
+    "build_service_action",
+    "build_state_trigger",
+    "build_sun_trigger",
+    "build_time_trigger",
+    "discover_energy_sensors",
+    "get_energy_history",
+    "get_ha_client",
+    "get_logbook_stats",
+    "infer_areas_from_entities",
+    # Workarounds
+    "infer_devices_from_entities",
+    "parse_automation_list",
+    "parse_domain_summary",
+    "parse_entity",
+    "parse_entity_list",
     "parse_logbook_entry",
     "parse_logbook_list",
-    "get_logbook_stats",
-    # Constants
-    "COMMON_SERVICES",
+    # Parsers
+    "parse_system_overview",
 ]

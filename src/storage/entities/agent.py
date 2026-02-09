@@ -4,7 +4,6 @@ Represents an agent in the system for tracing and orchestration purposes.
 Extended in Feature 23 with status lifecycle and versioned configuration.
 """
 
-from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Literal
 

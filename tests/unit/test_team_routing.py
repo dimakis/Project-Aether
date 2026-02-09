@@ -15,11 +15,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.tools.specialist_tools import (
+    SPECIALIST_TRIGGERS,
     _select_specialists,
     consult_data_science_team,
-    SPECIALIST_TRIGGERS,
 )
-
 
 # ---------------------------------------------------------------------------
 # Keyword routing
@@ -40,17 +39,13 @@ class TestSelectSpecialists:
         """Behavioral-related queries select at least the behavioral analyst."""
         assert _select_specialists("Show automation patterns") == ["behavioral"]
         assert _select_specialists("What are my daily habits?") == ["behavioral"]
-        assert _select_specialists("How often is the good night scene activated?") == [
-            "behavioral"
-        ]
+        assert _select_specialists("How often is the good night scene activated?") == ["behavioral"]
         assert _select_specialists("Find automation gaps") == ["behavioral"]
 
     def test_diagnostic_keywords(self):
         """Diagnostic-related queries select at least the diagnostic analyst."""
         assert _select_specialists("My sensor is offline") == ["diagnostic"]
-        assert _select_specialists("Diagnose the unavailable entities") == [
-            "diagnostic"
-        ]
+        assert _select_specialists("Diagnose the unavailable entities") == ["diagnostic"]
         assert _select_specialists("Check integration health") == ["diagnostic"]
         assert _select_specialists("Fix the broken thermostat") == ["diagnostic"]
 
@@ -72,23 +67,17 @@ class TestSelectSpecialists:
 
     def test_explicit_override(self):
         """Explicit specialists param overrides keyword matching."""
-        result = _select_specialists(
-            "Optimize my home", specialists=["diagnostic"]
-        )
+        result = _select_specialists("Optimize my home", specialists=["diagnostic"])
         assert result == ["diagnostic"]
 
     def test_explicit_override_multiple(self):
         """Explicit multi-specialist override is honored."""
-        result = _select_specialists(
-            "anything", specialists=["energy", "behavioral"]
-        )
+        result = _select_specialists("anything", specialists=["energy", "behavioral"])
         assert sorted(result) == ["behavioral", "energy"]
 
     def test_explicit_override_ignores_query(self):
         """When specialists are explicit, query keywords are irrelevant."""
-        result = _select_specialists(
-            "energy power cost consumption", specialists=["diagnostic"]
-        )
+        result = _select_specialists("energy power cost consumption", specialists=["diagnostic"])
         assert result == ["diagnostic"]
 
     def test_case_insensitive(self):
@@ -167,9 +156,7 @@ class TestConsultDataScienceTeam:
 
     async def test_broad_query_calls_all(self):
         """A broad query invokes all three specialists."""
-        result = await consult_data_science_team.ainvoke(
-            {"query": "Optimize my home"}
-        )
+        result = await consult_data_science_team.ainvoke({"query": "Optimize my home"})
         self.mock_energy.assert_awaited_once()
         self.mock_behavioral.assert_awaited_once()
         self.mock_diagnostic.assert_awaited_once()
@@ -178,7 +165,7 @@ class TestConsultDataScienceTeam:
 
     async def test_custom_query_used_for_routing(self):
         """When custom_query is provided, it drives routing instead of query."""
-        result = await consult_data_science_team.ainvoke(
+        await consult_data_science_team.ainvoke(
             {
                 "query": "general question",
                 "custom_query": "Check power consumption",
@@ -189,8 +176,6 @@ class TestConsultDataScienceTeam:
 
     async def test_response_includes_header(self):
         """Response always includes the team report header."""
-        result = await consult_data_science_team.ainvoke(
-            {"query": "Check power consumption"}
-        )
+        result = await consult_data_science_team.ainvoke({"query": "Check power consumption"})
         assert "Data Science Team Report" in result
         assert "1 specialist(s)" in result

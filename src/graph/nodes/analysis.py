@@ -6,7 +6,8 @@ insight extraction, and optimization analysis.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import contextlib
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from langchain_core.messages import AIMessage
@@ -15,6 +16,7 @@ from src.graph.state import AnalysisState, ScriptExecution
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
     from src.ha.client import HAClient
 
 
@@ -33,7 +35,6 @@ async def collect_energy_data_node(
     Returns:
         State updates with collected energy data
     """
-    from src.graph.state import AnalysisState
     from src.ha import EnergyHistoryClient, get_ha_client
 
     ha = ha_client or get_ha_client()
@@ -115,7 +116,6 @@ async def execute_sandbox_node(
     Returns:
         State updates with execution results
     """
-    from src.graph.state import ScriptExecution
     from src.ha import EnergyHistoryClient, get_ha_client
     from src.sandbox.runner import SandboxRunner
 
@@ -143,9 +143,9 @@ async def execute_sandbox_node(
 
     try:
         sandbox = SandboxRunner()
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         result = await sandbox.run(state.generated_script, data_path=data_path)
-        completed_at = datetime.now(timezone.utc)
+        completed_at = datetime.now(UTC)
 
         execution = ScriptExecution(
             script_content=state.generated_script[:5000],
@@ -158,7 +158,9 @@ async def execute_sandbox_node(
             timed_out=result.timed_out,
         )
 
-        status_msg = "completed successfully" if result.success else f"failed (exit code {result.exit_code})"
+        status_msg = (
+            "completed successfully" if result.success else f"failed (exit code {result.exit_code})"
+        )
 
         return {
             "script_executions": [execution],
@@ -170,10 +172,8 @@ async def execute_sandbox_node(
         }
 
     finally:
-        try:
+        with contextlib.suppress(Exception):
             data_path.unlink()
-        except Exception:
-            pass
 
 
 async def extract_insights_node(
@@ -194,7 +194,7 @@ async def extract_insights_node(
     from src.agents import DataScientistAgent
     from src.dal import InsightRepository
     from src.sandbox.runner import SandboxResult
-    from src.storage.entities.insight import InsightStatus, InsightType
+    from src.storage.entities.insight import InsightType
 
     if not state.script_executions:
         return {"messages": [AIMessage(content="No execution results to extract from")]}
@@ -311,7 +311,7 @@ async def collect_behavioral_data_node(
     Returns:
         State updates with collected data in messages
     """
-    from src.ha import BehavioralAnalysisClient, LogbookHistoryClient, get_ha_client
+    from src.ha import LogbookHistoryClient, get_ha_client
 
     ha = ha_client or get_ha_client()
     logbook = LogbookHistoryClient(ha)
@@ -333,9 +333,7 @@ async def collect_behavioral_data_node(
         }
     except Exception as e:
         return {
-            "messages": [
-                AIMessage(content=f"Failed to collect behavioral data: {e}")
-            ],
+            "messages": [AIMessage(content=f"Failed to collect behavioral data: {e}")],
         }
 
 
@@ -368,15 +366,17 @@ async def analyze_and_suggest_node(
         return updates
     except Exception as e:
         return {
-            "insights": [{
-                "type": "error",
-                "title": "Analysis Failed",
-                "description": str(e),
-                "confidence": 0.0,
-                "impact": "low",
-                "evidence": {},
-                "entities": state.entity_ids,
-            }],
+            "insights": [
+                {
+                    "type": "error",
+                    "title": "Analysis Failed",
+                    "description": str(e),
+                    "confidence": 0.0,
+                    "impact": "low",
+                    "evidence": {},
+                    "entities": state.entity_ids,
+                }
+            ],
         }
 
 
@@ -399,11 +399,7 @@ async def architect_review_node(
     suggestion = state.automation_suggestion
     if not suggestion:
         return {
-            "messages": [
-                AIMessage(
-                    content="No automation suggestions to review."
-                )
-            ],
+            "messages": [AIMessage(content="No automation suggestions to review.")],
         }
 
     from src.agents import ArchitectAgent
@@ -425,15 +421,11 @@ async def architect_review_node(
         parts.append(response_text[:500])
 
         return {
-            "messages": [
-                AIMessage(content="\n".join(parts))
-            ],
+            "messages": [AIMessage(content="\n".join(parts))],
         }
     except Exception as e:
         return {
-            "messages": [
-                AIMessage(content=f"Architect review failed: {e}")
-            ],
+            "messages": [AIMessage(content=f"Architect review failed: {e}")],
         }
 
 
@@ -454,7 +446,7 @@ async def present_recommendations_node(
     insights = state.insights or []
     recommendations = state.recommendations or []
 
-    parts = [f"**Optimization Analysis Complete**"]
+    parts = ["**Optimization Analysis Complete**"]
     parts.append(f"Found {len(insights)} insight(s) and {len(recommendations)} recommendation(s).")
 
     if insights:
@@ -474,7 +466,5 @@ async def present_recommendations_node(
         parts.append(f"\n**Automation Proposal:** {suggestion.pattern[:200]}")
 
     return {
-        "messages": [
-            AIMessage(content="\n".join(parts))
-        ],
+        "messages": [AIMessage(content="\n".join(parts))],
     }

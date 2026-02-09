@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.settings import Settings
 from src.storage.models import Base
 
-
 # =============================================================================
 # EVENT LOOP
 # =============================================================================

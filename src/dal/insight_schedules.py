@@ -3,7 +3,7 @@
 Feature 10: Scheduled & Event-Driven Insights.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -105,7 +105,7 @@ class InsightScheduleRepository:
         for key, value in fields.items():
             if hasattr(schedule, key):
                 setattr(schedule, key, value)
-        schedule.updated_at = datetime.now(timezone.utc)
+        schedule.updated_at = datetime.now(UTC)
         await self.session.flush()
         return schedule
 

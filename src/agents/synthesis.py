@@ -18,16 +18,17 @@ Usage:
 from __future__ import annotations
 
 import json
-import structlog
 from collections import defaultdict
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from src.graph.state import (
-    AutomationSuggestion,
-    SpecialistFinding,
-    TeamAnalysis,
-)
+import structlog
+
+if TYPE_CHECKING:
+    from src.graph.state import (
+        SpecialistFinding,
+        TeamAnalysis,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -108,9 +109,7 @@ class ProgrammaticSynthesizer:
             }
         )
 
-    def _detect_conflicts(
-        self, entity_findings: dict[str, list[SpecialistFinding]]
-    ) -> list[str]:
+    def _detect_conflicts(self, entity_findings: dict[str, list[SpecialistFinding]]) -> list[str]:
         """Detect conflicting findings on the same entity from different specialists."""
         conflicts: list[str] = []
         concern_types = {"concern", "data_quality_flag"}
@@ -151,7 +150,7 @@ class ProgrammaticSynthesizer:
             # Boost for multi-specialist entity coverage
             entity_boost = 0.0
             for entity in f.entities:
-                specialist_count = len(set(ef.specialist for ef in entity_findings.get(entity, [])))
+                specialist_count = len({ef.specialist for ef in entity_findings.get(entity, [])})
                 if specialist_count > 1:
                     entity_boost = max(entity_boost, 0.15 * (specialist_count - 1))
             return base + cross_ref_boost + entity_boost
@@ -185,7 +184,7 @@ class ProgrammaticSynthesizer:
 
         # Add entity-level recommendations for multi-specialist entities
         for entity, group in entity_findings.items():
-            specialists = set(f.specialist for f in group)
+            specialists = {f.specialist for f in group}
             if len(specialists) >= 2:
                 rec = f"Review {entity} — flagged by {len(specialists)} specialists"
                 if rec not in seen:
@@ -211,7 +210,7 @@ class ProgrammaticSynthesizer:
         ]
 
         # Summarize multi-specialist entities
-        multi = [e for e, g in entity_findings.items() if len(set(f.specialist for f in g)) > 1]
+        multi = [e for e, g in entity_findings.items() if len({f.specialist for f in g}) > 1]
         if multi:
             parts.append(
                 f"{len(multi)} entity/entities flagged by multiple specialists: "

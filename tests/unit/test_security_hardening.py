@@ -16,10 +16,8 @@ Covers:
 
 import pytest
 from pydantic import SecretStr, ValidationError
-from unittest.mock import patch
 
 from src.settings import Settings
-
 
 # =============================================================================
 # HITL ENFORCEMENT
@@ -156,8 +154,9 @@ class TestSSRFProtection:
 
     def test_blocks_non_http_schemes(self):
         """Should reject non-HTTP schemes."""
-        from src.api.ha_verify import _validate_url_not_ssrf
         from fastapi import HTTPException
+
+        from src.api.ha_verify import _validate_url_not_ssrf
 
         with pytest.raises(HTTPException) as exc_info:
             _validate_url_not_ssrf("file:///etc/passwd")
@@ -168,8 +167,9 @@ class TestSSRFProtection:
 
     def test_blocks_cloud_metadata(self):
         """Should block cloud metadata endpoint."""
-        from src.api.ha_verify import _validate_url_not_ssrf
         from fastapi import HTTPException
+
+        from src.api.ha_verify import _validate_url_not_ssrf
 
         with pytest.raises(HTTPException, match="cloud metadata"):
             _validate_url_not_ssrf("http://169.254.169.254/latest/meta-data/")
@@ -185,8 +185,9 @@ class TestSSRFProtection:
 
     def test_blocks_missing_hostname(self):
         """Should reject URLs without a hostname."""
-        from src.api.ha_verify import _validate_url_not_ssrf
         from fastapi import HTTPException
+
+        from src.api.ha_verify import _validate_url_not_ssrf
 
         with pytest.raises(HTTPException, match="missing hostname"):
             _validate_url_not_ssrf("http://")
@@ -319,13 +320,15 @@ class TestServiceCallBlocklist:
         # We test the logic by checking that the set exists in the source
         # and contains expected domains. The actual blocking logic is:
         # if request.domain in BLOCKED_DOMAINS: return failure
-        blocked = frozenset({
-            "homeassistant",
-            "persistent_notification",
-            "system_log",
-            "recorder",
-            "hassio",
-        })
+        blocked = frozenset(
+            {
+                "homeassistant",
+                "persistent_notification",
+                "system_log",
+                "recorder",
+                "hassio",
+            }
+        )
         assert "homeassistant" in blocked
         assert "hassio" in blocked
         assert "recorder" in blocked
@@ -335,6 +338,7 @@ class TestServiceCallBlocklist:
     def test_blocked_domains_in_source(self):
         """Verify the blocked domains are defined in ha_registry.py."""
         import inspect
+
         from src.api.routes import ha_registry
 
         source = inspect.getsource(ha_registry.call_service)
@@ -354,6 +358,7 @@ class TestWebhookSecretEnforcement:
     def test_webhook_handler_checks_production_secret(self):
         """Verify the webhook handler source requires secret in production."""
         import inspect
+
         from src.api.routes import webhooks
 
         source = inspect.getsource(webhooks.receive_ha_webhook)
@@ -365,6 +370,7 @@ class TestWebhookSecretEnforcement:
     def test_webhook_handler_uses_rate_limiting(self):
         """Verify the webhook handler has rate limiting."""
         import inspect
+
         from src.api.routes import webhooks
 
         source = inspect.getsource(webhooks.receive_ha_webhook)

@@ -4,7 +4,6 @@ Pydantic schemas for proposal endpoints - User Story 2.
 """
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -44,7 +43,9 @@ class ProposalResponse(BaseModel):
     """Schema for proposal response."""
 
     id: str = Field(description="Proposal UUID")
-    proposal_type: str = Field(default="automation", description="Type: automation, entity_command, script, scene")
+    proposal_type: str = Field(
+        default="automation", description="Type: automation, entity_command, script, scene"
+    )
     conversation_id: str | None = Field(description="Source conversation")
     name: str = Field(description="Automation name")
     description: str | None = Field(description="Description")
@@ -52,7 +53,9 @@ class ProposalResponse(BaseModel):
     conditions: dict | list | None = Field(description="Conditions")
     actions: dict | list = Field(description="Actions")
     mode: str = Field(description="Execution mode")
-    service_call: dict | None = Field(default=None, description="Service call details for entity_command type")
+    service_call: dict | None = Field(
+        default=None, description="Service call details for entity_command type"
+    )
     status: str = Field(description="Proposal status")
     ha_automation_id: str | None = Field(description="HA automation ID if deployed")
     proposed_at: datetime | None = Field(description="When proposed")
@@ -169,14 +172,14 @@ class RollbackResponse(BaseModel):
 
 # Exports
 __all__ = [
-    "ProposalCreate",
-    "ProposalResponse",
-    "ProposalYAMLResponse",
-    "ProposalListResponse",
     "ApprovalRequest",
-    "RejectionRequest",
     "DeploymentRequest",
     "DeploymentResponse",
+    "ProposalCreate",
+    "ProposalListResponse",
+    "ProposalResponse",
+    "ProposalYAMLResponse",
+    "RejectionRequest",
     "RollbackRequest",
     "RollbackResponse",
 ]

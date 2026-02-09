@@ -6,7 +6,7 @@ authentication. Each row represents one registered authenticator device.
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, LargeBinary, String, Text
+from sqlalchemy import DateTime, Index, Integer, LargeBinary, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,9 +21,7 @@ class PasskeyCredential(Base, UUIDMixin, TimestampMixin):
     """
 
     __tablename__ = "passkey_credential"
-    __table_args__ = (
-        Index("ix_passkey_credential_id", "credential_id", unique=True),
-    )
+    __table_args__ = (Index("ix_passkey_credential_id", "credential_id", unique=True),)
 
     # WebAuthn credential data
     credential_id: Mapped[bytes] = mapped_column(
@@ -68,7 +66,4 @@ class PasskeyCredential(Base, UUIDMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         """Return string representation."""
-        return (
-            f"<PasskeyCredential(device={self.device_name!r}, "
-            f"username={self.username!r})>"
-        )
+        return f"<PasskeyCredential(device={self.device_name!r}, username={self.username!r})>"

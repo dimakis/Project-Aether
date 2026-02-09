@@ -63,10 +63,10 @@ class TestModelContextManager:
 
     def test_nested_contexts(self):
         """Nested context managers should save/restore correctly."""
-        with model_context(model_name="outer-model", temperature=0.5) as outer:
+        with model_context(model_name="outer-model", temperature=0.5):
             assert get_model_context().model_name == "outer-model"
 
-            with model_context(model_name="inner-model", temperature=0.9) as inner:
+            with model_context(model_name="inner-model", temperature=0.9):
                 assert get_model_context().model_name == "inner-model"
                 assert get_model_context().temperature == 0.9
 

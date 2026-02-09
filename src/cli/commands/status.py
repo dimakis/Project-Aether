@@ -2,7 +2,6 @@
 
 import asyncio
 
-import typer
 import httpx
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -106,12 +105,6 @@ async def _check_components_directly() -> None:
     table.add_column("Component", style="cyan")
     table.add_column("Status")
     table.add_column("Message")
-
-    status_colors = {
-        "healthy": "green",
-        "degraded": "yellow",
-        "unhealthy": "red",
-    }
 
     with Progress(
         SpinnerColumn(),

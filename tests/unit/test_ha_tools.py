@@ -17,11 +17,13 @@ class TestGetEntityStateTool:
         from src.tools.ha_tools import get_entity_state
 
         mock_mcp = MagicMock()
-        mock_mcp.get_entity = AsyncMock(return_value={
-            "entity_id": "light.living_room",
-            "state": "on",
-            "attributes": {"brightness": 255, "friendly_name": "Living Room Light"},
-        })
+        mock_mcp.get_entity = AsyncMock(
+            return_value={
+                "entity_id": "light.living_room",
+                "state": "on",
+                "attributes": {"brightness": 255, "friendly_name": "Living Room Light"},
+            }
+        )
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await get_entity_state.ainvoke({"entity_id": "light.living_room"})
@@ -54,8 +56,10 @@ class TestListEntitiesByDomainTool:
         entity1 = MagicMock(entity_id="light.living_room", state="on")
         entity2 = MagicMock(entity_id="light.bedroom", state="off")
 
-        with patch("src.tools.ha_tools.get_session") as mock_gs, \
-             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_gs,
+            patch("src.tools.ha_tools.EntityRepository") as MockRepo,
+        ):
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -74,14 +78,18 @@ class TestListEntitiesByDomainTool:
         entity1 = MagicMock(entity_id="light.living_room", state="on")
         entity2 = MagicMock(entity_id="light.bedroom", state="off")
 
-        with patch("src.tools.ha_tools.get_session") as mock_gs, \
-             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_gs,
+            patch("src.tools.ha_tools.EntityRepository") as MockRepo,
+        ):
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
             MockRepo.return_value.list_by_domain = AsyncMock(return_value=[entity1, entity2])
 
-            result = await list_entities_by_domain.ainvoke({"domain": "light", "state_filter": "on"})
+            result = await list_entities_by_domain.ainvoke(
+                {"domain": "light", "state_filter": "on"}
+            )
 
         assert "light.living_room" in result
         # bedroom is off, should not be in filtered result
@@ -98,8 +106,10 @@ class TestSearchEntitiesTool:
         entity1 = MagicMock(entity_id="light.kitchen")
         entity2 = MagicMock(entity_id="sensor.kitchen_temperature")
 
-        with patch("src.tools.ha_tools.get_session") as mock_gs, \
-             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_gs,
+            patch("src.tools.ha_tools.EntityRepository") as MockRepo,
+        ):
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -131,8 +141,10 @@ class TestGetDomainSummaryTool:
             MagicMock(state="off"),
         ]
 
-        with patch("src.tools.ha_tools.get_session") as mock_gs, \
-             patch("src.tools.ha_tools.EntityRepository") as MockRepo:
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_gs,
+            patch("src.tools.ha_tools.EntityRepository") as MockRepo,
+        ):
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -156,10 +168,9 @@ class TestControlEntityTool:
         mock_mcp.entity_action = AsyncMock(return_value={"success": True})
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
-            result = await control_entity.ainvoke({
-                "entity_id": "light.living_room",
-                "action": "on"
-            })
+            result = await control_entity.ainvoke(
+                {"entity_id": "light.living_room", "action": "on"}
+            )
 
         assert "light.living_room" in result.lower()
         mock_mcp.entity_action.assert_called_once()
@@ -173,10 +184,7 @@ class TestControlEntityTool:
         mock_mcp.entity_action = AsyncMock(return_value={"success": True})
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
-            result = await control_entity.ainvoke({
-                "entity_id": "switch.garden",
-                "action": "off"
-            })
+            await control_entity.ainvoke({"entity_id": "switch.garden", "action": "off"})
 
         mock_mcp.entity_action.assert_called_once()
 
@@ -190,19 +198,23 @@ class TestDeployAutomationTool:
         from src.tools.ha_tools import deploy_automation
 
         mock_mcp = MagicMock()
-        mock_mcp.create_automation = AsyncMock(return_value={
-            "success": True,
-            "automation_id": "test_lights",
-            "entity_id": "automation.test_lights",
-        })
+        mock_mcp.create_automation = AsyncMock(
+            return_value={
+                "success": True,
+                "automation_id": "test_lights",
+                "entity_id": "automation.test_lights",
+            }
+        )
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
-            result = await deploy_automation.ainvoke({
-                "automation_id": "test_lights",
-                "alias": "Test Lights",
-                "trigger": [{"platform": "state", "entity_id": "binary_sensor.motion"}],
-                "action": [{"service": "light.turn_on", "target": {"entity_id": "light.test"}}],
-            })
+            result = await deploy_automation.ainvoke(
+                {
+                    "automation_id": "test_lights",
+                    "alias": "Test Lights",
+                    "trigger": [{"platform": "state", "entity_id": "binary_sensor.motion"}],
+                    "action": [{"service": "light.turn_on", "target": {"entity_id": "light.test"}}],
+                }
+            )
 
         assert "✅" in result or "success" in result.lower()
         assert "test_lights" in result.lower()
@@ -214,18 +226,22 @@ class TestDeployAutomationTool:
         from src.tools.ha_tools import deploy_automation
 
         mock_mcp = MagicMock()
-        mock_mcp.create_automation = AsyncMock(return_value={
-            "success": False,
-            "error": "Connection refused",
-        })
+        mock_mcp.create_automation = AsyncMock(
+            return_value={
+                "success": False,
+                "error": "Connection refused",
+            }
+        )
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
-            result = await deploy_automation.ainvoke({
-                "automation_id": "test_lights",
-                "alias": "Test Lights",
-                "trigger": [{"platform": "time", "at": "06:00:00"}],
-                "action": [{"service": "light.turn_on"}],
-            })
+            result = await deploy_automation.ainvoke(
+                {
+                    "automation_id": "test_lights",
+                    "alias": "Test Lights",
+                    "trigger": [{"platform": "time", "at": "06:00:00"}],
+                    "action": [{"service": "light.turn_on"}],
+                }
+            )
 
         assert "❌" in result or "failed" in result.lower()
 
@@ -235,22 +251,26 @@ class TestDeployAutomationTool:
         from src.tools.ha_tools import deploy_automation
 
         mock_mcp = MagicMock()
-        mock_mcp.create_automation = AsyncMock(return_value={
-            "success": True,
-            "automation_id": "night_lights",
-            "entity_id": "automation.night_lights",
-        })
+        mock_mcp.create_automation = AsyncMock(
+            return_value={
+                "success": True,
+                "automation_id": "night_lights",
+                "entity_id": "automation.night_lights",
+            }
+        )
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
-            result = await deploy_automation.ainvoke({
-                "automation_id": "night_lights",
-                "alias": "Night Lights",
-                "trigger": [{"platform": "state", "entity_id": "binary_sensor.motion"}],
-                "action": [{"service": "light.turn_on"}],
-                "condition": [{"condition": "sun", "after": "sunset"}],
-                "description": "Only at night",
-                "mode": "restart",
-            })
+            await deploy_automation.ainvoke(
+                {
+                    "automation_id": "night_lights",
+                    "alias": "Night Lights",
+                    "trigger": [{"platform": "state", "entity_id": "binary_sensor.motion"}],
+                    "action": [{"service": "light.turn_on"}],
+                    "condition": [{"condition": "sun", "after": "sunset"}],
+                    "description": "Only at night",
+                    "mode": "restart",
+                }
+            )
 
         # Verify all params were passed
         call_kwargs = mock_mcp.create_automation.call_args[1]
@@ -281,10 +301,12 @@ class TestDeleteAutomationTool:
         from src.tools.ha_tools import delete_automation
 
         mock_mcp = MagicMock()
-        mock_mcp.delete_automation = AsyncMock(return_value={
-            "success": False,
-            "error": "Not found",
-        })
+        mock_mcp.delete_automation = AsyncMock(
+            return_value={
+                "success": False,
+                "error": "Not found",
+            }
+        )
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await delete_automation.ainvoke({"automation_id": "nonexistent"})
@@ -313,8 +335,10 @@ class TestListAutomationsTool:
             config=None,
         )
 
-        with patch("src.tools.ha_tools.get_session") as mock_gs, \
-             patch("src.tools.ha_tools.AutomationRepository") as MockRepo:
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_gs,
+            patch("src.tools.ha_tools.AutomationRepository") as MockRepo,
+        ):
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -332,8 +356,10 @@ class TestListAutomationsTool:
         """Test listing when no automations exist."""
         from src.tools.ha_tools import list_automations
 
-        with patch("src.tools.ha_tools.get_session") as mock_gs, \
-             patch("src.tools.ha_tools.AutomationRepository") as MockRepo:
+        with (
+            patch("src.tools.ha_tools.get_session") as mock_gs,
+            patch("src.tools.ha_tools.AutomationRepository") as MockRepo,
+        ):
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -428,10 +454,12 @@ class TestCheckHaConfigTool:
         from src.tools.ha_tools import check_ha_config
 
         mock_mcp = MagicMock()
-        mock_mcp.check_config = AsyncMock(return_value={
-            "result": "invalid",
-            "errors": "Invalid entry in configuration.yaml: sensor",
-        })
+        mock_mcp.check_config = AsyncMock(
+            return_value={
+                "result": "invalid",
+                "errors": "Invalid entry in configuration.yaml: sensor",
+            }
+        )
 
         with patch("src.tools.ha_tools.get_ha_client", return_value=mock_mcp):
             result = await check_ha_config.ainvoke({})

@@ -5,7 +5,6 @@ error handling and status transitions, and the registry sync helper.
 All external dependencies (HA client, repositories, DB session) are mocked.
 """
 
-from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -48,16 +47,23 @@ def _make_service(
 
     ha = ha_client or MagicMock()
 
-    with patch("src.dal.sync.EntityRepository") as MockEntityRepo, \
-         patch("src.dal.sync.DeviceRepository") as MockDeviceRepo, \
-         patch("src.dal.sync.AreaRepository") as MockAreaRepo, \
-         patch("src.dal.sync.AutomationRepository") as MockAutoRepo, \
-         patch("src.dal.sync.ScriptRepository") as MockScriptRepo, \
-         patch("src.dal.sync.SceneRepository") as MockSceneRepo:
-
+    with (
+        patch("src.dal.sync.EntityRepository") as MockEntityRepo,
+        patch("src.dal.sync.DeviceRepository") as MockDeviceRepo,
+        patch("src.dal.sync.AreaRepository") as MockAreaRepo,
+        patch("src.dal.sync.AutomationRepository") as MockAutoRepo,
+        patch("src.dal.sync.ScriptRepository") as MockScriptRepo,
+        patch("src.dal.sync.SceneRepository") as MockSceneRepo,
+    ):
         # Defaults: all repos return empty structures
-        for MockRepo in [MockEntityRepo, MockDeviceRepo, MockAreaRepo,
-                         MockAutoRepo, MockScriptRepo, MockSceneRepo]:
+        for MockRepo in [
+            MockEntityRepo,
+            MockDeviceRepo,
+            MockAreaRepo,
+            MockAutoRepo,
+            MockScriptRepo,
+            MockSceneRepo,
+        ]:
             instance = MockRepo.return_value
             instance.upsert = AsyncMock(return_value=(MagicMock(id="id-1"), True))
             instance.get_all_entity_ids = AsyncMock(return_value=set())
@@ -81,9 +87,11 @@ class TestDiscoverySessionCreation:
         ha.list_entities = AsyncMock(return_value=[])
         ha.get_area_registry = AsyncMock(return_value=[])
 
-        with patch("src.dal.sync.parse_entity_list", return_value=[]), \
-             patch("src.dal.sync.infer_areas_from_entities", return_value={}), \
-             patch("src.dal.sync.infer_devices_from_entities", return_value={}):
+        with (
+            patch("src.dal.sync.parse_entity_list", return_value=[]),
+            patch("src.dal.sync.infer_areas_from_entities", return_value={}),
+            patch("src.dal.sync.infer_devices_from_entities", return_value={}),
+        ):
             result = await service.run_discovery(triggered_by="test")
 
         sess.add.assert_called_once()
@@ -138,9 +146,7 @@ class TestEntitySync:
 
         entities = [_make_entity("light.living_room", "light")]
 
-        service.entity_repo.get_all_entity_ids = AsyncMock(
-            return_value={"light.living_room"}
-        )
+        service.entity_repo.get_all_entity_ids = AsyncMock(return_value={"light.living_room"})
         # created=False means update
         service.entity_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
 
@@ -175,8 +181,10 @@ class TestEntitySync:
 
         entities = [
             _make_entity(
-                "light.living_room", "light",
-                area_id="living_room", device_id="dev-1",
+                "light.living_room",
+                "light",
+                area_id="living_room",
+                device_id="dev-1",
             ),
         ]
 
@@ -254,15 +262,18 @@ class TestAutomationRegistrySync:
 
         entities = [
             _make_entity(
-                "automation.morning", "automation",
+                "automation.morning",
+                "automation",
                 attributes={"id": "morning", "friendly_name": "Morning Routine"},
             ),
             _make_entity(
-                "script.reboot", "script",
+                "script.reboot",
+                "script",
                 attributes={"friendly_name": "Reboot All"},
             ),
             _make_entity(
-                "scene.movie", "scene",
+                "scene.movie",
+                "scene",
                 attributes={"friendly_name": "Movie Night"},
             ),
         ]
@@ -287,9 +298,7 @@ class TestAutomationRegistrySync:
             _make_entity("automation.current", "automation", attributes={"id": "current"}),
         ]
 
-        service.automation_repo.get_all_ha_ids = AsyncMock(
-            return_value={"current", "old_deleted"}
-        )
+        service.automation_repo.get_all_ha_ids = AsyncMock(return_value={"current", "old_deleted"})
         service.script_repo.get_all_ha_ids = AsyncMock(return_value=set())
         service.scene_repo.get_all_ha_ids = AsyncMock(return_value=set())
 
@@ -307,8 +316,10 @@ class TestConvenienceFunctions:
         mock_session = MagicMock()
         mock_ha = MagicMock()
 
-        with patch("src.dal.sync.DiscoverySyncService") as MockService, \
-             patch("src.ha.get_ha_client", return_value=mock_ha) as get_ha:
+        with (
+            patch("src.dal.sync.DiscoverySyncService") as MockService,
+            patch("src.ha.get_ha_client", return_value=mock_ha) as get_ha,
+        ):
             mock_instance = MockService.return_value
             mock_instance.run_discovery = AsyncMock()
 
@@ -325,8 +336,10 @@ class TestConvenienceFunctions:
         mock_ha = MagicMock()
         mock_ha.list_entities = AsyncMock(return_value=[])
 
-        with patch("src.dal.sync.DiscoverySyncService") as MockService, \
-             patch("src.dal.sync.parse_entity_list", return_value=[]):
+        with (
+            patch("src.dal.sync.DiscoverySyncService") as MockService,
+            patch("src.dal.sync.parse_entity_list", return_value=[]),
+        ):
             mock_instance = MockService.return_value
             mock_instance._sync_automation_entities = AsyncMock(
                 return_value={"automations_synced": 0, "scripts_synced": 0, "scenes_synced": 0}

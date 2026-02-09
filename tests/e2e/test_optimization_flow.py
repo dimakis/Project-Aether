@@ -6,7 +6,6 @@ Constitution: Reliability & Quality.
 TDD: T241 - Full optimization flow.
 """
 
-from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -26,18 +25,22 @@ class TestFullOptimizationFlow:
         mock_mcp = AsyncMock()
         mock_mcp.get_logbook = AsyncMock(return_value=[])
         mock_mcp.list_automations = AsyncMock(return_value=[])
-        mock_mcp.get_history = AsyncMock(return_value={
-            "entity_id": "sensor.test",
-            "states": [],
-            "count": 0,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "entity_id": "sensor.test",
+                "states": [],
+                "count": 0,
+            }
+        )
         mock_mcp.list_entities = AsyncMock(return_value=[])
 
         # Mock LLM response with script
         mock_llm = AsyncMock()
-        mock_llm.ainvoke = AsyncMock(return_value=MagicMock(
-            content='```python\nimport json\nresult = {"insights": [{"type": "automation_gap", "title": "Test Gap", "description": "Test", "confidence": 0.9, "impact": "high", "entities": ["light.test"]}], "recommendations": ["Automate this"]}\nprint(json.dumps(result))\n```'
-        ))
+        mock_llm.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='```python\nimport json\nresult = {"insights": [{"type": "automation_gap", "title": "Test Gap", "description": "Test", "confidence": 0.9, "impact": "high", "entities": ["light.test"]}], "recommendations": ["Automate this"]}\nprint(json.dumps(result))\n```'
+            )
+        )
 
         # Mock sandbox execution
         mock_sandbox_result = SandboxResult(
@@ -80,9 +83,11 @@ class TestFullOptimizationFlow:
         )
 
         mock_llm = AsyncMock()
-        mock_llm.ainvoke = AsyncMock(return_value=MagicMock(
-            content='```json\n{"proposal": {"name": "Test Automation", "description": "Auto test", "trigger": [{"platform": "time", "at": "22:00"}], "actions": [{"service": "light.turn_off"}], "mode": "single"}}\n```'
-        ))
+        mock_llm.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='```json\n{"proposal": {"name": "Test Automation", "description": "Auto test", "trigger": [{"platform": "time", "at": "22:00"}], "actions": [{"service": "light.turn_off"}], "mode": "single"}}\n```'
+            )
+        )
 
         with patch("src.agents.architect.get_llm", return_value=mock_llm):
             from src.agents.architect import ArchitectAgent

@@ -18,20 +18,20 @@ JWT_SECRET = "test-jwt-secret-key-for-testing-minimum-32bytes"
 
 
 def _make_settings(**overrides) -> Settings:
-    defaults = dict(
-        environment="testing",
-        debug=True,
-        database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        ha_url="http://localhost:8123",
-        ha_token=SecretStr("test-token"),
-        openai_api_key=SecretStr("test-api-key"),
-        mlflow_tracking_uri="http://localhost:5000",
-        sandbox_enabled=False,
-        auth_username="admin",
-        auth_password=SecretStr("test-password"),
-        jwt_secret=SecretStr(JWT_SECRET),
-        api_key=SecretStr(""),
-    )
+    defaults = {
+        "environment": "testing",
+        "debug": True,
+        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
+        "ha_url": "http://localhost:8123",
+        "ha_token": SecretStr("test-token"),
+        "openai_api_key": SecretStr("test-api-key"),
+        "mlflow_tracking_uri": "http://localhost:5000",
+        "sandbox_enabled": False,
+        "auth_username": "admin",
+        "auth_password": SecretStr("test-password"),
+        "jwt_secret": SecretStr(JWT_SECRET),
+        "api_key": SecretStr(""),
+    }
     defaults.update(overrides)
     return Settings(**defaults)
 
@@ -51,6 +51,7 @@ async def usage_client(monkeypatch):
     get_settings.cache_clear()
     settings = _make_settings()
     from src import settings as settings_module
+
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
     app = create_app(settings)
     async with AsyncClient(

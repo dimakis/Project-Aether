@@ -6,8 +6,8 @@ Constitution: Reliability & Quality - comprehensive testing.
 TDD: T106 - History data parsing tests.
 """
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -40,7 +40,7 @@ def energy_client(mock_ha_client):
 @pytest.fixture
 def sample_history_states():
     """Create sample history states from HA."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return [
         {"state": "1.5", "last_changed": (now - timedelta(hours=3)).isoformat()},
         {"state": "2.0", "last_changed": (now - timedelta(hours=2)).isoformat()},
@@ -68,7 +68,7 @@ class TestEnergyDataPoint:
 
     def test_create_datapoint(self):
         """Test creating an energy data point."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         dp = EnergyDataPoint(timestamp=now, value=1.5, unit="kWh")
 
         assert dp.timestamp == now
@@ -77,7 +77,7 @@ class TestEnergyDataPoint:
 
     def test_to_dict(self):
         """Test converting datapoint to dict."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         dp = EnergyDataPoint(timestamp=now, value=2.0, unit="kWh")
 
         result = dp.to_dict()
@@ -124,9 +124,7 @@ class TestEnergyHistoryClientParsing:
 
     def test_parse_history_to_datapoints(self, energy_client, sample_history_states):
         """Test parsing raw history to datapoints."""
-        datapoints = energy_client._parse_history_to_datapoints(
-            sample_history_states, "kWh"
-        )
+        datapoints = energy_client._parse_history_to_datapoints(sample_history_states, "kWh")
 
         assert len(datapoints) == 4
         assert all(isinstance(dp, EnergyDataPoint) for dp in datapoints)
@@ -136,10 +134,10 @@ class TestEnergyHistoryClientParsing:
     def test_parse_skips_unavailable(self, energy_client):
         """Test that unavailable states are skipped."""
         states = [
-            {"state": "1.5", "last_changed": datetime.now(timezone.utc).isoformat()},
-            {"state": "unavailable", "last_changed": datetime.now(timezone.utc).isoformat()},
-            {"state": "unknown", "last_changed": datetime.now(timezone.utc).isoformat()},
-            {"state": "2.0", "last_changed": datetime.now(timezone.utc).isoformat()},
+            {"state": "1.5", "last_changed": datetime.now(UTC).isoformat()},
+            {"state": "unavailable", "last_changed": datetime.now(UTC).isoformat()},
+            {"state": "unknown", "last_changed": datetime.now(UTC).isoformat()},
+            {"state": "2.0", "last_changed": datetime.now(UTC).isoformat()},
         ]
 
         datapoints = energy_client._parse_history_to_datapoints(states, "kWh")
@@ -149,9 +147,9 @@ class TestEnergyHistoryClientParsing:
     def test_parse_skips_invalid_values(self, energy_client):
         """Test that invalid numeric values are skipped."""
         states = [
-            {"state": "1.5", "last_changed": datetime.now(timezone.utc).isoformat()},
-            {"state": "not_a_number", "last_changed": datetime.now(timezone.utc).isoformat()},
-            {"state": "2.0", "last_changed": datetime.now(timezone.utc).isoformat()},
+            {"state": "1.5", "last_changed": datetime.now(UTC).isoformat()},
+            {"state": "not_a_number", "last_changed": datetime.now(UTC).isoformat()},
+            {"state": "2.0", "last_changed": datetime.now(UTC).isoformat()},
         ]
 
         datapoints = energy_client._parse_history_to_datapoints(states, "kWh")
@@ -164,7 +162,7 @@ class TestEnergyHistoryClientStats:
 
     def test_calculate_stats_basic(self, energy_client):
         """Test basic statistics calculation."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         datapoints = [
             EnergyDataPoint(timestamp=now - timedelta(hours=2), value=1.0, unit="kWh"),
             EnergyDataPoint(timestamp=now - timedelta(hours=1), value=2.0, unit="kWh"),
@@ -189,7 +187,7 @@ class TestEnergyHistoryClientStats:
 
     def test_calculate_stats_daily_totals(self, energy_client):
         """Test daily totals calculation."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         yesterday = now - timedelta(days=1)
 
         datapoints = [
@@ -204,7 +202,7 @@ class TestEnergyHistoryClientStats:
 
     def test_calculate_stats_hourly_averages(self, energy_client):
         """Test hourly averages calculation."""
-        now = datetime.now(timezone.utc).replace(hour=14, minute=0, second=0)
+        now = datetime.now(UTC).replace(hour=14, minute=0, second=0)
 
         datapoints = [
             EnergyDataPoint(timestamp=now, value=1.0, unit="kWh"),
@@ -249,34 +247,34 @@ class TestEnergyHistoryClientDiscovery:
     async def test_get_energy_sensors(self, energy_client, mock_ha_client):
         """Test discovering energy sensors."""
         mock_ha_client.list_entities.return_value = [
-                {
-                    "entity_id": "sensor.grid_power",
-                    "state": "1.5",
-                    "attributes": {
-                        "friendly_name": "Grid Power",
-                        "device_class": "energy",
-                        "unit_of_measurement": "kWh",
-                    },
+            {
+                "entity_id": "sensor.grid_power",
+                "state": "1.5",
+                "attributes": {
+                    "friendly_name": "Grid Power",
+                    "device_class": "energy",
+                    "unit_of_measurement": "kWh",
                 },
-                {
-                    "entity_id": "sensor.temperature",
-                    "state": "22",
-                    "attributes": {
-                        "friendly_name": "Temperature",
-                        "device_class": "temperature",
-                        "unit_of_measurement": "°C",
-                    },
+            },
+            {
+                "entity_id": "sensor.temperature",
+                "state": "22",
+                "attributes": {
+                    "friendly_name": "Temperature",
+                    "device_class": "temperature",
+                    "unit_of_measurement": "°C",
                 },
-                {
-                    "entity_id": "sensor.solar_power",
-                    "state": "0.5",
-                    "attributes": {
-                        "friendly_name": "Solar Power",
-                        "device_class": "power",
-                        "unit_of_measurement": "W",
-                    },
+            },
+            {
+                "entity_id": "sensor.solar_power",
+                "state": "0.5",
+                "attributes": {
+                    "friendly_name": "Solar Power",
+                    "device_class": "power",
+                    "unit_of_measurement": "W",
                 },
-            ]
+            },
+        ]
 
         result = await energy_client.get_energy_sensors()
 
@@ -354,7 +352,9 @@ class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
 
     @pytest.mark.asyncio
-    async def test_get_energy_history_function(self, mock_ha_client, sample_history_states, sample_entity_info):
+    async def test_get_energy_history_function(
+        self, mock_ha_client, sample_history_states, sample_entity_info
+    ):
         """Test get_energy_history convenience function."""
         mock_ha_client.get_entity.return_value = sample_entity_info
         mock_ha_client.get_history.return_value = {
@@ -372,15 +372,15 @@ class TestConvenienceFunctions:
     async def test_discover_energy_sensors_function(self, mock_ha_client):
         """Test discover_energy_sensors convenience function."""
         mock_ha_client.list_entities.return_value = [
-                {
-                    "entity_id": "sensor.grid_power",
-                    "state": "1.5",
-                    "attributes": {
-                        "device_class": "energy",
-                        "unit_of_measurement": "kWh",
-                    },
+            {
+                "entity_id": "sensor.grid_power",
+                "state": "1.5",
+                "attributes": {
+                    "device_class": "energy",
+                    "unit_of_measurement": "kWh",
                 },
-            ]
+            },
+        ]
 
         result = await discover_energy_sensors(mock_ha_client)
 

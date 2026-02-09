@@ -108,10 +108,12 @@ class TestQueryExecution:
         # Mock entity_repo.count
         query_engine.entity_repo.count = AsyncMock(return_value=42)
 
-        result = await query_engine._execute_query({
-            "type": "count",
-            "filters": {"domain": "light"},
-        })
+        result = await query_engine._execute_query(
+            {
+                "type": "count",
+                "filters": {"domain": "light"},
+            }
+        )
 
         assert result["count"] == 42
 
@@ -133,11 +135,13 @@ class TestQueryExecution:
         ]
         query_engine.entity_repo.list_all = AsyncMock(return_value=mock_entities)
 
-        result = await query_engine._execute_query({
-            "type": "list_entities",
-            "filters": {"domain": "light"},
-            "limit": 20,
-        })
+        result = await query_engine._execute_query(
+            {
+                "type": "list_entities",
+                "filters": {"domain": "light"},
+                "limit": 20,
+            }
+        )
 
         assert "entities" in result
         assert len(result["entities"]) == 1
@@ -157,11 +161,13 @@ class TestQueryExecution:
         ]
         query_engine.device_repo.list_all = AsyncMock(return_value=mock_devices)
 
-        result = await query_engine._execute_query({
-            "type": "list_devices",
-            "filters": {},
-            "limit": 20,
-        })
+        result = await query_engine._execute_query(
+            {
+                "type": "list_devices",
+                "filters": {},
+                "limit": 20,
+            }
+        )
 
         assert "devices" in result
         assert len(result["devices"]) == 1
@@ -179,11 +185,13 @@ class TestQueryExecution:
         ]
         query_engine.area_repo.list_all = AsyncMock(return_value=mock_areas)
 
-        result = await query_engine._execute_query({
-            "type": "list_areas",
-            "filters": {},
-            "limit": 20,
-        })
+        result = await query_engine._execute_query(
+            {
+                "type": "list_areas",
+                "filters": {},
+                "limit": 20,
+            }
+        )
 
         assert "areas" in result
         assert len(result["areas"]) == 1

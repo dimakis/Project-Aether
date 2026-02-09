@@ -4,16 +4,14 @@ Tests the StreamEvent, ArchitectWorkflow.stream_conversation(),
 and the TOOL_AGENT_MAP module-level constant.
 """
 
-import json
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 from src.agents.architect import ArchitectWorkflow, StreamEvent
 from src.api.routes.openai_compat import TOOL_AGENT_MAP
 from src.graph.state import ConversationState
-
 
 # ---------------------------------------------------------------------------
 # StreamEvent
@@ -77,18 +75,27 @@ class TestToolAgentMap:
 
     def test_ha_query_tools_mapped_to_architect(self):
         for tool_name in [
-            "get_entity_state", "list_entities_by_domain", "search_entities",
-            "get_domain_summary", "list_automations", "render_template",
-            "get_ha_logs", "check_ha_config",
+            "get_entity_state",
+            "list_entities_by_domain",
+            "search_entities",
+            "get_domain_summary",
+            "list_automations",
+            "render_template",
+            "get_ha_logs",
+            "check_ha_config",
         ]:
             assert TOOL_AGENT_MAP[tool_name] == "architect", f"{tool_name} not mapped"
 
     def test_old_tools_removed(self):
         """Old tools should no longer be in the map."""
         for old_tool in [
-            "analyze_energy", "run_custom_analysis", "diagnose_issue",
-            "consult_energy_analyst", "consult_behavioral_analyst",
-            "consult_diagnostic_analyst", "deploy_automation",
+            "analyze_energy",
+            "run_custom_analysis",
+            "diagnose_issue",
+            "consult_energy_analyst",
+            "consult_behavioral_analyst",
+            "consult_diagnostic_analyst",
+            "deploy_automation",
         ]:
             assert old_tool not in TOOL_AGENT_MAP, f"{old_tool} should be removed"
 

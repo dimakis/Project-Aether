@@ -5,8 +5,6 @@ ErrorLogEntry, parse_error_log, categorize_by_integration,
 find_patterns, and get_error_summary.
 """
 
-import pytest
-
 from src.diagnostics.log_parser import (
     ErrorLogEntry,
     categorize_by_integration,
@@ -123,8 +121,12 @@ class TestFindPatterns:
         assert len(patterns) >= 1
         # ZHA connect error appears 3 times
         zha_pattern = next(
-            (p for p in patterns if "zha" in p.get("message", "").lower()
-             or "connect" in p.get("message", "").lower()),
+            (
+                p
+                for p in patterns
+                if "zha" in p.get("message", "").lower()
+                or "connect" in p.get("message", "").lower()
+            ),
             None,
         )
         assert zha_pattern is not None

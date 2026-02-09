@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import UTC
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -35,7 +36,7 @@ class SpanNode(BaseModel):
     duration_ms: float
     status: str  # OK, ERROR
     attributes: dict[str, Any] = {}
-    children: list["SpanNode"] = []
+    children: list[SpanNode] = []
 
 
 class TraceResponse(BaseModel):
@@ -61,7 +62,6 @@ async def get_trace_spans(trace_id: str) -> TraceResponse:
     into a nested tree with agent identification and relative timing.
     """
     try:
-        import mlflow
         from mlflow.tracking import MlflowClient
 
         from src.settings import get_settings
@@ -78,11 +78,11 @@ async def get_trace_spans(trace_id: str) -> TraceResponse:
 
     try:
         trace = client.get_trace(trace_id)
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=404,
             detail="Trace not found",
-        )
+        ) from e
 
     if not trace:
         raise HTTPException(status_code=404, detail="Trace not found")
@@ -226,10 +226,9 @@ def _build_span_tree(
 
         if parent_id and parent_id in span_map:
             children_map.setdefault(parent_id, []).append(span_id)
-        elif not parent_id or parent_id not in span_map:
+        elif (not parent_id or parent_id not in span_map) and root_id is None:
             # Root span (no parent or parent not in this trace)
-            if root_id is None:
-                root_id = span_id
+            root_id = span_id
 
     if not root_id:
         # Fallback: use the first span
@@ -322,7 +321,11 @@ def _get_span_status(span: Any) -> str:
     if status is None:
         return "OK"
     if hasattr(status, "status_code"):
-        return str(status.status_code.name) if hasattr(status.status_code, "name") else str(status.status_code)
+        return (
+            str(status.status_code.name)
+            if hasattr(status.status_code, "name")
+            else str(status.status_code)
+        )
     return str(status)
 
 
@@ -352,9 +355,9 @@ def _get_trace_start_ns(trace: Any, spans: list[Any]) -> int:
 
 def _ns_to_iso(ns: int) -> str:
     """Convert nanosecond timestamp to ISO-8601 string."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.fromtimestamp(ns / 1e9, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(ns / 1e9, tz=UTC).isoformat()
 
 
 def _get_trace_status(trace: Any) -> str:

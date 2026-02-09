@@ -6,8 +6,6 @@ Constitution: Reliability & Quality.
 TDD: T242 - User query involving multiple agents.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 
 from src.graph.state import AnalysisType, AutomationSuggestion
@@ -59,9 +57,7 @@ class TestMultiAgentQuery:
         ]
 
         for type_str in expected_types:
-            assert type_str in [t.value for t in InsightType], (
-                f"InsightType should have {type_str}"
-            )
+            assert type_str in [t.value for t in InsightType], f"InsightType should have {type_str}"
 
     @pytest.mark.asyncio
     async def test_workflow_registry_has_optimization(self):

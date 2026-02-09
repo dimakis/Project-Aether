@@ -3,7 +3,7 @@
 T095: Tests for YAML generation validation.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
@@ -254,11 +254,13 @@ class TestAutomationDeployerRestAPI:
     async def test_deploy_via_rest_api_success(self, deployer_with_mock_mcp):
         """Test successful deployment via REST API."""
         deployer = deployer_with_mock_mcp
-        deployer._ha_client.create_automation = AsyncMock(return_value={
-            "success": True,
-            "automation_id": "test_automation",
-            "entity_id": "automation.test_automation",
-        })
+        deployer._ha_client.create_automation = AsyncMock(
+            return_value={
+                "success": True,
+                "automation_id": "test_automation",
+                "entity_id": "automation.test_automation",
+            }
+        )
 
         yaml_content = """
 alias: Test Automation
@@ -282,10 +284,12 @@ mode: single
     async def test_deploy_falls_back_to_manual_on_failure(self, deployer_with_mock_mcp):
         """Test fallback to manual instructions when REST API fails."""
         deployer = deployer_with_mock_mcp
-        deployer._ha_client.create_automation = AsyncMock(return_value={
-            "success": False,
-            "error": "Connection refused",
-        })
+        deployer._ha_client.create_automation = AsyncMock(
+            return_value={
+                "success": False,
+                "error": "Connection refused",
+            }
+        )
 
         yaml_content = """
 alias: Test
@@ -321,11 +325,13 @@ alias: Test
     async def test_deploy_saves_yaml_backup(self, deployer_with_mock_mcp, tmp_path):
         """Test that YAML is saved as backup when output_dir provided."""
         deployer = deployer_with_mock_mcp
-        deployer._ha_client.create_automation = AsyncMock(return_value={
-            "success": True,
-            "automation_id": "backup_test",
-            "entity_id": "automation.backup_test",
-        })
+        deployer._ha_client.create_automation = AsyncMock(
+            return_value={
+                "success": True,
+                "automation_id": "backup_test",
+                "entity_id": "automation.backup_test",
+            }
+        )
 
         yaml_content = """
 alias: Backup Test
@@ -336,14 +342,14 @@ action:
   - service: light.turn_on
 """
         result = await deployer.deploy_automation(
-            yaml_content, 
+            yaml_content,
             "backup_test",
             output_dir=tmp_path,
         )
 
         assert result["success"] is True
         assert "yaml_file" in result
-        
+
         # Verify file was created
         yaml_file = tmp_path / "backup_test.yaml"
         assert yaml_file.exists()

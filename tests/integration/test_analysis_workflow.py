@@ -60,37 +60,41 @@ def mock_ha_client_analysis(mock_energy_data):
     client = MagicMock()
 
     # Configure list_entities for energy sensor discovery
-    client.list_entities = AsyncMock(return_value=[
-        {
-            "entity_id": "sensor.grid_power",
-            "state": "1500",
-            "name": "Grid Power",
-            "domain": "sensor",
-            "attributes": {
-                "device_class": "energy",
-                "unit_of_measurement": "W",
-                "state_class": "measurement",
+    client.list_entities = AsyncMock(
+        return_value=[
+            {
+                "entity_id": "sensor.grid_power",
+                "state": "1500",
+                "name": "Grid Power",
+                "domain": "sensor",
+                "attributes": {
+                    "device_class": "energy",
+                    "unit_of_measurement": "W",
+                    "state_class": "measurement",
+                },
             },
-        },
-        {
-            "entity_id": "sensor.solar_power",
-            "state": "1200",
-            "name": "Solar Power",
-            "domain": "sensor",
-            "attributes": {
-                "device_class": "power",
-                "unit_of_measurement": "W",
-                "state_class": "measurement",
+            {
+                "entity_id": "sensor.solar_power",
+                "state": "1200",
+                "name": "Solar Power",
+                "domain": "sensor",
+                "attributes": {
+                    "device_class": "power",
+                    "unit_of_measurement": "W",
+                    "state_class": "measurement",
+                },
             },
-        },
-    ])
+        ]
+    )
 
     # Configure get_history
-    client.get_history = AsyncMock(return_value={
-        "entity_id": "sensor.grid_power",
-        "states": mock_energy_data["entities"][0]["data_points"],
-        "count": 4,
-    })
+    client.get_history = AsyncMock(
+        return_value={
+            "entity_id": "sensor.grid_power",
+            "states": mock_energy_data["entities"][0]["data_points"],
+            "count": 4,
+        }
+    )
 
     client.connect = AsyncMock()
 
@@ -105,33 +109,35 @@ def mock_sandbox_result_success():
     return SandboxResult(
         success=True,
         exit_code=0,
-        stdout=json.dumps({
-            "insights": [
-                {
-                    "type": "energy_optimization",
-                    "title": "Peak Usage at Evening",
-                    "description": "Grid consumption peaks at 6PM (3.5 kW). Consider load shifting.",
-                    "confidence": 0.85,
-                    "impact": "high",
-                    "evidence": {"peak_hour": 18, "peak_value": 3.5},
-                    "entities": ["sensor.grid_power"],
-                },
-                {
-                    "type": "usage_pattern",
-                    "title": "Solar Production Pattern",
-                    "description": "Solar peaks at noon. Battery storage could capture excess.",
-                    "confidence": 0.9,
-                    "impact": "medium",
-                    "evidence": {"peak_hour": 12, "peak_value": 2.0},
-                    "entities": ["sensor.solar_power"],
-                },
-            ],
-            "recommendations": [
-                "Shift high-power appliances (dishwasher, laundry) to midday",
-                "Consider battery storage to capture solar excess",
-            ],
-            "summary": "Energy analysis reveals opportunity for load shifting",
-        }),
+        stdout=json.dumps(
+            {
+                "insights": [
+                    {
+                        "type": "energy_optimization",
+                        "title": "Peak Usage at Evening",
+                        "description": "Grid consumption peaks at 6PM (3.5 kW). Consider load shifting.",
+                        "confidence": 0.85,
+                        "impact": "high",
+                        "evidence": {"peak_hour": 18, "peak_value": 3.5},
+                        "entities": ["sensor.grid_power"],
+                    },
+                    {
+                        "type": "usage_pattern",
+                        "title": "Solar Production Pattern",
+                        "description": "Solar peaks at noon. Battery storage could capture excess.",
+                        "confidence": 0.9,
+                        "impact": "medium",
+                        "evidence": {"peak_hour": 12, "peak_value": 2.0},
+                        "entities": ["sensor.solar_power"],
+                    },
+                ],
+                "recommendations": [
+                    "Shift high-power appliances (dishwasher, laundry) to midday",
+                    "Consider battery storage to capture solar excess",
+                ],
+                "summary": "Energy analysis reveals opportunity for load shifting",
+            }
+        ),
         stderr="",
         duration_seconds=2.5,
         policy_name="standard",
@@ -151,7 +157,7 @@ class TestAnalysisWorkflowPipeline:
     ):
         """Test DataScientistAgent.invoke with full mock pipeline."""
         from src.agents import DataScientistAgent
-        from src.graph.state import AnalysisState, AnalysisType, AgentRole
+        from src.graph.state import AgentRole, AnalysisState, AnalysisType
 
         state = AnalysisState(
             current_agent=AgentRole.DATA_SCIENTIST,
@@ -190,7 +196,7 @@ class TestAnalysisWorkflowPipeline:
             collect_energy_data_node,
             extract_insights_node,
         )
-        from src.graph.state import AnalysisState, AnalysisType, AgentRole, ScriptExecution
+        from src.graph.state import AgentRole, AnalysisState, AnalysisType, ScriptExecution
 
         state = AnalysisState(
             current_agent=AgentRole.DATA_SCIENTIST,
@@ -203,28 +209,32 @@ class TestAnalysisWorkflowPipeline:
         with patch("src.ha.get_ha_client", return_value=mock_ha_client_analysis):
             with patch("src.ha.EnergyHistoryClient") as MockClient:
                 mock_history = AsyncMock()
-                mock_history.get_energy_sensors = AsyncMock(return_value=[
-                    {"entity_id": "sensor.grid_power"}
-                ])
+                mock_history.get_energy_sensors = AsyncMock(
+                    return_value=[{"entity_id": "sensor.grid_power"}]
+                )
                 mock_history.get_aggregated_energy = AsyncMock(return_value=mock_energy_data)
                 MockClient.return_value = mock_history
 
-                collect_result = await collect_energy_data_node(state, ha_client=mock_ha_client_analysis)
+                collect_result = await collect_energy_data_node(
+                    state, ha_client=mock_ha_client_analysis
+                )
 
                 assert "entity_ids" in collect_result
                 assert "messages" in collect_result
 
         # Test extract_insights_node with execution result
-        state_with_execution = state.model_copy(update={
-            "script_executions": [
-                ScriptExecution(
-                    script_content="print('test')",
-                    stdout=mock_sandbox_result_success.stdout,
-                    stderr="",
-                    exit_code=0,
-                )
-            ]
-        })
+        state_with_execution = state.model_copy(
+            update={
+                "script_executions": [
+                    ScriptExecution(
+                        script_content="print('test')",
+                        stdout=mock_sandbox_result_success.stdout,
+                        stderr="",
+                        exit_code=0,
+                    )
+                ]
+            }
+        )
 
         extract_result = await extract_insights_node(state_with_execution)
 
@@ -270,7 +280,7 @@ class TestAnalysisWithDatabase:
         """Test that insights are persisted to database."""
         from src.agents import DataScientistAgent
         from src.dal import InsightRepository
-        from src.graph.state import AnalysisState, AnalysisType, AgentRole
+        from src.graph.state import AgentRole, AnalysisState, AnalysisType
 
         state = AnalysisState(
             current_agent=AgentRole.DATA_SCIENTIST,
@@ -309,13 +319,19 @@ class TestAnalysisWithDatabase:
         workflow = DataScientistWorkflow(ha_client=mock_ha_client_analysis)
 
         # Mock internal dependencies
-        with patch.object(workflow.agent, "_collect_energy_data", new_callable=AsyncMock) as mock_collect:
+        with patch.object(
+            workflow.agent, "_collect_energy_data", new_callable=AsyncMock
+        ) as mock_collect:
             mock_collect.return_value = mock_energy_data
 
-            with patch.object(workflow.agent, "_generate_script", new_callable=AsyncMock) as mock_script:
+            with patch.object(
+                workflow.agent, "_generate_script", new_callable=AsyncMock
+            ) as mock_script:
                 mock_script.return_value = "print('test')"
 
-                with patch.object(workflow.agent, "_execute_script", new_callable=AsyncMock) as mock_exec:
+                with patch.object(
+                    workflow.agent, "_execute_script", new_callable=AsyncMock
+                ) as mock_exec:
                     mock_exec.return_value = mock_sandbox_result_success
 
                     # Disable MLflow for this test

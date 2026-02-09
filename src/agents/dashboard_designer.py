@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
     from langchain_core.tools import BaseTool
 
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import SystemMessage
 
 from src.agents import BaseAgent
 from src.agents.prompts import load_prompt
@@ -88,7 +88,7 @@ class DashboardDesignerAgent(BaseAgent):
         system_prompt = load_prompt("dashboard_designer_system")
 
         # Build message list: system + conversation history
-        messages = [SystemMessage(content=system_prompt)] + list(state.messages)
+        messages = [SystemMessage(content=system_prompt), *list(state.messages)]
 
         # Bind tools and invoke
         llm_with_tools = self.llm.bind_tools(self.tools)

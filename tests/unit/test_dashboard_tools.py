@@ -4,8 +4,9 @@ Validates the LangChain-compatible tools for the Dashboard Designer agent,
 including YAML generation, validation, and dashboard listing.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestGenerateDashboardYaml:
@@ -88,9 +89,7 @@ views:
         """Invalid YAML returns an error message."""
         from src.tools.dashboard_tools import validate_dashboard_yaml
 
-        result = await validate_dashboard_yaml.ainvoke(
-            {"yaml_content": "not: [valid: yaml: {"}
-        )
+        result = await validate_dashboard_yaml.ainvoke({"yaml_content": "not: [valid: yaml: {"})
         assert "error" in result.lower() or "invalid" in result.lower()
 
     @pytest.mark.asyncio

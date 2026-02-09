@@ -1,11 +1,10 @@
 """Unit tests for agent tracing and logging capabilities."""
 
-import pytest
-from datetime import datetime
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import patch
 from uuid import uuid4
 
-from langchain_core.messages import HumanMessage, AIMessage
+import pytest
+from langchain_core.messages import AIMessage, HumanMessage
 
 from src.agents import BaseAgent
 from src.graph.state import AgentRole, BaseState, ConversationState
@@ -40,10 +39,10 @@ class TestBaseAgentTracing:
     def test_log_state_context_logs_run_id(self, agent):
         """Test that _log_state_context logs the run_id."""
         state = BaseState(current_agent=AgentRole.ARCHITECT)
-        
+
         with patch("src.agents.log_param") as mock_log_param:
             agent._log_state_context(state)
-            
+
             # Should log run_id
             calls = [call[0] for call in mock_log_param.call_args_list]
             assert any("run_id" in str(call) for call in calls)
@@ -52,7 +51,7 @@ class TestBaseAgentTracing:
         """Test that _log_state_context logs conversation_id for ConversationState."""
         with patch("src.agents.log_param") as mock_log_param:
             agent._log_state_context(conversation_state)
-            
+
             # Should log conversation_id
             calls = [str(call) for call in mock_log_param.call_args_list]
             assert any("conversation_id" in call for call in calls)
@@ -61,7 +60,7 @@ class TestBaseAgentTracing:
         """Test that _log_state_context logs message count."""
         with patch("src.agents.log_param") as mock_log_param:
             agent._log_state_context(conversation_state)
-            
+
             # Should log message_count
             calls = [str(call) for call in mock_log_param.call_args_list]
             assert any("message_count" in call for call in calls)
@@ -70,7 +69,7 @@ class TestBaseAgentTracing:
         """Test that _log_state_context logs the latest message."""
         with patch("src.agents.log_param") as mock_log_param:
             agent._log_state_context(conversation_state)
-            
+
             # Should log latest_message
             calls = [str(call) for call in mock_log_param.call_args_list]
             assert any("latest_message" in call for call in calls)
@@ -80,7 +79,7 @@ class TestBaseAgentTracing:
         with patch("src.agents.log_param") as mock_log_param:
             # Should not raise
             agent._log_state_context(None)
-            
+
             # Should not log anything
             mock_log_param.assert_not_called()
 
@@ -104,10 +103,10 @@ class TestLogConversation:
 
         with patch("src.agents.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages, response)
-            
+
             mock_log_dict.assert_called_once()
             call_args = mock_log_dict.call_args
-            
+
             # Check the logged data
             logged_data = call_args[0][0]
             assert logged_data["agent"] == "TestAgent"
@@ -125,9 +124,9 @@ class TestLogConversation:
 
         with patch("src.agents.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages)
-            
+
             logged_data = mock_log_dict.call_args[0][0]
-            
+
             # Check message serialization
             assert logged_data["messages"][0]["role"] == "user"
             assert logged_data["messages"][0]["content"] == "User message"
@@ -142,9 +141,9 @@ class TestLogConversation:
 
         with patch("src.agents.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages, response)
-            
+
             logged_data = mock_log_dict.call_args[0][0]
-            
+
             # Last message should be the response
             assert logged_data["messages"][-1]["role"] == "assistant"
             assert logged_data["messages"][-1]["content"] == response
@@ -157,9 +156,9 @@ class TestLogConversation:
 
         with patch("src.agents.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages)
-            
+
             logged_data = mock_log_dict.call_args[0][0]
-            
+
             # Content should be truncated
             assert len(logged_data["messages"][0]["content"]) == 2000
 
@@ -170,9 +169,9 @@ class TestLogConversation:
 
         with patch("src.agents.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages)
-            
+
             filename = mock_log_dict.call_args[0][1]
-            
+
             # Filename should contain agent name and conversation_id
             assert "TestAgent" in filename
             assert "test-conv-id" in filename
@@ -191,18 +190,18 @@ class TestTraceSpan:
     async def test_trace_span_logs_state_context(self, agent):
         """Test that trace_span calls _log_state_context."""
         state = BaseState(current_agent=AgentRole.ARCHITECT)
-        
+
         with patch.object(agent, "_log_state_context") as mock_log_state:
             async with agent.trace_span("test_op", state):
                 pass
-            
+
             mock_log_state.assert_called_once_with(state)
 
     @pytest.mark.asyncio
     async def test_trace_span_yields_metadata(self, agent):
         """Test that trace_span yields span metadata dict."""
         state = BaseState(current_agent=AgentRole.ARCHITECT)
-        
+
         async with agent.trace_span("test_op", state) as span_meta:
             assert isinstance(span_meta, dict)
             assert span_meta["agent_role"] == AgentRole.ARCHITECT.value
@@ -213,10 +212,10 @@ class TestTraceSpan:
     async def test_trace_span_updates_metadata_on_success(self, agent):
         """Test that trace_span updates metadata on successful completion."""
         state = BaseState(current_agent=AgentRole.ARCHITECT)
-        
+
         async with agent.trace_span("test_op", state) as span_meta:
             pass
-        
+
         assert span_meta["status"] == "success"
         assert "completed_at" in span_meta
 
@@ -224,10 +223,10 @@ class TestTraceSpan:
     async def test_trace_span_updates_metadata_on_error(self, agent):
         """Test that trace_span updates metadata on error."""
         state = BaseState(current_agent=AgentRole.ARCHITECT)
-        
+
         with pytest.raises(ValueError):
             async with agent.trace_span("test_op", state) as span_meta:
                 raise ValueError("Test error")
-        
+
         assert span_meta["status"] == "error"
         assert "Test error" in span_meta["error"]

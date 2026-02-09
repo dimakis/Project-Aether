@@ -7,9 +7,8 @@ to Home Assistant, handling YAML generation and service calls.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING
-from uuid import uuid4
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -87,7 +86,9 @@ class DeveloperAgent(BaseAgent):
                 return {"error": f"Proposal {proposal_id} not found"}
 
             if proposal.status != ProposalStatus.APPROVED:
-                return {"error": f"Proposal must be approved before deployment (status: {proposal.status.value})"}
+                return {
+                    "error": f"Proposal must be approved before deployment (status: {proposal.status.value})"
+                }
 
             try:
                 result = await self.deploy_automation(proposal, session)
@@ -141,7 +142,7 @@ class DeveloperAgent(BaseAgent):
                 "ha_automation_id": ha_automation_id,
                 "yaml_content": automation_yaml,
                 "deployment_method": result.get("method", "rest_api"),
-                "deployed_at": datetime.now(timezone.utc).isoformat(),
+                "deployed_at": datetime.now(UTC).isoformat(),
             }
 
         # Deployment failed -- return error info without changing proposal status
@@ -170,8 +171,8 @@ class DeveloperAgent(BaseAgent):
 
         header = f"""# Automation created by Project Aether
 # Proposal ID: {proposal.id}
-# Created: {proposal.created_at.isoformat() if proposal.created_at else 'unknown'}
-# Approved by: {proposal.approved_by or 'unknown'}
+# Created: {proposal.created_at.isoformat() if proposal.created_at else "unknown"}
+# Approved by: {proposal.approved_by or "unknown"}
 # ---
 """
         return header + yaml_str
@@ -223,7 +224,9 @@ class DeveloperAgent(BaseAgent):
             return {"error": f"Proposal {proposal_id} not found"}
 
         if proposal.status != ProposalStatus.DEPLOYED:
-            return {"error": f"Can only rollback deployed proposals (status: {proposal.status.value})"}
+            return {
+                "error": f"Can only rollback deployed proposals (status: {proposal.status.value})"
+            }
 
         ha_automation_id = proposal.ha_automation_id
         ha_disabled = False
@@ -260,7 +263,7 @@ class DeveloperAgent(BaseAgent):
             "rolled_back": True,
             "ha_disabled": ha_disabled,
             "ha_automation_id": ha_automation_id,
-            "rolled_back_at": datetime.now(timezone.utc).isoformat(),
+            "rolled_back_at": datetime.now(UTC).isoformat(),
             "note": "Automation disabled. Manual removal from automations.yaml may be needed.",
         }
         if ha_error:
@@ -356,8 +359,7 @@ class DeveloperWorkflow:
 
         if proposal.status != ProposalStatus.APPROVED:
             raise ValueError(
-                f"Cannot deploy proposal in status {proposal.status.value}. "
-                "Must be approved first."
+                f"Cannot deploy proposal in status {proposal.status.value}. Must be approved first."
             )
 
         return await self.agent.deploy_automation(proposal, session)

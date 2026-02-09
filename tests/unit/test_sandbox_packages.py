@@ -7,11 +7,11 @@ These tests mock the sandbox execution to verify the package
 import logic works correctly.
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from src.sandbox.runner import SandboxRunner, SandboxResult
+import pytest
 
+from src.sandbox.runner import SandboxResult, SandboxRunner
 
 # Required packages for data science sandbox
 REQUIRED_PACKAGES = [
@@ -150,19 +150,23 @@ class TestPackageAvailabilityScript:
         ]
 
         for package in REQUIRED_PACKAGES:
-            script_lines.extend([
-                f"try:",
-                f"    import {package}",
-                f"    results.append('{package}: OK')",
-                f"except ImportError:",
-                f"    results.append('{package}: MISSING')",
-                f"    sys.exit(1)",
-            ])
+            script_lines.extend(
+                [
+                    "try:",
+                    f"    import {package}",
+                    f"    results.append('{package}: OK')",
+                    "except ImportError:",
+                    f"    results.append('{package}: MISSING')",
+                    "    sys.exit(1)",
+                ]
+            )
 
-        script_lines.extend([
-            "print('\\n'.join(results))",
-            "print('ALL_PACKAGES_AVAILABLE')",
-        ])
+        script_lines.extend(
+            [
+                "print('\\n'.join(results))",
+                "print('ALL_PACKAGES_AVAILABLE')",
+            ]
+        )
 
         script = "\n".join(script_lines)
 

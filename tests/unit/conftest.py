@@ -20,8 +20,6 @@ live in ``tests/integration/`` and are unaffected.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
 import src.storage as _storage_mod
@@ -30,19 +28,19 @@ import src.storage as _storage_mod
 def _install_db_guard(monkeypatch: pytest.MonkeyPatch | None = None) -> None:
     """Install guard functions that prevent real DB access in unit tests."""
 
-    def _guarded_get_engine(settings=None):  # noqa: ANN001
+    def _guarded_get_engine(settings=None):
         raise RuntimeError(
             "Unit test attempted a real DB connection via get_engine(). "
             "Mock the database dependency or use tests/integration/ for DB tests."
         )
 
-    def _guarded_get_session_factory(settings=None):  # noqa: ANN001
+    def _guarded_get_session_factory(settings=None):
         raise RuntimeError(
             "Unit test attempted a real DB connection via get_session_factory(). "
             "Mock the database dependency or use tests/integration/ for DB tests."
         )
 
-    def _guarded_get_session():  # noqa: ANN001
+    def _guarded_get_session():
         raise RuntimeError(
             "Unit test attempted a real DB connection via get_session(). "
             "Mock the database dependency or use tests/integration/ for DB tests."
@@ -60,8 +58,8 @@ def _install_db_guard(monkeypatch: pytest.MonkeyPatch | None = None) -> None:
 
 def pytest_configure() -> None:
     """Install DB guards before unit test modules are imported."""
-    _storage_mod._engine = None  # type: ignore[attr-defined]  # noqa: SLF001
-    _storage_mod._session_factory = None  # type: ignore[attr-defined]  # noqa: SLF001
+    _storage_mod._engine = None  # type: ignore[attr-defined]
+    _storage_mod._session_factory = None  # type: ignore[attr-defined]
     _install_db_guard()
 
 

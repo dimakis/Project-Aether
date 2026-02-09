@@ -21,7 +21,6 @@ from pydantic import SecretStr
 from src.api.main import create_app
 from src.settings import Settings, get_settings
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -29,21 +28,21 @@ from src.settings import Settings, get_settings
 
 def _make_settings(**overrides) -> Settings:
     """Create test settings with auth defaults."""
-    defaults = dict(
-        environment="testing",
-        debug=True,
-        database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        ha_url="http://localhost:8123",
-        ha_token=SecretStr("test-token"),
-        openai_api_key=SecretStr("test-api-key"),
-        mlflow_tracking_uri="http://localhost:5000",
-        sandbox_enabled=False,
-        auth_username="admin",
-        auth_password=SecretStr("test-password-123"),
-        jwt_secret=SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        jwt_expiry_hours=72,
-        api_key=SecretStr(""),  # API key auth disabled by default
-    )
+    defaults = {
+        "environment": "testing",
+        "debug": True,
+        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
+        "ha_url": "http://localhost:8123",
+        "ha_token": SecretStr("test-token"),
+        "openai_api_key": SecretStr("test-api-key"),
+        "mlflow_tracking_uri": "http://localhost:5000",
+        "sandbox_enabled": False,
+        "auth_username": "admin",
+        "auth_password": SecretStr("test-password-123"),
+        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
+        "jwt_expiry_hours": 72,
+        "api_key": SecretStr(""),  # API key auth disabled by default
+    }
     defaults.update(overrides)
     return Settings(**defaults)
 
@@ -126,7 +125,11 @@ async def no_password_client(monkeypatch):
     get_settings.cache_clear()
 
 
-def _make_jwt(secret: str = "test-jwt-secret-key-for-testing-minimum-32bytes", exp_hours: int = 72, sub: str = "admin") -> str:
+def _make_jwt(
+    secret: str = "test-jwt-secret-key-for-testing-minimum-32bytes",
+    exp_hours: int = 72,
+    sub: str = "admin",
+) -> str:
     """Create a valid JWT token for testing."""
     payload = {
         "sub": sub,

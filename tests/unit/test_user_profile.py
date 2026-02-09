@@ -3,11 +3,6 @@
 TDD: Test for Plan 9 - User Profile table.
 """
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
 
 class TestUserProfileModel:
     """Test UserProfile entity model."""

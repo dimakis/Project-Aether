@@ -7,8 +7,6 @@ Validates the ORM relationship fixes from the production readiness sprint:
 """
 
 import pytest
-from unittest.mock import patch, AsyncMock
-
 
 # =============================================================================
 # AGENT MODEL RELATIONSHIPS

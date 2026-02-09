@@ -13,17 +13,17 @@ import bcrypt
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
+import src.settings as _settings_mod
 from src.api.auth import (
     JWT_COOKIE_NAME,
-    create_jwt_token,
-    decode_jwt_token,
     _extract_bearer_token,
     _get_jwt_secret,
+    create_jwt_token,
+    decode_jwt_token,
 )
 from src.api.ha_verify import verify_ha_connection
-from src.dal.system_config import SystemConfigRepository, encrypt_token, decrypt_token
+from src.dal.system_config import SystemConfigRepository, encrypt_token
 from src.storage import get_session
-import src.settings as _settings_mod
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -159,9 +159,7 @@ async def setup(body: SetupRequest, response: Response) -> SetupResponse:
         # Hash password if provided
         password_hash = None
         if body.password:
-            password_hash = bcrypt.hashpw(
-                body.password.encode(), bcrypt.gensalt()
-            ).decode()
+            password_hash = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
 
         # Store config
         await repo.create_config(
@@ -193,6 +191,7 @@ async def setup(body: SetupRequest, response: Response) -> SetupResponse:
     # Reset HA client so it picks up DB config
     try:
         from src.ha.client import reset_ha_client
+
         reset_ha_client()
     except ImportError:
         pass
@@ -206,9 +205,7 @@ async def setup(body: SetupRequest, response: Response) -> SetupResponse:
 
 
 @router.post("/login/ha-token", response_model=LoginResponse)
-async def login_with_ha_token(
-    body: HATokenLoginRequest, response: Response
-) -> LoginResponse:
+async def login_with_ha_token(body: HATokenLoginRequest, response: Response) -> LoginResponse:
     """Authenticate using an HA long-lived access token.
 
     Validates the provided token against the stored HA URL (from DB or env).
@@ -265,12 +262,15 @@ async def login(body: LoginRequest, response: Response) -> LoginResponse:
     async with get_session() as session:
         repo = SystemConfigRepository(session)
         config = await repo.get_config()
-        if config and config.password_hash:
-            if bcrypt.checkpw(body.password.encode(), config.password_hash.encode()):
-                # DB password match - username doesn't need to match env var
-                token = create_jwt_token(body.username, settings)
-                _set_jwt_cookie(response, token, settings)
-                return LoginResponse(token=token, username=body.username)
+        if (
+            config
+            and config.password_hash
+            and bcrypt.checkpw(body.password.encode(), config.password_hash.encode())
+        ):
+            # DB password match - username doesn't need to match env var
+            token = create_jwt_token(body.username, settings)
+            _set_jwt_cookie(response, token, settings)
+            return LoginResponse(token=token, username=body.username)
 
     # 2. Fall back to env var AUTH_PASSWORD
     configured_password = settings.auth_password.get_secret_value()
@@ -397,8 +397,8 @@ def _verify_google_id_token(credential: str, client_id: str) -> dict:
     Raises:
         ValueError: If token is invalid
     """
-    from google.oauth2 import id_token
     from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token
 
     return id_token.verify_oauth2_token(
         credential,
@@ -429,9 +429,7 @@ async def google_auth_url() -> GoogleUrlResponse:
 
 
 @router.post("/google/callback", response_model=LoginResponse)
-async def google_callback(
-    body: GoogleCallbackRequest, response: Response
-) -> LoginResponse:
+async def google_callback(body: GoogleCallbackRequest, response: Response) -> LoginResponse:
     """Handle Google OAuth callback.
 
     Verifies the Google ID token, creates or updates a user profile,
@@ -452,7 +450,7 @@ async def google_callback(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Google credential: {e}",
-        )
+        ) from e
 
     google_sub = claims.get("sub")
     email = claims.get("email")
@@ -466,8 +464,9 @@ async def google_callback(
         )
 
     # Find or create user profile
-    from src.storage.entities.user_profile import UserProfile
     from sqlalchemy import select
+
+    from src.storage.entities.user_profile import UserProfile
 
     async with get_session() as session:
         # Look up by google_sub

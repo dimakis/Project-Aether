@@ -30,16 +30,34 @@ class TestFindUnavailableEntities:
     @pytest.mark.asyncio
     async def test_finds_unavailable_entities(self):
         """Test filtering entities with 'unavailable' state."""
-        ha = _mock_mcp_with_entities([
-            {"entity_id": "sensor.temp", "state": "22.5", "last_changed": "2026-02-06T10:00:00Z",
-             "attributes": {"device_class": "temperature"}},
-            {"entity_id": "sensor.motion", "state": "unavailable", "last_changed": "2026-02-06T08:00:00Z",
-             "attributes": {}},
-            {"entity_id": "light.kitchen", "state": "on", "last_changed": "2026-02-06T10:00:00Z",
-             "attributes": {}},
-            {"entity_id": "sensor.humidity", "state": "unknown", "last_changed": "2026-02-06T09:00:00Z",
-             "attributes": {}},
-        ])
+        ha = _mock_mcp_with_entities(
+            [
+                {
+                    "entity_id": "sensor.temp",
+                    "state": "22.5",
+                    "last_changed": "2026-02-06T10:00:00Z",
+                    "attributes": {"device_class": "temperature"},
+                },
+                {
+                    "entity_id": "sensor.motion",
+                    "state": "unavailable",
+                    "last_changed": "2026-02-06T08:00:00Z",
+                    "attributes": {},
+                },
+                {
+                    "entity_id": "light.kitchen",
+                    "state": "on",
+                    "last_changed": "2026-02-06T10:00:00Z",
+                    "attributes": {},
+                },
+                {
+                    "entity_id": "sensor.humidity",
+                    "state": "unknown",
+                    "last_changed": "2026-02-06T09:00:00Z",
+                    "attributes": {},
+                },
+            ]
+        )
 
         result = await find_unavailable_entities(ha)
 
@@ -52,10 +70,16 @@ class TestFindUnavailableEntities:
     @pytest.mark.asyncio
     async def test_returns_empty_when_all_healthy(self):
         """Test returns empty list when no entities are unavailable."""
-        ha = _mock_mcp_with_entities([
-            {"entity_id": "light.test", "state": "on", "last_changed": "2026-02-06T10:00:00Z",
-             "attributes": {}},
-        ])
+        ha = _mock_mcp_with_entities(
+            [
+                {
+                    "entity_id": "light.test",
+                    "state": "on",
+                    "last_changed": "2026-02-06T10:00:00Z",
+                    "attributes": {},
+                },
+            ]
+        )
 
         result = await find_unavailable_entities(ha)
 
@@ -73,10 +97,16 @@ class TestFindUnavailableEntities:
     @pytest.mark.asyncio
     async def test_diagnostic_has_required_fields(self):
         """Test EntityDiagnostic has all expected fields."""
-        ha = _mock_mcp_with_entities([
-            {"entity_id": "sensor.broken", "state": "unavailable",
-             "last_changed": "2026-02-06T08:00:00Z", "attributes": {}},
-        ])
+        ha = _mock_mcp_with_entities(
+            [
+                {
+                    "entity_id": "sensor.broken",
+                    "state": "unavailable",
+                    "last_changed": "2026-02-06T08:00:00Z",
+                    "attributes": {},
+                },
+            ]
+        )
 
         result = await find_unavailable_entities(ha)
 
@@ -93,14 +123,22 @@ class TestFindStaleEntities:
     @pytest.mark.asyncio
     async def test_finds_entities_not_updated_recently(self):
         """Test identifying entities that haven't been updated in N hours."""
-        ha = _mock_mcp_with_entities([
-            {"entity_id": "sensor.temp", "state": "22.5",
-             "last_changed": "2026-02-01T10:00:00Z",  # 5+ days ago
-             "attributes": {}},
-            {"entity_id": "sensor.recent", "state": "on",
-             "last_changed": "2099-12-31T23:59:59Z",  # Future = definitely recent
-             "attributes": {}},
-        ])
+        ha = _mock_mcp_with_entities(
+            [
+                {
+                    "entity_id": "sensor.temp",
+                    "state": "22.5",
+                    "last_changed": "2026-02-01T10:00:00Z",  # 5+ days ago
+                    "attributes": {},
+                },
+                {
+                    "entity_id": "sensor.recent",
+                    "state": "on",
+                    "last_changed": "2099-12-31T23:59:59Z",  # Future = definitely recent
+                    "attributes": {},
+                },
+            ]
+        )
 
         result = await find_stale_entities(ha, hours=24)
 
@@ -110,11 +148,16 @@ class TestFindStaleEntities:
     @pytest.mark.asyncio
     async def test_returns_empty_when_all_recent(self):
         """Test returns empty when all entities updated recently."""
-        ha = _mock_mcp_with_entities([
-            {"entity_id": "sensor.a", "state": "on",
-             "last_changed": "2099-12-31T23:59:59Z",
-             "attributes": {}},
-        ])
+        ha = _mock_mcp_with_entities(
+            [
+                {
+                    "entity_id": "sensor.a",
+                    "state": "on",
+                    "last_changed": "2099-12-31T23:59:59Z",
+                    "attributes": {},
+                },
+            ]
+        )
 
         result = await find_stale_entities(ha, hours=24)
 
@@ -127,15 +170,30 @@ class TestCorrelateUnavailability:
     def test_groups_by_integration(self):
         """Test grouping unavailable entities by integration domain."""
         diagnostics = [
-            EntityDiagnostic(entity_id="sensor.zha_temp", state="unavailable",
-                             available=False, last_changed="2026-02-06T08:00:00Z",
-                             integration="zha", issues=[]),
-            EntityDiagnostic(entity_id="binary_sensor.zha_motion", state="unavailable",
-                             available=False, last_changed="2026-02-06T08:00:00Z",
-                             integration="zha", issues=[]),
-            EntityDiagnostic(entity_id="sensor.mqtt_temp", state="unavailable",
-                             available=False, last_changed="2026-02-06T09:00:00Z",
-                             integration="mqtt", issues=[]),
+            EntityDiagnostic(
+                entity_id="sensor.zha_temp",
+                state="unavailable",
+                available=False,
+                last_changed="2026-02-06T08:00:00Z",
+                integration="zha",
+                issues=[],
+            ),
+            EntityDiagnostic(
+                entity_id="binary_sensor.zha_motion",
+                state="unavailable",
+                available=False,
+                last_changed="2026-02-06T08:00:00Z",
+                integration="zha",
+                issues=[],
+            ),
+            EntityDiagnostic(
+                entity_id="sensor.mqtt_temp",
+                state="unavailable",
+                available=False,
+                last_changed="2026-02-06T09:00:00Z",
+                integration="mqtt",
+                issues=[],
+            ),
         ]
 
         correlations = correlate_unavailability(diagnostics)
@@ -148,9 +206,14 @@ class TestCorrelateUnavailability:
     def test_identifies_common_cause(self):
         """Test that groups with many entities suggest a common cause."""
         diagnostics = [
-            EntityDiagnostic(entity_id=f"sensor.zha_{i}", state="unavailable",
-                             available=False, last_changed="2026-02-06T08:00:00Z",
-                             integration="zha", issues=[])
+            EntityDiagnostic(
+                entity_id=f"sensor.zha_{i}",
+                state="unavailable",
+                available=False,
+                last_changed="2026-02-06T08:00:00Z",
+                integration="zha",
+                issues=[],
+            )
             for i in range(5)
         ]
 

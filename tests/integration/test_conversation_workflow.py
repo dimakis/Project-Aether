@@ -6,9 +6,6 @@ T096: Full conversation flow with mocks.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
-
-from src.graph.state import ConversationState, ConversationStatus
 
 
 class TestConversationWorkflow:
@@ -61,17 +58,12 @@ Would you like me to adjust anything?"""
             workflow = ArchitectWorkflow()
             workflow.agent._llm = mock_llm
 
-            state = await workflow.start_conversation(
-                user_message="I want to automate my lights"
-            )
+            state = await workflow.start_conversation(user_message="I want to automate my lights")
 
             assert state is not None
             assert len(state.messages) >= 1
             # First message should be the assistant response
-            assert any(
-                hasattr(m, "type") and m.type == "ai"
-                for m in state.messages
-            )
+            assert any(hasattr(m, "type") and m.type == "ai" for m in state.messages)
 
     @pytest.mark.asyncio
     async def test_conversation_generates_proposal(self, mock_llm_response_with_proposal):
@@ -85,9 +77,7 @@ Would you like me to adjust anything?"""
             workflow = ArchitectWorkflow()
             workflow.agent._llm = mock_llm
 
-            state = await workflow.start_conversation(
-                user_message="Turn on lights at sunset"
-            )
+            state = await workflow.start_conversation(user_message="Turn on lights at sunset")
 
             # Check workflow processed the request and LLM response is in messages
             assert state is not None
@@ -109,14 +99,11 @@ Would you like me to adjust anything?"""
             workflow.agent._llm = mock_llm
 
             # Start conversation
-            state = await workflow.start_conversation(
-                user_message="I want to automate something"
-            )
+            state = await workflow.start_conversation(user_message="I want to automate something")
 
             # Continue conversation
             state = await workflow.continue_conversation(
-                state=state,
-                user_message="Specifically, I want my lights to turn on at sunset"
+                state=state, user_message="Specifically, I want my lights to turn on at sunset"
             )
 
             # Verify invoke was called twice

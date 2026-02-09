@@ -32,12 +32,26 @@ class TestGetIntegrationStatuses:
     @pytest.mark.asyncio
     async def test_returns_integration_health_list(self):
         """Test converting config entries to IntegrationHealth objects."""
-        ha = _mock_mcp_with_config_entries([
-            {"entry_id": "abc", "domain": "zha", "title": "ZHA",
-             "state": "loaded", "disabled_by": None, "reason": None},
-            {"entry_id": "def", "domain": "mqtt", "title": "MQTT",
-             "state": "loaded", "disabled_by": None, "reason": None},
-        ])
+        ha = _mock_mcp_with_config_entries(
+            [
+                {
+                    "entry_id": "abc",
+                    "domain": "zha",
+                    "title": "ZHA",
+                    "state": "loaded",
+                    "disabled_by": None,
+                    "reason": None,
+                },
+                {
+                    "entry_id": "def",
+                    "domain": "mqtt",
+                    "title": "MQTT",
+                    "state": "loaded",
+                    "disabled_by": None,
+                    "reason": None,
+                },
+            ]
+        )
 
         result = await get_integration_statuses(ha)
 
@@ -62,14 +76,34 @@ class TestFindUnhealthyIntegrations:
     @pytest.mark.asyncio
     async def test_finds_errored_integrations(self):
         """Test filtering to integrations with error states."""
-        ha = _mock_mcp_with_config_entries([
-            {"entry_id": "abc", "domain": "zha", "title": "ZHA",
-             "state": "loaded", "disabled_by": None, "reason": None},
-            {"entry_id": "def", "domain": "nest", "title": "Nest",
-             "state": "setup_error", "disabled_by": None, "reason": "auth_expired"},
-            {"entry_id": "ghi", "domain": "hue", "title": "Hue",
-             "state": "not_loaded", "disabled_by": "user", "reason": None},
-        ])
+        ha = _mock_mcp_with_config_entries(
+            [
+                {
+                    "entry_id": "abc",
+                    "domain": "zha",
+                    "title": "ZHA",
+                    "state": "loaded",
+                    "disabled_by": None,
+                    "reason": None,
+                },
+                {
+                    "entry_id": "def",
+                    "domain": "nest",
+                    "title": "Nest",
+                    "state": "setup_error",
+                    "disabled_by": None,
+                    "reason": "auth_expired",
+                },
+                {
+                    "entry_id": "ghi",
+                    "domain": "hue",
+                    "title": "Hue",
+                    "state": "not_loaded",
+                    "disabled_by": "user",
+                    "reason": None,
+                },
+            ]
+        )
 
         result = await find_unhealthy_integrations(ha)
 
@@ -82,10 +116,18 @@ class TestFindUnhealthyIntegrations:
     @pytest.mark.asyncio
     async def test_returns_empty_when_all_healthy(self):
         """Test returns empty when all integrations are loaded."""
-        ha = _mock_mcp_with_config_entries([
-            {"entry_id": "abc", "domain": "zha", "title": "ZHA",
-             "state": "loaded", "disabled_by": None, "reason": None},
-        ])
+        ha = _mock_mcp_with_config_entries(
+            [
+                {
+                    "entry_id": "abc",
+                    "domain": "zha",
+                    "title": "ZHA",
+                    "state": "loaded",
+                    "disabled_by": None,
+                    "reason": None,
+                },
+            ]
+        )
 
         result = await find_unhealthy_integrations(ha)
 
@@ -99,17 +141,33 @@ class TestDiagnoseIntegration:
     async def test_returns_full_diagnosis(self):
         """Test full integration diagnosis with diagnostics data."""
         ha = MagicMock()
-        ha.list_config_entries = AsyncMock(return_value=[
-            {"entry_id": "abc123", "domain": "zha", "title": "ZHA",
-             "state": "setup_error", "disabled_by": None, "reason": "timeout"},
-        ])
-        ha.get_config_entry_diagnostics = AsyncMock(return_value={
-            "data": {"coordinator": {"status": "disconnected"}},
-        })
-        ha.list_entities = AsyncMock(return_value=[
-            {"entity_id": "sensor.zha_temp", "state": "unavailable",
-             "last_changed": "2026-02-06T08:00:00Z", "attributes": {}},
-        ])
+        ha.list_config_entries = AsyncMock(
+            return_value=[
+                {
+                    "entry_id": "abc123",
+                    "domain": "zha",
+                    "title": "ZHA",
+                    "state": "setup_error",
+                    "disabled_by": None,
+                    "reason": "timeout",
+                },
+            ]
+        )
+        ha.get_config_entry_diagnostics = AsyncMock(
+            return_value={
+                "data": {"coordinator": {"status": "disconnected"}},
+            }
+        )
+        ha.list_entities = AsyncMock(
+            return_value=[
+                {
+                    "entity_id": "sensor.zha_temp",
+                    "state": "unavailable",
+                    "last_changed": "2026-02-06T08:00:00Z",
+                    "attributes": {},
+                },
+            ]
+        )
 
         result = await diagnose_integration(ha, "abc123")
 
@@ -123,10 +181,18 @@ class TestDiagnoseIntegration:
     async def test_handles_missing_diagnostics(self):
         """Test diagnosis when integration doesn't support diagnostics."""
         ha = MagicMock()
-        ha.list_config_entries = AsyncMock(return_value=[
-            {"entry_id": "abc123", "domain": "mqtt", "title": "MQTT",
-             "state": "loaded", "disabled_by": None, "reason": None},
-        ])
+        ha.list_config_entries = AsyncMock(
+            return_value=[
+                {
+                    "entry_id": "abc123",
+                    "domain": "mqtt",
+                    "title": "MQTT",
+                    "state": "loaded",
+                    "disabled_by": None,
+                    "reason": None,
+                },
+            ]
+        )
         ha.get_config_entry_diagnostics = AsyncMock(return_value=None)
         ha.list_entities = AsyncMock(return_value=[])
 

@@ -41,16 +41,12 @@ class HAZoneRepository:
 
     async def get_by_id(self, zone_id: str) -> HAZone | None:
         """Get a zone by its UUID."""
-        result = await self.session.execute(
-            select(HAZone).where(HAZone.id == zone_id)
-        )
+        result = await self.session.execute(select(HAZone).where(HAZone.id == zone_id))
         return result.scalar_one_or_none()
 
     async def get_by_slug(self, slug: str) -> HAZone | None:
         """Get a zone by its slug."""
-        result = await self.session.execute(
-            select(HAZone).where(HAZone.slug == slug)
-        )
+        result = await self.session.execute(select(HAZone).where(HAZone.slug == slug))
         return result.scalar_one_or_none()
 
     async def get_default(self) -> HAZone | None:

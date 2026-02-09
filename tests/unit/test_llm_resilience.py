@@ -3,13 +3,12 @@
 Tests retry logic, circuit breaker, and provider failover.
 """
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.llm import CircuitBreaker, ResilientLLM, _get_circuit_breaker, _circuit_breakers
+from src.llm import CircuitBreaker, ResilientLLM, _circuit_breakers, _get_circuit_breaker
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +43,7 @@ class TestCircuitBreaker:
     def test_opens_after_threshold(self):
         """Test circuit opens after failure threshold."""
         cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=60)
-        
+
         cb.record_failure()
         cb.record_failure()
         assert not cb.circuit_open
@@ -57,7 +56,7 @@ class TestCircuitBreaker:
     def test_cooldown_expires(self):
         """Test circuit breaker resets after cooldown period."""
         cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=0.1)  # Short cooldown for test
-        
+
         # Open circuit
         cb.record_failure()
         cb.record_failure()
@@ -101,7 +100,7 @@ class TestResilientLLM:
     async def test_successful_call_no_retry(self, mock_llm):
         """Test successful call doesn't retry."""
         mock_llm.ainvoke.return_value = MagicMock(content="Success")
-        
+
         resilient = ResilientLLM(mock_llm, provider="test")
         result = await resilient.ainvoke("test input")
 

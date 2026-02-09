@@ -49,9 +49,7 @@ class UserProfile(Base, UUIDMixin, TimestampMixin):
         doc="Google OAuth subject identifier (unique per Google account)",
     )
 
-    __table_args__ = (
-        Index("ix_user_profiles_google_sub", "google_sub", unique=True),
-    )
+    __table_args__ = (Index("ix_user_profiles_google_sub", "google_sub", unique=True),)
 
     def __repr__(self) -> str:
         return f"<UserProfile(id={self.id}, username={self.username})>"

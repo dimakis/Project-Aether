@@ -7,9 +7,7 @@ TDD: T108 - Data Scientist script generation tests.
 """
 
 import json
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import pytest
 
@@ -20,7 +18,7 @@ from src.agents.data_scientist import (
 from src.agents.prompts import load_prompt
 
 DATA_SCIENTIST_SYSTEM_PROMPT = load_prompt("data_scientist_system")
-from src.graph.state import AnalysisState, AnalysisType, AgentRole
+from src.graph.state import AgentRole, AnalysisState, AnalysisType
 from src.sandbox.runner import SandboxResult
 
 
@@ -87,20 +85,22 @@ def sample_sandbox_result():
     return SandboxResult(
         success=True,
         exit_code=0,
-        stdout=json.dumps({
-            "insights": [
-                {
-                    "type": "energy_optimization",
-                    "title": "High Usage Detected",
-                    "description": "Grid power usage is higher than average",
-                    "confidence": 0.85,
-                    "impact": "medium",
-                    "evidence": {"peak_hour": 14},
-                    "entities": ["sensor.grid_power"],
-                }
-            ],
-            "recommendations": ["Shift usage to off-peak hours"],
-        }),
+        stdout=json.dumps(
+            {
+                "insights": [
+                    {
+                        "type": "energy_optimization",
+                        "title": "High Usage Detected",
+                        "description": "Grid power usage is higher than average",
+                        "confidence": 0.85,
+                        "impact": "medium",
+                        "evidence": {"peak_hour": 14},
+                        "entities": ["sensor.grid_power"],
+                    }
+                ],
+                "recommendations": ["Shift usage to off-peak hours"],
+            }
+        ),
         stderr="",
         duration_seconds=2.5,
         policy_name="standard",
@@ -189,7 +189,9 @@ print(data)
 class TestDataScientistInsightExtraction:
     """Tests for insight extraction from sandbox output."""
 
-    def test_extract_valid_insights(self, data_scientist, sample_analysis_state, sample_sandbox_result):
+    def test_extract_valid_insights(
+        self, data_scientist, sample_analysis_state, sample_sandbox_result
+    ):
         """Test extracting valid insights from JSON output."""
         insights = data_scientist._extract_insights(sample_sandbox_result, sample_analysis_state)
 
@@ -237,11 +239,9 @@ class TestDataScientistInsightExtraction:
         result = SandboxResult(
             success=True,
             exit_code=0,
-            stdout=json.dumps({
-                "insights": [
-                    {"confidence": 1.5, "title": "Test", "description": "Test"}
-                ]
-            }),
+            stdout=json.dumps(
+                {"insights": [{"confidence": 1.5, "title": "Test", "description": "Test"}]}
+            ),
             stderr="",
             duration_seconds=1.0,
             policy_name="standard",
@@ -281,7 +281,9 @@ class TestDataScientistRecommendations:
 class TestDataScientistPromptBuilding:
     """Tests for analysis prompt building."""
 
-    def test_energy_optimization_prompt(self, data_scientist, sample_analysis_state, sample_energy_data):
+    def test_energy_optimization_prompt(
+        self, data_scientist, sample_analysis_state, sample_energy_data
+    ):
         """Test prompt for energy optimization analysis."""
         sample_analysis_state.analysis_type = AnalysisType.ENERGY_OPTIMIZATION
 
@@ -290,7 +292,9 @@ class TestDataScientistPromptBuilding:
         assert "energy" in prompt.lower()
         assert "optimization" in prompt.lower() or "savings" in prompt.lower()
 
-    def test_anomaly_detection_prompt(self, data_scientist, sample_analysis_state, sample_energy_data):
+    def test_anomaly_detection_prompt(
+        self, data_scientist, sample_analysis_state, sample_energy_data
+    ):
         """Test prompt for anomaly detection analysis."""
         sample_analysis_state.analysis_type = AnalysisType.ANOMALY_DETECTION
 
@@ -394,12 +398,14 @@ class TestDataScientistDiagnosticDataCollection:
 
         with patch("src.agents.data_scientist.EnergyHistoryClient") as MockEnergyClient:
             mock_energy = AsyncMock()
-            mock_energy.get_aggregated_energy = AsyncMock(return_value={
-                "entities": [],
-                "total_kwh": 0.0,
-                "entity_count": 1,
-                "hours": 72,
-            })
+            mock_energy.get_aggregated_energy = AsyncMock(
+                return_value={
+                    "entities": [],
+                    "total_kwh": 0.0,
+                    "entity_count": 1,
+                    "hours": 72,
+                }
+            )
             MockEnergyClient.return_value = mock_energy
 
             data = await agent._collect_energy_data(state)
@@ -421,12 +427,14 @@ class TestDataScientistDiagnosticDataCollection:
 
         with patch("src.agents.data_scientist.EnergyHistoryClient") as MockEnergyClient:
             mock_energy = AsyncMock()
-            mock_energy.get_aggregated_energy = AsyncMock(return_value={
-                "entities": [],
-                "total_kwh": 5.0,
-                "entity_count": 1,
-                "hours": 24,
-            })
+            mock_energy.get_aggregated_energy = AsyncMock(
+                return_value={
+                    "entities": [],
+                    "total_kwh": 5.0,
+                    "entity_count": 1,
+                    "hours": 24,
+                }
+            )
             MockEnergyClient.return_value = mock_energy
 
             data = await agent._collect_energy_data(state)

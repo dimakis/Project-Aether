@@ -100,14 +100,13 @@ async def create_insight_schedule(
 
     # Validate trigger_type
     if trigger_type not in VALID_TRIGGER_TYPES:
-        return (
-            f"Invalid trigger_type '{trigger_type}'. "
-            f"Must be 'cron' or 'webhook'."
-        )
+        return f"Invalid trigger_type '{trigger_type}'. Must be 'cron' or 'webhook'."
 
     # Validate trigger-specific requirements
     if trigger_type == "cron" and not cron_expression:
-        return "A cron_expression is required for cron triggers (e.g., '0 2 * * *' for daily at 2am)."
+        return (
+            "A cron_expression is required for cron triggers (e.g., '0 2 * * *' for daily at 2am)."
+        )
 
     if trigger_type == "webhook" and not webhook_event:
         return "A webhook_event label is required for webhook triggers (e.g., 'device_offline')."

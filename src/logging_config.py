@@ -8,6 +8,7 @@ code vs third-party libraries.
 # This must happen before mlflow is imported anywhere
 import logging
 import warnings
+
 logging.getLogger("mlflow").setLevel(logging.WARNING)
 logging.getLogger("mlflow.types").setLevel(logging.ERROR)
 logging.getLogger("mlflow.types.type_hints").setLevel(logging.ERROR)
@@ -69,7 +70,7 @@ NOISY_LOGGER_LEVELS = {
 
 def suppress_noisy_loggers() -> None:
     """Suppress noisy third-party loggers.
-    
+
     Call this after importing libraries that configure their own logging.
     """
     for logger_name in NOISY_LOGGERS:

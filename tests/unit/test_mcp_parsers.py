@@ -4,12 +4,10 @@ Tests parsing of MCP responses into domain objects.
 Constitution: Reliability & Quality - comprehensive parsing tests.
 """
 
-import pytest
-
 from src.ha.parsers import (
-    parse_entity_list,
-    parse_entity,
     ParsedEntity,
+    parse_entity,
+    parse_entity_list,
 )
 
 
