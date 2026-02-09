@@ -106,11 +106,11 @@ async def get_evaluation_summary() -> EvaluationSummary:
             else None,
         )
 
-    except ImportError:
+    except ImportError as exc:
         raise HTTPException(
             status_code=503,
             detail="MLflow not available",
-        )
+        ) from exc
     except Exception as e:
         logger.debug("Failed to get evaluation summary: %s", e)
         return EvaluationSummary()

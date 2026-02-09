@@ -531,7 +531,7 @@ async def stream_conversation(
             await websocket.send_json({"error": "An internal error occurred."})
             await websocket.close()
         except Exception:
-            pass  # Client already disconnected
+            logging.getLogger(__name__).debug("websocket already disconnected", exc_info=True)
 
 
 @router.delete(

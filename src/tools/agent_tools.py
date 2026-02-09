@@ -78,7 +78,7 @@ async def analyze_energy(
             if active_span and hasattr(active_span, "span_id"):
                 parent_span_id = active_span.span_id
         except Exception:
-            pass
+            logger.debug("Failed to get active span for parent span ID", exc_info=True)
 
         with model_context(
             model_name=ctx.model_name if ctx else None,
@@ -460,7 +460,7 @@ async def diagnose_issue(
             if active_span and hasattr(active_span, "span_id"):
                 parent_span_id = active_span.span_id
         except Exception:
-            pass
+            logger.debug("Failed to get active span for parent span ID", exc_info=True)
 
         with model_context(
             model_name=ctx.model_name if ctx else None,
@@ -615,7 +615,7 @@ async def analyze_behavior(
             if active_span and hasattr(active_span, "span_id"):
                 parent_span_id = active_span.span_id
         except Exception:
-            pass
+            logger.debug("Failed to get active span for parent span ID", exc_info=True)
 
         with model_context(
             model_name=ctx.model_name if ctx else None,

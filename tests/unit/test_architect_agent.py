@@ -238,6 +238,22 @@ Would you like me to adjust anything?"""
 class TestArchitectWorkflow:
     """Test ArchitectWorkflow functionality."""
 
+    @staticmethod
+    def _make_mock_mlflow():
+        """Create a mock mlflow module with trace as a passthrough decorator."""
+        from unittest.mock import MagicMock
+
+        mock_mlflow = MagicMock()
+
+        def noop_trace(**kwargs):
+            def decorator(fn):
+                return fn
+
+            return decorator
+
+        mock_mlflow.trace = noop_trace
+        return mock_mlflow
+
     @pytest.mark.asyncio
     async def test_start_conversation(self):
         """Test starting a new conversation."""
@@ -245,7 +261,12 @@ class TestArchitectWorkflow:
 
         from src.agents.architect import ArchitectWorkflow
 
-        with patch("src.agents.architect.ArchitectAgent") as MockAgent:
+        mock_mlflow = self._make_mock_mlflow()
+
+        with (
+            patch("src.agents.architect.ArchitectAgent") as MockAgent,
+            patch.dict("sys.modules", {"mlflow": mock_mlflow}),
+        ):
             mock_agent = MockAgent.return_value
             mock_agent.invoke = AsyncMock(
                 return_value={"messages": [AIMessage(content="Hello! How can I help?")]}
@@ -268,7 +289,12 @@ class TestArchitectWorkflow:
         from src.agents.architect import ArchitectWorkflow
         from src.graph.state import ConversationState
 
-        with patch("src.agents.architect.ArchitectAgent") as MockAgent:
+        mock_mlflow = self._make_mock_mlflow()
+
+        with (
+            patch("src.agents.architect.ArchitectAgent") as MockAgent,
+            patch.dict("sys.modules", {"mlflow": mock_mlflow}),
+        ):
             mock_agent = MockAgent.return_value
             mock_agent.invoke = AsyncMock(
                 return_value={"messages": [AIMessage(content="I understand, let me help")]}

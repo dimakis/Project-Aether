@@ -183,7 +183,7 @@ class SandboxPolicy(BaseModel):
             args.append("--read-only")
 
         # Temp filesystem
-        args.extend(["--tmpfs", f"/tmp:size={self.temp_dir_mb}m,mode=1777"])
+        args.extend(["--tmpfs", f"/tmp:size={self.temp_dir_mb}m,mode=1777"])  # nosec B108
 
         # Mounts
         for mount in self.mounts:

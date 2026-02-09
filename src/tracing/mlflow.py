@@ -185,7 +185,7 @@ def _disable_traces(reason: str) -> None:
             if hasattr(tracing, "disable"):
                 tracing.disable()
     except Exception:
-        pass
+        _logger.debug("Failed to disable MLflow tracing via API", exc_info=True)
 
     _logger.debug("MLflow trace logging disabled: %s", reason)
 
