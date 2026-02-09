@@ -76,7 +76,7 @@ requires-dist = [
     { name = "langchain-google-genai", specifier = ">=4.2.0,<5.0.0" },
     { name = "langchain-openai", specifier = ">=0.2.0,<2.0.0" },
     { name = "langgraph", specifier = ">=0.2.0,<2.0.0" },
-    { name = "mlflow", specifier = ">=2.18.0,<3.0.0" },
+    { name = "mlflow", specifier = ">=3.5.0,<4.0.0" },
     { name = "openai", specifier = ">=1.50.0,<3.0.0" },
     { name = "pydantic", specifier = ">=2.10.0,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.6.0,<3.0.0" },
@@ -935,6 +935,19 @@ wheels = [
 ]
 
 [[package]]
+name = "flask-cors"
+version = "6.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "werkzeug" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/74/0fc0fa68d62f21daef41017dafab19ef4b36551521260987eb3a5394c7ba/flask_cors-6.0.2.tar.gz", hash = "sha256:6e118f3698249ae33e429760db98ce032a8bf9913638d085ca0f4c5534ad2423", size = 13472, upload-time = "2025-12-12T20:31:42.861Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4f/af/72ad54402e599152de6d067324c46fe6a4f531c7c65baf7e96c63db55eaf/flask_cors-6.0.2-py3-none-any.whl", hash = "sha256:e57544d415dfd7da89a9564e1e3a9e515042df76e12130641ca6f3f2f03b699a", size = 13257, upload-time = "2025-12-12T20:31:41.3Z" },
+]
+
+[[package]]
 name = "fonttools"
 version = "4.61.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1218,6 +1231,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
+]
+
+[[package]]
+name = "huey"
+version = "2.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/29/3428d52eb8e85025e264a291641a9f9d6407cc1e51d1b630f6ac5815999a/huey-2.6.0.tar.gz", hash = "sha256:8d11f8688999d65266af1425b831f6e3773e99415027177b8734b0ffd5e251f6", size = 221068, upload-time = "2026-01-06T03:01:02.055Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/34/fae9ac8f1c3a552fd3f7ff652b94c78d219dedc5fce0c0a4232457760a00/huey-2.6.0-py3-none-any.whl", hash = "sha256:1b9df9d370b49c6d5721ba8a01ac9a787cf86b3bdc584e4679de27b920395c3f", size = 76951, upload-time = "2026-01-06T03:01:00.808Z" },
 ]
 
 [[package]]
@@ -1699,15 +1721,6 @@ wheels = [
 ]
 
 [[package]]
-name = "markdown"
-version = "3.10.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b7/b1/af95bcae8549f1f3fd70faacb29075826a0d689a27f232e8cee315efa053/markdown-3.10.1.tar.gz", hash = "sha256:1c19c10bd5c14ac948c53d0d762a04e2fa35a6d58a6b7b1e6bfcbe6fefc0001a", size = 365402, upload-time = "2026-01-21T18:09:28.206Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/1b/6ef961f543593969d25b2afe57a3564200280528caa9bd1082eecdd7b3bc/markdown-3.10.1-py3-none-any.whl", hash = "sha256:867d788939fe33e4b736426f5b9f651ad0c0ae0ecf89df0ca5d1176c70812fe3", size = 107684, upload-time = "2026-01-21T18:09:27.203Z" },
-]
-
-[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1868,34 +1881,37 @@ wheels = [
 
 [[package]]
 name = "mlflow"
-version = "2.22.4"
+version = "3.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
+    { name = "cryptography" },
     { name = "docker" },
     { name = "flask" },
+    { name = "flask-cors" },
     { name = "graphene" },
     { name = "gunicorn", marker = "sys_platform != 'win32'" },
-    { name = "jinja2" },
-    { name = "markdown" },
+    { name = "huey" },
     { name = "matplotlib" },
     { name = "mlflow-skinny" },
+    { name = "mlflow-tracing" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "scikit-learn" },
     { name = "scipy" },
+    { name = "skops" },
     { name = "sqlalchemy" },
     { name = "waitress", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/56/4aaea65472c25dd463ed0855c1d673749cd9050e5c8214642d17434b441a/mlflow-2.22.4.tar.gz", hash = "sha256:cb8cb3b82ec696dc613bcc347b023c20fc0ed6a82170b36d0ded01d3ba06da97", size = 28377569, upload-time = "2025-12-05T13:20:56.105Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/95/e5/9f8481b879329ed0f5317eda459fb7eebe9eb9bae7d99ba6a7d68074f619/mlflow-3.9.0.tar.gz", hash = "sha256:47a41fa22107b0ceee1f91e2184759ebfaffa31d7913b70318b78fb5369e52ec", size = 9105613, upload-time = "2026-01-29T07:56:51.477Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/0b/bf491b0604f2608e97b53b8cc33220fd20855ac4762d18d0ddf0d3ae3a6c/mlflow-2.22.4-py3-none-any.whl", hash = "sha256:c37b312060737cc9197c4a956c730fa6c292580787fe464efe736c339e87649a", size = 29004180, upload-time = "2025-12-05T13:20:52.703Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/ce/871d1168206164242856b5cbf327693b708d6a63c3163d90f89ad5e70807/mlflow-3.9.0-py3-none-any.whl", hash = "sha256:280f94854e5ece42fc5538180b276661c62dbfb2c848a98e8873e78915379ac6", size = 9692264, upload-time = "2026-01-29T07:56:48.811Z" },
 ]
 
 [[package]]
 name = "mlflow-skinny"
-version = "2.22.4"
+version = "3.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -1906,19 +1922,40 @@ dependencies = [
     { name = "gitpython" },
     { name = "importlib-metadata" },
     { name = "opentelemetry-api" },
+    { name = "opentelemetry-proto" },
     { name = "opentelemetry-sdk" },
     { name = "packaging" },
     { name = "protobuf" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "sqlparse" },
     { name = "typing-extensions" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/73/de6cfdd1bd48fd896c33844b863931bf7215f9401e01e4554019aca0fa94/mlflow_skinny-2.22.4.tar.gz", hash = "sha256:d75ef4c6f38b745d84aef4d6dcb26331c8a3c784ee5a284ec89186398c8d927b", size = 5892192, upload-time = "2025-12-05T12:50:03.045Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/18/34a8c085eece1abb7edaed3b9a383670b97a4a234fec62d1823e8c64d11b/mlflow_skinny-3.9.0.tar.gz", hash = "sha256:0598e0635dd1af9d195fb429210819aa4b56e9d6014f87134241f2325d57a290", size = 2329309, upload-time = "2026-01-29T07:42:36.8Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/d1/549a995e261ca708c60fe0b63dfa4d1842fc58b04eb9c78cd678aebe1e7e/mlflow_skinny-2.22.4-py3-none-any.whl", hash = "sha256:3622115f53806d99fc42b0c2e45f225b16948584feeec7f233e484f08fe6c7f2", size = 6270862, upload-time = "2025-12-05T12:50:00.406Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/7c/a82fd9d6ecefba347e3a65168df63fd79784fa8c22b8734fb4cb71f2d469/mlflow_skinny-3.9.0-py3-none-any.whl", hash = "sha256:9b98706cdf9e07a61da7fbcd717c8d35ac89c76e084d25aafdbc150028e832d5", size = 2807062, upload-time = "2026-01-29T07:42:35.132Z" },
+]
+
+[[package]]
+name = "mlflow-tracing"
+version = "3.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "databricks-sdk" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-proto" },
+    { name = "opentelemetry-sdk" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/ba/11c8b4a4841104b55ad63a1f11ad72b1f282b819c4da197cf01128b61c25/mlflow_tracing-3.9.0.tar.gz", hash = "sha256:3a0676e6f362712299d191108a5cbcd596f6d84f23f050dfbf80161e245d456c", size = 1176445, upload-time = "2026-01-29T07:44:59.525Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/9c/d726d51aec6a2349f90630b43972cee1f683a22b4b3683a241b02a454baf/mlflow_tracing-3.9.0-py3-none-any.whl", hash = "sha256:93df8df0697303ad3135df6228934e5d9d2f264d2683b97a6f06ad865ec418a0", size = 1410828, upload-time = "2026-01-29T07:44:57.615Z" },
 ]
 
 [[package]]
@@ -2087,6 +2124,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/97/b9/3161be15bb8e3ad01be8be5a968a9237c3027c5be504362ff800fca3e442/opentelemetry_api-1.39.1.tar.gz", hash = "sha256:fbde8c80e1b937a2c61f20347e91c0c18a1940cecf012d62e65a7caf08967c9c", size = 65767, upload-time = "2025-12-11T13:32:39.182Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cf/df/d3f1ddf4bb4cb50ed9b1139cc7b1c54c34a1e7ce8fd1b9a37c0d1551a6bd/opentelemetry_api-1.39.1-py3-none-any.whl", hash = "sha256:2edd8463432a7f8443edce90972169b195e7d6a05500cd29e6d13898187c9950", size = 66356, upload-time = "2025-12-11T13:32:17.304Z" },
+]
+
+[[package]]
+name = "opentelemetry-proto"
+version = "1.39.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/49/1d/f25d76d8260c156c40c97c9ed4511ec0f9ce353f8108ca6e7561f82a06b2/opentelemetry_proto-1.39.1.tar.gz", hash = "sha256:6c8e05144fc0d3ed4d22c2289c6b126e03bcd0e6a7da0f16cedd2e1c2772e2c8", size = 46152, upload-time = "2025-12-11T13:32:48.681Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/95/b40c96a7b5203005a0b03d8ce8cd212ff23f1793d5ba289c87a097571b18/opentelemetry_proto-1.39.1-py3-none-any.whl", hash = "sha256:22cdc78efd3b3765d09e68bfbd010d4fc254c9818afd0b6b423387d9dee46007", size = 72535, upload-time = "2025-12-11T13:32:33.866Z" },
 ]
 
 [[package]]
@@ -2423,6 +2472,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/40/f1/6d86a29246dfd2e9b6237f0b5823717f60cad94d47ddc26afa916d21f525/pre_commit-4.5.1.tar.gz", hash = "sha256:eb545fcff725875197837263e977ea257a402056661f09dae08e4b149b030a61", size = 198232, upload-time = "2025-12-16T21:14:33.552Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5d/19/fd3ef348460c80af7bb4669ea7926651d1f95c23ff2df18b9d24bab4f3fa/pre_commit-4.5.1-py2.py3-none-any.whl", hash = "sha256:3b3afd891e97337708c1674210f8eba659b52a38ea5f822ff142d10786221f77", size = 226437, upload-time = "2025-12-16T21:14:32.409Z" },
+]
+
+[[package]]
+name = "prettytable"
+version = "3.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wcwidth" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/45/b0847d88d6cfeb4413566738c8bbf1e1995fad3d42515327ff32cc1eb578/prettytable-3.17.0.tar.gz", hash = "sha256:59f2590776527f3c9e8cf9fe7b66dd215837cca96a9c39567414cbc632e8ddb0", size = 67892, upload-time = "2025-11-14T17:33:20.212Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ee/8c/83087ebc47ab0396ce092363001fa37c17153119ee282700c0713a195853/prettytable-3.17.0-py3-none-any.whl", hash = "sha256:aad69b294ddbe3e1f95ef8886a060ed1666a0b83018bbf56295f6f226c43d287", size = 34433, upload-time = "2025-11-14T17:33:19.093Z" },
 ]
 
 [[package]]
@@ -3177,6 +3238,22 @@ wheels = [
 ]
 
 [[package]]
+name = "skops"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "prettytable" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b5/0c/5ec987633e077dd0076178ea6ade2d6e57780b34afea0b497fb507d7a1ed/skops-0.13.0.tar.gz", hash = "sha256:66949fd3c95cbb5c80270fbe40293c0fe1e46cb4a921860e42584dd9c20ebeb1", size = 581312, upload-time = "2025-08-06T09:48:14.916Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/e8/6a2b2030f0689f894432b9c2f0357f2f3286b2a00474827e04b8fe9eea13/skops-0.13.0-py3-none-any.whl", hash = "sha256:55e2cccb18c86f5916e4cfe5acf55ed7b0eecddf08a151906414c092fa5926dc", size = 131200, upload-time = "2025-08-06T09:48:13.356Z" },
+]
+
+[[package]]
 name = "slowapi"
 version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
@@ -3740,6 +3817,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/95/615e72cd27b85b61eec764a5ca51bd94d40b5adea5ff47567d9ebc4d275a/watchfiles-1.1.1-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:89eef07eee5e9d1fda06e38822ad167a044153457e6fd997f8a858ab7564a336", size = 396117, upload-time = "2025-10-14T15:06:11.28Z" },
     { url = "https://files.pythonhosted.org/packages/c9/81/e7fe958ce8a7fb5c73cc9fb07f5aeaf755e6aa72498c57d760af760c91f8/watchfiles-1.1.1-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ce19e06cbda693e9e7686358af9cd6f5d61312ab8b00488bc36f5aabbaf77e24", size = 450493, upload-time = "2025-10-14T15:06:12.321Z" },
     { url = "https://files.pythonhosted.org/packages/6e/d4/ed38dd3b1767193de971e694aa544356e63353c33a85d948166b5ff58b9e/watchfiles-1.1.1-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3e6f39af2eab0118338902798b5aa6664f46ff66bc0280de76fca67a7f262a49", size = 457546, upload-time = "2025-10-14T15:06:13.372Z" },
+]
+
+[[package]]
+name = "wcwidth"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/a2/8e3becb46433538a38726c948d3399905a4c7cabd0df578ede5dc51f0ec2/wcwidth-0.6.0.tar.gz", hash = "sha256:cdc4e4262d6ef9a1a57e018384cbeb1208d8abbc64176027e2c2455c81313159", size = 159684, upload-time = "2026-02-06T19:19:40.919Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/68/5a/199c59e0a824a3db2b89c5d2dade7ab5f9624dbf6448dc291b46d5ec94d3/wcwidth-0.6.0-py3-none-any.whl", hash = "sha256:1a3a1e510b553315f8e146c54764f4fb6264ffad731b3d78088cdb1478ffbdad", size = 94189, upload-time = "2026-02-06T19:19:39.646Z" },
 ]
 
 [[package]]
