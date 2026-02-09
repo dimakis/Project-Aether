@@ -98,7 +98,7 @@ async def integration_session(
         trans = await conn.begin()
 
         # Bind session to connection that already has a transaction
-        session = AsyncSession(bind=conn)
+        session = AsyncSession(bind=conn, expire_on_commit=False)
 
         # Start a SAVEPOINT so that session.commit() releases the savepoint
         # rather than committing the real transaction.
