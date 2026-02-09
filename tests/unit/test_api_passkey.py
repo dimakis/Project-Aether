@@ -224,9 +224,7 @@ class TestAuthenticateOptions:
                 "webauthn.helpers.options_to_json",
                 return_value='{"challenge": "dGVzdF9jaGFsbGVuZ2U"}',
             ):
-                response = await passkey_client.post(
-                    "/api/v1/auth/passkey/authenticate/options"
-                )
+                response = await passkey_client.post("/api/v1/auth/passkey/authenticate/options")
 
             assert response.status_code == 200
             assert "challenge" in response.json()

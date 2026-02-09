@@ -173,7 +173,7 @@ class TestGetSession:
 
         with patch("src.storage.get_session_factory", return_value=mock_factory):
             with pytest.raises(ValueError):
-                async with real_funcs["get_session"]() as session:
+                async with real_funcs["get_session"]() as _session:
                     raise ValueError("test error")
 
         mock_session.close.assert_called_once()

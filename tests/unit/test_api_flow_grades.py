@@ -217,9 +217,7 @@ class TestSubmitGrade:
             call_kwargs = mock_log_feedback.call_args[1]
             assert call_kwargs["value"] == "negative"
 
-    async def test_submit_grade_invalid_grade_value(
-        self, flow_grades_client, mock_get_session
-    ):
+    async def test_submit_grade_invalid_grade_value(self, flow_grades_client, mock_get_session):
         """Should return 400 for invalid grade value."""
         with patch("src.api.routes.flow_grades.get_session", mock_get_session):
             response = await flow_grades_client.post(
@@ -284,9 +282,7 @@ class TestGetGrades:
                 return_value=mock_flow_grade_repo,
             ),
         ):
-            response = await flow_grades_client.get(
-                "/api/v1/flow-grades/conv-uuid-1"
-            )
+            response = await flow_grades_client.get("/api/v1/flow-grades/conv-uuid-1")
 
             assert response.status_code == 200
             data = response.json()
@@ -298,9 +294,7 @@ class TestGetGrades:
             assert data["thumbs_down"] == 0
             mock_flow_grade_repo.get_summary.assert_called_once_with("conv-uuid-1")
 
-    async def test_get_grades_empty_conversation(
-        self, flow_grades_client, mock_get_session
-    ):
+    async def test_get_grades_empty_conversation(self, flow_grades_client, mock_get_session):
         """Should return empty summary for conversation with no grades."""
         repo = MagicMock()
         repo.get_summary = AsyncMock(
@@ -342,9 +336,7 @@ class TestDeleteGrade:
                 return_value=mock_flow_grade_repo,
             ),
         ):
-            response = await flow_grades_client.delete(
-                "/api/v1/flow-grades/grade-uuid-1"
-            )
+            response = await flow_grades_client.delete("/api/v1/flow-grades/grade-uuid-1")
 
             assert response.status_code == 204
             mock_flow_grade_repo.delete.assert_called_once_with("grade-uuid-1")
@@ -358,9 +350,7 @@ class TestDeleteGrade:
             patch("src.api.routes.flow_grades.get_session", mock_get_session),
             patch("src.api.routes.flow_grades.FlowGradeRepository", return_value=repo),
         ):
-            response = await flow_grades_client.delete(
-                "/api/v1/flow-grades/nonexistent"
-            )
+            response = await flow_grades_client.delete("/api/v1/flow-grades/nonexistent")
 
             assert response.status_code == 404
             assert "not found" in response.json()["detail"].lower()

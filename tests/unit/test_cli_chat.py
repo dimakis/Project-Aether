@@ -113,9 +113,7 @@ class TestChat:
             patch("src.agents.ArchitectWorkflow", return_value=mock_workflow),
             patch("src.tracing.context.session_context"),
             patch("src.tracing.context.set_session_id"),
-            patch(
-                "src.dal.ConversationRepository", return_value=mock_conversation_repo
-            ),
+            patch("src.dal.ConversationRepository", return_value=mock_conversation_repo),
             patch("src.dal.MessageRepository"),
         ):
             mock_get_session.return_value.__aenter__.return_value = mock_session
@@ -137,9 +135,7 @@ class TestChat:
                 return_value={"tracking_uri": "", "experiment_name": "", "traces_enabled": False},
             ),
             patch("src.tracing.context.session_context"),
-            patch(
-                "src.dal.ConversationRepository", return_value=mock_conversation_repo
-            ),
+            patch("src.dal.ConversationRepository", return_value=mock_conversation_repo),
             patch("src.dal.MessageRepository"),
         ):
             mock_get_session.return_value.__aenter__.return_value = mock_session
@@ -153,10 +149,7 @@ class TestChat:
         """Test chat with pending proposal approval."""
         from langchain_core.messages import AIMessage
 
-        from src.graph.state import ConversationState
-        from src.storage.entities.automation_proposal import AutomationProposal, ProposalStatus
-
-        from src.graph.state import HITLApproval
+        from src.graph.state import ConversationState, HITLApproval
 
         mock_approval = HITLApproval(
             id="prop-123",

@@ -106,7 +106,6 @@ class TestSubmitFeedback:
         """Should submit feedback successfully."""
         mock_mlflow = MagicMock()
         with patch.dict("sys.modules", {"mlflow": mock_mlflow}):
-
             response = await openai_client.post(
                 "/v1/feedback",
                 json={"trace_id": "trace-123", "sentiment": "positive"},

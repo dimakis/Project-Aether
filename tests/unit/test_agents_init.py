@@ -6,8 +6,6 @@ Module-level imports (emit_progress, log_param, etc.) are patched at
 src.agents.<name> because they were imported at module level.
 """
 
-import time
-from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -75,7 +73,7 @@ class TestBaseAgentTraceSpan:
             patch("src.agents.add_span_event"),
         ):
             with pytest.raises(ValueError, match="test error"):
-                async with agent.trace_span("test_op") as metadata:
+                async with agent.trace_span("test_op") as _metadata:
                     raise ValueError("test error")
 
     async def test_trace_span_with_state_context(self):
@@ -131,9 +129,7 @@ class TestBaseAgentLogging:
         agent = ConcreteAgent(role=AgentRole.ARCHITECT)
         with patch("src.agents.log_param") as mock_log_param:
             agent.log_param("test_key", "test_value")
-            mock_log_param.assert_called_once_with(
-                f"{agent.name}.test_key", "test_value"
-            )
+            mock_log_param.assert_called_once_with(f"{agent.name}.test_key", "test_value")
 
     def test_log_metric_with_active_run(self):
         agent = ConcreteAgent(role=AgentRole.ARCHITECT)

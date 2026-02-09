@@ -52,9 +52,7 @@ class TestGetButtonUsage:
     ):
         """Test that button usage groups entries by entity."""
         mock_logbook = MagicMock()
-        mock_logbook.get_manual_actions = AsyncMock(
-            return_value=[sample_logbook_entry]
-        )
+        mock_logbook.get_manual_actions = AsyncMock(return_value=[sample_logbook_entry])
 
         with patch.object(behavioral_client, "_logbook", mock_logbook):
             reports = await behavioral_client.get_button_usage(hours=168)
@@ -63,9 +61,7 @@ class TestGetButtonUsage:
             assert reports[0].entity_id == "light.living_room"
             assert reports[0].total_presses == 1
 
-    async def test_get_button_usage_calculates_avg_daily(
-        self, behavioral_client, mock_ha_client
-    ):
+    async def test_get_button_usage_calculates_avg_daily(self, behavioral_client, mock_ha_client):
         """Test that button usage calculates average daily presses."""
         entries = [
             ParsedLogbookEntry(
@@ -89,9 +85,7 @@ class TestGetButtonUsage:
             assert len(reports) == 1
             assert reports[0].avg_daily_presses == 2.0
 
-    async def test_get_button_usage_tracks_by_hour(
-        self, behavioral_client, mock_ha_client
-    ):
+    async def test_get_button_usage_tracks_by_hour(self, behavioral_client, mock_ha_client):
         """Test that button usage tracks presses by hour."""
         entry = ParsedLogbookEntry(
             entity_id="button.test",
@@ -111,9 +105,7 @@ class TestGetButtonUsage:
 
             assert reports[0].by_hour[14] == 1
 
-    async def test_get_button_usage_sorts_by_most_active(
-        self, behavioral_client, mock_ha_client
-    ):
+    async def test_get_button_usage_sorts_by_most_active(self, behavioral_client, mock_ha_client):
         """Test that button usage sorts by most active."""
         entries = [
             ParsedLogbookEntry(
@@ -304,9 +296,7 @@ class TestFindCorrelations:
         mock_logbook.get_entries = AsyncMock(return_value=entries)
 
         with patch.object(behavioral_client, "_logbook", mock_logbook):
-            results = await behavioral_client.find_correlations(
-                hours=168, time_window_seconds=300
-            )
+            results = await behavioral_client.find_correlations(hours=168, time_window_seconds=300)
 
             assert len(results) == 1
             assert results[0].entity_a in ("light.kitchen", "switch.kitchen")
@@ -314,9 +304,7 @@ class TestFindCorrelations:
             assert results[0].entity_a != results[0].entity_b
             assert results[0].co_occurrence_count == 25
 
-    async def test_find_correlations_filters_by_entity_ids(
-        self, behavioral_client, mock_ha_client
-    ):
+    async def test_find_correlations_filters_by_entity_ids(self, behavioral_client, mock_ha_client):
         """Test that find_correlations filters by entity_ids parameter."""
         entry1 = ParsedLogbookEntry(
             entity_id="light.kitchen",
@@ -415,9 +403,7 @@ class TestDetectAutomationGaps:
         mock_logbook.get_manual_actions = AsyncMock(return_value=entries)
 
         with patch.object(behavioral_client, "_logbook", mock_logbook):
-            gaps = await behavioral_client.detect_automation_gaps(
-                hours=168, min_occurrences=3
-            )
+            gaps = await behavioral_client.detect_automation_gaps(hours=168, min_occurrences=3)
 
             assert len(gaps) == 1
             assert gaps[0].entities == ["light.bedroom"]
@@ -447,9 +433,7 @@ class TestDetectAutomationGaps:
         mock_logbook.get_manual_actions = AsyncMock(return_value=entries)
 
         with patch.object(behavioral_client, "_logbook", mock_logbook):
-            gaps = await behavioral_client.detect_automation_gaps(
-                hours=168, min_occurrences=3
-            )
+            gaps = await behavioral_client.detect_automation_gaps(hours=168, min_occurrences=3)
 
             assert len(gaps) == 0
 
@@ -486,9 +470,7 @@ class TestDetectAutomationGaps:
         mock_logbook.get_manual_actions = AsyncMock(return_value=entries)
 
         with patch.object(behavioral_client, "_logbook", mock_logbook):
-            gaps = await behavioral_client.detect_automation_gaps(
-                hours=168, min_occurrences=3
-            )
+            gaps = await behavioral_client.detect_automation_gaps(hours=168, min_occurrences=3)
 
             assert len(gaps) == 2
             assert gaps[0].occurrence_count >= gaps[1].occurrence_count
@@ -548,9 +530,9 @@ class TestGetDeviceHealthReport:
 
             assert len(health_entries) == 1
             assert health_entries[0].status == "degraded"
-            assert "Only 1 state change" in health_entries[0].issue or health_entries[
-                0
-            ].issue is None
+            assert (
+                "Only 1 state change" in health_entries[0].issue or health_entries[0].issue is None
+            )
 
     async def test_get_device_health_report_identifies_unresponsive_devices(
         self, behavioral_client, mock_ha_client

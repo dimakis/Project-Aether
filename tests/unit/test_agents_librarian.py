@@ -125,9 +125,7 @@ class TestLibrarianWorkflow:
 
             # Setup mock session
             mock_session = MagicMock()
-            mock_get_session.return_value.__aenter__ = AsyncMock(
-                return_value=mock_session
-            )
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Setup mock sync service
@@ -169,9 +167,7 @@ class TestLibrarianWorkflow:
             mock_context.__enter__.return_value = mock_run
 
             mock_session = MagicMock()
-            mock_get_session.return_value.__aenter__ = AsyncMock(
-                return_value=mock_session
-            )
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
             mock_discovery = MagicMock()
@@ -190,9 +186,7 @@ class TestLibrarianWorkflow:
             await workflow.run_discovery(triggered_by="test", domain_filter="light")
 
             # Verify domain filter was passed to list_entities
-            mock_ha_client.list_entities.assert_called_once_with(
-                domain="light", detailed=True
-            )
+            mock_ha_client.list_entities.assert_called_once_with(domain="light", detailed=True)
             # Verify domain filter was used
             assert True
 
@@ -287,9 +281,7 @@ class TestRunLibrarianDiscovery:
             mock_workflow.run_discovery = AsyncMock(return_value=mock_state)
             MockWorkflow.return_value = mock_workflow
 
-            result = await run_librarian_discovery(
-                triggered_by="test", ha_client=mock_ha_client
-            )
+            result = await run_librarian_discovery(triggered_by="test", ha_client=mock_ha_client)
 
             assert result == mock_state
             MockWorkflow.assert_called_once_with(ha_client=mock_ha_client)

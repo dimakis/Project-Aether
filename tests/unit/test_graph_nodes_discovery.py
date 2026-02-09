@@ -5,8 +5,6 @@ All HA client, DAL, and MLflow calls are mocked.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
 
 

@@ -3,7 +3,6 @@
 All agent invocations and DAL calls are mocked.
 """
 
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -158,7 +157,7 @@ class TestProcessApprovalNode:
         mock_repo.approve = AsyncMock()
 
         with patch("src.dal.ProposalRepository", return_value=mock_repo):
-            result = await process_approval_node(
+            await process_approval_node(
                 state, approved=True, approved_by="admin", session=mock_session
             )
             mock_repo.approve.assert_called_once_with("a-1", "admin")
