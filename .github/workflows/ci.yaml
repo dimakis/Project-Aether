@@ -103,12 +103,15 @@ jobs:
             --cov=src \
             --cov-report=xml:coverage-unit.xml \
             --cov-report=term-missing
+          mv .coverage .coverage.unit
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage-unit
-          path: coverage-unit.xml
+          path: |
+            coverage-unit.xml
+            .coverage.unit
 
   # ===========================================================================
   # Integration Tests (Require Services)
@@ -163,15 +166,17 @@ jobs:
             --tb=short \
             -m "integration" \
             --cov=src \
-            --cov-append \
             --cov-report=xml:coverage-integration.xml \
             --cov-fail-under=0
+          mv .coverage .coverage.integration
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage-integration
-          path: coverage-integration.xml
+          path: |
+            coverage-integration.xml
+            .coverage.integration
 
   # ===========================================================================
   # E2E Tests (Full System)
@@ -218,19 +223,22 @@ jobs:
             --tb=short \
             -m "e2e" \
             --cov=src \
-            --cov-append \
             --cov-report=xml:coverage-e2e.xml \
             --cov-fail-under=0
+          mv .coverage .coverage.e2e || true
 
       - name: Stop test services
         if: always()
         run: docker compose -f infrastructure/test/docker-compose.test.yaml down -v
 
       - name: Upload coverage
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-e2e
-          path: coverage-e2e.xml
+          path: |
+            coverage-e2e.xml
+            .coverage.e2e
 
   # ===========================================================================
   # Coverage Report
@@ -259,9 +267,9 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          # Parse coverage and fail if below 80%
+          # Combine binary .coverage files from each test step and enforce threshold
           pip install coverage
-          coverage combine || true
+          coverage combine .coverage.unit .coverage.integration .coverage.e2e || coverage combine .coverage.unit .coverage.integration || coverage combine .coverage.unit
           coverage report --fail-under=80
 
   # ===========================================================================
