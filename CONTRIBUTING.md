@@ -15,8 +15,8 @@ Thank you for your interest in contributing to Aether! This guide will help you 
 
 ```bash
 # Clone the repository
-git clone https://github.com/dsaridak/home_agent.git
-cd home_agent
+git clone https://github.com/dimakis/Project-Aether.git
+cd Project-Aether
 
 # Copy environment template
 cp .env.example .env

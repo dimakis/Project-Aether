@@ -408,6 +408,48 @@ All commits MUST follow the [Conventional Commits](https://www.conventionalcommi
 
 Rationale: Conventional commits enable automated changelog generation, semantic versioning, and clear communication of change intent across the team.
 
+### Git Flow and PR Strategy
+
+The project follows **GitHub Flow with rebase + squash-merge**. `main` is always deployable; all work happens on short-lived feature branches that are merged via pull request.
+
+**Branch Naming**:
+- `feat/short-description` — new features
+- `fix/short-description` — bug fixes
+- `refactor/short-description` — code restructuring
+- `docs/short-description` — documentation changes
+- `test/short-description` — test additions or improvements
+- `ci/short-description` — CI/CD changes
+
+**Branch Rules**:
+- `main` MUST always be in a deployable state
+- All changes to `main` MUST go through a pull request (no direct pushes)
+- Feature branches MUST be short-lived (days, not weeks)
+- Feature branches MUST rebase onto `main` to stay current: `git fetch origin && git rebase origin/main` (never `git merge main` into the feature branch)
+- Branches MUST be deleted after merge
+
+**Pull Request Requirements**:
+- PR title MUST be a conventional commit message (enforced by CI)
+- PR template MUST be filled out: summary, type of change, testing, security considerations
+- All CI checks MUST pass before merge (lint, type check, tests, security scan)
+- PRs are **squash-merged** into `main`: all branch commits are collapsed into a single commit using the PR title as the commit message
+- This produces a clean, linear `main` history where one commit = one PR
+
+**Developer Workflow**:
+1. **Branch**: `git checkout main && git pull && git checkout -b feat/my-feature`
+2. **Develop**: Make atomic TDD commits on the feature branch (per Incremental Commits above)
+3. **Stay current**: `git fetch origin && git rebase origin/main` (resolve conflicts if any)
+4. **Push**: `git push -u origin feat/my-feature` (use `--force-with-lease` after rebase)
+5. **Open PR**: Fill out template, wait for CI, request review if applicable
+6. **Merge**: Squash-merge via GitHub UI, branch auto-deleted
+
+**Anti-patterns (Prohibited)**:
+- Merging `main` into a feature branch (creates merge commits, non-linear history)
+- Pushing directly to `main` without a PR
+- Long-lived feature branches that diverge significantly from `main`
+- Merge commits on `main` (squash-merge only)
+
+Rationale: Rebase keeps feature branches linear and conflict-free. Squash-merge keeps `main` history clean with one commit per logical change (the PR). Together they produce a history that is easy to read, bisect, and revert.
+
 ## Governance
 
 This constitution supersedes all other development practices and design decisions. All code, architecture decisions, and implementation plans must comply with these principles.
@@ -424,4 +466,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.11.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-07
+**Version**: 1.12.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-08

@@ -397,8 +397,8 @@ Webhook triggers work similarly — configure an HA automation to POST to `/api/
 
 ```bash
 # Clone the repository
-git clone https://github.com/dsaridak/home_agent.git
-cd home_agent
+git clone https://github.com/dimakis/Project-Aether.git
+cd Project-Aether
 
 # Install Python dependencies
 make install
