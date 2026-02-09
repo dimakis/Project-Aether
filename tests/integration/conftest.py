@@ -6,11 +6,11 @@ without requiring external infrastructure.
 Constitution: Reliability & Quality - real service testing.
 """
 
-import asyncio
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.storage.models import Base
@@ -63,15 +63,7 @@ def postgres_url(postgres_container: PostgresContainer) -> str:
     return async_url
 
 
-@pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
-    """Create event loop for the entire test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def integration_engine(postgres_url: str) -> AsyncGenerator[Any, None]:
     """Create async engine connected to the test container."""
     engine = create_async_engine(
@@ -89,13 +81,14 @@ async def integration_engine(postgres_url: str) -> AsyncGenerator[Any, None]:
     await engine.dispose()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def integration_session(
     integration_engine: Any,
 ) -> AsyncGenerator[AsyncSession, None]:
     """Provide a database session for each integration test.
 
     Each test gets a fresh transaction that is rolled back after.
+    Uses session loop_scope to share the event loop with the engine.
     """
     session_factory = async_sessionmaker(
         bind=integration_engine,
@@ -111,7 +104,7 @@ async def integration_session(
             # Transaction is rolled back when we exit
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def clean_tables(integration_engine: Any) -> AsyncGenerator[None, None]:
     """Clean all tables before and after the test.
 

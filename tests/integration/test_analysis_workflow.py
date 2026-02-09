@@ -268,7 +268,7 @@ class TestAnalysisWorkflowGraph:
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 class TestAnalysisWithDatabase:
     """Integration tests with database persistence."""
 
@@ -334,8 +334,16 @@ class TestAnalysisWithDatabase:
                 ) as mock_exec:
                     mock_exec.return_value = mock_sandbox_result_success
 
-                    # Disable MLflow for this test
-                    with patch("src.agents.data_scientist.start_experiment_run"):
+                    # Disable MLflow - mock returns a context manager with string run_id
+                    mock_run = MagicMock()
+                    mock_run.info.run_id = "test-run-id"
+                    mock_ctx = MagicMock()
+                    mock_ctx.__enter__ = MagicMock(return_value=mock_run)
+                    mock_ctx.__exit__ = MagicMock(return_value=False)
+                    with patch(
+                        "src.agents.data_scientist.start_experiment_run",
+                        return_value=mock_ctx,
+                    ):
                         state = await workflow.run_analysis(
                             analysis_type=AnalysisType.ENERGY_OPTIMIZATION,
                             hours=24,

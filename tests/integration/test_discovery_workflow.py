@@ -81,6 +81,9 @@ def mock_workflow_ha_client(mock_workflow_entities):
         }
     )
     client.connect = AsyncMock()
+    client.get_area_registry = AsyncMock(return_value=[])
+    client.get_automation_config = AsyncMock(return_value=None)
+    client.get_script_config = AsyncMock(return_value=None)
 
     return client
 
@@ -165,7 +168,7 @@ class TestDiscoveryWorkflow:
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 class TestDiscoverySyncService:
     """Integration tests for DiscoverySyncService."""
 
