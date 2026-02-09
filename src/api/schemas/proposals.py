@@ -98,6 +98,10 @@ class ApprovalRequest(BaseModel):
         max_length=2000,
         description="Optional approval comment",
     )
+    trace_id: str | None = Field(
+        default=None,
+        description="MLflow trace ID from the conversation that generated this proposal",
+    )
 
 
 class RejectionRequest(BaseModel):
@@ -108,6 +112,10 @@ class RejectionRequest(BaseModel):
         default="user",
         max_length=100,
         description="Who is rejecting",
+    )
+    trace_id: str | None = Field(
+        default=None,
+        description="MLflow trace ID from the conversation that generated this proposal",
     )
 
 

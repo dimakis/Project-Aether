@@ -199,7 +199,11 @@ async def approve_proposal(
     proposal_id: str,
     data: ApprovalRequest,
 ) -> ProposalResponse:
-    """Approve a proposal."""
+    """Approve a proposal.
+
+    When trace_id is provided, logs the approval as ground-truth feedback
+    and an expectation to MLflow's assessment system.
+    """
     async with get_session() as session:
         repo = ProposalRepository(session)
         proposal = await repo.get_by_id(proposal_id)
@@ -215,6 +219,15 @@ async def approve_proposal(
 
         await repo.approve(proposal_id, data.approved_by)
         await session.commit()
+
+        # Bridge approval to MLflow 3.x assessment system (best-effort)
+        _log_proposal_assessment(
+            trace_id=data.trace_id,
+            proposal_name=proposal.name,
+            outcome="approved",
+            rationale=data.comment,
+            source_id=data.approved_by,
+        )
 
         proposal = await repo.get_by_id(proposal_id)
 
@@ -237,7 +250,11 @@ async def reject_proposal(
     proposal_id: str,
     data: RejectionRequest,
 ) -> ProposalResponse:
-    """Reject a proposal."""
+    """Reject a proposal.
+
+    When trace_id is provided, logs the rejection as ground-truth feedback
+    and an expectation to MLflow's assessment system.
+    """
     async with get_session() as session:
         repo = ProposalRepository(session)
         proposal = await repo.get_by_id(proposal_id)
@@ -253,6 +270,15 @@ async def reject_proposal(
 
         await repo.reject(proposal_id, data.reason)
         await session.commit()
+
+        # Bridge rejection to MLflow 3.x assessment system (best-effort)
+        _log_proposal_assessment(
+            trace_id=data.trace_id,
+            proposal_name=proposal.name,
+            outcome="rejected",
+            rationale=data.reason,
+            source_id=data.rejected_by,
+        )
 
         proposal = await repo.get_by_id(proposal_id)
 
@@ -434,6 +460,50 @@ async def delete_proposal(proposal_id: str) -> None:
             raise HTTPException(status_code=404, detail="Proposal not found")
 
         await session.commit()
+
+
+def _log_proposal_assessment(
+    trace_id: str | None,
+    proposal_name: str,
+    outcome: str,
+    rationale: str | None,
+    source_id: str,
+) -> None:
+    """Log a proposal approval/rejection to MLflow's assessment system.
+
+    Records both feedback (the human decision) and an expectation
+    (the ground-truth outcome) on the originating trace.
+
+    Args:
+        trace_id: MLflow trace ID (skips logging if None)
+        proposal_name: Name of the proposal for context
+        outcome: "approved" or "rejected"
+        rationale: Human-provided reason for the decision
+        source_id: Who made the decision
+    """
+    if not trace_id:
+        return
+
+    from src.tracing import log_expectation, log_human_feedback
+
+    log_human_feedback(
+        trace_id=trace_id,
+        name="proposal_decision",
+        value=outcome,
+        source_id=source_id,
+        rationale=rationale or f"Proposal '{proposal_name}' {outcome}",
+    )
+
+    log_expectation(
+        trace_id=trace_id,
+        name="expected_proposal_outcome",
+        value={
+            "proposal_name": proposal_name,
+            "expected_outcome": outcome,
+            "rationale": rationale,
+        },
+        source_id=source_id,
+    )
 
 
 async def _deploy_entity_command(
