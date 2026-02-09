@@ -117,9 +117,7 @@ class TestAutomationRepository:
         """Test deleting an automation."""
         repo = AutomationRepository(mock_session)
 
-        with patch.object(
-            repo, "get_by_ha_automation_id", new_callable=AsyncMock
-        ) as mock_get:
+        with patch.object(repo, "get_by_ha_automation_id", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_automation
 
             result = await repo.delete("auto_123")
@@ -132,9 +130,7 @@ class TestAutomationRepository:
         """Test deleting non-existent automation."""
         repo = AutomationRepository(mock_session)
 
-        with patch.object(
-            repo, "get_by_ha_automation_id", new_callable=AsyncMock
-        ) as mock_get:
+        with patch.object(repo, "get_by_ha_automation_id", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = None
 
             result = await repo.delete("nonexistent")

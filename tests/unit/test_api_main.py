@@ -3,10 +3,9 @@
 Tests app creation, middleware, CORS config, and exception handlers.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from starlette.testclient import TestClient
 
 
 @pytest.fixture

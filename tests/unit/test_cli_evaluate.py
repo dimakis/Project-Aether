@@ -105,9 +105,7 @@ class TestEvaluateCommand:
             result = runner.invoke(app, ["--traces", "50", "--hours", "24"])
             assert result.exit_code == 0
 
-    def test_evaluate_with_experiment_flag(
-        self, mock_init_mlflow, mock_get_settings, mock_console
-    ):
+    def test_evaluate_with_experiment_flag(self, mock_init_mlflow, mock_get_settings, mock_console):
         import pandas as pd
 
         mock_mlflow = MagicMock()
@@ -135,9 +133,7 @@ class TestEvaluateCommand:
             result = runner.invoke(app, ["--experiment", "custom_exp"])
             assert result.exit_code == 0
 
-    def test_evaluate_search_traces_error(
-        self, mock_init_mlflow, mock_get_settings, mock_console
-    ):
+    def test_evaluate_search_traces_error(self, mock_init_mlflow, mock_get_settings, mock_console):
         mock_mlflow = MagicMock()
         mock_mlflow.search_traces.side_effect = Exception("Connection failed")
         mock_init_mlflow.return_value = MagicMock()
@@ -147,9 +143,7 @@ class TestEvaluateCommand:
             result = runner.invoke(app, [])
             assert result.exit_code == 1
 
-    def test_evaluate_evaluation_error(
-        self, mock_init_mlflow, mock_get_settings, mock_console
-    ):
+    def test_evaluate_evaluation_error(self, mock_init_mlflow, mock_get_settings, mock_console):
         import pandas as pd
 
         mock_mlflow = MagicMock()

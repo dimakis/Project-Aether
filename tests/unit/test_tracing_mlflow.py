@@ -6,8 +6,6 @@ Tests the MLflow wrapper functions with mocked MLflow imports.
 from contextlib import suppress
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # We need to import the module, but MLflow globals are module-level state.
 # We'll patch them as needed in each test.
 
@@ -203,7 +201,7 @@ class TestStartExperimentRun:
         from src.tracing.mlflow import start_experiment_run
 
         with (
-            patch("src.tracing.mlflow.start_run", return_value=MagicMock()) as mock_start,
+            patch("src.tracing.mlflow.start_run", return_value=MagicMock()),
             patch("src.tracing.mlflow.end_run") as mock_end,
         ):
             with start_experiment_run(run_name="test"):

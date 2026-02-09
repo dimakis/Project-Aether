@@ -96,9 +96,7 @@ class TestListEntities:
         self, entities_client, mock_entity_repo, mock_entity
     ):
         """Should return entities with total count."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
             response = await entities_client.get("/api/v1/entities")
 
             assert response.status_code == 200
@@ -109,13 +107,9 @@ class TestListEntities:
             assert data["entities"][0]["entity_id"] == "light.living_room"
             assert data["entities"][0]["domain"] == "light"
 
-    async def test_list_entities_with_domain_filter(
-        self, entities_client, mock_entity_repo
-    ):
+    async def test_list_entities_with_domain_filter(self, entities_client, mock_entity_repo):
         """Should pass domain filter to repository."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
             response = await entities_client.get("/api/v1/entities?domain=light")
 
             assert response.status_code == 200
@@ -123,44 +117,28 @@ class TestListEntities:
             call_kwargs = mock_entity_repo.list_all.call_args[1]
             assert call_kwargs["domain"] == "light"
 
-    async def test_list_entities_with_area_filter(
-        self, entities_client, mock_entity_repo
-    ):
+    async def test_list_entities_with_area_filter(self, entities_client, mock_entity_repo):
         """Should pass area_id filter to repository."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
-            response = await entities_client.get(
-                "/api/v1/entities?area_id=area-living-room"
-            )
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
+            response = await entities_client.get("/api/v1/entities?area_id=area-living-room")
 
             assert response.status_code == 200
             call_kwargs = mock_entity_repo.list_all.call_args[1]
             assert call_kwargs["area_id"] == "area-living-room"
 
-    async def test_list_entities_with_state_filter(
-        self, entities_client, mock_entity_repo
-    ):
+    async def test_list_entities_with_state_filter(self, entities_client, mock_entity_repo):
         """Should pass state filter to repository."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
             response = await entities_client.get("/api/v1/entities?state=on")
 
             assert response.status_code == 200
             call_kwargs = mock_entity_repo.list_all.call_args[1]
             assert call_kwargs["state"] == "on"
 
-    async def test_list_entities_with_pagination(
-        self, entities_client, mock_entity_repo
-    ):
+    async def test_list_entities_with_pagination(self, entities_client, mock_entity_repo):
         """Should pass limit and offset to repository."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
-            response = await entities_client.get(
-                "/api/v1/entities?limit=10&offset=5"
-            )
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
+            response = await entities_client.get("/api/v1/entities?limit=10&offset=5")
 
             assert response.status_code == 200
             call_kwargs = mock_entity_repo.list_all.call_args[1]
@@ -186,22 +164,16 @@ class TestListEntities:
 class TestGetEntity:
     """Tests for GET /api/v1/entities/{entity_id}."""
 
-    async def test_get_entity_found(
-        self, entities_client, mock_entity_repo, mock_entity
-    ):
+    async def test_get_entity_found(self, entities_client, mock_entity_repo, mock_entity):
         """Should return entity when found."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
             response = await entities_client.get("/api/v1/entities/light.living_room")
 
             assert response.status_code == 200
             data = response.json()
             assert data["entity_id"] == "light.living_room"
             assert data["domain"] == "light"
-            mock_entity_repo.get_by_entity_id.assert_called_once_with(
-                "light.living_room"
-            )
+            mock_entity_repo.get_by_entity_id.assert_called_once_with("light.living_room")
 
     async def test_get_entity_not_found(self, entities_client):
         """Should return 404 when entity not found."""
@@ -219,13 +191,9 @@ class TestGetEntity:
 class TestQueryEntities:
     """Tests for POST /api/v1/entities/query."""
 
-    async def test_query_entities_success(
-        self, entities_client, mock_entity_repo, mock_entity
-    ):
+    async def test_query_entities_success(self, entities_client, mock_entity_repo, mock_entity):
         """Should return query results."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
             response = await entities_client.post(
                 "/api/v1/entities/query",
                 json={"query": "lights in living room", "limit": 10},
@@ -236,17 +204,11 @@ class TestQueryEntities:
             assert "entities" in data
             assert data["query"] == "lights in living room"
             assert "interpreted_as" in data
-            mock_entity_repo.search.assert_called_once_with(
-                "lights in living room", limit=10
-            )
+            mock_entity_repo.search.assert_called_once_with("lights in living room", limit=10)
 
-    async def test_query_entities_default_limit(
-        self, entities_client, mock_entity_repo
-    ):
+    async def test_query_entities_default_limit(self, entities_client, mock_entity_repo):
         """Should use default limit when not provided."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
             response = await entities_client.post(
                 "/api/v1/entities/query",
                 json={"query": "temperature sensors"},
@@ -304,9 +266,7 @@ class TestSyncEntities:
                 assert data["entities_updated"] == 3
                 assert data["entities_removed"] == 2
                 assert data["duration_seconds"] == 1.5
-                mock_run_discovery.assert_called_once_with(
-                    session=mock_session, triggered_by="api"
-                )
+                mock_run_discovery.assert_called_once_with(session=mock_session, triggered_by="api")
 
     async def test_sync_entities_error(self, entities_client):
         """Should return 500 when discovery fails."""
@@ -340,13 +300,9 @@ class TestSyncEntities:
 class TestGetDomainSummary:
     """Tests for GET /api/v1/entities/domains/summary."""
 
-    async def test_get_domain_summary_success(
-        self, entities_client, mock_entity_repo
-    ):
+    async def test_get_domain_summary_success(self, entities_client, mock_entity_repo):
         """Should return domain counts."""
-        with patch(
-            "src.api.routes.entities.EntityRepository", return_value=mock_entity_repo
-        ):
+        with patch("src.api.routes.entities.EntityRepository", return_value=mock_entity_repo):
             response = await entities_client.get("/api/v1/entities/domains/summary")
 
             assert response.status_code == 200

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.graph.state import AnalysisType, SpecialistFinding
+from src.graph.state import AnalysisType
 
 
 class TestBehavioralAnalystInit:
@@ -42,17 +42,19 @@ class TestExtractFindings:
         assert findings == []
 
     def test_parses_json_insights(self, analyst):
-        output = json.dumps({
-            "insights": [
-                {
-                    "title": "High manual usage",
-                    "description": "Users manually toggle lights 20x/day",
-                    "confidence": 0.8,
-                    "entities": ["light.kitchen"],
-                    "type": "insight",
-                }
-            ]
-        })
+        output = json.dumps(
+            {
+                "insights": [
+                    {
+                        "title": "High manual usage",
+                        "description": "Users manually toggle lights 20x/day",
+                        "confidence": 0.8,
+                        "entities": ["light.kitchen"],
+                        "type": "insight",
+                    }
+                ]
+            }
+        )
         result = MagicMock()
         result.success = True
         result.stdout = output
@@ -71,12 +73,14 @@ class TestExtractFindings:
         assert findings == []
 
     def test_clamps_confidence(self, analyst):
-        output = json.dumps({
-            "insights": [
-                {"title": "Test", "description": "D", "confidence": 2.0},
-                {"title": "Test2", "description": "D", "confidence": -1.0},
-            ]
-        })
+        output = json.dumps(
+            {
+                "insights": [
+                    {"title": "Test", "description": "D", "confidence": 2.0},
+                    {"title": "Test2", "description": "D", "confidence": -1.0},
+                ]
+            }
+        )
         result = MagicMock()
         result.success = True
         result.stdout = output

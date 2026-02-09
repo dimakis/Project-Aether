@@ -1,7 +1,7 @@
 """Unit tests for src/agents/diagnostic_analyst.py."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -29,17 +29,19 @@ class TestDiagnosticAnalystExtractFindings:
         assert analyst.extract_findings(result, state) == []
 
     def test_parses_findings(self, analyst):
-        output = json.dumps({
-            "insights": [
-                {
-                    "title": "Sensor offline",
-                    "description": "Temperature sensor has been unavailable",
-                    "confidence": 0.9,
-                    "entities": ["sensor.temp"],
-                    "type": "concern",
-                }
-            ]
-        })
+        output = json.dumps(
+            {
+                "insights": [
+                    {
+                        "title": "Sensor offline",
+                        "description": "Temperature sensor has been unavailable",
+                        "confidence": 0.9,
+                        "entities": ["sensor.temp"],
+                        "type": "concern",
+                    }
+                ]
+            }
+        )
         result = MagicMock()
         result.success = True
         result.stdout = output

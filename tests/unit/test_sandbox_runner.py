@@ -5,8 +5,6 @@ All process execution is mocked.
 """
 
 import uuid
-from datetime import UTC, datetime
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -44,9 +42,7 @@ class TestSandboxResult:
         assert r.timed_out is True
 
     def test_id_is_uuid(self):
-        r = SandboxResult(
-            success=True, exit_code=0, duration_seconds=0.1, policy_name="test"
-        )
+        r = SandboxResult(success=True, exit_code=0, duration_seconds=0.1, policy_name="test")
         uuid.UUID(r.id)  # Should not raise
 
 
@@ -70,7 +66,9 @@ class TestSandboxRunnerRun:
         mock_settings.environment = "development"
 
         with patch("src.sandbox.runner.get_settings", return_value=mock_settings):
-            with patch.object(runner, "_run_unsandboxed", new_callable=AsyncMock) as mock_unsandboxed:
+            with patch.object(
+                runner, "_run_unsandboxed", new_callable=AsyncMock
+            ) as mock_unsandboxed:
                 mock_unsandboxed.return_value = SandboxResult(
                     success=True,
                     exit_code=0,
@@ -99,7 +97,9 @@ class TestSandboxRunnerRun:
 
         with (
             patch("src.sandbox.runner.get_settings", return_value=mock_settings),
-            patch.object(runner, "_build_command", new_callable=AsyncMock, return_value=["podman", "run"]),
+            patch.object(
+                runner, "_build_command", new_callable=AsyncMock, return_value=["podman", "run"]
+            ),
             patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError()),
         ):
             result = await runner.run("print('hello')")

@@ -184,9 +184,7 @@ class TestTriggerEvaluation:
             assert data["status"] == "error"
 
     async def test_trigger_evaluation_exception(self, evaluations_client):
-        with patch(
-            "src.tracing.init_mlflow", side_effect=Exception("Connection failed")
-        ):
+        with patch("src.tracing.init_mlflow", side_effect=Exception("Connection failed")):
             response = await evaluations_client.post("/api/v1/evaluations/run")
 
             assert response.status_code == 200

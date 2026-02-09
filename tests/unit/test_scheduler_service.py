@@ -355,7 +355,13 @@ class TestExecuteDiscoverySync:
         mock_ha_client = MagicMock()
         mock_service = MagicMock()
         mock_service.run_delta_sync = AsyncMock(
-            return_value={"added": 3, "updated": 1, "skipped": 10, "removed": 0, "duration_seconds": 2.5}
+            return_value={
+                "added": 3,
+                "updated": 1,
+                "skipped": 10,
+                "removed": 0,
+                "duration_seconds": 2.5,
+            }
         )
 
         with (

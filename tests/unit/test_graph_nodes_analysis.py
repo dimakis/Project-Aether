@@ -34,9 +34,7 @@ class TestCollectEnergyDataNode:
 
         mock_ha = MagicMock()
         mock_energy = MagicMock()
-        mock_energy.get_aggregated_energy = AsyncMock(
-            return_value={"total_kwh": 42.5}
-        )
+        mock_energy.get_aggregated_energy = AsyncMock(return_value={"total_kwh": 42.5})
 
         with (
             patch("src.ha.EnergyHistoryClient", return_value=mock_energy),
@@ -53,9 +51,7 @@ class TestCollectEnergyDataNode:
         mock_energy.get_energy_sensors = AsyncMock(
             return_value=[{"entity_id": "sensor.auto_discovered"}]
         )
-        mock_energy.get_aggregated_energy = AsyncMock(
-            return_value={"total_kwh": 10.0}
-        )
+        mock_energy.get_aggregated_energy = AsyncMock(return_value={"total_kwh": 10.0})
 
         with patch("src.ha.EnergyHistoryClient", return_value=mock_energy):
             state = _make_state(entity_ids=[])
