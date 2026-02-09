@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format typecheck serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox openapi
+.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -264,8 +264,11 @@ format:
 typecheck:
 	uv run mypy src/ --ignore-missing-imports
 
-check: lint typecheck
+check: format-check lint typecheck
 	@echo "All quality checks passed!"
+
+format-check:
+	uv run ruff format --check src/ tests/
 
 # ============================================================================
 # Application
