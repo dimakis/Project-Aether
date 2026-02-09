@@ -183,7 +183,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
         self.session = session
         self.config = config or CheckpointConfig()
 
-    async def aget_tuple(self, config: dict[str, Any]) -> CheckpointTuple | None:
+    async def aget_tuple(self, config: dict[str, Any]) -> CheckpointTuple | None:  # type: ignore[override]
         """Get checkpoint tuple for a thread.
 
         Args:
@@ -244,14 +244,14 @@ class PostgresCheckpointer(BaseCheckpointSaver):
                 ts=record.checkpoint_at.isoformat(),
                 channel_values=record.channel_values,
                 channel_versions=record.channel_versions,
-                versions_seen=record.metadata_data.get("versions_seen", {}),
-                pending_sends=record.metadata_data.get("pending_sends", []),
+                versions_seen=record.metadata_data.get("versions_seen", {}),  # type: ignore[typeddict-unknown-key]
+                pending_sends=record.metadata_data.get("pending_sends", []),  # type: ignore[typeddict-unknown-key]
             ),
             metadata=CheckpointMetadata(
                 source=record.metadata_data.get("source", "update"),
                 step=record.step,
-                writes=record.metadata_data.get("writes"),
-                parents=record.metadata_data.get("parents", {}),
+                writes=record.metadata_data.get("writes"),  # type: ignore[typeddict-unknown-key]
+                parents=record.metadata_data.get("parents", {}),  # type: ignore[typeddict-unknown-key]
             ),
             parent_config={
                 "configurable": {
@@ -265,7 +265,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
             pending_writes=pending_writes,
         )
 
-    async def alist(
+    async def alist(  # type: ignore[override]
         self,
         config: dict[str, Any] | None,
         *,
@@ -325,14 +325,14 @@ class PostgresCheckpointer(BaseCheckpointSaver):
                         ts=record.checkpoint_at.isoformat(),
                         channel_values=record.channel_values,
                         channel_versions=record.channel_versions,
-                        versions_seen=record.metadata_data.get("versions_seen", {}),
-                        pending_sends=record.metadata_data.get("pending_sends", []),
+                        versions_seen=record.metadata_data.get("versions_seen", {}),  # type: ignore[typeddict-unknown-key]
+                        pending_sends=record.metadata_data.get("pending_sends", []),  # type: ignore[typeddict-unknown-key]
                     ),
                     metadata=CheckpointMetadata(
                         source=record.metadata_data.get("source", "update"),
                         step=record.step,
-                        writes=record.metadata_data.get("writes"),
-                        parents=record.metadata_data.get("parents", {}),
+                        writes=record.metadata_data.get("writes"),  # type: ignore[typeddict-unknown-key]
+                        parents=record.metadata_data.get("parents", {}),  # type: ignore[typeddict-unknown-key]
                     ),
                     parent_config={
                         "configurable": {
@@ -348,7 +348,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
 
         return tuples
 
-    async def aput(
+    async def aput(  # type: ignore[override]
         self,
         config: dict[str, Any],
         checkpoint: Checkpoint,
@@ -418,7 +418,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
             }
         }
 
-    async def aput_writes(
+    async def aput_writes(  # type: ignore[override]
         self,
         config: dict[str, Any],
         writes: Sequence[tuple[str, Any]],
@@ -550,11 +550,11 @@ class PostgresCheckpointer(BaseCheckpointSaver):
             return json.loads(value_data)
 
     # Sync methods (required by base class but we use async)
-    def get_tuple(self, config: dict[str, Any]) -> CheckpointTuple | None:
+    def get_tuple(self, config: dict[str, Any]) -> CheckpointTuple | None:  # type: ignore[override]
         """Sync version - not implemented, use aget_tuple."""
         raise NotImplementedError("Use aget_tuple for async operations")
 
-    def list(
+    def list(  # type: ignore[override]
         self,
         config: dict[str, Any] | None,
         *,
@@ -565,7 +565,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
         """Sync version - not implemented, use alist."""
         raise NotImplementedError("Use alist for async operations")
 
-    def put(
+    def put(  # type: ignore[override]
         self,
         config: dict[str, Any],
         checkpoint: Checkpoint,
@@ -575,7 +575,7 @@ class PostgresCheckpointer(BaseCheckpointSaver):
         """Sync version - not implemented, use aput."""
         raise NotImplementedError("Use aput for async operations")
 
-    def put_writes(
+    def put_writes(  # type: ignore[override]
         self,
         config: dict[str, Any],
         writes: Sequence[tuple[str, Any]],

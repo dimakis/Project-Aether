@@ -6,7 +6,7 @@ All workflow entry points start a trace session for correlation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -181,7 +181,7 @@ async def run_discovery_workflow(
 
         try:
             # Execute the graph
-            final_state = await compiled.ainvoke(initial_state)
+            final_state = await compiled.ainvoke(initial_state)  # type: ignore[arg-type]
 
             # Handle the result
             if isinstance(final_state, dict):
@@ -307,19 +307,19 @@ def build_conversation_graph(
     ) -> Literal["approval_gate", "__end__"]:
         """Route based on whether proposal was created."""
         if state.pending_approvals:
-            return "approval_gate"
-        return END
+            return "approval_gate"  # type: ignore[return-value]
+        return END  # type: ignore[return-value]
 
     def route_after_approval(
         state: ConversationState,
     ) -> Literal["deploy", "architect_propose", "__end__"]:
         """Route based on approval decision."""
         if state.status == ConversationStatus.APPROVED:
-            return "deploy"
+            return "deploy"  # type: ignore[return-value]
         elif state.status == ConversationStatus.REJECTED:
             # Allow refinement loop
-            return "architect_propose"
-        return END
+            return "architect_propose"  # type: ignore[return-value]
+        return END  # type: ignore[return-value]
 
     # Define edges
     graph.add_edge(START, "architect_propose")
@@ -411,7 +411,7 @@ async def run_conversation_workflow(
         try:
             # Execute the graph
             config = {"configurable": {"thread_id": thread_id or state.conversation_id}}
-            final_state = await compiled.ainvoke(state, config=config)
+            final_state = await compiled.ainvoke(state, config=config)  # type: ignore[attr-defined]
 
             # Handle the result
             if isinstance(final_state, dict):
@@ -458,7 +458,7 @@ async def resume_after_approval(
     config = {"configurable": {"thread_id": thread_id}}
 
     # Get current state
-    state_snapshot = compiled.get_state(config)
+    state_snapshot = compiled.get_state(config)  # type: ignore[attr-defined]
     if not state_snapshot or not state_snapshot.values:
         raise ValueError(f"No state found for thread {thread_id}")
 
@@ -482,7 +482,7 @@ async def resume_after_approval(
         current_state.rejected_items.extend([a.id for a in current_state.pending_approvals])
 
     # Update the state in the graph
-    compiled.update_state(config, current_state.model_dump())
+    compiled.update_state(config, current_state.model_dump())  # type: ignore[attr-defined]
 
     # Resume execution with session context
     import mlflow
@@ -494,11 +494,11 @@ async def resume_after_approval(
             mlflow.set_tag("session.id", session_id)
             mlflow.set_tag("approval.decision", "approved" if approved else "rejected")
 
-            final_state = await compiled.ainvoke(None, config=config)
+            final_state = await compiled.ainvoke(None, config=config)  # type: ignore[attr-defined]
 
             if isinstance(final_state, dict):
-                return current_state.model_copy(update=final_state)
-            return final_state
+                return current_state.model_copy(update=cast("dict[str, Any]", final_state))
+            return cast("ConversationState", final_state)
 
 
 # =============================================================================
@@ -635,11 +635,11 @@ async def run_analysis_workflow(
         mlflow.set_tag("session.id", session_id)
         mlflow.set_tag("analysis_type", analysis_type)
 
-        final_state = await compiled.ainvoke(initial_state)
+        final_state = await compiled.ainvoke(initial_state)  # type: ignore[arg-type]
 
         if isinstance(final_state, dict):
-            return initial_state.model_copy(update=final_state)
-        return final_state
+            return initial_state.model_copy(update=cast("dict[str, Any]", final_state))
+        return cast("AnalysisState", final_state)
 
 
 # =============================================================================
@@ -796,7 +796,7 @@ async def run_optimization_workflow(
         )
 
         # Execute
-        final_state = await compiled.ainvoke(initial_state)
+        final_state = await compiled.ainvoke(initial_state)  # type: ignore[arg-type]
 
         if isinstance(final_state, dict):
             result = initial_state.model_copy(update=final_state)
@@ -873,7 +873,7 @@ class TeamAnalysisWorkflow:
     The Architect can invoke this for comprehensive home analysis.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize with specialist instances."""
         from src.agents.behavioral_analyst import BehavioralAnalyst
         from src.agents.diagnostic_analyst import DiagnosticAnalyst
@@ -1023,4 +1023,4 @@ def get_workflow(name: str, **kwargs: object) -> StateGraph:
         available = ", ".join(WORKFLOW_REGISTRY.keys())
         raise ValueError(f"Unknown workflow '{name}'. Available: {available}")
 
-    return WORKFLOW_REGISTRY[name](**kwargs)
+    return cast("Any", WORKFLOW_REGISTRY[name](**kwargs))  # type: ignore[no-any-return, operator]

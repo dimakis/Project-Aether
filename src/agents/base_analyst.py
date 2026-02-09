@@ -19,8 +19,11 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
 
 from src.agents import BaseAgent
 from src.agents.model_context import get_model_context, resolve_model
@@ -63,7 +66,7 @@ class BaseAnalyst(BaseAgent, ABC):
             name=self.NAME,
         )
         self._ha_client = ha_client
-        self._llm = None
+        self._llm: BaseChatModel | None = None
         self._sandbox = SandboxRunner()
 
     @property
@@ -74,7 +77,7 @@ class BaseAnalyst(BaseAgent, ABC):
         return self._ha_client
 
     @property
-    def llm(self):
+    def llm(self) -> BaseChatModel:
         """Get LLM using model context resolution chain.
 
         Resolution order:
@@ -82,6 +85,7 @@ class BaseAnalyst(BaseAgent, ABC):
             2. Per-agent settings from .env
             3. Global default
         """
+
         settings = get_settings()
         # Use DATA_SCIENTIST_MODEL as fallback for all analysts
         model_name, temperature = resolve_model(

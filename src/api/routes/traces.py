@@ -222,6 +222,8 @@ def _build_span_tree(
 
     for span in spans:
         span_id = _get_span_id(span)
+        if not span_id:
+            continue
         parent_id = _get_parent_id(span)
 
         if parent_id and parent_id in span_map:

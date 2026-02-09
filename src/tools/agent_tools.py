@@ -757,7 +757,7 @@ async def propose_automation_from_insight(
         if proposal_yaml:
             response_parts.append(f"\n```yaml\n{proposal_yaml}```")
         if response_text:
-            response_parts.append(f"\n{response_text[:500]}")
+            response_parts.append(f"\n{str(response_text)[:500]}")  # type: ignore[misc]
 
         response_parts.append("\nThis proposal is pending your approval before deployment.")
 

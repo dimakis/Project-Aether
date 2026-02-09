@@ -22,9 +22,9 @@ try:
     _APSCHEDULER_AVAILABLE = True
 except ImportError:
     _APSCHEDULER_AVAILABLE = False
-    AsyncIOScheduler = None  # type: ignore[assignment, misc]
-    CronTrigger = None  # type: ignore[assignment, misc]
-    IntervalTrigger = None  # type: ignore[assignment, misc]
+    AsyncIOScheduler = None  # type: ignore[assignment]
+    CronTrigger = None  # type: ignore[assignment]
+    IntervalTrigger = None  # type: ignore[assignment]
     logger.warning(
         "APScheduler not installed — scheduled insights disabled. Install with: pip install apscheduler"
     )
@@ -53,7 +53,7 @@ class SchedulerService:
                 timezone=settings.scheduler_timezone,
             )
         else:
-            self._scheduler = None  # type: ignore[assignment]
+            self._scheduler = None
         self._running = False
 
     @classmethod

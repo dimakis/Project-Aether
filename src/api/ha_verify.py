@@ -9,6 +9,7 @@ internal endpoints via user-provided URLs.
 
 import ipaddress
 import socket
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -121,7 +122,7 @@ async def verify_ha_connection(ha_url: str, ha_token: str) -> dict:
         ) from e
 
     if response.status_code == 200:
-        return response.json()
+        return cast("dict[str, Any]", response.json())
 
     if response.status_code == 401:
         raise HTTPException(

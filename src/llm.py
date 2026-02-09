@@ -168,7 +168,7 @@ class ResilientLLM:
                 break
 
             try:
-                result = await self.primary_llm.ainvoke(input, config=config, **kwargs)
+                result = await self.primary_llm.ainvoke(input, config=config, **kwargs)  # type: ignore[arg-type]
                 self._circuit_breaker.record_success()
                 latency_ms = int((_time.perf_counter() - start_ms) * 1000)
                 _log_usage_async(result, self.provider, self._get_model_name(), latency_ms)

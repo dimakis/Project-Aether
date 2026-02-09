@@ -8,6 +8,7 @@ Includes HA-verified first-time setup and multiple login methods:
 """
 
 import secrets
+from typing import Any, cast
 
 import bcrypt
 from fastapi import APIRouter, HTTPException, Request, Response, status
@@ -23,6 +24,7 @@ from src.api.auth import (
 )
 from src.api.ha_verify import verify_ha_connection
 from src.dal.system_config import SystemConfigRepository, encrypt_token
+from src.settings import Settings
 from src.storage import get_session
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -98,7 +100,7 @@ class HATokenLoginRequest(BaseModel):
 # =============================================================================
 
 
-def _set_jwt_cookie(response: Response, token: str, settings) -> None:
+def _set_jwt_cookie(response: Response, token: str, settings: Settings) -> None:
     """Set the httpOnly JWT cookie on the response."""
     is_production = settings.environment == "production"
     response.set_cookie(
@@ -400,10 +402,13 @@ def _verify_google_id_token(credential: str, client_id: str) -> dict:
     from google.auth.transport import requests as google_requests
     from google.oauth2 import id_token
 
-    return id_token.verify_oauth2_token(
-        credential,
-        google_requests.Request(),
-        client_id,
+    return cast(
+        "dict[str, Any]",
+        id_token.verify_oauth2_token(  # type: ignore[no-untyped-call]
+            credential,
+            google_requests.Request(),
+            client_id,
+        ),
     )
 
 

@@ -132,7 +132,8 @@ async def _chat_interactive(
                     for msg in state.messages:
                         if hasattr(msg, "type") and msg.type == "ai":
                             console.print("[bold green]Architect:[/bold green]")
-                            console.print(Markdown(msg.content))
+                            msg_content = getattr(msg, "content", str(msg))
+                            console.print(Markdown(msg_content))
                             break
 
                 # Check for proposals
@@ -204,7 +205,8 @@ async def _chat_interactive(
                     for msg in reversed(state.messages):
                         if hasattr(msg, "type") and msg.type == "ai":
                             console.print("[bold green]Architect:[/bold green]")
-                            console.print(Markdown(msg.content))
+                            msg_content = getattr(msg, "content", str(msg))
+                            console.print(Markdown(msg_content))
                             break
 
                 # Check for new proposals

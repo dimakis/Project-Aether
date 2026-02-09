@@ -5,6 +5,7 @@ User Story 2: HITL approval for automation proposals.
 
 import contextlib
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -25,12 +26,12 @@ from src.api.schemas import (
 from src.dal import ProposalRepository
 from src.ha import get_ha_client
 from src.storage import get_session
-from src.storage.entities import ProposalStatus, ProposalType
+from src.storage.entities import AutomationProposal, ProposalStatus, ProposalType
 
 router = APIRouter(prefix="/proposals", tags=["Proposals"])
 
 
-def _proposal_to_response(p) -> ProposalResponse:
+def _proposal_to_response(p: AutomationProposal) -> ProposalResponse:
     """Convert an AutomationProposal model to a ProposalResponse schema."""
     return ProposalResponse(
         id=p.id,
@@ -162,7 +163,9 @@ async def create_proposal(request: Request, body: ProposalCreate) -> ProposalRes
             trigger=body.trigger if isinstance(body.trigger, dict) else {"triggers": body.trigger},
             actions=body.actions if isinstance(body.actions, dict) else {"actions": body.actions},
             description=body.description,
-            conditions=body.conditions,
+            conditions=cast("dict[str, Any] | None", body.conditions)
+            if isinstance(body.conditions, dict)
+            else body.conditions,
             mode=body.mode,
             proposal_type=body.proposal_type,
             service_call=body.service_call,
@@ -174,6 +177,8 @@ async def create_proposal(request: Request, body: ProposalCreate) -> ProposalRes
 
         # Refresh
         proposal = await repo.get_by_id(proposal.id)
+        if proposal is None:
+            raise HTTPException(status_code=404, detail="Proposal not found")
 
         return _proposal_to_response(proposal)
 
@@ -381,13 +386,13 @@ async def rollback_proposal(
             await session.commit()
 
             return RollbackResponse(
-                success=result.get("rolled_back", False),
+                success=cast("bool", result.get("rolled_back", False)),
                 proposal_id=proposal_id,
-                ha_automation_id=result.get("ha_automation_id"),
-                ha_disabled=result.get("ha_disabled", False),
-                ha_error=result.get("ha_error"),
+                ha_automation_id=cast("str | None", result.get("ha_automation_id")),
+                ha_disabled=cast("bool", result.get("ha_disabled", False)),
+                ha_error=cast("str | None", result.get("ha_error")),
                 rolled_back_at=datetime.now(UTC),
-                note=result.get("note"),
+                note=cast("str | None", result.get("note")),
             )
 
         except Exception as e:
@@ -431,7 +436,9 @@ async def delete_proposal(proposal_id: str) -> None:
         await session.commit()
 
 
-async def _deploy_entity_command(proposal, repo: ProposalRepository) -> dict:
+async def _deploy_entity_command(
+    proposal: AutomationProposal, repo: ProposalRepository
+) -> dict[str, Any]:
     """Execute an entity command proposal via MCP.
 
     Args:
@@ -471,7 +478,7 @@ async def _deploy_entity_command(proposal, repo: ProposalRepository) -> dict:
     }
 
 
-def _generate_yaml(proposal) -> str:
+def _generate_yaml(proposal: AutomationProposal) -> str:
     """Generate YAML content for a proposal.
 
     Args:

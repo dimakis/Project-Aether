@@ -5,12 +5,12 @@ rate limiting, and lifecycle management.
 """
 
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, cast
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -136,7 +136,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Configure rate limiting (T188)
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     # Add request body size limit middleware (prevents DoS via oversized payloads)
     app.middleware("http")(_body_size_limit_middleware)
@@ -196,7 +196,9 @@ def _get_allowed_origins(settings: Settings) -> list[str]:
         return origins
 
 
-async def _body_size_limit_middleware(request: Request, call_next):
+async def _body_size_limit_middleware(
+    request: Request, call_next: Callable[[Request], Any]
+) -> Response:
     """Middleware to reject requests with oversized bodies.
 
     Prevents denial-of-service attacks via large payloads.
@@ -215,7 +217,7 @@ async def _body_size_limit_middleware(request: Request, call_next):
 
     # Skip WebSocket upgrades
     if request.headers.get("upgrade", "").lower() == "websocket":
-        return await call_next(request)
+        return cast("Response", await call_next(request))
 
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
@@ -230,7 +232,7 @@ async def _body_size_limit_middleware(request: Request, call_next):
             },
         )
 
-    return await call_next(request)
+    return cast("Response", await call_next(request))
 
 
 async def _security_headers_middleware(request: Request, call_next):
@@ -281,7 +283,9 @@ async def _security_headers_middleware(request: Request, call_next):
     return response
 
 
-async def _correlation_middleware(request: Request, call_next):
+async def _correlation_middleware(
+    request: Request, call_next: Callable[[Request], Any]
+) -> Response:
     """Middleware to generate and propagate correlation IDs.
 
     Generates a correlation ID at the start of each request and stores it

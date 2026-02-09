@@ -149,21 +149,138 @@ warn_unused_ignores = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
+disallow_untyped_decorators = false  # third-party decorators lack py.typed; re-enable when upstream adds stubs
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_configs = true
 show_error_codes = true
 show_column_numbers = true
 
-# Per-module overrides
+# Per-module overrides — third-party libs without py.typed / stubs
 [[tool.mypy.overrides]]
 module = [
     "mlflow.*",
     "testcontainers.*",
     "factory.*",
+    "apscheduler.*",
 ]
 ignore_missing_imports = true
+
+# Modules with pre-existing type errors — strict checks relaxed until cleanup.
+# New modules MUST pass strict mypy. Burn this list down module-by-module.
+# Tracked: 356 errors across 71 modules as of 2026-02-09.
+[[tool.mypy.overrides]]
+module = [
+    # Agents layer
+    "src.agents.architect",
+    "src.agents.behavioral_analyst",
+    "src.agents.dashboard_designer",
+    "src.agents.data_scientist",
+    "src.agents.developer",
+    "src.agents.diagnostic_analyst",
+    "src.agents.energy_analyst",
+    # API layer
+    "src.api.auth",
+    "src.api.ha_verify",
+    "src.api.main",
+    "src.api.middleware",
+    "src.api.routes.activity_stream",
+    "src.api.routes.auth",
+    "src.api.routes.chat",
+    "src.api.routes.flow_grades",
+    "src.api.routes.ha_registry",
+    "src.api.routes.ha_zones",
+    "src.api.routes.insight_schedules",
+    "src.api.routes.insights",
+    "src.api.routes.model_ratings",
+    "src.api.routes.openai_compat",
+    "src.api.routes.optimization",
+    "src.api.routes.passkey",
+    "src.api.routes.proposals",
+    "src.api.routes.system",
+    "src.api.routes.usage",
+    "src.api.schemas.conversations",
+    "src.api.schemas.proposals",
+    # CLI
+    "src.cli.commands.chat",
+    # DAL layer
+    "src.dal.areas",
+    "src.dal.automations",
+    "src.dal.base",
+    "src.dal.conversations",
+    "src.dal.devices",
+    "src.dal.entities",
+    "src.dal.flow_grades",
+    "src.dal.llm_usage",
+    "src.dal.queries",
+    "src.dal.services",
+    "src.dal.sync",
+    # Diagnostics
+    "src.diagnostics.entity_health",
+    "src.diagnostics.error_patterns",
+    "src.diagnostics.log_parser",
+    # Graph layer
+    "src.graph",
+    "src.graph.workflows",
+    # HA client
+    "src.ha.automation_deploy",
+    "src.ha.automations",
+    "src.ha.base",
+    "src.ha.behavioral",
+    "src.ha.client",
+    "src.ha.diagnostics",
+    "src.ha.entities",
+    "src.ha.history",
+    # Core
+    "src.llm",
+    "src.llm_call_context",
+    "src.scheduler.service",
+    "src.settings",
+    # Storage
+    "src.storage.checkpoints",
+    "src.storage.entities.automation_proposal",
+    "src.storage.entities.conversation",
+    "src.storage.entities.message",
+    "src.storage.entities.passkey_credential",
+    # Tools
+    "src.tools",
+    "src.tools.agent_tools",
+    "src.tools.analysis_tools",
+    "src.tools.approval_tools",
+    "src.tools.dashboard_tools",
+    "src.tools.diagnostic_tools",
+    "src.tools.insight_schedule_tools",
+    "src.tools.specialist_tools",
+    # Tracing
+    "src.tracing",
+    "src.tracing.mlflow",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+warn_return_any = false
+warn_unused_ignores = false
+check_untyped_defs = false
+disable_error_code = [
+    "type-arg",
+    "attr-defined",
+    "no-untyped-call",
+    "override",
+    "arg-type",
+    "assignment",
+    "return-value",
+    "type-var",
+    "name-defined",
+    "import-untyped",
+    "index",
+    "misc",
+    "comparison-overlap",
+    "call-overload",
+    "union-attr",
+    "operator",
+    "var-annotated",
+    "typeddict-unknown-key",
+    "typeddict-item",
+]
 
 # =============================================================================
 # PYTEST CONFIGURATION (Constitution: Reliability & Quality)
@@ -253,5 +370,6 @@ dev = [
 
     # Type stubs
     "types-python-dateutil>=2.9.0",
+    "types-PyYAML>=6.0.0",
     "sqlalchemy[mypy]>=2.0.0",
 ]

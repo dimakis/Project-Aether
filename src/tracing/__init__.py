@@ -67,7 +67,7 @@ def __getattr__(name: str):
     raise AttributeError(f"module 'src.tracing' has no attribute '{name}'")
 
 
-def __dir__():
+def __dir__() -> list[str]:
     """List all available attributes."""
     return list(_EXPORTS.keys())
 

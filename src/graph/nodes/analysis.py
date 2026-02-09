@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import contextlib
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from langchain_core.messages import AIMessage
 
@@ -404,14 +404,16 @@ async def architect_review_node(
 
     from src.agents import ArchitectAgent
 
+    if session is None:
+        raise ValueError("Session is required for receive_suggestion")
     architect = ArchitectAgent()
 
     try:
         result = await architect.receive_suggestion(suggestion, session)
 
-        response_text = result.get("response", "No response from Architect")
-        proposal_name = result.get("proposal_name")
-        proposal_yaml = result.get("proposal_yaml")
+        response_text = cast("str", result.get("response", "No response from Architect"))
+        proposal_name = cast("str | None", result.get("proposal_name"))
+        proposal_yaml = cast("str | None", result.get("proposal_yaml"))
 
         parts = []
         if proposal_name:

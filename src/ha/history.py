@@ -331,14 +331,15 @@ class EnergyHistoryClient:
 
             try:
                 value = float(state_value)
-                timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                data_points.append(
-                    EnergyDataPoint(
-                        timestamp=timestamp,
-                        value=value,
-                        unit=unit,
+                if timestamp_str is not None:
+                    timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    data_points.append(
+                        EnergyDataPoint(
+                            timestamp=timestamp,
+                            value=value,
+                            unit=unit,
+                        )
                     )
-                )
             except (ValueError, TypeError):
                 # Skip invalid values
                 continue

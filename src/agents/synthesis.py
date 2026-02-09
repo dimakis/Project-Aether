@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
 
@@ -200,7 +200,7 @@ class ProgrammaticSynthesizer:
         conflicts: list[str],
     ) -> str:
         """Build a consensus narrative."""
-        specialist_counts = defaultdict(int)
+        specialist_counts: dict[str, int] = defaultdict(int)
         for f in findings:
             specialist_counts[f.specialist] += 1
 
@@ -309,7 +309,7 @@ class LLMSynthesizer:
             start = content.find("{")
             end = content.rfind("}") + 1
             if start >= 0 and end > start:
-                return json.loads(content[start:end])
+                return cast("dict[str, Any]", json.loads(content[start:end]))
         except (json.JSONDecodeError, ValueError):
             pass
 

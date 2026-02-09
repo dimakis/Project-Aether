@@ -5,7 +5,7 @@ connection management, and tracing decorators.
 """
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -26,7 +26,7 @@ class HAClientConfig(BaseModel):
     )
 
 
-def _try_get_db_config(settings) -> tuple[str, str] | None:
+def _try_get_db_config(settings: Any) -> tuple[str, str] | None:
     """Try to read HA config from DB (non-blocking best effort).
 
     Returns (ha_url, ha_token) if successful, None otherwise.
@@ -45,7 +45,7 @@ def _try_get_db_config(settings) -> tuple[str, str] | None:
 
         jwt_secret = _get_jwt_secret(settings)
 
-        async def _fetch():
+        async def _fetch() -> tuple[str, str] | None:
             async with get_session() as session:
                 repo = SystemConfigRepository(session)
                 return await repo.get_ha_connection(jwt_secret)
@@ -60,7 +60,8 @@ def _try_get_db_config(settings) -> tuple[str, str] | None:
             return None
         except RuntimeError:
             # No event loop running - safe to use asyncio.run()
-            return asyncio.run(_fetch())
+            result = asyncio.run(_fetch())
+            return result  # type: ignore[no-untyped-call]
     except Exception as exc:
         logger.debug("mcp_db_config_fallback", reason=str(exc))
         return None
@@ -260,7 +261,7 @@ class BaseHAClient:
         """
         data = await self._request("GET", "/api/")
         if data:
-            return data.get("version", "unknown")
+            return cast("str", data.get("version", "unknown"))
         raise HAClientError("Failed to get HA version", "get_version")
 
     @_trace_ha_call("ha.system_overview")
@@ -273,6 +274,8 @@ class BaseHAClient:
         states = await self._request("GET", "/api/states")
         if not states:
             raise HAClientError("Failed to get states", "system_overview")
+
+        states = cast("list[dict[str, Any]]", states)
 
         # Build overview from states
         domains: dict[str, dict[str, Any]] = {}

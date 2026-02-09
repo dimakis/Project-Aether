@@ -58,6 +58,8 @@ async def architect_refine_node(
     """
     from src.agents import ArchitectAgent
 
+    if session is None:
+        raise ValueError("Session is required for refine_proposal")
     agent = ArchitectAgent()
     return await agent.refine_proposal(state, feedback, proposal_id, session)
 
@@ -202,6 +204,8 @@ async def developer_rollback_node(
     """
     from src.agents import DeveloperAgent
 
+    if session is None:
+        raise ValueError("Session is required for rollback_automation")
     agent = DeveloperAgent()
     result = await agent.rollback_automation(proposal_id, session)
 

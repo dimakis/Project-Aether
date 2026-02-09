@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Database (Constitution: State - PostgreSQL for checkpointing)
-    database_url: PostgresDsn = Field(
+    database_url: PostgresDsn = Field(  # type: ignore[assignment]
         default="postgresql+asyncpg://aether:aether@localhost:5432/aether",
         description="PostgreSQL connection URL with asyncpg driver",
     )

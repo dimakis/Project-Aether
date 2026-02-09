@@ -1,6 +1,6 @@
 """HA Entity model for Home Assistant entity registry."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -178,5 +178,5 @@ class HAEntity(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
     def friendly_name(self) -> str:
         """Get friendly name from attributes or fall back to name."""
         if self.attributes and "friendly_name" in self.attributes:
-            return self.attributes["friendly_name"]
+            return cast("str", self.attributes["friendly_name"])
         return self.name

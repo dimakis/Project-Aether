@@ -6,7 +6,7 @@ and persistence to the database.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from src.graph.state import (
     AgentRole,
@@ -292,8 +292,8 @@ async def run_discovery_node(
     """
     from src.graph.workflows import run_discovery_workflow
 
-    ha_client = kwargs.get("ha_client")
-    session = kwargs.get("session")
+    ha_client = cast("HAClient | None", kwargs.get("ha_client"))
+    session = cast("AsyncSession | None", kwargs.get("session"))
 
     result_state = await run_discovery_workflow(
         ha_client=ha_client,

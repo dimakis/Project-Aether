@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
@@ -79,8 +79,8 @@ class DeveloperAgent(BaseAgent):
                 return {"error": "Session and proposal_id required for deployment"}
 
             # Get proposal
-            repo = ProposalRepository(session)
-            proposal = await repo.get_by_id(proposal_id)
+            repo = ProposalRepository(cast("AsyncSession", session))
+            proposal = await repo.get_by_id(cast("str", proposal_id))
 
             if not proposal:
                 return {"error": f"Proposal {proposal_id} not found"}
@@ -91,7 +91,7 @@ class DeveloperAgent(BaseAgent):
                 }
 
             try:
-                result = await self.deploy_automation(proposal, session)
+                result = await self.deploy_automation(proposal, cast("AsyncSession", session))
                 span["deployment_success"] = True
                 span["ha_automation_id"] = result.get("ha_automation_id")
 
@@ -146,7 +146,8 @@ class DeveloperAgent(BaseAgent):
             }
 
         # Deployment failed -- return error info without changing proposal status
-        error_msg = result.get("error") or ", ".join(result.get("errors", []))
+        errors_list = cast("list[str]", result.get("errors", []))
+        error_msg = cast("str | None", result.get("error")) or ", ".join(errors_list)
         return {
             "ha_automation_id": None,
             "yaml_content": automation_yaml,

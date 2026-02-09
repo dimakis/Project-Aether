@@ -13,7 +13,7 @@ If no auth credentials are configured (both AUTH_PASSWORD and API_KEY empty):
 
 import secrets
 import time
-from typing import Annotated
+from typing import Annotated, cast
 
 import jwt
 from fastapi import Depends, HTTPException, Request, Security, status
@@ -187,7 +187,7 @@ async def verify_api_key(
     if bearer_token:
         payload = decode_jwt_token(bearer_token, settings)
         if payload and "sub" in payload:
-            return payload["sub"]
+            return cast("str", payload["sub"])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token.",
@@ -198,7 +198,7 @@ async def verify_api_key(
     if cookie_token:
         payload = decode_jwt_token(cookie_token, settings)
         if payload and "sub" in payload:
-            return payload["sub"]
+            return cast("str", payload["sub"])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session.",

@@ -73,7 +73,7 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
         settings = get_settings()
         jwt_secret = _get_jwt_secret(settings)
 
-        async def _fetch():
+        async def _fetch() -> HAClientConfig | None:
             async with get_session() as session:
                 repo = HAZoneRepository(session)
                 if zone_id == _DEFAULT_KEY:
@@ -98,7 +98,8 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
             # Inside async context — can't use asyncio.run()
             return None
         except RuntimeError:
-            return asyncio.run(_fetch())
+            result = asyncio.run(_fetch())
+            return result  # type: ignore[no-untyped-call]
     except Exception as exc:
         logger.debug("zone_config_resolution_failed", zone_id=zone_id, reason=str(exc))
         return None

@@ -153,7 +153,7 @@ def _get_or_create_team_analysis(query: str) -> TeamAnalysis:
 
     ctx = get_execution_context()
     if ctx is not None and ctx.team_analysis is not None:
-        return ctx.team_analysis
+        return ctx.team_analysis  # type: ignore[no-any-return]
 
     from uuid import uuid4
 
@@ -698,8 +698,9 @@ async def consult_dashboard_designer(
         # Extract the text response from the agent's messages
         messages = result.get("messages", [])
         if messages:
+            last_msg = messages[-1]
             response = (
-                messages[-1].content if hasattr(messages[-1], "content") else str(messages[-1])
+                last_msg.content if hasattr(last_msg, "content") else str(last_msg)  # type: ignore[misc]
             )
         else:
             response = "Dashboard Designer returned no response."

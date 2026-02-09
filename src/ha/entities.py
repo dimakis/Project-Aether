@@ -5,7 +5,7 @@ Provides methods for listing, getting, searching, and managing entities.
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from src.ha.base import HAClientError, _trace_ha_call
 from src.tracing import log_param
@@ -398,8 +398,11 @@ class EntityMixin:
             domain = entity.get("domain", "unknown")
             domains[domain] = domains.get(domain, 0) + 1
 
-        return {
-            "count": len(entities),
-            "results": entities,
-            "domains": domains,
-        }
+        return cast(
+            "dict[str, Any]",
+            {
+                "count": len(entities),
+                "results": entities,
+                "domains": domains,
+            },
+        )

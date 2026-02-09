@@ -4,6 +4,7 @@ User Story 2: Conversational Design with Architect Agent.
 """
 
 import contextlib
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -339,7 +340,7 @@ async def send_message(
         if state.messages:
             for msg in reversed(state.messages):
                 if hasattr(msg, "content") and getattr(msg, "type", None) == "ai":
-                    assistant_content = msg.content
+                    assistant_content = str(msg.content)
                     break
 
         # Save assistant message
@@ -371,7 +372,7 @@ async def send_message(
                 tool_results=None,
                 tokens_used=None,
                 latency_ms=None,
-                created_at=assistant_message.created_at if assistant_message else None,
+                created_at=assistant_message.created_at if assistant_message else datetime.now(UTC),
             ),
             has_proposal=has_proposal,
             proposal_id=proposal_id,
@@ -383,7 +384,7 @@ async def send_message(
 async def stream_conversation(
     websocket: WebSocket,
     conversation_id: str,
-):
+) -> None:
     """WebSocket endpoint for streaming conversation responses.
 
     T087: WebSocket endpoint for streaming at /conversations/{id}/stream
@@ -493,7 +494,7 @@ async def stream_conversation(
                 if state.messages:
                     for msg in reversed(state.messages):
                         if hasattr(msg, "content") and getattr(msg, "type", None) == "ai":
-                            assistant_content = msg.content
+                            assistant_content = str(msg.content)
                             break
 
                 # Send response in chunks (simulated streaming)

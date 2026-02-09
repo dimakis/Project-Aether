@@ -100,9 +100,9 @@ class DiagnosticAnalyst(BaseAnalyst):
             # Config validation
             config_result = await run_config_check(self.ha)
             data["config_check"] = {
-                "valid": config_result.valid,
-                "errors": config_result.errors if hasattr(config_result, "errors") else [],
-                "warnings": config_result.warnings if hasattr(config_result, "warnings") else [],
+                "valid": config_result.result == "valid",
+                "errors": config_result.errors,
+                "warnings": config_result.warnings,
             }
 
             # Error log analysis
@@ -127,7 +127,7 @@ class DiagnosticAnalyst(BaseAnalyst):
 
             log_metric("diagnostic.unavailable_count", float(len(unavailable)))
             log_metric("diagnostic.unhealthy_integrations", float(len(unhealthy)))
-            log_param("diagnostic.config_valid", config_result.valid)
+            log_param("diagnostic.config_valid", config_result.result == "valid")
 
         except Exception as e:
             logger.warning(f"Error collecting diagnostic data: {e}")
@@ -208,7 +208,7 @@ class DiagnosticAnalyst(BaseAnalyst):
 
         return findings
 
-    async def invoke(self, state: AnalysisState, **kwargs) -> dict[str, Any]:
+    async def invoke(self, state: AnalysisState, **kwargs: object) -> dict[str, Any]:
         """Run diagnostic analysis workflow.
 
         Args:
