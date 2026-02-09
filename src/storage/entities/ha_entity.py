@@ -165,7 +165,7 @@ class HAEntity(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
     )
 
     __table_args__ = (
-        Index("ix_ha_entities_domain", "domain"),
+        # domain index is already created by index=True on the column
         Index("ix_ha_entities_device_class", "device_class"),
         Index("ix_ha_entities_state", "state"),
         Index("ix_ha_entities_domain_state", "domain", "state"),
