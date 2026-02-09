@@ -41,8 +41,9 @@ dependencies = [
     { name = "websockets" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
+    { name = "aiosqlite" },
     { name = "bandit" },
     { name = "factory-boy" },
     { name = "httpx" },
@@ -60,59 +61,55 @@ dev = [
     { name = "types-python-dateutil" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "aiosqlite" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14.0,<2.0.0" },
     { name = "apscheduler", specifier = ">=3.10.0,<4.0.0" },
     { name = "asyncpg", specifier = ">=0.30.0,<1.0.0" },
-    { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.7.0,<2.0.0" },
     { name = "bcrypt", specifier = ">=4.0.0,<5.0.0" },
     { name = "cryptography", specifier = ">=46.0.4,<48.0.0" },
-    { name = "factory-boy", marker = "extra == 'dev'", specifier = ">=3.3.0" },
     { name = "fastapi", specifier = ">=0.115.0,<1.0.0" },
     { name = "google-auth", specifier = ">=2.28.0,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.0,<1.0.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
     { name = "langchain-core", specifier = ">=0.3.0,<2.0.0" },
     { name = "langchain-google-genai", specifier = ">=4.2.0,<5.0.0" },
     { name = "langchain-openai", specifier = ">=0.2.0,<2.0.0" },
     { name = "langgraph", specifier = ">=0.2.0,<2.0.0" },
     { name = "mlflow", specifier = ">=2.18.0,<3.0.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
     { name = "openai", specifier = ">=1.50.0,<3.0.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pydantic", specifier = ">=2.10.0,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyjwt", specifier = ">=2.0.0,<3.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
-    { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.3.0,<3.0.0" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6.0" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2.0.0" },
     { name = "rich", specifier = ">=13.9.0,<15.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "slowapi", specifier = ">=0.1.9,<1.0.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.0,<3.0.0" },
-    { name = "sqlalchemy", extras = ["mypy"], marker = "extra == 'dev'", specifier = ">=2.0.0" },
     { name = "structlog", specifier = ">=24.4.0,<26.0.0" },
-    { name = "testcontainers", marker = "extra == 'dev'", specifier = ">=4.8.0" },
     { name = "typer", specifier = ">=0.14.0,<1.0.0" },
-    { name = "types-python-dateutil", marker = "extra == 'dev'", specifier = ">=2.9.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0,<1.0.0" },
     { name = "webauthn", specifier = ">=2.7.0,<3.0.0" },
     { name = "websockets", specifier = ">=13.0,<15.0" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "aiosqlite", specifier = ">=0.22.1" }]
+dev = [
+    { name = "aiosqlite", specifier = ">=0.22.1" },
+    { name = "bandit", specifier = ">=1.7.0,<2.0.0" },
+    { name = "factory-boy", specifier = ">=3.3.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "mypy", specifier = ">=1.13.0" },
+    { name = "pre-commit", specifier = ">=4.0.0" },
+    { name = "pytest", specifier = ">=8.3.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-timeout", specifier = ">=2.3.0,<3.0.0" },
+    { name = "pytest-xdist", specifier = ">=3.6.0" },
+    { name = "ruff", specifier = ">=0.8.0" },
+    { name = "sqlalchemy", extras = ["mypy"], specifier = ">=2.0.0" },
+    { name = "testcontainers", specifier = ">=4.8.0" },
+    { name = "types-python-dateutil", specifier = ">=2.9.0" },
+]
 
 [[package]]
 name = "aiosqlite"
