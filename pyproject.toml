@@ -56,32 +56,6 @@ dependencies = [
     "google-auth>=2.28.0,<3.0.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    # Testing (Constitution: Reliability & Quality)
-    "pytest>=8.3.0",
-    "pytest-cov>=6.0.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-mock>=3.14.0",
-    "pytest-xdist>=3.6.0",  # Parallel test execution
-    "pytest-timeout>=2.3.0,<3.0.0",  # Per-test timeout to prevent hangs
-    "factory-boy>=3.3.0",
-    "testcontainers>=4.8.0",  # PostgreSQL integration tests
-    "httpx>=0.28.0",  # FastAPI TestClient
-    
-    # Linting & Formatting (Constitution: Quality Gates)
-    "ruff>=0.8.0",
-    "mypy>=1.13.0",
-    "pre-commit>=4.0.0",
-    
-    # Security scanning (used by CI)
-    "bandit>=1.7.0,<2.0.0",
-    
-    # Type stubs
-    "types-python-dateutil>=2.9.0",
-    "sqlalchemy[mypy]>=2.0.0",
-]
-
 [project.scripts]
 aether = "src.cli.main:app"
 
@@ -234,5 +208,27 @@ directory = "htmlcov"
 
 [dependency-groups]
 dev = [
-    "aiosqlite>=0.22.1",
+    # Testing (Constitution: Reliability & Quality)
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+    "pytest-xdist>=3.6.0",  # Parallel test execution
+    "pytest-timeout>=2.3.0,<3.0.0",  # Per-test timeout to prevent hangs
+    "factory-boy>=3.3.0",
+    "testcontainers>=4.8.0",  # PostgreSQL integration tests
+    "httpx>=0.28.0",  # FastAPI TestClient
+    "aiosqlite>=0.22.1",  # Async SQLite for testing
+
+    # Linting & Formatting (Constitution: Quality Gates)
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "pre-commit>=4.0.0",
+
+    # Security scanning (used by CI)
+    "bandit>=1.7.0,<2.0.0",
+
+    # Type stubs
+    "types-python-dateutil>=2.9.0",
+    "sqlalchemy[mypy]>=2.0.0",
 ]
