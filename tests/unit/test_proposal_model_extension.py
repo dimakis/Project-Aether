@@ -10,7 +10,6 @@ from src.storage.entities.automation_proposal import (
     AutomationProposal,
     ProposalStatus,
     ProposalType,
-    VALID_TRANSITIONS,
 )
 
 

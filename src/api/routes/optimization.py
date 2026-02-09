@@ -6,7 +6,7 @@ Provides endpoints for running behavioral analysis, viewing
 automation suggestions, and accepting/rejecting suggestions.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -49,7 +49,7 @@ async def start_optimization(
         hours_analyzed=data.hours,
         insight_count=0,
         suggestion_count=0,
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
 
     _optimization_jobs[job_id] = result
@@ -87,7 +87,7 @@ async def list_suggestions() -> SuggestionListResponse:
                 confidence=data.get("confidence", 0.0),
                 source_insight_type=data.get("source_insight_type", ""),
                 status=SuggestionStatus(data.get("status", "pending")),
-                created_at=data.get("created_at", datetime.now(timezone.utc)),
+                created_at=data.get("created_at", datetime.now(UTC)),
             )
         )
 
@@ -145,7 +145,7 @@ async def accept_suggestion(
         raise HTTPException(
             status_code=500,
             detail=sanitize_error(e, context="Create proposal from suggestion"),
-        )
+        ) from e
 
 
 @router.post("/suggestions/{suggestion_id}/reject")
@@ -210,15 +210,15 @@ async def _run_optimization_background(
                         "evidence": state.automation_suggestion.evidence,
                         "source_insight_type": state.automation_suggestion.source_insight_type,
                         "status": "pending",
-                        "created_at": datetime.now(timezone.utc),
+                        "created_at": datetime.now(UTC),
                     }
                     job.suggestion_count += 1
 
         job.insight_count = len(job.insights)
         job.status = "completed"
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)
 
     except Exception as e:
         job.status = "failed"
         job.error = str(e)
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)

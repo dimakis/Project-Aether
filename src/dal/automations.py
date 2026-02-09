@@ -1,7 +1,6 @@
 """Automation, Script, and Scene repositories for CRUD operations."""
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.base import BaseRepository
 from src.storage.entities.ha_automation import HAAutomation, Scene, Script
@@ -9,7 +8,7 @@ from src.storage.entities.ha_automation import HAAutomation, Scene, Script
 
 class AutomationRepository(BaseRepository[HAAutomation]):
     """Repository for HAAutomation CRUD operations."""
-    
+
     model = HAAutomation
     ha_id_field = "ha_automation_id"
     order_by_field = "alias"
@@ -96,7 +95,7 @@ class AutomationRepository(BaseRepository[HAAutomation]):
 
 class ScriptRepository(BaseRepository[Script]):
     """Repository for Script CRUD operations."""
-    
+
     model = Script
     ha_id_field = "entity_id"
     order_by_field = "alias"
@@ -110,9 +109,7 @@ class ScriptRepository(BaseRepository[Script]):
         Returns:
             Script or None
         """
-        result = await self.session.execute(
-            select(Script).where(Script.entity_id == entity_id)
-        )
+        result = await self.session.execute(select(Script).where(Script.entity_id == entity_id))
         return result.scalar_one_or_none()
 
     async def list_all(
@@ -161,7 +158,7 @@ class ScriptRepository(BaseRepository[Script]):
 
 class SceneRepository(BaseRepository[Scene]):
     """Repository for Scene CRUD operations."""
-    
+
     model = Scene
     ha_id_field = "entity_id"
     order_by_field = "name"
@@ -175,11 +172,8 @@ class SceneRepository(BaseRepository[Scene]):
         Returns:
             Scene or None
         """
-        result = await self.session.execute(
-            select(Scene).where(Scene.entity_id == entity_id)
-        )
+        result = await self.session.execute(select(Scene).where(Scene.entity_id == entity_id))
         return result.scalar_one_or_none()
-
 
     async def delete(self, entity_id: str) -> bool:
         """Delete a scene.

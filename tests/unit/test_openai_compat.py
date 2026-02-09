@@ -7,7 +7,6 @@ _format_sse_error, and _is_background_request from openai_compat.py.
 import json
 import re
 
-import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.api.routes.openai_compat import (
@@ -17,7 +16,6 @@ from src.api.routes.openai_compat import (
     _format_sse_error,
     _is_background_request,
 )
-
 
 # ---------------------------------------------------------------------------
 # _convert_to_langchain_messages
@@ -52,12 +50,8 @@ class TestConvertToLangchainMessages:
         assert result[0].content == "Hi there"
 
     def test_assistant_with_tool_calls(self):
-        tool_calls = [
-            {"id": "call_1", "name": "get_weather", "args": {"city": "London"}}
-        ]
-        msgs = [
-            ChatMessage(role="assistant", content="Let me check", tool_calls=tool_calls)
-        ]
+        tool_calls = [{"id": "call_1", "name": "get_weather", "args": {"city": "London"}}]
+        msgs = [ChatMessage(role="assistant", content="Let me check", tool_calls=tool_calls)]
         result = _convert_to_langchain_messages(msgs)
 
         assert len(result) == 1
@@ -66,9 +60,7 @@ class TestConvertToLangchainMessages:
         assert result[0].tool_calls[0]["name"] == "get_weather"
 
     def test_tool_message(self):
-        msgs = [
-            ChatMessage(role="tool", content="72°F", tool_call_id="call_123")
-        ]
+        msgs = [ChatMessage(role="tool", content="72°F", tool_call_id="call_123")]
         result = _convert_to_langchain_messages(msgs)
 
         assert len(result) == 1
@@ -110,9 +102,7 @@ class TestConvertToLangchainMessages:
 # _derive_conversation_id
 # ---------------------------------------------------------------------------
 
-UUID_REGEX = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-)
+UUID_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
 class TestDeriveConversationId:
@@ -139,9 +129,7 @@ class TestDeriveConversationId:
             ChatMessage(role="assistant", content="Reply"),
             ChatMessage(role="user", content="Second"),
         ]
-        expected = _derive_conversation_id(
-            [ChatMessage(role="user", content="First")]
-        )
+        expected = _derive_conversation_id([ChatMessage(role="user", content="First")])
         assert _derive_conversation_id(msgs) == expected
 
     def test_background_request_gets_random_uuid(self):

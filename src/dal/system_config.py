@@ -6,7 +6,7 @@ Fernet encryption/decryption of the HA token.
 
 import base64
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from cryptography.fernet import Fernet
@@ -119,9 +119,7 @@ class SystemConfigRepository:
         Returns:
             SystemConfig or None if setup has not been completed.
         """
-        result = await self.session.execute(
-            select(SystemConfig).limit(1)
-        )
+        result = await self.session.execute(select(SystemConfig).limit(1))
         return result.scalar_one_or_none()
 
     async def is_setup_complete(self) -> bool:
@@ -154,7 +152,7 @@ class SystemConfigRepository:
             ha_url=ha_url,
             ha_token_encrypted=ha_token_encrypted,
             password_hash=password_hash,
-            setup_completed_at=datetime.now(timezone.utc),
+            setup_completed_at=datetime.now(UTC),
         )
         self.session.add(config)
         await self.session.flush()

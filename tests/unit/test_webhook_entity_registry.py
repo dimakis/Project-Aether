@@ -17,13 +17,11 @@ class TestEntityRegistryWebhook:
 
     async def test_entity_registry_updated_queues_sync(self):
         """entity_registry_updated should add _run_registry_sync to background tasks."""
-        from src.api.routes.webhooks import _run_registry_sync
-
         # We test the core logic directly without going through the
         # rate-limited HTTP decorator — the webhook handler checks
         # payload.event_type and adds background tasks before the
         # insight schedule matching.
-        from src.api.routes.webhooks import HAWebhookPayload
+        from src.api.routes.webhooks import HAWebhookPayload, _run_registry_sync
 
         payload = HAWebhookPayload(
             event_type="entity_registry_updated",
@@ -42,7 +40,7 @@ class TestEntityRegistryWebhook:
 
     async def test_state_changed_does_not_trigger_sync(self):
         """state_changed events should NOT queue a registry sync."""
-        from src.api.routes.webhooks import _run_registry_sync, HAWebhookPayload
+        from src.api.routes.webhooks import HAWebhookPayload, _run_registry_sync
 
         payload = HAWebhookPayload(
             event_type="state_changed",
@@ -65,8 +63,8 @@ class TestEntityRegistryWebhook:
         mock_session = AsyncMock()
 
         with (
-            patch("src.api.routes.webhooks.get_session", create=True) as mock_get_session,
-            patch("src.api.routes.webhooks.run_registry_sync", create=True) as mock_sync,
+            patch("src.api.routes.webhooks.get_session", create=True),
+            patch("src.api.routes.webhooks.run_registry_sync", create=True),
         ):
             # We need to patch the inline imports
             with (

@@ -12,7 +12,7 @@ Endpoints:
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
 
@@ -52,7 +52,7 @@ async def health_check() -> HealthResponse:
     """
     return HealthResponse(
         status=HealthStatus.HEALTHY,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         version="0.1.0",
     )
 
@@ -82,7 +82,7 @@ async def readiness_check() -> HealthResponse:
         )
     return HealthResponse(
         status=HealthStatus.HEALTHY,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         version="0.1.0",
     )
 
@@ -150,7 +150,7 @@ async def system_status() -> SystemStatus:
 
     return SystemStatus(
         status=overall_status,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         version="0.1.0",
         environment=settings.environment,
         components=components,
@@ -306,9 +306,7 @@ async def _check_home_assistant() -> ComponentHealth:
         latency = (time.perf_counter() - start) * 1000
         logger.warning("Home Assistant health check failed: %s", e)
         settings = get_settings()
-        message = (
-            f"Home Assistant error: {e!s}" if settings.debug else "Home Assistant unavailable"
-        )
+        message = f"Home Assistant error: {e!s}" if settings.debug else "Home Assistant unavailable"
         return ComponentHealth(
             name="home_assistant",
             status=HealthStatus.UNHEALTHY,

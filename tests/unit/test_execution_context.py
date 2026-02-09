@@ -106,10 +106,10 @@ class TestExecutionContextManager:
     @pytest.mark.asyncio
     async def test_nested_contexts(self):
         """Nested context managers should save/restore correctly."""
-        async with execution_context(conversation_id="outer") as outer:
+        async with execution_context(conversation_id="outer"):
             assert get_execution_context().conversation_id == "outer"
 
-            async with execution_context(conversation_id="inner") as inner:
+            async with execution_context(conversation_id="inner"):
                 assert get_execution_context().conversation_id == "inner"
 
             # Outer restored

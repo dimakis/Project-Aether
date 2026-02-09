@@ -4,12 +4,11 @@ TDD: Red phase — tests define the contract for the team analysis
 workflow that runs all three specialists and synthesizes findings.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from src.graph.state import (
-    AnalysisState,
-    AnalysisType,
     SpecialistFinding,
     TeamAnalysis,
 )
@@ -42,86 +41,96 @@ class TestTeamAnalysisWorkflow:
         from src.graph.workflows import TeamAnalysisWorkflow
 
         mock_energy = MagicMock()
-        mock_energy.invoke = AsyncMock(return_value={
-            "insights": [{"title": "Energy insight", "description": "Test"}],
-            "team_analysis": TeamAnalysis(
-                request_id="test-001",
-                request_summary="Test",
-                findings=[
-                    SpecialistFinding(
-                        specialist="energy_analyst",
-                        finding_type="insight",
-                        title="Energy insight",
-                        description="Test",
-                        confidence=0.8,
-                    ),
-                ],
-            ),
-        })
+        mock_energy.invoke = AsyncMock(
+            return_value={
+                "insights": [{"title": "Energy insight", "description": "Test"}],
+                "team_analysis": TeamAnalysis(
+                    request_id="test-001",
+                    request_summary="Test",
+                    findings=[
+                        SpecialistFinding(
+                            specialist="energy_analyst",
+                            finding_type="insight",
+                            title="Energy insight",
+                            description="Test",
+                            confidence=0.8,
+                        ),
+                    ],
+                ),
+            }
+        )
 
         mock_behavioral = MagicMock()
-        mock_behavioral.invoke = AsyncMock(return_value={
-            "insights": [],
-            "team_analysis": TeamAnalysis(
-                request_id="test-001",
-                request_summary="Test",
-                findings=[
-                    SpecialistFinding(
-                        specialist="energy_analyst",
-                        finding_type="insight",
-                        title="Energy insight",
-                        description="Test",
-                        confidence=0.8,
-                    ),
-                    SpecialistFinding(
-                        specialist="behavioral_analyst",
-                        finding_type="insight",
-                        title="Behavioral insight",
-                        description="Test",
-                        confidence=0.9,
-                    ),
-                ],
-            ),
-        })
+        mock_behavioral.invoke = AsyncMock(
+            return_value={
+                "insights": [],
+                "team_analysis": TeamAnalysis(
+                    request_id="test-001",
+                    request_summary="Test",
+                    findings=[
+                        SpecialistFinding(
+                            specialist="energy_analyst",
+                            finding_type="insight",
+                            title="Energy insight",
+                            description="Test",
+                            confidence=0.8,
+                        ),
+                        SpecialistFinding(
+                            specialist="behavioral_analyst",
+                            finding_type="insight",
+                            title="Behavioral insight",
+                            description="Test",
+                            confidence=0.9,
+                        ),
+                    ],
+                ),
+            }
+        )
 
         mock_diagnostic = MagicMock()
-        mock_diagnostic.invoke = AsyncMock(return_value={
-            "insights": [],
-            "team_analysis": TeamAnalysis(
-                request_id="test-001",
-                request_summary="Test",
-                findings=[
-                    SpecialistFinding(
-                        specialist="energy_analyst",
-                        finding_type="insight",
-                        title="Energy insight",
-                        description="Test",
-                    ),
-                    SpecialistFinding(
-                        specialist="behavioral_analyst",
-                        finding_type="insight",
-                        title="Behavioral insight",
-                        description="Test",
-                    ),
-                    SpecialistFinding(
-                        specialist="diagnostic_analyst",
-                        finding_type="concern",
-                        title="Diagnostic concern",
-                        description="Test",
-                    ),
-                ],
-            ),
-        })
+        mock_diagnostic.invoke = AsyncMock(
+            return_value={
+                "insights": [],
+                "team_analysis": TeamAnalysis(
+                    request_id="test-001",
+                    request_summary="Test",
+                    findings=[
+                        SpecialistFinding(
+                            specialist="energy_analyst",
+                            finding_type="insight",
+                            title="Energy insight",
+                            description="Test",
+                        ),
+                        SpecialistFinding(
+                            specialist="behavioral_analyst",
+                            finding_type="insight",
+                            title="Behavioral insight",
+                            description="Test",
+                        ),
+                        SpecialistFinding(
+                            specialist="diagnostic_analyst",
+                            finding_type="concern",
+                            title="Diagnostic concern",
+                            description="Test",
+                        ),
+                    ],
+                ),
+            }
+        )
 
-        with patch(
-            "src.agents.energy_analyst.EnergyAnalyst",
-            return_value=mock_energy,
-        ), patch(
-            "src.agents.behavioral_analyst.BehavioralAnalyst",
-            return_value=mock_behavioral,
-        ), patch(
-            "src.agents.diagnostic_analyst.DiagnosticAnalyst",
-            return_value=mock_diagnostic,
+        with (
+            patch(
+                "src.agents.energy_analyst.EnergyAnalyst",
+                return_value=mock_energy,
+            ),
+            patch(
+                "src.agents.behavioral_analyst.BehavioralAnalyst",
+                return_value=mock_behavioral,
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.DiagnosticAnalyst",
+                return_value=mock_diagnostic,
+            ),
         ):
             workflow = TeamAnalysisWorkflow()
             result = await workflow.run(

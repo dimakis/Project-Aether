@@ -18,14 +18,12 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader, APIKeyQuery
-from pydantic import SecretStr
-
-from src.exceptions import ConfigurationError
 
 # Import module (not function) so monkeypatching in tests works correctly.
 # Using `from src.settings import get_settings` would create a local reference
 # that monkeypatch cannot intercept.
 import src.settings as _settings_mod
+from src.exceptions import ConfigurationError
 from src.settings import Settings
 
 # Header-based API key
@@ -75,8 +73,7 @@ def _get_jwt_secret(settings: Settings) -> str:
     # Production MUST have an explicit secret
     if settings.environment == "production":
         raise ConfigurationError(
-            "JWT_SECRET must be set in production. "
-            "Generate one with: openssl rand -hex 32"
+            "JWT_SECRET must be set in production. Generate one with: openssl rand -hex 32"
         )
 
     # Development fallback: derive from auth_password (stable across restarts)

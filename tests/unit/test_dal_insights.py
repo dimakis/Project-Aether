@@ -6,7 +6,6 @@ Constitution: Reliability & Quality - comprehensive DAL testing.
 TDD: T181 - InsightRepository unit tests.
 """
 
-from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -55,7 +54,7 @@ class TestInsightRepositoryCreate:
     @pytest.mark.asyncio
     async def test_create_insight(self, insight_repo, mock_session):
         """Test creating a new insight."""
-        result = await insight_repo.create(
+        await insight_repo.create(
             type=InsightType.ENERGY_OPTIMIZATION,
             title="Test Insight",
             description="Test description",
@@ -67,7 +66,7 @@ class TestInsightRepositoryCreate:
 
         mock_session.add.assert_called_once()
         mock_session.flush.assert_called_once()
-        
+
         # Check the insight was created with correct values
         added_insight = mock_session.add.call_args[0][0]
         assert added_insight.type == InsightType.ENERGY_OPTIMIZATION
@@ -78,7 +77,7 @@ class TestInsightRepositoryCreate:
     @pytest.mark.asyncio
     async def test_create_insight_with_script(self, insight_repo, mock_session):
         """Test creating insight with script information."""
-        result = await insight_repo.create(
+        await insight_repo.create(
             type=InsightType.ENERGY_OPTIMIZATION,
             title="Script Analysis",
             description="Analysis from script",

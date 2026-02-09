@@ -43,7 +43,7 @@ def get_engine(settings: Settings | None = None) -> AsyncEngine:
     Returns:
         Configured AsyncEngine instance.
     """
-    global _engine  # noqa: PLW0603
+    global _engine
 
     if _engine is None:
         with _init_lock:
@@ -73,7 +73,7 @@ def get_session_factory(settings: Settings | None = None) -> async_sessionmaker[
     Returns:
         Configured async_sessionmaker instance.
     """
-    global _session_factory  # noqa: PLW0603
+    global _session_factory
 
     if _session_factory is None:
         with _init_lock:
@@ -140,7 +140,7 @@ async def close_db() -> None:
     Call this at application shutdown to cleanly close all connections.
     Thread-safe: Acquires lock before modifying singletons.
     """
-    global _engine, _session_factory  # noqa: PLW0603
+    global _engine, _session_factory
 
     with _init_lock:
         if _engine is not None:
@@ -151,10 +151,10 @@ async def close_db() -> None:
 
 # Public API
 __all__ = [
-    "get_engine",
-    "get_session_factory",
-    "get_session",
-    "get_connection",
-    "init_db",
     "close_db",
+    "get_connection",
+    "get_engine",
+    "get_session",
+    "get_session_factory",
+    "init_db",
 ]

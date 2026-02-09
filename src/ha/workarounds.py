@@ -219,9 +219,9 @@ def identify_automation_entities(entities: list[ParsedEntity]) -> list[ParsedEnt
 
 
 __all__ = [
-    "infer_devices_from_entities",
-    "infer_areas_from_entities",
     "extract_entity_metadata",
-    "identify_helper_entities",
     "identify_automation_entities",
+    "identify_helper_entities",
+    "infer_areas_from_entities",
+    "infer_devices_from_entities",
 ]

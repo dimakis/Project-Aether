@@ -18,9 +18,9 @@ Management (requires active JWT session):
 
 import base64
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from webauthn import (
     generate_authentication_options,
@@ -40,9 +40,9 @@ from webauthn.helpers.structs import (
 import src.settings as _settings_mod
 from src.api.auth import (
     JWT_COOKIE_NAME,
+    _extract_bearer_token,
     create_jwt_token,
     decode_jwt_token,
-    _extract_bearer_token,
 )
 
 logger = logging.getLogger(__name__)
@@ -119,9 +119,7 @@ async def get_credential_by_id(credential_id: bytes) -> dict | None:
 
     async with get_session() as session:
         result = await session.execute(
-            select(PasskeyCredential).where(
-                PasskeyCredential.credential_id == credential_id
-            )
+            select(PasskeyCredential).where(PasskeyCredential.credential_id == credential_id)
         )
         c = result.scalar_one_or_none()
         if not c:
@@ -148,14 +146,12 @@ async def update_credential_sign_count(credential_id: bytes, new_count: int) -> 
 
     async with get_session() as session:
         result = await session.execute(
-            select(PasskeyCredential).where(
-                PasskeyCredential.credential_id == credential_id
-            )
+            select(PasskeyCredential).where(PasskeyCredential.credential_id == credential_id)
         )
         credential = result.scalar_one_or_none()
         if credential:
             credential.sign_count = new_count
-            credential.last_used_at = datetime.now(timezone.utc)
+            credential.last_used_at = datetime.now(UTC)
             await session.commit()
 
 
@@ -246,7 +242,9 @@ async def passkey_register_options(request: Request) -> dict:
     """
     username = _get_current_username(request)
     if not username:
-        raise HTTPException(status_code=401, detail="Authentication required to register a passkey.")
+        raise HTTPException(
+            status_code=401, detail="Authentication required to register a passkey."
+        )
 
     settings = _settings_mod.get_settings()
 
@@ -310,22 +308,26 @@ async def passkey_register_verify(body: RegisterVerifyRequest, request: Request)
         )
     except Exception as e:
         logger.warning("Passkey registration verification failed: %s", e)
-        raise HTTPException(status_code=400, detail="Registration failed. Please try again.")
+        raise HTTPException(
+            status_code=400, detail="Registration failed. Please try again."
+        ) from None
 
     # Store credential
     import uuid
 
-    await store_credential({
-        "id": str(uuid.uuid4()),
-        "username": username,
-        "credential_id": verification.credential_id,
-        "public_key": verification.credential_public_key,
-        "sign_count": verification.sign_count,
-        "transports": body.credential.get("response", {}).get("transports"),
-        "device_name": body.device_name,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "last_used_at": None,
-    })
+    await store_credential(
+        {
+            "id": str(uuid.uuid4()),
+            "username": username,
+            "credential_id": verification.credential_id,
+            "public_key": verification.credential_public_key,
+            "sign_count": verification.sign_count,
+            "transports": body.credential.get("response", {}).get("transports"),
+            "device_name": body.device_name,
+            "created_at": datetime.now(UTC).isoformat(),
+            "last_used_at": None,
+        }
+    )
 
     return {"status": "ok", "message": "Passkey registered successfully"}
 
@@ -385,11 +387,7 @@ async def passkey_authenticate_verify(
 
     # Find the credential
     raw_id = body.credential.get("rawId") or body.credential.get("id", "")
-    if isinstance(raw_id, str):
-        # base64url decode
-        raw_id_bytes = base64.urlsafe_b64decode(raw_id + "==")
-    else:
-        raw_id_bytes = raw_id
+    raw_id_bytes = base64.urlsafe_b64decode(raw_id + "==") if isinstance(raw_id, str) else raw_id
 
     stored_cred = await get_credential_by_id(raw_id_bytes)
     if not stored_cred:
@@ -407,7 +405,9 @@ async def passkey_authenticate_verify(
         )
     except Exception as e:
         logger.warning("Passkey authentication failed: %s", e)
-        raise HTTPException(status_code=401, detail="Authentication failed. Please try again.")
+        raise HTTPException(
+            status_code=401, detail="Authentication failed. Please try again."
+        ) from None
 
     # Update sign count
     await update_credential_sign_count(

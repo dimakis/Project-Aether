@@ -66,9 +66,7 @@ class Area(Base, UUIDMixin, TimestampMixin, HAEntityMixin):
         lazy="selectin",
     )
 
-    __table_args__ = (
-        Index("ix_areas_name", "name"),
-    )
+    __table_args__ = (Index("ix_areas_name", "name"),)
 
     def __repr__(self) -> str:
         return f"<Area(id={self.id}, name={self.name}, ha_area_id={self.ha_area_id})>"

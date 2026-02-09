@@ -18,7 +18,6 @@ from src.ha.base import (
     BaseHAClient,
     HAClientConfig,
     HAClientError,
-    _trace_ha_call,
 )
 from src.ha.diagnostics import DiagnosticMixin
 from src.ha.entities import EntityMixin
@@ -61,14 +60,15 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
     Runs synchronously (for singleton init outside async context).
     """
     import asyncio
+
     import structlog
 
     logger = structlog.get_logger(__name__)
     try:
         from src.api.auth import _get_jwt_secret
         from src.dal.ha_zones import HAZoneRepository
-        from src.storage import get_session
         from src.settings import get_settings
+        from src.storage import get_session
 
         settings = get_settings()
         jwt_secret = _get_jwt_secret(settings)

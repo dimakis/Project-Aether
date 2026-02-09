@@ -41,7 +41,8 @@ class TestSchedulerDiscoverySync:
             # Should have called add_job for the discovery sync
             add_job_calls = service._scheduler.add_job.call_args_list
             discovery_calls = [
-                c for c in add_job_calls
+                c
+                for c in add_job_calls
                 if c.kwargs.get("id") == "discovery:periodic_sync"
                 or (c.args and len(c.args) > 1 and "discovery" in str(c))
             ]
@@ -72,8 +73,7 @@ class TestSchedulerDiscoverySync:
             # No discovery job should be added
             add_job_calls = service._scheduler.add_job.call_args_list
             discovery_calls = [
-                c for c in add_job_calls
-                if c.kwargs.get("id") == "discovery:periodic_sync"
+                c for c in add_job_calls if c.kwargs.get("id") == "discovery:periodic_sync"
             ]
             assert len(discovery_calls) == 0, (
                 f"Expected no discovery sync job, got: {discovery_calls}"

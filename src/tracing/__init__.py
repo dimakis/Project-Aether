@@ -102,32 +102,32 @@ if TYPE_CHECKING:
     )
 
 __all__ = [
-    # Initialization
-    "init_mlflow",
-    "get_or_create_experiment",
+    # Tracer class
+    "AetherTracer",
+    "add_span_event",
     "enable_autolog",
-    # Run management
-    "start_run",
-    "start_experiment_run",
     "end_run",
     "get_active_run",
+    "get_active_span",
+    "get_or_create_experiment",
+    "get_session_id",
+    "get_tracer",
+    "get_tracing_status",
+    # Initialization
+    "init_mlflow",
+    "log_dict",
+    "log_metric",
+    "log_metrics",
     # Logging
     "log_param",
     "log_params",
-    "log_metric",
-    "log_metrics",
-    "log_dict",
-    # Decorators (for non-LLM spans; LLM calls use autolog)
-    "trace_with_uri",
-    "get_active_span",
-    "add_span_event",
-    # Tracer class
-    "AetherTracer",
-    "get_tracer",
-    "get_tracing_status",
+    "session_context",
+    "set_session_id",
+    "start_experiment_run",
+    # Run management
+    "start_run",
     # Session context
     "start_session",
-    "get_session_id",
-    "set_session_id",
-    "session_context",
+    # Decorators (for non-LLM spans; LLM calls use autolog)
+    "trace_with_uri",
 ]

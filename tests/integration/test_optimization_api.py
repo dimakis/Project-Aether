@@ -6,8 +6,6 @@ Constitution: Reliability & Quality.
 TDD: T240 - Optimization API endpoints.
 """
 
-from unittest.mock import AsyncMock, patch
-
 import pytest
 from fastapi.testclient import TestClient
 

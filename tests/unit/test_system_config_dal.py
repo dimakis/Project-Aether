@@ -1,14 +1,14 @@
 """Tests for system_config DAL and Fernet encryption."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.dal.system_config import (
     _derive_fernet_key,
     decrypt_token,
     encrypt_token,
 )
-
 
 # =============================================================================
 # Fernet encryption tests (pure functions, no DB)

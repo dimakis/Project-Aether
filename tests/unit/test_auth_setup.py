@@ -8,14 +8,14 @@ Tests:
 - Password is optional during setup
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
-
 
 # =============================================================================
 # Fixtures
@@ -24,21 +24,21 @@ from src.settings import Settings, get_settings
 
 def _make_settings(**overrides) -> Settings:
     """Create test settings with auth defaults."""
-    defaults = dict(
-        environment="testing",
-        debug=True,
-        database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        ha_url="http://localhost:8123",
-        ha_token=SecretStr("test-token"),
-        openai_api_key=SecretStr("test-api-key"),
-        mlflow_tracking_uri="http://localhost:5000",
-        sandbox_enabled=False,
-        auth_username="admin",
-        auth_password=SecretStr(""),
-        jwt_secret=SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        jwt_expiry_hours=72,
-        api_key=SecretStr(""),
-    )
+    defaults = {
+        "environment": "testing",
+        "debug": True,
+        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
+        "ha_url": "http://localhost:8123",
+        "ha_token": SecretStr("test-token"),
+        "openai_api_key": SecretStr("test-api-key"),
+        "mlflow_tracking_uri": "http://localhost:5000",
+        "sandbox_enabled": False,
+        "auth_username": "admin",
+        "auth_password": SecretStr(""),
+        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
+        "jwt_expiry_hours": 72,
+        "api_key": SecretStr(""),
+    }
     defaults.update(overrides)
     return Settings(**defaults)
 
@@ -46,6 +46,7 @@ def _make_settings(**overrides) -> Settings:
 def _patch_settings(monkeypatch, settings: Settings) -> None:
     """Monkeypatch get_settings() on the settings module."""
     from src import settings as settings_module
+
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
 
 
@@ -86,8 +87,10 @@ class TestSetupStatus:
         settings = _make_settings()
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", mock_get_session), \
-             patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls:
+        with (
+            patch("src.api.routes.auth.get_session", mock_get_session),
+            patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls,
+        ):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo_cls.return_value = mock_repo
@@ -110,8 +113,10 @@ class TestSetupStatus:
         settings = _make_settings()
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", mock_get_session), \
-             patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls:
+        with (
+            patch("src.api.routes.auth.get_session", mock_get_session),
+            patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls,
+        ):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = True
             mock_repo_cls.return_value = mock_repo
@@ -148,10 +153,12 @@ class TestSetupEndpoint:
         mock_config = MagicMock()
         mock_config.id = "config-id"
 
-        with patch("src.api.routes.auth.get_session", mock_get_session), \
-             patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls, \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify, \
-             patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()):
+        with (
+            patch("src.api.routes.auth.get_session", mock_get_session),
+            patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls,
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+            patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()),
+        ):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo.create_config.return_value = mock_config
@@ -162,11 +169,14 @@ class TestSetupEndpoint:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/setup", json={
-                    "ha_url": "http://ha.local:8123",
-                    "ha_token": "valid-ha-token",
-                    "password": "my-fallback-pass",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/setup",
+                    json={
+                        "ha_url": "http://ha.local:8123",
+                        "ha_token": "valid-ha-token",
+                        "password": "my-fallback-pass",
+                    },
+                )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -179,16 +189,16 @@ class TestSetupEndpoint:
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
-    async def test_setup_already_complete_returns_409(
-        self, monkeypatch, mock_get_session
-    ):
+    async def test_setup_already_complete_returns_409(self, monkeypatch, mock_get_session):
         """POST /auth/setup returns 409 if already configured."""
         get_settings.cache_clear()
         settings = _make_settings()
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", mock_get_session), \
-             patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls:
+        with (
+            patch("src.api.routes.auth.get_session", mock_get_session),
+            patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls,
+        ):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = True
             mock_repo_cls.return_value = mock_repo
@@ -197,18 +207,19 @@ class TestSetupEndpoint:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/setup", json={
-                    "ha_url": "http://ha.local:8123",
-                    "ha_token": "valid-ha-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/setup",
+                    json={
+                        "ha_url": "http://ha.local:8123",
+                        "ha_token": "valid-ha-token",
+                    },
+                )
 
         assert resp.status_code == 409
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
-    async def test_invalid_ha_token_rejected(
-        self, monkeypatch, mock_get_session
-    ):
+    async def test_invalid_ha_token_rejected(self, monkeypatch, mock_get_session):
         """POST /auth/setup with invalid HA token returns error."""
         from fastapi import HTTPException
 
@@ -216,9 +227,11 @@ class TestSetupEndpoint:
         settings = _make_settings()
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", mock_get_session), \
-             patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls, \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
+        with (
+            patch("src.api.routes.auth.get_session", mock_get_session),
+            patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls,
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+        ):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo_cls.return_value = mock_repo
@@ -228,18 +241,19 @@ class TestSetupEndpoint:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/setup", json={
-                    "ha_url": "http://ha.local:8123",
-                    "ha_token": "bad-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/setup",
+                    json={
+                        "ha_url": "http://ha.local:8123",
+                        "ha_token": "bad-token",
+                    },
+                )
 
         assert resp.status_code == 401
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
-    async def test_password_optional_in_setup(
-        self, monkeypatch, mock_session, mock_get_session
-    ):
+    async def test_password_optional_in_setup(self, monkeypatch, mock_session, mock_get_session):
         """Setup works without a password (password field absent or null)."""
         get_settings.cache_clear()
         settings = _make_settings()
@@ -248,10 +262,12 @@ class TestSetupEndpoint:
         mock_config = MagicMock()
         mock_config.id = "config-id"
 
-        with patch("src.api.routes.auth.get_session", mock_get_session), \
-             patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls, \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify, \
-             patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()):
+        with (
+            patch("src.api.routes.auth.get_session", mock_get_session),
+            patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls,
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+            patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()),
+        ):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo.create_config.return_value = mock_config
@@ -262,23 +278,25 @@ class TestSetupEndpoint:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/setup", json={
-                    "ha_url": "http://ha.local:8123",
-                    "ha_token": "valid-ha-token",
-                    # No password field
-                })
+                resp = await client.post(
+                    "/api/v1/auth/setup",
+                    json={
+                        "ha_url": "http://ha.local:8123",
+                        "ha_token": "valid-ha-token",
+                        # No password field
+                    },
+                )
 
         assert resp.status_code == 200
         # Verify password_hash was None
         call_args = mock_repo.create_config.call_args
-        assert call_args.kwargs.get("password_hash") is None or \
-               (len(call_args.args) > 2 and call_args.args[2] is None)
+        assert call_args.kwargs.get("password_hash") is None or (
+            len(call_args.args) > 2 and call_args.args[2] is None
+        )
         get_settings.cache_clear()
 
     @pytest.mark.asyncio
-    async def test_setup_stores_encrypted_token(
-        self, monkeypatch, mock_session, mock_get_session
-    ):
+    async def test_setup_stores_encrypted_token(self, monkeypatch, mock_session, mock_get_session):
         """Setup encrypts the HA token before storing."""
         get_settings.cache_clear()
         settings = _make_settings()
@@ -287,10 +305,12 @@ class TestSetupEndpoint:
         mock_config = MagicMock()
         mock_config.id = "config-id"
 
-        with patch("src.api.routes.auth.get_session", mock_get_session), \
-             patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls, \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify, \
-             patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()):
+        with (
+            patch("src.api.routes.auth.get_session", mock_get_session),
+            patch("src.api.routes.auth.SystemConfigRepository") as mock_repo_cls,
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+            patch("src.dal.ha_zones.HAZoneRepository", return_value=AsyncMock()),
+        ):
             mock_repo = AsyncMock()
             mock_repo.is_setup_complete.return_value = False
             mock_repo.create_config.return_value = mock_config
@@ -301,10 +321,13 @@ class TestSetupEndpoint:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/setup", json={
-                    "ha_url": "http://ha.local:8123",
-                    "ha_token": "my-secret-ha-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/setup",
+                    json={
+                        "ha_url": "http://ha.local:8123",
+                        "ha_token": "my-secret-ha-token",
+                    },
+                )
 
         assert resp.status_code == 200
         # Verify encrypted token was passed (not plaintext)

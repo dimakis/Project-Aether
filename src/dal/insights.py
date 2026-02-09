@@ -6,7 +6,7 @@ Provides CRUD operations for managing insights generated
 by the Data Science team's energy analysis.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -94,9 +94,7 @@ class InsightRepository:
         Returns:
             Insight or None
         """
-        result = await self.session.execute(
-            select(Insight).where(Insight.id == insight_id)
-        )
+        result = await self.session.execute(select(Insight).where(Insight.id == insight_id))
         return result.scalar_one_or_none()
 
     async def list_by_type(
@@ -181,9 +179,7 @@ class InsightRepository:
             List of insights related to the entity
         """
         # JSON array contains query - PostgreSQL specific
-        query = select(Insight).where(
-            Insight.entities.contains([entity_id])
-        )
+        query = select(Insight).where(Insight.entities.contains([entity_id]))
 
         if status:
             query = query.where(Insight.status == status)
@@ -261,8 +257,8 @@ class InsightRepository:
         Returns:
             List of recent insights
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-        
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
+
         query = select(Insight).where(Insight.created_at >= cutoff)
 
         if status:
@@ -287,12 +283,7 @@ class InsightRepository:
         Returns:
             List of insights
         """
-        query = (
-            select(Insight)
-            .order_by(Insight.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+        query = select(Insight).order_by(Insight.created_at.desc()).limit(limit).offset(offset)
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
@@ -396,10 +387,7 @@ class InsightRepository:
         Returns:
             Dict of type -> count
         """
-        query = (
-            select(Insight.type, func.count(Insight.id))
-            .group_by(Insight.type)
-        )
+        query = select(Insight.type, func.count(Insight.id)).group_by(Insight.type)
         result = await self.session.execute(query)
         return {row[0].value: row[1] for row in result.all()}
 
@@ -409,10 +397,7 @@ class InsightRepository:
         Returns:
             Dict of status -> count
         """
-        query = (
-            select(Insight.status, func.count(Insight.id))
-            .group_by(Insight.status)
-        )
+        query = select(Insight.status, func.count(Insight.id)).group_by(Insight.status)
         result = await self.session.execute(query)
         return {row[0].value: row[1] for row in result.all()}
 

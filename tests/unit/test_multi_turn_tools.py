@@ -6,14 +6,12 @@ using tool_llm (with tools bound) for follow-up calls.
 TDD: Multi-turn tool loop with max iteration guard.
 """
 
-import asyncio
-import json
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessageChunk, HumanMessage
 
-from src.agents.architect import ArchitectWorkflow, StreamEvent
+from src.agents.architect import ArchitectWorkflow
 from src.graph.state import ConversationState
 
 
@@ -37,9 +35,7 @@ def _make_workflow():
 def _make_tool_call_chunk(name, args_str, call_id, index=0):
     """Create a mock AIMessageChunk with a tool call chunk."""
     chunk = AIMessageChunk(content="")
-    chunk.tool_call_chunks = [
-        {"name": name, "args": args_str, "id": call_id, "index": index}
-    ]
+    chunk.tool_call_chunks = [{"name": name, "args": args_str, "id": call_id, "index": index}]
     return chunk
 
 
@@ -113,10 +109,12 @@ class TestMultiTurnToolLoop:
         event_types = [e["type"] for e in events]
 
         # Should have two tool_start/tool_end pairs
-        assert event_types.count("tool_start") == 2, \
+        assert event_types.count("tool_start") == 2, (
             f"Expected 2 tool_start, got {event_types.count('tool_start')} in {event_types}"
-        assert event_types.count("tool_end") == 2, \
+        )
+        assert event_types.count("tool_end") == 2, (
             f"Expected 2 tool_end, got {event_types.count('tool_end')} in {event_types}"
+        )
 
         # Should have tokens from final response
         assert "token" in event_types
@@ -143,9 +141,11 @@ class TestMultiTurnToolLoop:
             """Always return tool calls, simulating infinite loop."""
             nonlocal call_count
             call_count += 1
-            async for item in _async_iter([
-                _make_tool_call_chunk("get_entity_state", '{}', f"call-{call_count}"),
-            ]):
+            async for item in _async_iter(
+                [
+                    _make_tool_call_chunk("get_entity_state", "{}", f"call-{call_count}"),
+                ]
+            ):
                 yield item
 
         tool_llm_mock = MagicMock()
@@ -180,7 +180,7 @@ class TestMultiTurnToolLoop:
         mock_tool.ainvoke = tool_invoke
 
         round1_chunks = [
-            _make_tool_call_chunk("get_entity_state", '{}', "call-1"),
+            _make_tool_call_chunk("get_entity_state", "{}", "call-1"),
         ]
         round2_chunks = [
             AIMessageChunk(content="The light is on."),

@@ -190,9 +190,7 @@ def create_mock_ha_client(
     client = MagicMock()
 
     # System overview
-    client.system_overview = AsyncMock(
-        return_value=system_overview or HA_SYSTEM_OVERVIEW
-    )
+    client.system_overview = AsyncMock(return_value=system_overview or HA_SYSTEM_OVERVIEW)
 
     # List entities by domain
     async def mock_list_entities(domain: str | None = None, **kwargs: Any) -> list[dict[str, Any]]:
@@ -312,19 +310,19 @@ Estimated savings: 15-20% on monthly energy bill."""
 
 # Exports
 __all__ = [
-    # Fixtures
-    "HA_SYSTEM_OVERVIEW",
-    "HA_LIGHT_ENTITIES",
-    "HA_SENSOR_ENTITIES",
-    "HA_AUTOMATION_LIST",
     "HA_AREAS",
+    "HA_AUTOMATION_LIST",
     "HA_DOMAIN_SUMMARY",
     "HA_ENTITY_HISTORY",
+    "HA_LIGHT_ENTITIES",
+    "HA_SENSOR_ENTITIES",
+    # Fixtures
+    "HA_SYSTEM_OVERVIEW",
+    "LLM_ARCHITECT_RESPONSE",
+    # LLM responses
+    "LLM_CATEGORIZER_RESPONSE",
+    "LLM_DATA_SCIENTIST_RESPONSE",
     # Factories
     "create_mock_ha_client",
     "create_mock_llm_response",
-    # LLM responses
-    "LLM_CATEGORIZER_RESPONSE",
-    "LLM_ARCHITECT_RESPONSE",
-    "LLM_DATA_SCIENTIST_RESPONSE",
 ]

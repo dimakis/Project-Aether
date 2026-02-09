@@ -4,9 +4,6 @@ Validates the dashboard-specific state used by the Dashboard Designer agent,
 including YAML storage, preview mode, and target dashboard tracking.
 """
 
-import pytest
-from pydantic import ValidationError
-
 
 class TestDashboardState:
     """DashboardState model tests."""
@@ -61,15 +58,13 @@ views:
         """Tracks which DS team specialists were consulted."""
         from src.graph.state import DashboardState
 
-        state = DashboardState(
-            consulted_specialists=["energy_analyst", "behavioral_analyst"]
-        )
+        state = DashboardState(consulted_specialists=["energy_analyst", "behavioral_analyst"])
         assert len(state.consulted_specialists) == 2
         assert "energy_analyst" in state.consulted_specialists
 
     def test_inherits_conversation_state(self):
         """DashboardState extends ConversationState with all its fields."""
-        from src.graph.state import DashboardState, ConversationState
+        from src.graph.state import ConversationState, DashboardState
 
         state = DashboardState(user_intent="design energy dashboard")
         # Should have ConversationState fields

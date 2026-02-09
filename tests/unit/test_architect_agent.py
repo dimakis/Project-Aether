@@ -224,9 +224,7 @@ Would you like me to adjust anything?"""
         from src.graph.state import ConversationState
 
         agent = ArchitectAgent()
-        state = ConversationState(
-            messages=[HumanMessage(content="Test message")]
-        )
+        state = ConversationState(messages=[HumanMessage(content="Test message")])
 
         messages = agent._build_messages(state)
 
@@ -243,14 +241,15 @@ class TestArchitectWorkflow:
     @pytest.mark.asyncio
     async def test_start_conversation(self):
         """Test starting a new conversation."""
+        from unittest.mock import AsyncMock, patch
+
         from src.agents.architect import ArchitectWorkflow
-        from unittest.mock import patch, AsyncMock
 
         with patch("src.agents.architect.ArchitectAgent") as MockAgent:
             mock_agent = MockAgent.return_value
-            mock_agent.invoke = AsyncMock(return_value={
-                "messages": [AIMessage(content="Hello! How can I help?")]
-            })
+            mock_agent.invoke = AsyncMock(
+                return_value={"messages": [AIMessage(content="Hello! How can I help?")]}
+            )
 
             workflow = ArchitectWorkflow()
             workflow.agent = mock_agent
@@ -264,22 +263,21 @@ class TestArchitectWorkflow:
     @pytest.mark.asyncio
     async def test_continue_conversation(self):
         """Test continuing an existing conversation."""
+        from unittest.mock import AsyncMock, patch
+
         from src.agents.architect import ArchitectWorkflow
         from src.graph.state import ConversationState
-        from unittest.mock import patch, AsyncMock
 
         with patch("src.agents.architect.ArchitectAgent") as MockAgent:
             mock_agent = MockAgent.return_value
-            mock_agent.invoke = AsyncMock(return_value={
-                "messages": [AIMessage(content="I understand, let me help")]
-            })
+            mock_agent.invoke = AsyncMock(
+                return_value={"messages": [AIMessage(content="I understand, let me help")]}
+            )
 
             workflow = ArchitectWorkflow()
             workflow.agent = mock_agent
 
-            initial_state = ConversationState(
-                messages=[HumanMessage(content="Initial message")]
-            )
+            initial_state = ConversationState(messages=[HumanMessage(content="Initial message")])
 
             state = await workflow.continue_conversation(
                 state=initial_state,

@@ -4,13 +4,13 @@ Tests the /api/v1/models/* endpoints.
 """
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt as pyjwt
 import pytest
 from httpx import ASGITransport, AsyncClient
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
@@ -19,20 +19,20 @@ JWT_SECRET = "test-jwt-secret-key-for-testing-minimum-32bytes"
 
 
 def _make_settings(**overrides) -> Settings:
-    defaults = dict(
-        environment="testing",
-        debug=True,
-        database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        ha_url="http://localhost:8123",
-        ha_token=SecretStr("test-token"),
-        openai_api_key=SecretStr("test-api-key"),
-        mlflow_tracking_uri="http://localhost:5000",
-        sandbox_enabled=False,
-        auth_username="admin",
-        auth_password=SecretStr("test-password"),
-        jwt_secret=SecretStr(JWT_SECRET),
-        api_key=SecretStr(""),
-    )
+    defaults = {
+        "environment": "testing",
+        "debug": True,
+        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
+        "ha_url": "http://localhost:8123",
+        "ha_token": SecretStr("test-token"),
+        "openai_api_key": SecretStr("test-api-key"),
+        "mlflow_tracking_uri": "http://localhost:5000",
+        "sandbox_enabled": False,
+        "auth_username": "admin",
+        "auth_password": SecretStr("test-password"),
+        "jwt_secret": SecretStr(JWT_SECRET),
+        "api_key": SecretStr(""),
+    }
     defaults.update(overrides)
     return Settings(**defaults)
 
@@ -72,7 +72,7 @@ def _mock_rating(
     config_snapshot=None,
 ):
     """Create a mock ModelRating object."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     m = MagicMock()
     m.id = id_val
     m.model_name = model_name
@@ -108,7 +108,7 @@ class TestModelRatingSchemas:
     def test_create_rejects_rating_below_1(self):
         from src.api.routes.model_ratings import ModelRatingCreate
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ModelRatingCreate(
                 model_name="gpt-4o",
                 agent_role="architect",
@@ -118,7 +118,7 @@ class TestModelRatingSchemas:
     def test_create_rejects_rating_above_5(self):
         from src.api.routes.model_ratings import ModelRatingCreate
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ModelRatingCreate(
                 model_name="gpt-4o",
                 agent_role="architect",
@@ -193,7 +193,7 @@ class TestCreateRating:
 
     async def test_creates_rating(self, client: AsyncClient):
         token = _make_jwt()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         mock_session = AsyncMock()
         mock_session.add = MagicMock()

@@ -3,7 +3,7 @@
 T093: Tests for DeveloperAgent deployment logic.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -34,14 +34,16 @@ class TestDeveloperAgent:
         proposal.mode = "single"
         proposal.status = ProposalStatus.APPROVED
         proposal.ha_automation_id = None
-        proposal.created_at = datetime.now(timezone.utc)
+        proposal.created_at = datetime.now(UTC)
         proposal.approved_by = "user"
-        proposal.to_ha_yaml_dict = MagicMock(return_value={
-            "alias": "Test Automation",
-            "trigger": [{"platform": "time", "at": "08:00"}],
-            "action": [{"service": "light.turn_on"}],
-            "mode": "single",
-        })
+        proposal.to_ha_yaml_dict = MagicMock(
+            return_value={
+                "alias": "Test Automation",
+                "trigger": [{"platform": "time", "at": "08:00"}],
+                "action": [{"service": "light.turn_on"}],
+                "mode": "single",
+            }
+        )
         return proposal
 
     @pytest.mark.asyncio
@@ -66,8 +68,10 @@ class TestDeveloperAgent:
             return_value={"success": True, "method": "rest_api"}
         )
 
-        with patch.object(DeveloperAgent, "ha", mock_ha_client), \
-             patch("src.agents.developer.AutomationDeployer", return_value=mock_deployer):
+        with (
+            patch.object(DeveloperAgent, "ha", mock_ha_client),
+            patch("src.agents.developer.AutomationDeployer", return_value=mock_deployer),
+        ):
             agent = DeveloperAgent(ha_client=mock_ha_client)
 
             # Mock session and repo

@@ -9,7 +9,6 @@ Constitution: Reliability & Quality - comprehensive API testing.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from starlette.testclient import TestClient
 from starlette.requests import Request as StarletteRequest
 
 from src.api.routes.ha_registry import RegistrySyncResponse, sync_registry
@@ -46,7 +45,9 @@ class TestRegistrySyncEndpoint:
 
         mock_session = AsyncMock()
 
-        with patch("src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock) as mock_sync:
+        with patch(
+            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+        ) as mock_sync:
             mock_sync.return_value = mock_result
 
             response = await sync_registry(request=_make_request(), session=mock_session)
@@ -65,7 +66,9 @@ class TestRegistrySyncEndpoint:
 
         mock_session = AsyncMock()
 
-        with patch("src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock) as mock_sync:
+        with patch(
+            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+        ) as mock_sync:
             mock_sync.side_effect = Exception("MCP connection failed")
 
             with pytest.raises(HTTPException) as exc_info:
@@ -87,7 +90,9 @@ class TestRegistrySyncEndpoint:
 
         mock_session = AsyncMock()
 
-        with patch("src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock) as mock_sync:
+        with patch(
+            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+        ) as mock_sync:
             mock_sync.return_value = mock_result
 
             response = await sync_registry(request=_make_request(), session=mock_session)
@@ -104,7 +109,9 @@ class TestRegistrySyncEndpoint:
         """Test that the DB session is passed to the sync function."""
         mock_session = AsyncMock()
 
-        with patch("src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock) as mock_sync:
+        with patch(
+            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+        ) as mock_sync:
             mock_sync.return_value = {
                 "automations_synced": 0,
                 "scripts_synced": 0,

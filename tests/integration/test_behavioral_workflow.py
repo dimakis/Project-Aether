@@ -6,8 +6,8 @@ Constitution: Reliability & Quality.
 TDD: T238 - Full behavioral analysis workflow.
 """
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -19,30 +19,34 @@ def mock_ha_client():
     """Create a mock HA client with behavioral data."""
     client = AsyncMock()
 
-    now = datetime.now(timezone.utc)
-    client.get_logbook = AsyncMock(return_value=[
-        {
-            "entity_id": "light.living_room",
-            "name": "Living Room",
-            "message": "turned on",
-            "when": (now - timedelta(hours=2)).isoformat(),
-            "state": "on",
-            "context_user_id": "user1",
-        },
-        {
-            "entity_id": "automation.sunset_lights",
-            "name": "Sunset Lights",
-            "message": "triggered",
-            "when": (now - timedelta(hours=1)).isoformat(),
-            "state": "on",
-        },
-    ])
+    now = datetime.now(UTC)
+    client.get_logbook = AsyncMock(
+        return_value=[
+            {
+                "entity_id": "light.living_room",
+                "name": "Living Room",
+                "message": "turned on",
+                "when": (now - timedelta(hours=2)).isoformat(),
+                "state": "on",
+                "context_user_id": "user1",
+            },
+            {
+                "entity_id": "automation.sunset_lights",
+                "name": "Sunset Lights",
+                "message": "triggered",
+                "when": (now - timedelta(hours=1)).isoformat(),
+                "state": "on",
+            },
+        ]
+    )
     client.list_automations = AsyncMock(return_value=[])
-    client.get_history = AsyncMock(return_value={
-        "entity_id": "light.living_room",
-        "states": [],
-        "count": 0,
-    })
+    client.get_history = AsyncMock(
+        return_value={
+            "entity_id": "light.living_room",
+            "states": [],
+            "count": 0,
+        }
+    )
     client.list_entities = AsyncMock(return_value=[])
 
     return client
@@ -84,11 +88,13 @@ class TestOptimizationNodes:
 
         state = AnalysisState(
             analysis_type=AnalysisType.BEHAVIOR_ANALYSIS,
-            insights=[{
-                "type": "behavioral_pattern",
-                "title": "Test",
-                "impact": "medium",
-            }],
+            insights=[
+                {
+                    "type": "behavioral_pattern",
+                    "title": "Test",
+                    "impact": "medium",
+                }
+            ],
             recommendations=["Test recommendation"],
         )
 

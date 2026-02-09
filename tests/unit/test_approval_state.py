@@ -3,7 +3,7 @@
 T094: Tests for ApprovalState and ProposalStatus transitions.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -90,7 +90,6 @@ class TestProposalStatusTransitions:
 
     def test_invalid_transition_proposed_to_deployed(self, proposal):
         """Test HITL safety - cannot skip approval."""
-        from src.storage.entities import ProposalStatus
 
         proposal.propose()
         # Cannot go directly from proposed to deployed (HITL safety)
@@ -220,7 +219,7 @@ class TestHITLApproval:
 
         approval.approved = True
         approval.approved_by = "user"
-        approval.approved_at = datetime.now(timezone.utc)
+        approval.approved_at = datetime.now(UTC)
 
         assert approval.approved is True
         assert approval.approved_by == "user"

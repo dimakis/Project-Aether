@@ -4,8 +4,6 @@ Verifies the architect system prompt instructs use of seek_approval
 for all mutating actions, and that the tool is available.
 """
 
-import pytest
-
 
 class TestArchitectSeekApprovalPrompt:
     """Tests that the architect system prompt directs seek_approval usage."""
@@ -13,6 +11,7 @@ class TestArchitectSeekApprovalPrompt:
     def test_system_prompt_mentions_seek_approval(self):
         """The system prompt instructs the architect to use seek_approval."""
         from src.agents.prompts import load_prompt
+
         ARCHITECT_SYSTEM_PROMPT = load_prompt("architect_system")
 
         assert "seek_approval" in ARCHITECT_SYSTEM_PROMPT
@@ -20,6 +19,7 @@ class TestArchitectSeekApprovalPrompt:
     def test_system_prompt_forbids_control_entity(self):
         """The system prompt tells the architect NOT to use control_entity directly."""
         from src.agents.prompts import load_prompt
+
         ARCHITECT_SYSTEM_PROMPT = load_prompt("architect_system")
 
         assert "NEVER call `control_entity`" in ARCHITECT_SYSTEM_PROMPT
@@ -27,6 +27,7 @@ class TestArchitectSeekApprovalPrompt:
     def test_system_prompt_forbids_deploy_automation(self):
         """The system prompt tells the architect NOT to use deploy_automation directly."""
         from src.agents.prompts import load_prompt
+
         ARCHITECT_SYSTEM_PROMPT = load_prompt("architect_system")
 
         assert "NEVER call" in ARCHITECT_SYSTEM_PROMPT
@@ -35,6 +36,7 @@ class TestArchitectSeekApprovalPrompt:
     def test_system_prompt_covers_all_action_types(self):
         """The system prompt documents all four action types."""
         from src.agents.prompts import load_prompt
+
         ARCHITECT_SYSTEM_PROMPT = load_prompt("architect_system")
 
         assert "entity_command" in ARCHITECT_SYSTEM_PROMPT
@@ -62,6 +64,7 @@ class TestArchitectSeekApprovalPrompt:
     def test_system_prompt_mentions_proposals_page(self):
         """The system prompt tells the architect to direct users to Proposals page."""
         from src.agents.prompts import load_prompt
+
         ARCHITECT_SYSTEM_PROMPT = load_prompt("architect_system")
 
         assert "Proposals" in ARCHITECT_SYSTEM_PROMPT

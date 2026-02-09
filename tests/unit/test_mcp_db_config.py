@@ -6,8 +6,9 @@ Tests:
 - HA client resolution logic
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from pydantic import SecretStr
 
 from src.settings import Settings
@@ -15,17 +16,17 @@ from src.settings import Settings
 
 def _make_settings(**overrides) -> Settings:
     """Create test settings."""
-    defaults = dict(
-        environment="testing",
-        debug=True,
-        database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        ha_url="http://env-ha:8123",
-        ha_token=SecretStr("env-token"),
-        openai_api_key=SecretStr("test-key"),
-        mlflow_tracking_uri="http://localhost:5000",
-        sandbox_enabled=False,
-        jwt_secret=SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-    )
+    defaults = {
+        "environment": "testing",
+        "debug": True,
+        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
+        "ha_url": "http://env-ha:8123",
+        "ha_token": SecretStr("env-token"),
+        "openai_api_key": SecretStr("test-key"),
+        "mlflow_tracking_uri": "http://localhost:5000",
+        "sandbox_enabled": False,
+        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
+    }
     defaults.update(overrides)
     return Settings(**defaults)
 
@@ -50,15 +51,9 @@ class TestResetHAClient:
 
         # Patch _resolve_zone_config to avoid DB access
         settings = _make_settings()
-        monkeypatch.setattr(
-            "src.ha.base.get_settings", lambda: settings
-        )
-        monkeypatch.setattr(
-            "src.ha.base._try_get_db_config", lambda s: None
-        )
-        monkeypatch.setattr(
-            "src.ha.client._resolve_zone_config", lambda key: None
-        )
+        monkeypatch.setattr("src.ha.base.get_settings", lambda: settings)
+        monkeypatch.setattr("src.ha.base._try_get_db_config", lambda s: None)
+        monkeypatch.setattr("src.ha.client._resolve_zone_config", lambda key: None)
 
         # Reset
         client_mod.reset_ha_client()
@@ -78,14 +73,15 @@ class TestTryGetDBConfig:
 
     def test_returns_none_when_db_raises(self):
         """Returns None when DB raises an exception."""
-        import asyncio as real_asyncio
         from src.ha.base import _try_get_db_config
 
         settings = _make_settings()
 
         # Patch get_session to raise an error (no DB available)
-        with patch.dict("sys.modules", {}), \
-             patch("src.storage.get_session", side_effect=Exception("no DB")):
+        with (
+            patch.dict("sys.modules", {}),
+            patch("src.storage.get_session", side_effect=Exception("no DB")),
+        ):
             result = _try_get_db_config(settings)
 
         assert result is None

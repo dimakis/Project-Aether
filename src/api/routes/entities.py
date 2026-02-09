@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rate_limit import limiter
-
 from src.api.schemas.entities import (
     EntityListResponse,
     EntityQueryRequest,

@@ -4,8 +4,9 @@ Validates the conversational agent that generates Lovelace dashboard
 configurations by consulting DS team specialists.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 class TestDashboardDesignerInit:
@@ -93,9 +94,10 @@ class TestDashboardDesignerInvoke:
     @pytest.mark.asyncio
     async def test_invoke_includes_system_prompt(self):
         """invoke sends the system prompt to the LLM."""
+        from langchain_core.messages import HumanMessage
+
         from src.agents.dashboard_designer import DashboardDesignerAgent
         from src.graph.state import DashboardState
-        from langchain_core.messages import HumanMessage
 
         agent = DashboardDesignerAgent()
         state = DashboardState()

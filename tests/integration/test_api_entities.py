@@ -7,7 +7,6 @@ Constitution: Reliability & Quality - API integration testing.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture
@@ -109,9 +108,7 @@ class TestEntityGetEndpoint:
 class TestEntitySyncEndpoint:
     """Tests for POST /entities/sync endpoint."""
 
-    async def test_sync_entities_triggers_discovery(
-        self, async_client, mock_discovery_session
-    ):
+    async def test_sync_entities_triggers_discovery(self, async_client, mock_discovery_session):
         """Test that sync endpoint triggers discovery."""
         with patch("src.api.routes.entities.run_discovery", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = mock_discovery_session

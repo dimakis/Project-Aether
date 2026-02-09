@@ -4,9 +4,10 @@ CRUD endpoints for per-agent model quality ratings.
 """
 
 import logging
+from datetime import UTC
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -171,15 +172,12 @@ async def model_summary(
     from sqlalchemy import func
 
     async with get_session() as session:
-        query = (
-            select(
-                ModelRating.model_name,
-                ModelRating.agent_role,
-                func.avg(ModelRating.rating).label("avg_rating"),
-                func.count(ModelRating.id).label("rating_count"),
-            )
-            .group_by(ModelRating.model_name, ModelRating.agent_role)
-        )
+        query = select(
+            ModelRating.model_name,
+            ModelRating.agent_role,
+            func.avg(ModelRating.rating).label("avg_rating"),
+            func.count(ModelRating.id).label("rating_count"),
+        ).group_by(ModelRating.model_name, ModelRating.agent_role)
 
         if agent_role:
             query = query.where(ModelRating.agent_role == agent_role)
@@ -229,14 +227,14 @@ async def model_performance(
         agent_role: Filter by agent role (e.g. 'architect')
         hours: Time window in hours (default: 168 = 7 days)
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    from sqlalchemy import case, func
+    from sqlalchemy import func
 
     from src.storage.entities.llm_usage import LLMUsage
 
     async with get_session() as session:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
         # Base query filtered by time
         base = select(LLMUsage).where(LLMUsage.created_at >= cutoff)
@@ -282,7 +280,9 @@ async def model_performance(
                 total_output_tokens=row.total_output_tokens or 0,
                 total_tokens=row.total_tokens or 0,
                 total_cost_usd=round(float(row.total_cost_usd), 4) if row.total_cost_usd else None,
-                avg_cost_per_call=round(float(row.avg_cost_per_call), 4) if row.avg_cost_per_call else None,
+                avg_cost_per_call=round(float(row.avg_cost_per_call), 4)
+                if row.avg_cost_per_call
+                else None,
             )
             for row in rows
         ]

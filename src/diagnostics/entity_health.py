@@ -7,7 +7,7 @@ correlates issues to find common root causes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -63,14 +63,16 @@ async def find_unavailable_entities(ha: Any) -> list[EntityDiagnostic]:
     for entity in entities:
         state = str(entity.get("state", "")).lower()
         if state in _UNHEALTHY_STATES:
-            diagnostics.append(EntityDiagnostic(
-                entity_id=entity.get("entity_id", "unknown"),
-                state=state,
-                available=False,
-                last_changed=entity.get("last_changed"),
-                integration=_extract_integration(entity.get("entity_id", "")),
-                issues=[f"Entity is {state}"],
-            ))
+            diagnostics.append(
+                EntityDiagnostic(
+                    entity_id=entity.get("entity_id", "unknown"),
+                    state=state,
+                    available=False,
+                    last_changed=entity.get("last_changed"),
+                    integration=_extract_integration(entity.get("entity_id", "")),
+                    issues=[f"Entity is {state}"],
+                )
+            )
 
     return diagnostics
 
@@ -91,7 +93,7 @@ async def find_stale_entities(
     raw = await ha.list_entities()
     entities = _entities_from_response(raw)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     diagnostics = []
 
     for entity in entities:
@@ -100,20 +102,20 @@ async def find_stale_entities(
             continue
 
         try:
-            last_changed = datetime.fromisoformat(
-                last_changed_str.replace("Z", "+00:00")
-            )
+            last_changed = datetime.fromisoformat(last_changed_str.replace("Z", "+00:00"))
             delta_hours = (now - last_changed).total_seconds() / 3600
 
             if delta_hours > hours:
-                diagnostics.append(EntityDiagnostic(
-                    entity_id=entity.get("entity_id", "unknown"),
-                    state=entity.get("state", "unknown"),
-                    available=entity.get("state", "").lower() not in _UNHEALTHY_STATES,
-                    last_changed=last_changed_str,
-                    integration=_extract_integration(entity.get("entity_id", "")),
-                    issues=[f"Not updated for {delta_hours:.1f} hours"],
-                ))
+                diagnostics.append(
+                    EntityDiagnostic(
+                        entity_id=entity.get("entity_id", "unknown"),
+                        state=entity.get("state", "unknown"),
+                        available=entity.get("state", "").lower() not in _UNHEALTHY_STATES,
+                        last_changed=last_changed_str,
+                        integration=_extract_integration(entity.get("entity_id", "")),
+                        issues=[f"Not updated for {delta_hours:.1f} hours"],
+                    )
+                )
         except (ValueError, TypeError):
             continue
 
@@ -147,11 +149,13 @@ def correlate_unavailability(
 
     correlations = []
     for integration, entity_ids in sorted(groups.items(), key=lambda x: -len(x[1])):
-        correlations.append({
-            "integration": integration,
-            "count": len(entity_ids),
-            "entity_ids": entity_ids,
-            "likely_common_cause": len(entity_ids) >= common_cause_threshold,
-        })
+        correlations.append(
+            {
+                "integration": integration,
+                "count": len(entity_ids),
+                "entity_ids": entity_ids,
+                "likely_common_cause": len(entity_ids) >= common_cause_threshold,
+            }
+        )
 
     return correlations

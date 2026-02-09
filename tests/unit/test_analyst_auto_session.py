@@ -7,17 +7,15 @@ via the new _persist_with_fallback helper.
 TDD: Analyst auto-session for insight persistence via any invocation path.
 """
 
-import asyncio
 from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from src.agents.base_analyst import BaseAnalyst
 from src.agents.execution_context import (
-    ExecutionContext,
-    execution_context,
     clear_execution_context,
+    execution_context,
 )
 from src.graph.state import (
     AgentRole,
@@ -25,7 +23,6 @@ from src.graph.state import (
     AnalysisType,
     SpecialistFinding,
 )
-from src.sandbox.runner import SandboxResult
 
 
 class StubAnalyst(BaseAnalyst):
@@ -132,8 +129,10 @@ class TestPersistWithFallback:
         """When findings list is empty, persist should not be called."""
         mock_session = AsyncMock()
 
-        with patch.object(analyst, "extract_findings", return_value=[]), \
-             patch.object(analyst, "persist_findings", new_callable=AsyncMock) as mock_persist:
+        with (
+            patch.object(analyst, "extract_findings", return_value=[]),
+            patch.object(analyst, "persist_findings", new_callable=AsyncMock) as mock_persist,
+        ):
             await analyst.invoke(state, session=mock_session)
 
         mock_persist.assert_not_called()

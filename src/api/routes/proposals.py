@@ -3,12 +3,12 @@
 User Story 2: HITL approval for automation proposals.
 """
 
-from datetime import datetime, timezone
+import contextlib
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request
 
 from src.api.rate_limit import limiter
-
 from src.api.schemas import (
     ApprovalRequest,
     DeploymentRequest,
@@ -34,7 +34,9 @@ def _proposal_to_response(p) -> ProposalResponse:
     """Convert an AutomationProposal model to a ProposalResponse schema."""
     return ProposalResponse(
         id=p.id,
-        proposal_type=p.proposal_type if isinstance(p.proposal_type, str) else (p.proposal_type.value if hasattr(p.proposal_type, "value") else "automation"),
+        proposal_type=p.proposal_type
+        if isinstance(p.proposal_type, str)
+        else (p.proposal_type.value if hasattr(p.proposal_type, "value") else "automation"),
         conversation_id=p.conversation_id,
         name=p.name,
         description=p.description,
@@ -74,10 +76,8 @@ async def list_proposals(
         # Parse status filter
         status_filter = None
         if status:
-            try:
+            with contextlib.suppress(ValueError):
                 status_filter = ProposalStatus(status.lower())
-            except ValueError:
-                pass
 
         if status_filter:
             proposals = await repo.list_by_status(status_filter, limit=limit)
@@ -319,7 +319,7 @@ async def deploy_proposal(
                 method=result.get("deployment_method", "manual"),
                 yaml_content=result.get("yaml_content", ""),
                 instructions=result.get("instructions"),
-                deployed_at=datetime.now(timezone.utc) if deploy_success else None,
+                deployed_at=datetime.now(UTC) if deploy_success else None,
                 error=deploy_error,
             )
 
@@ -386,7 +386,7 @@ async def rollback_proposal(
                 ha_automation_id=result.get("ha_automation_id"),
                 ha_disabled=result.get("ha_disabled", False),
                 ha_error=result.get("ha_error"),
-                rolled_back_at=datetime.now(timezone.utc),
+                rolled_back_at=datetime.now(UTC),
                 note=result.get("note"),
             )
 
@@ -396,7 +396,7 @@ async def rollback_proposal(
             raise HTTPException(
                 status_code=500,
                 detail=sanitize_error(e, context="Rollback proposal"),
-            )
+            ) from e
 
 
 @router.delete(
@@ -458,7 +458,10 @@ async def _deploy_entity_command(proposal, repo: ProposalRepository) -> dict:
     await repo.deploy(proposal.id, command_id)
 
     import yaml as yaml_lib
-    yaml_content = yaml_lib.dump(proposal.to_ha_yaml_dict(), default_flow_style=False, sort_keys=False)
+
+    yaml_content = yaml_lib.dump(
+        proposal.to_ha_yaml_dict(), default_flow_style=False, sort_keys=False
+    )
 
     return {
         "ha_automation_id": command_id,

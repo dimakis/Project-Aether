@@ -129,12 +129,12 @@ class SuggestionListResponse(BaseModel):
 
 # Exports
 __all__ = [
-    "OptimizationAnalysisType",
-    "SuggestionStatus",
-    "OptimizationRequest",
     "AutomationSuggestionResponse",
+    "OptimizationAnalysisType",
+    "OptimizationRequest",
     "OptimizationResult",
     "SuggestionAcceptRequest",
-    "SuggestionRejectRequest",
     "SuggestionListResponse",
+    "SuggestionRejectRequest",
+    "SuggestionStatus",
 ]

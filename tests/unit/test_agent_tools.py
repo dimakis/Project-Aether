@@ -18,20 +18,24 @@ class TestGetEntityHistoryBasic:
         from src.tools.agent_tools import get_entity_history
 
         mock_mcp = MagicMock()
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": [
-                {"state": "22.5", "last_changed": "2026-02-06T10:00:00Z"},
-                {"state": "23.0", "last_changed": "2026-02-06T11:00:00Z"},
-                {"state": "22.8", "last_changed": "2026-02-06T12:00:00Z"},
-            ],
-            "count": 3,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": [
+                    {"state": "22.5", "last_changed": "2026-02-06T10:00:00Z"},
+                    {"state": "23.0", "last_changed": "2026-02-06T11:00:00Z"},
+                    {"state": "22.8", "last_changed": "2026-02-06T12:00:00Z"},
+                ],
+                "count": 3,
+            }
+        )
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            result = await get_entity_history.ainvoke({
-                "entity_id": "sensor.temperature",
-                "hours": 24,
-            })
+            result = await get_entity_history.ainvoke(
+                {
+                    "entity_id": "sensor.temperature",
+                    "hours": 24,
+                }
+            )
 
         assert "sensor.temperature" in result
         assert "3 state changes" in result
@@ -46,10 +50,12 @@ class TestGetEntityHistoryBasic:
         mock_mcp.get_history = AsyncMock(return_value={"states": [], "count": 0})
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            result = await get_entity_history.ainvoke({
-                "entity_id": "sensor.missing",
-                "hours": 24,
-            })
+            result = await get_entity_history.ainvoke(
+                {
+                    "entity_id": "sensor.missing",
+                    "hours": 24,
+                }
+            )
 
         assert "no history" in result.lower()
 
@@ -59,16 +65,20 @@ class TestGetEntityHistoryBasic:
         from src.tools.agent_tools import get_entity_history
 
         mock_mcp = MagicMock()
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": [{"state": "on", "last_changed": "2026-02-06T10:00:00Z"}],
-            "count": 1,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": [{"state": "on", "last_changed": "2026-02-06T10:00:00Z"}],
+                "count": 1,
+            }
+        )
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            await get_entity_history.ainvoke({
-                "entity_id": "light.test",
-                "hours": 500,
-            })
+            await get_entity_history.ainvoke(
+                {
+                    "entity_id": "light.test",
+                    "hours": 500,
+                }
+            )
 
         # Verify MCP was called with capped hours
         mock_mcp.get_history.assert_called_once_with(entity_id="light.test", hours=168)
@@ -83,22 +93,26 @@ class TestGetEntityHistoryDetailed:
         from src.tools.agent_tools import get_entity_history
 
         mock_mcp = MagicMock()
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": [
-                {"state": "on", "last_changed": "2026-02-06T10:00:00Z"},
-                {"state": "off", "last_changed": "2026-02-06T11:00:00Z"},
-                {"state": "on", "last_changed": "2026-02-06T12:00:00Z"},
-                {"state": "off", "last_changed": "2026-02-06T13:00:00Z"},
-            ],
-            "count": 4,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": [
+                    {"state": "on", "last_changed": "2026-02-06T10:00:00Z"},
+                    {"state": "off", "last_changed": "2026-02-06T11:00:00Z"},
+                    {"state": "on", "last_changed": "2026-02-06T12:00:00Z"},
+                    {"state": "off", "last_changed": "2026-02-06T13:00:00Z"},
+                ],
+                "count": 4,
+            }
+        )
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            result = await get_entity_history.ainvoke({
-                "entity_id": "light.living_room",
-                "hours": 24,
-                "detailed": True,
-            })
+            result = await get_entity_history.ainvoke(
+                {
+                    "entity_id": "light.living_room",
+                    "hours": 24,
+                    "detailed": True,
+                }
+            )
 
         assert "Detailed History" in result
         assert "State Distribution" in result
@@ -112,20 +126,23 @@ class TestGetEntityHistoryDetailed:
 
         mock_mcp = MagicMock()
         states = [
-            {"state": f"val_{i}", "last_changed": f"2026-02-06T{i:02d}:00:00Z"}
-            for i in range(25)
+            {"state": f"val_{i}", "last_changed": f"2026-02-06T{i:02d}:00:00Z"} for i in range(25)
         ]
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": states,
-            "count": 25,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": states,
+                "count": 25,
+            }
+        )
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            result = await get_entity_history.ainvoke({
-                "entity_id": "sensor.test",
-                "hours": 48,
-                "detailed": True,
-            })
+            result = await get_entity_history.ainvoke(
+                {
+                    "entity_id": "sensor.test",
+                    "hours": 48,
+                    "detailed": True,
+                }
+            )
 
         assert "20 of 25" in result
         # Should show val_5 through val_24 (last 20)
@@ -140,23 +157,27 @@ class TestGetEntityHistoryDetailed:
         from src.tools.agent_tools import get_entity_history
 
         mock_mcp = MagicMock()
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": [
-                {"state": "22.0", "last_changed": "2026-02-01T10:00:00Z"},
-                {"state": "22.5", "last_changed": "2026-02-01T10:30:00Z"},
-                # 48-hour gap
-                {"state": "23.0", "last_changed": "2026-02-03T10:30:00Z"},
-                {"state": "22.8", "last_changed": "2026-02-03T11:00:00Z"},
-            ],
-            "count": 4,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": [
+                    {"state": "22.0", "last_changed": "2026-02-01T10:00:00Z"},
+                    {"state": "22.5", "last_changed": "2026-02-01T10:30:00Z"},
+                    # 48-hour gap
+                    {"state": "23.0", "last_changed": "2026-02-03T10:30:00Z"},
+                    {"state": "22.8", "last_changed": "2026-02-03T11:00:00Z"},
+                ],
+                "count": 4,
+            }
+        )
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            result = await get_entity_history.ainvoke({
-                "entity_id": "sensor.energy",
-                "hours": 72,
-                "detailed": True,
-            })
+            result = await get_entity_history.ainvoke(
+                {
+                    "entity_id": "sensor.energy",
+                    "hours": 72,
+                    "detailed": True,
+                }
+            )
 
         assert "Data Gaps Detected" in result
         assert "no data" in result.lower()
@@ -167,21 +188,25 @@ class TestGetEntityHistoryDetailed:
         from src.tools.agent_tools import get_entity_history
 
         mock_mcp = MagicMock()
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": [
-                {"state": "on", "last_changed": "2026-02-06T10:00:00Z"},
-                {"state": "off", "last_changed": "2026-02-06T10:30:00Z"},
-                {"state": "on", "last_changed": "2026-02-06T11:00:00Z"},
-            ],
-            "count": 3,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": [
+                    {"state": "on", "last_changed": "2026-02-06T10:00:00Z"},
+                    {"state": "off", "last_changed": "2026-02-06T10:30:00Z"},
+                    {"state": "on", "last_changed": "2026-02-06T11:00:00Z"},
+                ],
+                "count": 3,
+            }
+        )
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            result = await get_entity_history.ainvoke({
-                "entity_id": "light.test",
-                "hours": 24,
-                "detailed": True,
-            })
+            result = await get_entity_history.ainvoke(
+                {
+                    "entity_id": "light.test",
+                    "hours": 24,
+                    "detailed": True,
+                }
+            )
 
         assert "None detected" in result
 
@@ -191,20 +216,24 @@ class TestGetEntityHistoryDetailed:
         from src.tools.agent_tools import get_entity_history
 
         mock_mcp = MagicMock()
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": [
-                {"state": "on", "last_changed": "2026-02-06T08:00:00Z"},
-                {"state": "off", "last_changed": "2026-02-06T20:00:00Z"},
-            ],
-            "count": 2,
-        })
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": [
+                    {"state": "on", "last_changed": "2026-02-06T08:00:00Z"},
+                    {"state": "off", "last_changed": "2026-02-06T20:00:00Z"},
+                ],
+                "count": 2,
+            }
+        )
 
         with patch("src.ha.get_ha_client", return_value=mock_mcp):
-            result = await get_entity_history.ainvoke({
-                "entity_id": "switch.pump",
-                "hours": 24,
-                "detailed": True,
-            })
+            result = await get_entity_history.ainvoke(
+                {
+                    "entity_id": "switch.pump",
+                    "hours": 24,
+                    "detailed": True,
+                }
+            )
 
         assert "First recorded" in result
         assert "Last recorded" in result
@@ -218,7 +247,6 @@ class TestDiagnoseIssueTool:
     @pytest.mark.asyncio
     async def test_diagnose_issue_delegates_to_ds(self):
         """Test that diagnose_issue correctly delegates to DataScientistWorkflow."""
-        from unittest.mock import PropertyMock
 
         from src.tools.agent_tools import diagnose_issue
 
@@ -249,12 +277,14 @@ class TestDiagnoseIssueTool:
             patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
             patch("src.storage.get_session", return_value=mock_session),
         ):
-            result = await diagnose_issue.ainvoke({
-                "entity_ids": ["sensor.energy_charger"],
-                "diagnostic_context": "HA logs show connection timeout errors",
-                "instructions": "Analyze data gaps and identify root cause",
-                "hours": 72,
-            })
+            result = await diagnose_issue.ainvoke(
+                {
+                    "entity_ids": ["sensor.energy_charger"],
+                    "diagnostic_context": "HA logs show connection timeout errors",
+                    "instructions": "Analyze data gaps and identify root cause",
+                    "hours": 72,
+                }
+            )
 
         assert "Data Gap Detected" in result
         assert "Check integration connection" in result
@@ -287,11 +317,13 @@ class TestDiagnoseIssueTool:
             patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
             patch("src.storage.get_session", return_value=mock_session),
         ):
-            result = await diagnose_issue.ainvoke({
-                "entity_ids": ["sensor.test"],
-                "diagnostic_context": "No errors in logs",
-                "instructions": "Check for anomalies",
-            })
+            result = await diagnose_issue.ainvoke(
+                {
+                    "entity_ids": ["sensor.test"],
+                    "diagnostic_context": "No errors in logs",
+                    "instructions": "Check for anomalies",
+                }
+            )
 
         assert "functioning normally" in result.lower() or "didn't identify" in result.lower()
 
@@ -311,11 +343,13 @@ class TestDiagnoseIssueTool:
             patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
             patch("src.storage.get_session", return_value=mock_session),
         ):
-            result = await diagnose_issue.ainvoke({
-                "entity_ids": ["sensor.test"],
-                "diagnostic_context": "Some context",
-                "instructions": "Investigate",
-            })
+            result = await diagnose_issue.ainvoke(
+                {
+                    "entity_ids": ["sensor.test"],
+                    "diagnostic_context": "Some context",
+                    "instructions": "Investigate",
+                }
+            )
 
         assert "failed" in result.lower()
 
@@ -341,12 +375,14 @@ class TestDiagnoseIssueTool:
             patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
             patch("src.storage.get_session", return_value=mock_session),
         ):
-            await diagnose_issue.ainvoke({
-                "entity_ids": ["sensor.test"],
-                "diagnostic_context": "context",
-                "instructions": "investigate",
-                "hours": 500,
-            })
+            await diagnose_issue.ainvoke(
+                {
+                    "entity_ids": ["sensor.test"],
+                    "diagnostic_context": "context",
+                    "instructions": "investigate",
+                    "hours": 500,
+                }
+            )
 
         call_kwargs = mock_workflow.run_analysis.call_args[1]
         assert call_kwargs["hours"] == 168

@@ -27,10 +27,10 @@ async def runner():
     """Create sandbox runner and check if it's available."""
     runner = SandboxRunner()
     status = await runner.check_runtime()
-    
+
     if not status["podman_available"]:
         pytest.skip("Podman not available")
-    
+
     # For sandbox tests, we need gVisor
     # But we can run basic isolation tests without it
     return runner
@@ -49,7 +49,7 @@ try:
     sock.settimeout(5)
     result = sock.connect_ex(('8.8.8.8', 53))
     sock.close()
-    
+
     if result == 0:
         print("NETWORK_ACCESS_ALLOWED")
         sys.exit(0)
@@ -143,7 +143,7 @@ class TestNetworkIsolation:
         status = await runner.check_runtime()
         if not status.get("image_available"):
             pytest.skip("Sandbox image not available")
-        
+
         policy = SandboxPolicy(
             name="test_no_network",
             level=PolicyLevel.STANDARD,
@@ -158,7 +158,11 @@ class TestNetworkIsolation:
 
         # Script should complete (might fail to connect but not crash)
         # The key is network should be blocked
-        assert "NETWORK_BLOCKED" in result.stdout or result.exit_code != 0 or "NETWORK_ACCESS_ALLOWED" not in result.stdout
+        assert (
+            "NETWORK_BLOCKED" in result.stdout
+            or result.exit_code != 0
+            or "NETWORK_ACCESS_ALLOWED" not in result.stdout
+        )
 
     @pytest.mark.asyncio
     async def test_standard_policy_blocks_network(self, runner, network_test_script):
@@ -166,7 +170,7 @@ class TestNetworkIsolation:
         status = await runner.check_runtime()
         if not status.get("image_available"):
             pytest.skip("Sandbox image not available")
-        
+
         policy = get_policy("standard")
 
         result = await runner.run(network_test_script, policy=policy)
@@ -189,8 +193,10 @@ class TestFilesystemIsolation:
         # Check if we can run containers
         status = await runner.check_runtime()
         if not status.get("image_available"):
-            pytest.skip("Sandbox image not available - build with: podman build -t aether-sandbox -f infrastructure/podman/Containerfile.sandbox .")
-        
+            pytest.skip(
+                "Sandbox image not available - build with: podman build -t aether-sandbox -f infrastructure/podman/Containerfile.sandbox ."
+            )
+
         policy = SandboxPolicy(
             name="test_readonly",
             level=PolicyLevel.STANDARD,
@@ -216,7 +222,7 @@ class TestFilesystemIsolation:
         status = await runner.check_runtime()
         if not status.get("image_available"):
             pytest.skip("Sandbox image not available")
-        
+
         script = """
 import tempfile
 import os
@@ -252,7 +258,7 @@ class TestResourceLimits:
         status = await runner.check_runtime()
         if not status.get("image_available"):
             pytest.skip("Sandbox image not available")
-        
+
         policy = SandboxPolicy(
             name="test_memory",
             level=PolicyLevel.STANDARD,
@@ -278,7 +284,7 @@ class TestResourceLimits:
         status = await runner.check_runtime()
         if not status.get("image_available"):
             pytest.skip("Sandbox image not available")
-        
+
         script = """
 import time
 time.sleep(60)  # Sleep for 60 seconds
@@ -321,7 +327,7 @@ class TestSecurityCapabilities:
         status = await runner.check_runtime()
         if not status.get("image_available"):
             pytest.skip("Sandbox image not available")
-        
+
         script = """
 import os
 import sys
@@ -349,7 +355,7 @@ except OSError as e:
         status = await runner.check_runtime()
         if not status.get("image_available"):
             pytest.skip("Sandbox image not available")
-        
+
         script = """
 import os
 import pwd

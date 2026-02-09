@@ -59,9 +59,7 @@ async def list_entities_by_domain(domain: str, state_filter: str | None = None) 
         entities = await repo.list_by_domain(domain)
 
     if state_filter:
-        entities = [
-            e for e in entities if str(e.state or "").lower() == state_filter.lower()
-        ]
+        entities = [e for e in entities if str(e.state or "").lower() == state_filter.lower()]
 
     if not entities:
         return f"No entities found for domain '{domain}'."
@@ -662,21 +660,21 @@ def get_ha_tools() -> list[Any]:
 
 
 __all__ = [
-    "get_entity_state",
-    "list_entities_by_domain",
-    "search_entities",
-    "get_domain_summary",
+    "check_ha_config",
     "control_entity",
-    "deploy_automation",
-    "delete_automation",
-    "list_automations",
-    "create_script",
-    "create_scene",
     "create_input_boolean",
     "create_input_number",
+    "create_scene",
+    "create_script",
+    "delete_automation",
+    "deploy_automation",
     "fire_event",
-    "render_template",
+    "get_domain_summary",
+    "get_entity_state",
     "get_ha_logs",
-    "check_ha_config",
     "get_ha_tools",
+    "list_automations",
+    "list_entities_by_domain",
+    "render_template",
+    "search_entities",
 ]

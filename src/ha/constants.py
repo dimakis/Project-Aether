@@ -371,11 +371,13 @@ def get_all_services() -> list[dict[str, Any]]:
     services = []
     for domain, domain_services in COMMON_SERVICES.items():
         for service in domain_services:
-            services.append({
-                "domain": domain,
-                **service,
-                "is_seeded": True,
-            })
+            services.append(
+                {
+                    "domain": domain,
+                    **service,
+                    "is_seeded": True,
+                }
+            )
     return services
 
 

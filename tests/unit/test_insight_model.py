@@ -3,8 +3,6 @@
 TDD: T091 - Test Insight model before implementation.
 """
 
-import pytest
-from datetime import datetime
 from uuid import uuid4
 
 
@@ -13,7 +11,7 @@ class TestInsightModel:
 
     def test_insight_creation(self):
         """Test creating an Insight instance."""
-        from src.storage.entities import Insight, InsightType, InsightStatus
+        from src.storage.entities import Insight, InsightType
 
         insight = Insight(
             id=str(uuid4()),
@@ -33,7 +31,7 @@ class TestInsightModel:
 
     def test_insight_with_script(self):
         """Test Insight with analysis script."""
-        from src.storage.entities import Insight, InsightType, InsightStatus
+        from src.storage.entities import Insight, InsightType
 
         insight = Insight(
             id=str(uuid4()),
@@ -53,7 +51,7 @@ class TestInsightModel:
 
     def test_insight_status_transitions(self):
         """Test Insight status can transition."""
-        from src.storage.entities import Insight, InsightType, InsightStatus
+        from src.storage.entities import Insight, InsightStatus, InsightType
 
         insight = Insight(
             id=str(uuid4()),
@@ -79,7 +77,7 @@ class TestInsightModel:
 
     def test_insight_with_mlflow_run(self):
         """Test Insight tracks MLflow run ID."""
-        from src.storage.entities import Insight, InsightType, InsightStatus
+        from src.storage.entities import Insight, InsightType
 
         run_id = str(uuid4())
         insight = Insight(

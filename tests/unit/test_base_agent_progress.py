@@ -12,12 +12,9 @@ import pytest
 
 from src.agents import BaseAgent
 from src.agents.execution_context import (
-    ExecutionContext,
     ProgressEvent,
     clear_execution_context,
-    emit_progress,
     execution_context,
-    get_execution_context,
 )
 from src.graph.state import AgentRole, BaseState
 

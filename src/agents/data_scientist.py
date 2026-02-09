@@ -14,28 +14,28 @@ Constitution: Observability - All analysis traced in MLflow.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
+
+import contextlib
 
 from src.agents import BaseAgent
 from src.agents.model_context import get_model_context, resolve_model
 from src.agents.prompts import load_prompt
 from src.dal import EntityRepository, InsightRepository
 from src.graph.state import AgentRole, AnalysisState, AnalysisType, AutomationSuggestion
-from src.llm import get_llm
 from src.ha import EnergyHistoryClient, HAClient, get_ha_client
 from src.ha.behavioral import BehavioralAnalysisClient
+from src.llm import get_llm
 from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
-from src.storage.entities.insight import InsightStatus, InsightType
+from src.storage.entities.insight import InsightType
 from src.tracing import log_metric, log_param, start_experiment_run
 from src.tracing.mlflow import get_active_run
 
@@ -148,22 +148,22 @@ class DataScientistAgent(BaseAgent):
                     analysis_data = await self._collect_behavioral_data(state)
                 else:
                     analysis_data = await self._collect_energy_data(state, session=session)
-                
+
                 # 2. Generate analysis script
                 script = await self._generate_script(state, analysis_data)
                 state.generated_script = script
-                
+
                 # 3. Execute in sandbox
                 result = await self._execute_script(script, analysis_data)
-                
+
                 # 4. Extract insights from output
                 insights = self._extract_insights(result, state)
-                
+
                 # 5. Save insights to database (if session provided)
                 session = kwargs.get("session")
                 if session and insights:
                     await self._persist_insights(insights, session, state)
-                
+
                 # Check for high-confidence, high-impact insights that
                 # could be addressed by an automation (reverse communication)
                 automation_suggestion = self._generate_automation_suggestion(insights)
@@ -175,13 +175,13 @@ class DataScientistAgent(BaseAgent):
                     "recommendations": self._extract_recommendations(result),
                     "automation_suggestion": automation_suggestion,
                 }
-                
+
                 span["outputs"] = {
                     "insight_count": len(insights),
                     "script_length": len(script),
                     "execution_success": result.success,
                 }
-                
+
                 return updates
 
             except Exception as e:
@@ -209,13 +209,13 @@ class DataScientistAgent(BaseAgent):
             Energy data for analysis
         """
         entity_ids = state.entity_ids
-        
+
         # If no specific entities, discover energy sensors from DB first
         if not entity_ids:
             entity_ids = await self._discover_energy_sensors_from_db(session)
             log_param("discovered_sensors", len(entity_ids))
             log_param("discovery_source", "database" if entity_ids else "mcp")
-        
+
         # If DB discovery failed or returned nothing, fall back to MCP
         if not entity_ids:
             energy_client = EnergyHistoryClient(self.ha)
@@ -230,7 +230,7 @@ class DataScientistAgent(BaseAgent):
             entity_ids,
             hours=state.time_range_hours,
         )
-        
+
         log_metric("energy.total_kwh", data.get("total_kwh", 0.0))
         log_metric("energy.sensor_count", float(len(entity_ids)))
 
@@ -238,7 +238,7 @@ class DataScientistAgent(BaseAgent):
         if state.analysis_type == AnalysisType.DIAGNOSTIC and state.diagnostic_context:
             data["diagnostic_context"] = state.diagnostic_context
             log_param("diagnostic_mode", True)
-        
+
         return data
 
     async def _discover_energy_sensors_from_db(
@@ -258,41 +258,37 @@ class DataScientistAgent(BaseAgent):
         """
         if not session:
             return []
-        
+
         try:
             repo = EntityRepository(session)
-            
+
             # Get all sensor entities
             sensors = await repo.list_all(domain="sensor", limit=500)
-            
+
             # Filter for energy-related sensors
             # Energy device classes: energy, power
             # Energy units: kWh, Wh, MWh, W, kW, MW
             energy_device_classes = {"energy", "power"}
             energy_units = {"kWh", "Wh", "MWh", "W", "kW", "MW"}
-            
+
             energy_sensors = []
             for entity in sensors:
                 attrs = entity.attributes or {}
                 device_class = attrs.get("device_class", "")
                 unit = attrs.get("unit_of_measurement", "")
-                
-                is_energy = (
-                    device_class in energy_device_classes
-                    or unit in energy_units
-                )
-                
+
+                is_energy = device_class in energy_device_classes or unit in energy_units
+
                 if is_energy:
                     energy_sensors.append(entity.entity_id)
-            
+
             return energy_sensors[:20]  # Limit to 20
-            
+
         except Exception as e:
             # Log but don't fail - will fall back to MCP
             import logging
-            logging.getLogger(__name__).warning(
-                f"Failed to discover energy sensors from DB: {e}"
-            )
+
+            logging.getLogger(__name__).warning(f"Failed to discover energy sensors from DB: {e}")
             return []
 
     async def _collect_behavioral_data(
@@ -440,26 +436,26 @@ class DataScientistAgent(BaseAgent):
         """
         # Build prompt based on analysis type
         analysis_prompt = self._build_analysis_prompt(state, energy_data)
-        
+
         # Use behavioral prompt for behavioral analysis types
         system_prompt = (
             load_prompt("data_scientist_behavioral")
             if state.analysis_type in BEHAVIORAL_ANALYSIS_TYPES
             else load_prompt("data_scientist_system")
         )
-        
+
         messages = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=analysis_prompt),
         ]
-        
+
         response = await self.llm.ainvoke(messages)
-        
+
         # Extract Python code from response
         script = self._extract_code_from_response(response.content)
-        
+
         log_param("script.lines", script.count("\n") + 1)
-        
+
         return script
 
     def _build_analysis_prompt(
@@ -479,7 +475,7 @@ class DataScientistAgent(BaseAgent):
         entity_count = energy_data.get("entity_count", 0)
         total_kwh = energy_data.get("total_kwh", 0.0)
         hours = state.time_range_hours
-        
+
         # Base context used by several analysis type branches
         base_context = f"""
 I have energy data from {entity_count} sensors over the past {hours} hours.
@@ -490,7 +486,7 @@ Data structure (available in /workspace/data.json):
 - total_kwh: Total consumption
 - hours: Analysis period
 """
-        
+
         if state.analysis_type == AnalysisType.ENERGY_OPTIMIZATION:
             return load_prompt(
                 "data_scientist_energy",
@@ -498,11 +494,13 @@ Data structure (available in /workspace/data.json):
                 hours=str(hours),
                 total_kwh=f"{total_kwh:.2f}",
             )
-        
+
         elif state.analysis_type == AnalysisType.DIAGNOSTIC:
             instructions = state.custom_query or "Perform a general diagnostic analysis"
-            diagnostic_ctx = state.diagnostic_context or "No additional diagnostic context provided."
-            
+            diagnostic_ctx = (
+                state.diagnostic_context or "No additional diagnostic context provided."
+            )
+
             return load_prompt(
                 "data_scientist_diagnostic",
                 entity_count=str(entity_count),
@@ -511,7 +509,7 @@ Data structure (available in /workspace/data.json):
                 diagnostic_context=diagnostic_ctx,
                 instructions=instructions,
             )
-        
+
         elif state.analysis_type == AnalysisType.ANOMALY_DETECTION:
             base_context = f"""
 I have energy data from {entity_count} sensors over the past {hours} hours.
@@ -531,7 +529,7 @@ Please analyze this energy data and generate a Python script that:
 Output insights as JSON to stdout with type="anomaly_detection".
 """
             return base_context
-        
+
         elif state.analysis_type == AnalysisType.USAGE_PATTERNS:
             base_context = f"""
 I have energy data from {entity_count} sensors over the past {hours} hours.
@@ -553,7 +551,9 @@ Output insights as JSON to stdout with type="usage_pattern".
             return base_context
 
         elif state.analysis_type == AnalysisType.BEHAVIOR_ANALYSIS:
-            return base_context + """
+            return (
+                base_context
+                + """
 Please analyze this behavioral data and generate a Python script that:
 1. Identifies the most frequently manually controlled entities
 2. Detects peak usage hours for manual interactions
@@ -562,9 +562,12 @@ Please analyze this behavioral data and generate a Python script that:
 
 Output insights as JSON to stdout with type="behavioral_pattern".
 """
+            )
 
         elif state.analysis_type == AnalysisType.AUTOMATION_ANALYSIS:
-            return base_context + """
+            return (
+                base_context
+                + """
 Please analyze this automation effectiveness data and generate a Python script that:
 1. Ranks automations by effectiveness (trigger count vs manual overrides)
 2. Identifies automations with high manual override rates
@@ -574,9 +577,12 @@ Please analyze this automation effectiveness data and generate a Python script t
 Output insights as JSON to stdout with type="automation_inefficiency" for issues
 and type="behavioral_pattern" for positive findings.
 """
+            )
 
         elif state.analysis_type == AnalysisType.AUTOMATION_GAP_DETECTION:
-            return base_context + """
+            return (
+                base_context
+                + """
 Please analyze this automation gap data and generate a Python script that:
 1. Identifies the strongest repeating manual patterns
 2. Ranks gaps by frequency and confidence
@@ -586,9 +592,12 @@ Please analyze this automation gap data and generate a Python script that:
 Output insights as JSON to stdout with type="automation_gap".
 Include proposed_trigger and proposed_action in the evidence for each insight.
 """
+            )
 
         elif state.analysis_type == AnalysisType.CORRELATION_DISCOVERY:
-            return base_context + """
+            return (
+                base_context
+                + """
 Please analyze this entity correlation data and generate a Python script that:
 1. Identifies the strongest entity correlations (devices used together)
 2. Visualizes correlation patterns (timing, frequency)
@@ -597,9 +606,12 @@ Please analyze this entity correlation data and generate a Python script that:
 
 Output insights as JSON to stdout with type="correlation".
 """
+            )
 
         elif state.analysis_type == AnalysisType.DEVICE_HEALTH:
-            return base_context + """
+            return (
+                base_context
+                + """
 Please analyze this device health data and generate a Python script that:
 1. Identifies devices that appear unresponsive or degraded
 2. Detects devices with unusual state change patterns
@@ -608,9 +620,12 @@ Please analyze this device health data and generate a Python script that:
 
 Output insights as JSON to stdout with type="device_health".
 """
+            )
 
         elif state.analysis_type == AnalysisType.COST_OPTIMIZATION:
-            return base_context + """
+            return (
+                base_context
+                + """
 Please analyze this data and generate a Python script that:
 1. Identifies the highest energy consumers
 2. Calculates cost projections based on usage patterns
@@ -620,15 +635,19 @@ Please analyze this data and generate a Python script that:
 Output insights as JSON to stdout with type="cost_saving".
 Include estimated_monthly_savings in the evidence for each insight.
 """
+            )
 
         else:  # CUSTOM or other
             custom_query = state.custom_query or "Perform a general energy analysis"
-            return base_context + f"""
+            return (
+                base_context
+                + f"""
 Custom analysis request: {custom_query}
 
 Generate a Python script that addresses this request.
 Output insights as JSON to stdout.
 """
+            )
 
     def _extract_code_from_response(self, content: str) -> str:
         """Extract Python code from LLM response.
@@ -645,13 +664,13 @@ Output insights as JSON to stdout.
             end = content.find("```", start)
             if end > start:
                 return content[start:end].strip()
-        
+
         if "```" in content:
             start = content.find("```") + 3
             end = content.find("```", start)
             if end > start:
                 return content[start:end].strip()
-        
+
         # If no code blocks, assume entire content is code
         # (happens with some models that don't use markdown)
         return content.strip()
@@ -688,22 +707,20 @@ Output insights as JSON to stdout.
                 script,
                 data_path=data_path,
             )
-            
+
             log_metric("sandbox.duration_seconds", result.duration_seconds)
             log_metric("sandbox.success", 1.0 if result.success else 0.0)
             log_param("sandbox.exit_code", result.exit_code)
-            
+
             if not result.success:
                 log_param("sandbox.stderr", result.stderr[:500])
-            
+
             return result
 
         finally:
             # Clean up temp file
-            try:
+            with contextlib.suppress(Exception):
                 data_path.unlink()
-            except Exception:
-                pass
 
     def _extract_insights(
         self,
@@ -721,52 +738,58 @@ Output insights as JSON to stdout.
         """
         if not result.success:
             # Return error insight
-            return [{
-                "type": "error",
-                "title": "Analysis Failed",
-                "description": f"Script execution failed: {result.stderr[:500]}",
-                "confidence": 0.0,
-                "impact": "low",
-                "evidence": {
-                    "exit_code": result.exit_code,
-                    "timed_out": result.timed_out,
-                },
-                "entities": state.entity_ids,
-            }]
+            return [
+                {
+                    "type": "error",
+                    "title": "Analysis Failed",
+                    "description": f"Script execution failed: {result.stderr[:500]}",
+                    "confidence": 0.0,
+                    "impact": "low",
+                    "evidence": {
+                        "exit_code": result.exit_code,
+                        "timed_out": result.timed_out,
+                    },
+                    "entities": state.entity_ids,
+                }
+            ]
 
         # Try to parse JSON from stdout
         import json
-        
+
         try:
             output = json.loads(result.stdout)
             insights = output.get("insights", [])
-            
+
             # Validate and normalize insights
             normalized = []
             for insight in insights:
-                normalized.append({
-                    "type": insight.get("type", "custom"),
-                    "title": insight.get("title", "Untitled Insight"),
-                    "description": insight.get("description", ""),
-                    "confidence": min(1.0, max(0.0, float(insight.get("confidence", 0.5)))),
-                    "impact": insight.get("impact", "medium"),
-                    "evidence": insight.get("evidence", {}),
-                    "entities": insight.get("entities", state.entity_ids),
-                })
-            
+                normalized.append(
+                    {
+                        "type": insight.get("type", "custom"),
+                        "title": insight.get("title", "Untitled Insight"),
+                        "description": insight.get("description", ""),
+                        "confidence": min(1.0, max(0.0, float(insight.get("confidence", 0.5)))),
+                        "impact": insight.get("impact", "medium"),
+                        "evidence": insight.get("evidence", {}),
+                        "entities": insight.get("entities", state.entity_ids),
+                    }
+                )
+
             return normalized
 
         except json.JSONDecodeError:
             # Fallback: create insight from raw output
-            return [{
-                "type": state.analysis_type.value,
-                "title": f"{state.analysis_type.value.replace('_', ' ').title()} Results",
-                "description": result.stdout[:2000],
-                "confidence": 0.5,
-                "impact": "medium",
-                "evidence": {"raw_output": result.stdout[:500]},
-                "entities": state.entity_ids,
-            }]
+            return [
+                {
+                    "type": state.analysis_type.value,
+                    "title": f"{state.analysis_type.value.replace('_', ' ').title()} Results",
+                    "description": result.stdout[:2000],
+                    "confidence": 0.5,
+                    "impact": "medium",
+                    "evidence": {"raw_output": result.stdout[:500]},
+                    "entities": state.entity_ids,
+                }
+            ]
 
     def _extract_recommendations(
         self,
@@ -784,7 +807,7 @@ Output insights as JSON to stdout.
             return []
 
         import json
-        
+
         try:
             output = json.loads(result.stdout)
             return output.get("recommendations", [])
@@ -824,9 +847,7 @@ Output insights as JSON to stdout.
 
                 if insight_type in ("energy_optimization", "cost_saving"):
                     proposed_trigger = "time: off-peak hours"
-                    proposed_action = (
-                        "Schedule energy-intensive devices during off-peak hours"
-                    )
+                    proposed_action = "Schedule energy-intensive devices during off-peak hours"
                 elif insight_type == "automation_gap":
                     proposed_trigger = evidence.get(
                         "proposed_trigger",
@@ -841,19 +862,13 @@ Output insights as JSON to stdout.
                     proposed_action = f"Improve automation: {title}"
                 elif insight_type == "anomaly_detection":
                     proposed_trigger = "state change pattern"
-                    proposed_action = (
-                        "Alert or take corrective action when anomaly recurs"
-                    )
+                    proposed_action = "Alert or take corrective action when anomaly recurs"
                 elif insight_type in ("usage_pattern", "behavioral_pattern"):
                     proposed_trigger = "detected usage schedule"
-                    proposed_action = (
-                        "Optimize device scheduling to match actual usage"
-                    )
+                    proposed_action = "Optimize device scheduling to match actual usage"
                 elif insight_type == "correlation":
                     proposed_trigger = "state change of correlated entity"
-                    proposed_action = (
-                        "Synchronize correlated entities automatically"
-                    )
+                    proposed_action = "Synchronize correlated entities automatically"
                 elif insight_type == "device_health":
                     proposed_trigger = "device unavailable for > threshold"
                     proposed_action = "Send notification about device health issue"
@@ -862,9 +877,7 @@ Output insights as JSON to stdout.
                     proposed_action = f"Address: {title}"
 
                 return AutomationSuggestion(
-                    pattern=(
-                        f"{title}: {description[:200]}"
-                    ),
+                    pattern=(f"{title}: {description[:200]}"),
                     entities=entities[:10],
                     proposed_trigger=proposed_trigger,
                     proposed_action=proposed_action,
@@ -917,7 +930,7 @@ Output insights as JSON to stdout.
             insight_ids.append(insight.id)
 
         log_metric("insights.persisted", float(len(insight_ids)))
-        
+
         return insight_ids
 
 
@@ -1022,15 +1035,17 @@ class DataScientistWorkflow:
         try:
             return await _traced_analysis()
         except Exception as e:
-            state.insights.append({
-                "type": "error",
-                "title": "Analysis Failed",
-                "description": str(e),
-                "confidence": 0.0,
-                "impact": "low",
-                "evidence": {},
-                "entities": [],
-            })
+            state.insights.append(
+                {
+                    "type": "error",
+                    "title": "Analysis Failed",
+                    "description": str(e),
+                    "confidence": 0.0,
+                    "impact": "low",
+                    "evidence": {},
+                    "entities": [],
+                }
+            )
             raise
 
     async def _run_standalone(
@@ -1062,15 +1077,17 @@ class DataScientistWorkflow:
 
             except Exception as e:
                 log_param("error", str(e)[:500])
-                state.insights.append({
-                    "type": "error",
-                    "title": "Analysis Failed",
-                    "description": str(e),
-                    "confidence": 0.0,
-                    "impact": "low",
-                    "evidence": {},
-                    "entities": [],
-                })
+                state.insights.append(
+                    {
+                        "type": "error",
+                        "title": "Analysis Failed",
+                        "description": str(e),
+                        "confidence": 0.0,
+                        "impact": "low",
+                        "evidence": {},
+                        "entities": [],
+                    }
+                )
                 raise
 
         return state
@@ -1078,7 +1095,7 @@ class DataScientistWorkflow:
 
 # Exports
 __all__ = [
+    "BEHAVIORAL_ANALYSIS_TYPES",
     "DataScientistAgent",
     "DataScientistWorkflow",
-    "BEHAVIORAL_ANALYSIS_TYPES",
 ]

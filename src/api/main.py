@@ -104,12 +104,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # Configure CORS — restrict methods and headers in non-development
-    allowed_methods = ["*"] if settings.environment in ("development", "testing") else [
-        "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
-    ]
-    allowed_headers = ["*"] if settings.environment in ("development", "testing") else [
-        "Authorization", "Content-Type", "X-API-Key", "X-Correlation-ID",
-    ]
+    allowed_methods = (
+        ["*"]
+        if settings.environment in ("development", "testing")
+        else [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+        ]
+    )
+    allowed_headers = (
+        ["*"]
+        if settings.environment in ("development", "testing")
+        else [
+            "Authorization",
+            "Content-Type",
+            "X-API-Key",
+            "X-Correlation-ID",
+        ]
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_get_allowed_origins(settings),
@@ -247,15 +263,11 @@ async def _security_headers_middleware(request: Request, call_next):
 
     # HSTS: enforce HTTPS in production/staging (browsers will refuse HTTP after first visit)
     if settings.environment in ("production", "staging"):
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
     # Content-Security-Policy: restrict resource loading to same origin
     # API endpoints return JSON, so a strict CSP is appropriate.
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'none'; frame-ancestors 'none'"
-    )
+    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
 
     # Permissions-Policy: disable unnecessary browser features
     response.headers["Permissions-Policy"] = (
@@ -353,7 +365,10 @@ def _register_exception_handlers(app: FastAPI) -> None:
         )
 
         # Sanitize error message for non-debug environments
-        message = str(exc) if settings.debug else f"An error occurred. Correlation ID: {correlation_id}"
+        settings = get_settings()
+        message = (
+            str(exc) if settings.debug else f"An error occurred. Correlation ID: {correlation_id}"
+        )
         return JSONResponse(
             status_code=status_code,
             content={

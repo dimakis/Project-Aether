@@ -19,14 +19,16 @@ class TestAnalyzeErrorLogTool:
         from src.tools.diagnostic_tools import analyze_error_log
 
         mock_mcp = MagicMock()
-        mock_mcp.get_error_log = AsyncMock(return_value=(
-            "2026-02-06 10:00:00.000 ERROR (MainThread) [homeassistant.components.zha] "
-            "Failed to connect to coordinator\n"
-            "2026-02-06 10:01:00.000 ERROR (MainThread) [homeassistant.components.zha] "
-            "Failed to connect to coordinator\n"
-            "2026-02-06 10:02:00.000 WARNING (MainThread) [homeassistant.components.mqtt] "
-            "Connection lost\n"
-        ))
+        mock_mcp.get_error_log = AsyncMock(
+            return_value=(
+                "2026-02-06 10:00:00.000 ERROR (MainThread) [homeassistant.components.zha] "
+                "Failed to connect to coordinator\n"
+                "2026-02-06 10:01:00.000 ERROR (MainThread) [homeassistant.components.zha] "
+                "Failed to connect to coordinator\n"
+                "2026-02-06 10:02:00.000 WARNING (MainThread) [homeassistant.components.mqtt] "
+                "Connection lost\n"
+            )
+        )
 
         with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await analyze_error_log.ainvoke({})
@@ -70,14 +72,28 @@ class TestFindUnavailableEntitiesTool:
         from src.tools.diagnostic_tools import find_unavailable_entities_tool
 
         mock_mcp = MagicMock()
-        mock_mcp.list_entities = AsyncMock(return_value=[
-            {"entity_id": "sensor.zha_temp", "state": "unavailable",
-             "last_changed": "2026-02-06T08:00:00Z", "attributes": {}},
-            {"entity_id": "sensor.zha_motion", "state": "unavailable",
-             "last_changed": "2026-02-06T08:00:00Z", "attributes": {}},
-            {"entity_id": "light.kitchen", "state": "on",
-             "last_changed": "2026-02-06T10:00:00Z", "attributes": {}},
-        ])
+        mock_mcp.list_entities = AsyncMock(
+            return_value=[
+                {
+                    "entity_id": "sensor.zha_temp",
+                    "state": "unavailable",
+                    "last_changed": "2026-02-06T08:00:00Z",
+                    "attributes": {},
+                },
+                {
+                    "entity_id": "sensor.zha_motion",
+                    "state": "unavailable",
+                    "last_changed": "2026-02-06T08:00:00Z",
+                    "attributes": {},
+                },
+                {
+                    "entity_id": "light.kitchen",
+                    "state": "on",
+                    "last_changed": "2026-02-06T10:00:00Z",
+                    "attributes": {},
+                },
+            ]
+        )
 
         with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await find_unavailable_entities_tool.ainvoke({})
@@ -91,10 +107,16 @@ class TestFindUnavailableEntitiesTool:
         from src.tools.diagnostic_tools import find_unavailable_entities_tool
 
         mock_mcp = MagicMock()
-        mock_mcp.list_entities = AsyncMock(return_value=[
-            {"entity_id": "light.kitchen", "state": "on",
-             "last_changed": "2026-02-06T10:00:00Z", "attributes": {}},
-        ])
+        mock_mcp.list_entities = AsyncMock(
+            return_value=[
+                {
+                    "entity_id": "light.kitchen",
+                    "state": "on",
+                    "last_changed": "2026-02-06T10:00:00Z",
+                    "attributes": {},
+                },
+            ]
+        )
 
         with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await find_unavailable_entities_tool.ainvoke({})
@@ -111,19 +133,23 @@ class TestDiagnoseEntityTool:
         from src.tools.diagnostic_tools import diagnose_entity
 
         mock_mcp = MagicMock()
-        mock_mcp.get_entity = AsyncMock(return_value={
-            "entity_id": "sensor.broken",
-            "state": "unavailable",
-            "attributes": {"friendly_name": "Broken Sensor", "device_class": "temperature"},
-            "last_changed": "2026-02-06T08:00:00Z",
-        })
-        mock_mcp.get_history = AsyncMock(return_value={
-            "states": [
-                {"state": "22.5", "last_changed": "2026-02-06T06:00:00Z"},
-                {"state": "unavailable", "last_changed": "2026-02-06T08:00:00Z"},
-            ],
-            "count": 2,
-        })
+        mock_mcp.get_entity = AsyncMock(
+            return_value={
+                "entity_id": "sensor.broken",
+                "state": "unavailable",
+                "attributes": {"friendly_name": "Broken Sensor", "device_class": "temperature"},
+                "last_changed": "2026-02-06T08:00:00Z",
+            }
+        )
+        mock_mcp.get_history = AsyncMock(
+            return_value={
+                "states": [
+                    {"state": "22.5", "last_changed": "2026-02-06T06:00:00Z"},
+                    {"state": "unavailable", "last_changed": "2026-02-06T08:00:00Z"},
+                ],
+                "count": 2,
+            }
+        )
         mock_mcp.get_error_log = AsyncMock(return_value="")
 
         with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
@@ -155,12 +181,26 @@ class TestCheckIntegrationHealthTool:
         from src.tools.diagnostic_tools import check_integration_health
 
         mock_mcp = MagicMock()
-        mock_mcp.list_config_entries = AsyncMock(return_value=[
-            {"entry_id": "abc", "domain": "zha", "title": "ZHA",
-             "state": "loaded", "disabled_by": None, "reason": None},
-            {"entry_id": "def", "domain": "nest", "title": "Nest",
-             "state": "setup_error", "disabled_by": None, "reason": "auth_expired"},
-        ])
+        mock_mcp.list_config_entries = AsyncMock(
+            return_value=[
+                {
+                    "entry_id": "abc",
+                    "domain": "zha",
+                    "title": "ZHA",
+                    "state": "loaded",
+                    "disabled_by": None,
+                    "reason": None,
+                },
+                {
+                    "entry_id": "def",
+                    "domain": "nest",
+                    "title": "Nest",
+                    "state": "setup_error",
+                    "disabled_by": None,
+                    "reason": "auth_expired",
+                },
+            ]
+        )
 
         with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await check_integration_health.ainvoke({})
@@ -174,10 +214,18 @@ class TestCheckIntegrationHealthTool:
         from src.tools.diagnostic_tools import check_integration_health
 
         mock_mcp = MagicMock()
-        mock_mcp.list_config_entries = AsyncMock(return_value=[
-            {"entry_id": "abc", "domain": "zha", "title": "ZHA",
-             "state": "loaded", "disabled_by": None, "reason": None},
-        ])
+        mock_mcp.list_config_entries = AsyncMock(
+            return_value=[
+                {
+                    "entry_id": "abc",
+                    "domain": "zha",
+                    "title": "ZHA",
+                    "state": "loaded",
+                    "disabled_by": None,
+                    "reason": None,
+                },
+            ]
+        )
 
         with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await check_integration_health.ainvoke({})
@@ -207,10 +255,12 @@ class TestValidateConfigTool:
         from src.tools.diagnostic_tools import validate_config
 
         mock_mcp = MagicMock()
-        mock_mcp.check_config = AsyncMock(return_value={
-            "result": "invalid",
-            "errors": "Integration error: bad config",
-        })
+        mock_mcp.check_config = AsyncMock(
+            return_value={
+                "result": "invalid",
+                "errors": "Integration error: bad config",
+            }
+        )
 
         with patch("src.tools.diagnostic_tools.get_ha_client", return_value=mock_mcp):
             result = await validate_config.ainvoke({})

@@ -76,9 +76,7 @@ class DiagnosticMixin:
         Returns:
             Diagnostic data dict, or None if unsupported
         """
-        return await self._request(
-            "GET", f"/api/config/config_entries/{entry_id}/diagnostics"
-        )
+        return await self._request("GET", f"/api/config/config_entries/{entry_id}/diagnostics")
 
     @_trace_ha_call("ha.reload_config_entry")
     async def reload_config_entry(self, entry_id: str) -> dict[str, Any]:
@@ -92,9 +90,7 @@ class DiagnosticMixin:
         Returns:
             Reload result (may include require_restart flag)
         """
-        result = await self._request(
-            "POST", f"/api/config/config_entries/entry/{entry_id}/reload"
-        )
+        result = await self._request("POST", f"/api/config/config_entries/entry/{entry_id}/reload")
         return result or {}
 
     @_trace_ha_call("ha.list_services")

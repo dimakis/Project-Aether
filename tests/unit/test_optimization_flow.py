@@ -6,10 +6,6 @@ Constitution: Reliability & Quality.
 TDD: T237 - Suggestion flow tests.
 """
 
-from unittest.mock import AsyncMock, patch
-
-import pytest
-
 from src.graph.state import AutomationSuggestion
 
 
@@ -80,13 +76,15 @@ class TestFormatBehavioralAnalysis:
         from src.tools.agent_tools import _format_behavioral_analysis
 
         state = MagicMock()
-        state.insights = [{
-            "type": "automation_gap",
-            "title": "Bedroom lights pattern",
-            "description": "Lights off at 22:00",
-            "confidence": 0.85,
-            "impact": "high",
-        }]
+        state.insights = [
+            {
+                "type": "automation_gap",
+                "title": "Bedroom lights pattern",
+                "description": "Lights off at 22:00",
+                "confidence": 0.85,
+                "impact": "high",
+            }
+        ]
         state.recommendations = ["Automate bedroom lights"]
         state.automation_suggestion = AutomationSuggestion(
             pattern="Bedroom lights off at 22:00",
@@ -106,13 +104,15 @@ class TestFormatBehavioralAnalysis:
         from src.tools.agent_tools import _format_behavioral_analysis
 
         state = MagicMock()
-        state.insights = [{
-            "type": "behavioral_pattern",
-            "title": "Peak usage at 8am",
-            "description": "Most activity at 8am",
-            "confidence": 0.6,
-            "impact": "medium",
-        }]
+        state.insights = [
+            {
+                "type": "behavioral_pattern",
+                "title": "Peak usage at 8am",
+                "description": "Most activity at 8am",
+                "confidence": 0.6,
+                "impact": "medium",
+            }
+        ]
         state.recommendations = []
         state.automation_suggestion = None
 

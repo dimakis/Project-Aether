@@ -8,7 +8,6 @@ Proposals page for HITL review before execution.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from langchain_core.tools import tool
 

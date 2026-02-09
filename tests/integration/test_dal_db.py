@@ -22,13 +22,15 @@ class TestEntityRepositoryDB:
         """Test creating an entity in real database."""
         repo = EntityRepository(integration_session)
 
-        entity = await repo.create({
-            "entity_id": "light.test_light",
-            "domain": "light",
-            "name": "Test Light",
-            "state": "off",
-            "attributes": {"brightness": 0},
-        })
+        entity = await repo.create(
+            {
+                "entity_id": "light.test_light",
+                "domain": "light",
+                "name": "Test Light",
+                "state": "off",
+                "attributes": {"brightness": 0},
+            }
+        )
 
         assert entity.id is not None
         assert entity.entity_id == "light.test_light"
@@ -40,13 +42,15 @@ class TestEntityRepositoryDB:
         repo = EntityRepository(integration_session)
 
         # Create entity
-        created = await repo.create({
-            "entity_id": "sensor.temperature",
-            "domain": "sensor",
-            "name": "Temperature Sensor",
-            "state": "22.5",
-            "attributes": {"unit_of_measurement": "°C"},
-        })
+        created = await repo.create(
+            {
+                "entity_id": "sensor.temperature",
+                "domain": "sensor",
+                "name": "Temperature Sensor",
+                "state": "22.5",
+                "attributes": {"unit_of_measurement": "°C"},
+            }
+        )
 
         # Retrieve by ID
         found = await repo.get_by_id(created.id)
@@ -59,12 +63,14 @@ class TestEntityRepositoryDB:
         """Test retrieving entity by HA entity_id."""
         repo = EntityRepository(integration_session)
 
-        await repo.create({
-            "entity_id": "switch.kitchen",
-            "domain": "switch",
-            "name": "Kitchen Switch",
-            "state": "on",
-        })
+        await repo.create(
+            {
+                "entity_id": "switch.kitchen",
+                "domain": "switch",
+                "name": "Kitchen Switch",
+                "state": "on",
+            }
+        )
 
         found = await repo.get_by_entity_id("switch.kitchen")
 
@@ -77,9 +83,15 @@ class TestEntityRepositoryDB:
         repo = EntityRepository(integration_session)
 
         # Create entities in different domains
-        await repo.create({"entity_id": "light.one", "domain": "light", "name": "Light 1", "state": "off"})
-        await repo.create({"entity_id": "light.two", "domain": "light", "name": "Light 2", "state": "on"})
-        await repo.create({"entity_id": "switch.one", "domain": "switch", "name": "Switch 1", "state": "off"})
+        await repo.create(
+            {"entity_id": "light.one", "domain": "light", "name": "Light 1", "state": "off"}
+        )
+        await repo.create(
+            {"entity_id": "light.two", "domain": "light", "name": "Light 2", "state": "on"}
+        )
+        await repo.create(
+            {"entity_id": "switch.one", "domain": "switch", "name": "Switch 1", "state": "off"}
+        )
 
         # List only lights
         lights = await repo.list_all(domain="light")
@@ -91,12 +103,14 @@ class TestEntityRepositoryDB:
         """Test upsert creates entity when it doesn't exist."""
         repo = EntityRepository(integration_session)
 
-        entity, created = await repo.upsert({
-            "entity_id": "binary_sensor.door",
-            "domain": "binary_sensor",
-            "name": "Front Door",
-            "state": "closed",
-        })
+        entity, created = await repo.upsert(
+            {
+                "entity_id": "binary_sensor.door",
+                "domain": "binary_sensor",
+                "name": "Front Door",
+                "state": "closed",
+            }
+        )
 
         assert created is True
         assert entity.entity_id == "binary_sensor.door"
@@ -106,20 +120,24 @@ class TestEntityRepositoryDB:
         repo = EntityRepository(integration_session)
 
         # Create initial
-        await repo.create({
-            "entity_id": "light.upsert_test",
-            "domain": "light",
-            "name": "Test",
-            "state": "off",
-        })
+        await repo.create(
+            {
+                "entity_id": "light.upsert_test",
+                "domain": "light",
+                "name": "Test",
+                "state": "off",
+            }
+        )
 
         # Upsert with new state
-        entity, created = await repo.upsert({
-            "entity_id": "light.upsert_test",
-            "domain": "light",
-            "name": "Updated Name",
-            "state": "on",
-        })
+        entity, created = await repo.upsert(
+            {
+                "entity_id": "light.upsert_test",
+                "domain": "light",
+                "name": "Updated Name",
+                "state": "on",
+            }
+        )
 
         assert created is False
         assert entity.name == "Updated Name"
@@ -130,12 +148,14 @@ class TestEntityRepositoryDB:
         repo = EntityRepository(integration_session)
 
         # Create entity
-        await repo.create({
-            "entity_id": "light.to_delete",
-            "domain": "light",
-            "name": "Delete Me",
-            "state": "off",
-        })
+        await repo.create(
+            {
+                "entity_id": "light.to_delete",
+                "domain": "light",
+                "name": "Delete Me",
+                "state": "off",
+            }
+        )
 
         # Verify it exists
         found = await repo.get_by_entity_id("light.to_delete")
@@ -155,12 +175,14 @@ class TestEntityRepositoryDB:
 
         # Create several entities
         for i in range(5):
-            await repo.create({
-                "entity_id": f"sensor.count_test_{i}",
-                "domain": "sensor",
-                "name": f"Sensor {i}",
-                "state": str(i),
-            })
+            await repo.create(
+                {
+                    "entity_id": f"sensor.count_test_{i}",
+                    "domain": "sensor",
+                    "name": f"Sensor {i}",
+                    "state": str(i),
+                }
+            )
 
         count = await repo.count(domain="sensor")
         assert count == 5
@@ -173,7 +195,9 @@ class TestEntityRepositoryDB:
         await repo.create({"entity_id": "light.a", "domain": "light", "name": "L", "state": "off"})
         await repo.create({"entity_id": "light.b", "domain": "light", "name": "L", "state": "off"})
         await repo.create({"entity_id": "sensor.a", "domain": "sensor", "name": "S", "state": "0"})
-        await repo.create({"entity_id": "switch.a", "domain": "switch", "name": "W", "state": "off"})
+        await repo.create(
+            {"entity_id": "switch.a", "domain": "switch", "name": "W", "state": "off"}
+        )
 
         counts = await repo.get_domain_counts()
 
@@ -185,8 +209,12 @@ class TestEntityRepositoryDB:
         """Test getting all entity IDs."""
         repo = EntityRepository(integration_session)
 
-        await repo.create({"entity_id": "light.first", "domain": "light", "name": "F", "state": "off"})
-        await repo.create({"entity_id": "light.second", "domain": "light", "name": "S", "state": "on"})
+        await repo.create(
+            {"entity_id": "light.first", "domain": "light", "name": "F", "state": "off"}
+        )
+        await repo.create(
+            {"entity_id": "light.second", "domain": "light", "name": "S", "state": "on"}
+        )
 
         ids = await repo.get_all_entity_ids()
 
@@ -204,10 +232,12 @@ class TestAreaRepositoryDB:
         """Test creating an area."""
         repo = AreaRepository(integration_session)
 
-        area = await repo.create({
-            "ha_area_id": "living_room",
-            "name": "Living Room",
-        })
+        area = await repo.create(
+            {
+                "ha_area_id": "living_room",
+                "name": "Living Room",
+            }
+        )
 
         assert area.id is not None
         assert area.ha_area_id == "living_room"
@@ -217,10 +247,12 @@ class TestAreaRepositoryDB:
         """Test finding area by HA area ID."""
         repo = AreaRepository(integration_session)
 
-        await repo.create({
-            "ha_area_id": "kitchen",
-            "name": "Kitchen",
-        })
+        await repo.create(
+            {
+                "ha_area_id": "kitchen",
+                "name": "Kitchen",
+            }
+        )
 
         found = await repo.get_by_ha_area_id("kitchen")
 
@@ -232,17 +264,21 @@ class TestAreaRepositoryDB:
         repo = AreaRepository(integration_session)
 
         # Create via upsert
-        area1, created1 = await repo.upsert({
-            "ha_area_id": "bedroom",
-            "name": "Bedroom",
-        })
+        _area1, created1 = await repo.upsert(
+            {
+                "ha_area_id": "bedroom",
+                "name": "Bedroom",
+            }
+        )
         assert created1 is True
 
         # Update via upsert
-        area2, created2 = await repo.upsert({
-            "ha_area_id": "bedroom",
-            "name": "Master Bedroom",
-        })
+        area2, created2 = await repo.upsert(
+            {
+                "ha_area_id": "bedroom",
+                "name": "Master Bedroom",
+            }
+        )
         assert created2 is False
         assert area2.name == "Master Bedroom"
 
@@ -269,12 +305,14 @@ class TestDeviceRepositoryDB:
         """Test creating a device."""
         repo = DeviceRepository(integration_session)
 
-        device = await repo.create({
-            "ha_device_id": "device_001",
-            "name": "Philips Hue",
-            "manufacturer": "Philips",
-            "model": "Hue Bridge",
-        })
+        device = await repo.create(
+            {
+                "ha_device_id": "device_001",
+                "name": "Philips Hue",
+                "manufacturer": "Philips",
+                "model": "Hue Bridge",
+            }
+        )
 
         assert device.id is not None
         assert device.ha_device_id == "device_001"
@@ -284,10 +322,12 @@ class TestDeviceRepositoryDB:
         """Test finding device by HA device ID."""
         repo = DeviceRepository(integration_session)
 
-        await repo.create({
-            "ha_device_id": "device_unique",
-            "name": "Test Device",
-        })
+        await repo.create(
+            {
+                "ha_device_id": "device_unique",
+                "name": "Test Device",
+            }
+        )
 
         found = await repo.get_by_ha_device_id("device_unique")
 
@@ -300,17 +340,21 @@ class TestDeviceRepositoryDB:
         device_repo = DeviceRepository(integration_session)
 
         # Create area first
-        area = await area_repo.create({
-            "ha_area_id": "garage",
-            "name": "Garage",
-        })
+        area = await area_repo.create(
+            {
+                "ha_area_id": "garage",
+                "name": "Garage",
+            }
+        )
 
         # Create device in that area
-        device = await device_repo.create({
-            "ha_device_id": "garage_opener",
-            "name": "Garage Door Opener",
-            "area_id": area.id,
-        })
+        device = await device_repo.create(
+            {
+                "ha_device_id": "garage_opener",
+                "name": "Garage Door Opener",
+                "area_id": area.id,
+            }
+        )
 
         assert device.area_id == area.id
 
@@ -328,27 +372,33 @@ class TestCrossRepositoryOperations:
         entity_repo = EntityRepository(integration_session)
 
         # Create area
-        area = await area_repo.create({
-            "ha_area_id": "office",
-            "name": "Office",
-        })
+        area = await area_repo.create(
+            {
+                "ha_area_id": "office",
+                "name": "Office",
+            }
+        )
 
         # Create device
-        device = await device_repo.create({
-            "ha_device_id": "smart_bulb",
-            "name": "Smart Bulb",
-            "area_id": area.id,
-        })
+        device = await device_repo.create(
+            {
+                "ha_device_id": "smart_bulb",
+                "name": "Smart Bulb",
+                "area_id": area.id,
+            }
+        )
 
         # Create entity associated with both
-        entity = await entity_repo.create({
-            "entity_id": "light.office_smart_bulb",
-            "domain": "light",
-            "name": "Office Smart Bulb",
-            "state": "off",
-            "area_id": area.id,
-            "device_id": device.id,
-        })
+        entity = await entity_repo.create(
+            {
+                "entity_id": "light.office_smart_bulb",
+                "domain": "light",
+                "name": "Office Smart Bulb",
+                "state": "off",
+                "area_id": area.id,
+                "device_id": device.id,
+            }
+        )
 
         assert entity.area_id == area.id
         assert entity.device_id == device.id
@@ -359,33 +409,41 @@ class TestCrossRepositoryOperations:
         entity_repo = EntityRepository(integration_session)
 
         # Create device
-        device = await device_repo.create({
-            "ha_device_id": "multi_sensor",
-            "name": "Multi Sensor",
-        })
+        device = await device_repo.create(
+            {
+                "ha_device_id": "multi_sensor",
+                "name": "Multi Sensor",
+            }
+        )
 
         # Create multiple entities for same device
-        await entity_repo.create({
-            "entity_id": "sensor.temp",
-            "domain": "sensor",
-            "name": "Temperature",
-            "state": "22",
-            "device_id": device.id,
-        })
-        await entity_repo.create({
-            "entity_id": "sensor.humidity",
-            "domain": "sensor",
-            "name": "Humidity",
-            "state": "45",
-            "device_id": device.id,
-        })
-        await entity_repo.create({
-            "entity_id": "binary_sensor.motion",
-            "domain": "binary_sensor",
-            "name": "Motion",
-            "state": "off",
-            "device_id": device.id,
-        })
+        await entity_repo.create(
+            {
+                "entity_id": "sensor.temp",
+                "domain": "sensor",
+                "name": "Temperature",
+                "state": "22",
+                "device_id": device.id,
+            }
+        )
+        await entity_repo.create(
+            {
+                "entity_id": "sensor.humidity",
+                "domain": "sensor",
+                "name": "Humidity",
+                "state": "45",
+                "device_id": device.id,
+            }
+        )
+        await entity_repo.create(
+            {
+                "entity_id": "binary_sensor.motion",
+                "domain": "binary_sensor",
+                "name": "Motion",
+                "state": "off",
+                "device_id": device.id,
+            }
+        )
 
         # List entities for this device
         all_entities = await entity_repo.list_all()

@@ -68,7 +68,7 @@ class TestGetLLM:
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
-                llm = get_llm()
+                get_llm()
 
                 MockChatOpenAI.assert_called_once()
                 call_kwargs = MockChatOpenAI.call_args[1]
@@ -84,7 +84,7 @@ class TestGetLLM:
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
-                llm = get_llm()
+                get_llm()
 
                 MockChatOpenAI.assert_called_once()
                 call_kwargs = MockChatOpenAI.call_args[1]
@@ -98,7 +98,7 @@ class TestGetLLM:
             with patch("langchain_google_genai.ChatGoogleGenerativeAI") as MockGemini:
                 from src.llm import get_llm
 
-                llm = get_llm()
+                get_llm()
 
                 MockGemini.assert_called_once()
                 call_kwargs = MockGemini.call_args[1]
@@ -112,7 +112,7 @@ class TestGetLLM:
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
-                llm = get_llm()
+                get_llm()
 
                 MockChatOpenAI.assert_called_once()
                 call_kwargs = MockChatOpenAI.call_args[1]
@@ -124,7 +124,7 @@ class TestGetLLM:
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
-                llm = get_llm(temperature=0.2)
+                get_llm(temperature=0.2)
 
                 call_kwargs = MockChatOpenAI.call_args[1]
                 assert call_kwargs["temperature"] == 0.2
@@ -135,7 +135,7 @@ class TestGetLLM:
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
-                llm = get_llm(model="openai/gpt-4-turbo")
+                get_llm(model="openai/gpt-4-turbo")
 
                 call_kwargs = MockChatOpenAI.call_args[1]
                 assert call_kwargs["model"] == "openai/gpt-4-turbo"
@@ -172,7 +172,7 @@ class TestGetLLM:
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
-                llm = get_llm()
+                get_llm()
 
                 MockChatOpenAI.assert_called_once()
                 call_kwargs = MockChatOpenAI.call_args[1]

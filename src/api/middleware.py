@@ -35,24 +35,25 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
         """
         # Start timing
         start = time.perf_counter()
-        
+
         # Get metrics collector
         metrics = get_metrics_collector()
-        
+
         # Track active request
         metrics.increment_active_requests()
-        
+
         try:
             # Process request
             response = await call_next(request)
-            
+
             # Calculate duration
             duration_ms = (time.perf_counter() - start) * 1000
-            
+
             # Get correlation ID from context (lazy import to avoid circular dependency)
             from src.api.main import get_correlation_id
+
             correlation_id = get_correlation_id()
-            
+
             # Record metrics
             metrics.record_request(
                 method=request.method,
@@ -60,7 +61,7 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
                 status_code=response.status_code,
                 duration_ms=duration_ms,
             )
-            
+
             # Log structured request information
             logger.info(
                 "request",
@@ -70,21 +71,22 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
                 duration_ms=round(duration_ms, 2),
                 correlation_id=correlation_id,
             )
-            
+
             return response
-            
+
         except Exception as e:
             # Calculate duration even on error
             duration_ms = (time.perf_counter() - start) * 1000
-            
+
             # Record error metrics
             error_type = type(e).__name__
             metrics.record_error(error_type)
-            
+
             # Get correlation ID from context (lazy import to avoid circular dependency)
             from src.api.main import get_correlation_id
+
             correlation_id = get_correlation_id()
-            
+
             # Log error
             logger.error(
                 "request_error",
@@ -95,10 +97,10 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
                 error_type=error_type,
                 exc_info=e,
             )
-            
+
             # Re-raise to let exception handlers process it
             raise
-            
+
         finally:
             # Decrement active requests
             metrics.decrement_active_requests()

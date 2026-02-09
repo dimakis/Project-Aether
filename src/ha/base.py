@@ -17,9 +17,7 @@ class HAClientConfig(BaseModel):
     """Configuration for HA client."""
 
     ha_url: str = Field(..., description="Home Assistant URL (primary/local)")
-    ha_url_remote: str | None = Field(
-        None, description="Home Assistant remote URL (fallback)"
-    )
+    ha_url_remote: str | None = Field(None, description="Home Assistant remote URL (fallback)")
     ha_token: str = Field(..., description="Home Assistant token")
     timeout: int = Field(default=30, description="Request timeout in seconds")
     url_preference: str = Field(
@@ -35,6 +33,7 @@ def _try_get_db_config(settings) -> tuple[str, str] | None:
     Gracefully handles missing DB, no config, or event loop issues.
     """
     import asyncio
+
     import structlog
 
     logger = structlog.get_logger(__name__)
@@ -53,7 +52,7 @@ def _try_get_db_config(settings) -> tuple[str, str] | None:
 
         # Try to run in existing event loop or create a new one
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If already in an async context, we can't use asyncio.run().
             # Return None and let the env var fallback be used.
             # The setup endpoint calls reset_ha_client() after storing
@@ -216,9 +215,7 @@ class BaseHAClient:
         base_urls = self._build_urls_to_try()
         if self._active_url and self._active_url in base_urls:
             # Put active URL first, keep the rest as fallback
-            urls_to_try = [self._active_url] + [
-                u for u in base_urls if u != self._active_url
-            ]
+            urls_to_try = [self._active_url] + [u for u in base_urls if u != self._active_url]
         else:
             urls_to_try = base_urls
 

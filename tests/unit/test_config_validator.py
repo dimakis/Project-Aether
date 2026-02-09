@@ -36,10 +36,12 @@ class TestRunConfigCheck:
     async def test_invalid_config_with_errors(self):
         """Test config check with errors."""
         ha = MagicMock()
-        ha.check_config = AsyncMock(return_value={
-            "result": "invalid",
-            "errors": "Integration error: sensor - Invalid config",
-        })
+        ha.check_config = AsyncMock(
+            return_value={
+                "result": "invalid",
+                "errors": "Integration error: sensor - Invalid config",
+            }
+        )
 
         result = await run_config_check(ha)
 
@@ -50,10 +52,12 @@ class TestRunConfigCheck:
     async def test_handles_mcp_error(self):
         """Test handling when MCP check_config fails."""
         ha = MagicMock()
-        ha.check_config = AsyncMock(return_value={
-            "result": "error",
-            "error": "Connection failed",
-        })
+        ha.check_config = AsyncMock(
+            return_value={
+                "result": "error",
+                "error": "Connection failed",
+            }
+        )
 
         result = await run_config_check(ha)
 

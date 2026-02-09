@@ -4,8 +4,6 @@ Provides endpoints for accessing Home Assistant registry data
 including automations, scripts, scenes, and the service registry.
 """
 
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -167,8 +165,9 @@ async def get_automation_config(
     Returns:
         Automation config dict from HA
     """
-    from src.ha import get_ha_client
     import yaml as pyyaml
+
+    from src.ha import get_ha_client
 
     # Resolve to HA automation ID
     repo = AutomationRepository(session)
@@ -182,12 +181,16 @@ async def get_automation_config(
         raise HTTPException(status_code=404, detail="Automation not found")
 
     import logging
+
     logger = logging.getLogger(__name__)
 
     ha_id = automation.ha_automation_id or automation_id
     logger.debug(
         "Fetching automation config: db_id=%s, ha_automation_id=%s, entity_id=%s, resolved_ha_id=%s",
-        automation.id, automation.ha_automation_id, automation.entity_id, ha_id,
+        automation.id,
+        automation.ha_automation_id,
+        automation.entity_id,
+        ha_id,
     )
 
     try:
@@ -222,12 +225,14 @@ async def get_automation_config(
         from src.api.utils import sanitize_error
 
         logger.warning(
-            "Failed to fetch automation config for ha_id=%s: %s", ha_id, e,
+            "Failed to fetch automation config for ha_id=%s: %s",
+            ha_id,
+            e,
         )
         raise HTTPException(
             status_code=502,
             detail=sanitize_error(e, context="Fetch automation config from HA"),
-        )
+        ) from e
 
 
 # =============================================================================
@@ -465,13 +470,15 @@ async def call_service(
     from src.ha import get_ha_client
 
     # Block dangerous domains that must go through HITL approval
-    BLOCKED_DOMAINS = frozenset({
-        "homeassistant",  # restart, stop, reload
-        "persistent_notification",  # handled via notification system
-        "system_log",  # log manipulation
-        "recorder",  # DB manipulation
-        "hassio",  # supervisor control
-    })
+    BLOCKED_DOMAINS = frozenset(
+        {
+            "homeassistant",  # restart, stop, reload
+            "persistent_notification",  # handled via notification system
+            "system_log",  # log manipulation
+            "recorder",  # DB manipulation
+            "hassio",  # supervisor control
+        }
+    )
     if request.domain in BLOCKED_DOMAINS:
         return ServiceCallResponse(
             success=False,
@@ -574,6 +581,7 @@ async def get_registry_summary(
 
     # Get last sync time from most recent completed discovery session
     from sqlalchemy import select
+
     from src.storage.entities import DiscoverySession, DiscoveryStatus
 
     result = await session.execute(

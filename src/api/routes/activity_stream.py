@@ -19,7 +19,8 @@ import asyncio
 import json
 import logging
 import time
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from contextlib import suppress
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -44,14 +45,12 @@ def signal_shutdown() -> None:
     Uses a plain boolean + sentinel queue messages instead of asyncio.Event
     to avoid cross-event-loop issues in tests.
     """
-    global _shutting_down  # noqa: PLW0603
+    global _shutting_down
     _shutting_down = True
     # Wake all subscribers so they see the flag
     for q in _subscribers:
-        try:
+        with suppress(asyncio.QueueFull):
             q.put_nowait(None)  # sentinel
-        except asyncio.QueueFull:
-            pass
 
 
 def publish_activity(event: dict) -> None:

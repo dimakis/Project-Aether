@@ -163,7 +163,7 @@ class TestAreaRepositoryUpsert:
 
         area_repo.create = mock_create
 
-        result, created = await area_repo.upsert(sample_area)
+        _result, created = await area_repo.upsert(sample_area)
 
         assert created is True
 

@@ -19,12 +19,8 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import uuid4
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.agents import BaseAgent
 from src.agents.model_context import get_model_context, resolve_model
@@ -166,11 +162,7 @@ class BaseAnalyst(BaseAgent, ABC):
         """
         # Inject data as a JSON variable at the top of the script
         data_json = json.dumps(data, default=str)
-        injected_script = (
-            f"import json\n"
-            f"data = json.loads('''{data_json}''')\n\n"
-            f"{script}"
-        )
+        injected_script = f"import json\ndata = json.loads('''{data_json}''')\n\n{script}"
         return await self._sandbox.run(injected_script)
 
     # -----------------------------------------------------------------
@@ -197,10 +189,7 @@ class BaseAnalyst(BaseAgent, ABC):
             return []
 
         own_specialist = self.ROLE.value
-        findings = [
-            f for f in state.team_analysis.findings
-            if f.specialist != own_specialist
-        ]
+        findings = [f for f in state.team_analysis.findings if f.specialist != own_specialist]
 
         if entity_id:
             findings = [f for f in findings if entity_id in f.entities]

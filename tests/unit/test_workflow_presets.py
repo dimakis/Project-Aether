@@ -4,8 +4,9 @@ Validates the WorkflowPreset Pydantic model and the GET /api/v1/workflows/preset
 endpoint that returns available workflow presets for task flow customization.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 
 class TestWorkflowPresetModel:
@@ -113,8 +114,9 @@ class TestWorkflowPresetsAPI:
     @pytest.fixture
     def client(self):
         """Create a test client for the API."""
-        from src.api.main import create_app
         from httpx import ASGITransport, AsyncClient
+
+        from src.api.main import create_app
 
         app = create_app()
         return AsyncClient(

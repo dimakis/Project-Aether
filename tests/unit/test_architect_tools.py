@@ -31,33 +31,49 @@ class TestArchitectContext:
     @pytest.mark.asyncio
     async def test_context_includes_entities_devices_services(self, architect, mock_session):
         """Ensure context includes entities, devices, areas, and services."""
-        with patch("src.agents.architect.EntityRepository") as entity_repo_cls, \
-            patch("src.agents.architect.DeviceRepository") as device_repo_cls, \
-            patch("src.agents.architect.AreaRepository") as area_repo_cls, \
-            patch("src.agents.architect.ServiceRepository") as service_repo_cls:
+        with (
+            patch("src.agents.architect.EntityRepository") as entity_repo_cls,
+            patch("src.agents.architect.DeviceRepository") as device_repo_cls,
+            patch("src.agents.architect.AreaRepository") as area_repo_cls,
+            patch("src.agents.architect.ServiceRepository") as service_repo_cls,
+        ):
             entity_repo = entity_repo_cls.return_value
             device_repo = device_repo_cls.return_value
             area_repo = area_repo_cls.return_value
             service_repo = service_repo_cls.return_value
 
             entity_repo.get_domain_counts = AsyncMock(return_value={"light": 1})
-            entity_repo.list_all = AsyncMock(return_value=[
-                MagicMock(entity_id="light.living_room", name="Living Room", state="on", area=None),
-            ])
-            entity_repo.list_by_domains = AsyncMock(return_value={
-                "light": [
-                    MagicMock(entity_id="light.living_room", name="Living Room", state="on", area=None),
-                ],
-            })
-            area_repo.list_all = AsyncMock(return_value=[
-                MagicMock(name="Living Room", ha_area_id="living_room"),
-            ])
-            device_repo.list_all = AsyncMock(return_value=[
-                MagicMock(name="Hue Bridge", ha_device_id="device_1", area=None),
-            ])
-            service_repo.list_all = AsyncMock(return_value=[
-                MagicMock(domain="light", service="turn_on"),
-            ])
+            entity_repo.list_all = AsyncMock(
+                return_value=[
+                    MagicMock(
+                        entity_id="light.living_room", name="Living Room", state="on", area=None
+                    ),
+                ]
+            )
+            entity_repo.list_by_domains = AsyncMock(
+                return_value={
+                    "light": [
+                        MagicMock(
+                            entity_id="light.living_room", name="Living Room", state="on", area=None
+                        ),
+                    ],
+                }
+            )
+            area_repo.list_all = AsyncMock(
+                return_value=[
+                    MagicMock(name="Living Room", ha_area_id="living_room"),
+                ]
+            )
+            device_repo.list_all = AsyncMock(
+                return_value=[
+                    MagicMock(name="Hue Bridge", ha_device_id="device_1", area=None),
+                ]
+            )
+            service_repo.list_all = AsyncMock(
+                return_value=[
+                    MagicMock(domain="light", service="turn_on"),
+                ]
+            )
 
             state = ConversationState()
             context = await architect._get_entity_context(mock_session, state)
@@ -78,7 +94,9 @@ class TestArchitectToolCalls:
         tools = [MagicMock(name="get_entity_state", ainvoke=AsyncMock(return_value="ok"))]
         response = AIMessage(
             content="",
-            tool_calls=[{"id": "1", "name": "get_entity_state", "args": {"entity_id": "light.test"}}],
+            tool_calls=[
+                {"id": "1", "name": "get_entity_state", "args": {"entity_id": "light.test"}}
+            ],
         )
 
         # Mock the LLM to avoid real API call for follow-up
@@ -103,7 +121,13 @@ class TestArchitectToolCalls:
         tools = [MagicMock(name="control_entity", ainvoke=AsyncMock(return_value="ok"))]
         response = AIMessage(
             content="",
-            tool_calls=[{"id": "1", "name": "control_entity", "args": {"entity_id": "light.test", "action": "on"}}],
+            tool_calls=[
+                {
+                    "id": "1",
+                    "name": "control_entity",
+                    "args": {"entity_id": "light.test", "action": "on"},
+                }
+            ],
         )
 
         updates = await architect._handle_tool_calls(

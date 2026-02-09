@@ -9,6 +9,7 @@ Configurable via LLM_PRICING_FILE env var pointing to a JSON override file.
 import json
 import logging
 import os
+from pathlib import Path
 from typing import TypedDict
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ModelPricing(TypedDict):
     """Pricing for a single model."""
 
-    input_per_1m: float   # USD per 1M input tokens
+    input_per_1m: float  # USD per 1M input tokens
     output_per_1m: float  # USD per 1M output tokens
 
 
@@ -80,14 +81,16 @@ def _load_pricing() -> dict[str, ModelPricing]:
 
     # Check for override file
     override_path = os.environ.get("LLM_PRICING_FILE")
-    if override_path and os.path.isfile(override_path):
-        try:
-            with open(override_path) as f:
-                overrides = json.load(f)
-            pricing.update(overrides)
-            logger.info(f"Loaded {len(overrides)} pricing overrides from {override_path}")
-        except Exception as e:
-            logger.warning(f"Failed to load pricing overrides: {e}")
+    if override_path:
+        path = Path(override_path)
+        if path.is_file():
+            try:
+                with path.open() as f:
+                    overrides = json.load(f)
+                pricing.update(overrides)
+                logger.info(f"Loaded {len(overrides)} pricing overrides from {override_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load pricing overrides: {e}")
 
     _pricing_cache = pricing
     return pricing

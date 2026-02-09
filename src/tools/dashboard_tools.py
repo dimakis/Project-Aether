@@ -7,7 +7,6 @@ and managing Lovelace dashboard configurations.
 from __future__ import annotations
 
 import yaml
-
 from langchain_core.tools import tool
 
 from src.ha import get_ha_client
@@ -53,7 +52,9 @@ async def generate_dashboard_yaml(title: str, areas: list[str] | None = None) ->
             views.append(
                 {
                     "title": area_id.replace("_", " ").title(),
-                    "cards": cards if cards else [{"type": "markdown", "content": "No entities found."}],
+                    "cards": cards
+                    if cards
+                    else [{"type": "markdown", "content": "No entities found."}],
                 }
             )
     else:

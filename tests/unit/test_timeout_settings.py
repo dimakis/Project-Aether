@@ -3,8 +3,6 @@
 TDD: Timeout configuration for tool execution.
 """
 
-import pytest
-
 from src.settings import Settings
 
 

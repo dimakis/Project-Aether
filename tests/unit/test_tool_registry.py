@@ -12,9 +12,6 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
-
-
 EXPECTED_ARCHITECT_TOOLS = {
     # HA query — DB-backed (7)
     "get_entity_state",
@@ -80,10 +77,7 @@ class TestGetArchitectTools:
         from src.tools import get_architect_tools
 
         tools = get_architect_tools()
-        assert len(tools) == 15, (
-            f"Expected 15 tools, got {len(tools)}: "
-            f"{[t.name for t in tools]}"
-        )
+        assert len(tools) == 15, f"Expected 15 tools, got {len(tools)}: {[t.name for t in tools]}"
 
     def test_expected_names(self):
         from src.tools import get_architect_tools

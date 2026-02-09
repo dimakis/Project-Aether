@@ -6,7 +6,6 @@ _stream_chat_completion.
 """
 
 import json
-import warnings
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,7 +13,6 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.api.routes.openai_compat import _build_trace_events
-
 
 # ---------------------------------------------------------------------------
 # _build_trace_events
@@ -325,7 +323,8 @@ class TestStreamEmitsTraceEvents:
 
         trace_events = [p for p in parsed if p.get("type") == "trace"]
         text_chunks = [
-            p for p in parsed
+            p
+            for p in parsed
             if p.get("object") == "chat.completion.chunk"
             and p.get("choices", [{}])[0].get("delta", {}).get("content")
         ]
@@ -367,7 +366,9 @@ class TestStreamEmitsTraceEvents:
             parsed = await self._collect_sse(request)
 
         trace_events = [p for p in parsed if p.get("type") == "trace"]
-        assert len(trace_events) == 0, f"Background requests should not emit traces, got {trace_events}"
+        assert len(trace_events) == 0, (
+            f"Background requests should not emit traces, got {trace_events}"
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.filterwarnings("ignore")

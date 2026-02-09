@@ -7,8 +7,7 @@ Feature 23: Agent Configuration.
 Constitution: Reliability & Quality - comprehensive DAL testing.
 """
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -21,7 +20,6 @@ from src.dal.agents import (
 from src.storage.entities.agent import Agent, AgentStatus
 from src.storage.entities.agent_config_version import AgentConfigVersion, VersionStatus
 from src.storage.entities.agent_prompt_version import AgentPromptVersion
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -146,9 +144,7 @@ class TestAgentRepositoryUpdateStatus:
     """Tests for update_status method."""
 
     @pytest.mark.asyncio
-    async def test_update_status_valid_transition(
-        self, agent_repo, mock_session, sample_agent
-    ):
+    async def test_update_status_valid_transition(self, agent_repo, mock_session, sample_agent):
         """Test valid status transition (enabled -> disabled)."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = sample_agent
@@ -160,9 +156,7 @@ class TestAgentRepositoryUpdateStatus:
         assert result.status == AgentStatus.DISABLED.value
 
     @pytest.mark.asyncio
-    async def test_update_status_invalid_transition(
-        self, agent_repo, mock_session
-    ):
+    async def test_update_status_invalid_transition(self, agent_repo, mock_session):
         """Test invalid status transition raises ValueError."""
         agent = Agent(
             id=str(uuid4()),
@@ -210,7 +204,7 @@ class TestConfigVersionCreate:
         mock_semver_result.scalar_one_or_none.return_value = "0.1.0"
         mock_session.execute.side_effect = [mock_draft_result, mock_max_result, mock_semver_result]
 
-        result = await config_repo.create_draft(
+        await config_repo.create_draft(
             agent_id=sample_agent.id,
             model_name="anthropic/claude-sonnet-4",
             temperature=0.5,
@@ -226,9 +220,7 @@ class TestConfigVersionCreate:
         assert added.model_name == "anthropic/claude-sonnet-4"
 
     @pytest.mark.asyncio
-    async def test_create_draft_replaces_existing(
-        self, config_repo, mock_session, sample_agent
-    ):
+    async def test_create_draft_replaces_existing(self, config_repo, mock_session, sample_agent):
         """Test creating a draft when one already exists raises error."""
         existing_draft = AgentConfigVersion(
             id=str(uuid4()),
@@ -247,9 +239,7 @@ class TestConfigVersionCreate:
             )
 
     @pytest.mark.asyncio
-    async def test_create_draft_first_version(
-        self, config_repo, mock_session, sample_agent
-    ):
+    async def test_create_draft_first_version(self, config_repo, mock_session, sample_agent):
         """Test creating the very first config version."""
         mock_draft_result = MagicMock()
         mock_draft_result.scalar_one_or_none.return_value = None
@@ -273,9 +263,7 @@ class TestConfigVersionPromote:
     """Tests for promote method."""
 
     @pytest.mark.asyncio
-    async def test_promote_draft_to_active(
-        self, config_repo, mock_session, sample_agent
-    ):
+    async def test_promote_draft_to_active(self, config_repo, mock_session, sample_agent):
         """Test promoting a draft config to active."""
         draft = AgentConfigVersion(
             id=str(uuid4()),
@@ -360,7 +348,7 @@ class TestConfigVersionRollback:
             mock_max_result,
         ]
 
-        result = await config_repo.rollback(sample_agent.id)
+        await config_repo.rollback(sample_agent.id)
 
         mock_session.add.assert_called_once()
         added = mock_session.add.call_args[0][0]
@@ -371,9 +359,7 @@ class TestConfigVersionRollback:
         assert "Rollback" in added.change_summary
 
     @pytest.mark.asyncio
-    async def test_rollback_no_archived_raises(
-        self, config_repo, mock_session, sample_agent
-    ):
+    async def test_rollback_no_archived_raises(self, config_repo, mock_session, sample_agent):
         """Test rollback with no archived versions raises error."""
         mock_draft_result = MagicMock()
         mock_draft_result.scalar_one_or_none.return_value = None
@@ -389,9 +375,7 @@ class TestConfigVersionList:
     """Tests for list_versions method."""
 
     @pytest.mark.asyncio
-    async def test_list_versions(
-        self, config_repo, mock_session, sample_config_version
-    ):
+    async def test_list_versions(self, config_repo, mock_session, sample_config_version):
         """Test listing config versions for an agent."""
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [sample_config_version]
@@ -407,9 +391,7 @@ class TestConfigVersionGetActive:
     """Tests for get_active method."""
 
     @pytest.mark.asyncio
-    async def test_get_active_found(
-        self, config_repo, mock_session, sample_config_version
-    ):
+    async def test_get_active_found(self, config_repo, mock_session, sample_config_version):
         """Test getting active config version."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = sample_config_version
@@ -450,7 +432,7 @@ class TestPromptVersionCreate:
         mock_semver_result.scalar_one_or_none.return_value = "0.1.0"
         mock_session.execute.side_effect = [mock_draft_result, mock_max_result, mock_semver_result]
 
-        result = await prompt_repo.create_draft(
+        await prompt_repo.create_draft(
             agent_id=sample_agent.id,
             prompt_template="You are a revised Architect agent.",
             change_summary="Updated system prompt",
@@ -467,9 +449,7 @@ class TestPromptVersionPromote:
     """Tests for promote method."""
 
     @pytest.mark.asyncio
-    async def test_promote_draft_to_active(
-        self, prompt_repo, mock_session, sample_agent
-    ):
+    async def test_promote_draft_to_active(self, prompt_repo, mock_session, sample_agent):
         """Test promoting a draft prompt to active."""
         draft = AgentPromptVersion(
             id=str(uuid4()),
@@ -530,7 +510,7 @@ class TestPromptVersionRollback:
             mock_max_result,
         ]
 
-        result = await prompt_repo.rollback(sample_agent.id)
+        await prompt_repo.rollback(sample_agent.id)
 
         added = mock_session.add.call_args[0][0]
         assert added.prompt_template == "Original prompt text"

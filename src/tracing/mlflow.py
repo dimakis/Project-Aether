@@ -22,12 +22,12 @@ import importlib.util
 import logging
 import time
 import warnings
-from collections.abc import Callable
-from contextlib import contextmanager
+from collections.abc import Callable, Generator
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import TracebackType
-from typing import Any, Generator, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 from src.settings import get_settings
 
@@ -46,9 +46,7 @@ _traces_available: bool = True
 _traces_checked: bool = False
 
 # Context variable for current tracer
-_current_tracer: ContextVar["AetherTracer | None"] = ContextVar(
-    "current_tracer", default=None
-)
+_current_tracer: ContextVar["AetherTracer | None"] = ContextVar("current_tracer", default=None)
 
 
 def _safe_import_mlflow():
@@ -355,7 +353,7 @@ def start_run(
 
         # Log standard tags
         mlflow.set_tag("aether.version", "0.1.0")
-        mlflow.set_tag("aether.started_at", datetime.now(timezone.utc).isoformat())
+        mlflow.set_tag("aether.started_at", datetime.now(UTC).isoformat())
 
         # Log session ID if available
         from src.tracing.context import get_session_id
@@ -498,8 +496,6 @@ def log_dict(data: dict[str, object], filename: str) -> None:
             mlflow.log_dict(data, filename)
     except Exception as e:
         _logger.debug(f"Failed to log dict to {filename}: {e}")
-
-
 
 
 # =============================================================================
@@ -813,10 +809,8 @@ class AetherTracer:
     def set_tag(self, key: str, value: str) -> None:
         mlflow = _safe_import_mlflow()
         if mlflow and mlflow.active_run():
-            try:
+            with suppress(Exception):
                 mlflow.set_tag(key, value)
-            except Exception:
-                pass
 
 
 def get_tracer() -> AetherTracer | None:
@@ -838,22 +832,22 @@ def get_tracing_status() -> dict[str, object]:
 
 # Exports
 __all__ = [
-    "init_mlflow",
+    "AetherTracer",
+    "add_span_event",
     "enable_autolog",
-    "get_or_create_experiment",
-    "start_run",
-    "start_experiment_run",
     "end_run",
     "get_active_run",
-    "log_param",
-    "log_params",
-    "log_metric",
-    "log_metrics",
-    "log_dict",
-    "trace_with_uri",
     "get_active_span",
-    "add_span_event",
-    "AetherTracer",
+    "get_or_create_experiment",
     "get_tracer",
     "get_tracing_status",
+    "init_mlflow",
+    "log_dict",
+    "log_metric",
+    "log_metrics",
+    "log_param",
+    "log_params",
+    "start_experiment_run",
+    "start_run",
+    "trace_with_uri",
 ]

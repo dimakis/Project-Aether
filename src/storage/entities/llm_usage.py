@@ -4,11 +4,10 @@ Tracks individual LLM API calls for usage auditing and cost estimation.
 Each row represents one LLM invocation with token counts and cost.
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.storage.models import Base, TimestampMixin, UUIDMixin

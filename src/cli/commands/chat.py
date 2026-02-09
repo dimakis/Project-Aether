@@ -1,10 +1,10 @@
 """Chat commands."""
 
 import asyncio
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -14,11 +14,11 @@ from src.cli.utils import console
 
 def chat(
     message: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(help="Initial message (or leave empty for interactive mode)"),
     ] = None,
     conversation_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--continue", "-c", help="Continue an existing conversation"),
     ] = None,
 ) -> None:
@@ -36,8 +36,8 @@ def chat(
 
 
 async def _chat_interactive(
-    initial_message: Optional[str],
-    conversation_id: Optional[str],
+    initial_message: str | None,
+    conversation_id: str | None,
 ) -> None:
     """Run interactive chat session."""
     from src.agents import ArchitectWorkflow
@@ -79,21 +79,19 @@ async def _chat_interactive(
 
         async with get_session() as session:
             conv_repo = ConversationRepository(session)
-            msg_repo = MessageRepository(session)
+            MessageRepository(session)
 
             # Load existing conversation if specified
             if conversation_id:
                 conv = await conv_repo.get_by_id(conversation_id, include_messages=True)
                 if conv:
-                    console.print(
-                        f"[dim]Continuing conversation: {conversation_id}[/dim]\n"
-                    )
+                    console.print(f"[dim]Continuing conversation: {conversation_id}[/dim]\n")
                     # Show previous messages
                     for msg in conv.messages:
                         if msg.role == "user":
                             console.print(f"[bold cyan]You:[/bold cyan] {msg.content}")
                         else:
-                            console.print(f"[bold green]Architect:[/bold green]")
+                            console.print("[bold green]Architect:[/bold green]")
                             console.print(Markdown(msg.content))
                     console.print()
 
@@ -101,7 +99,8 @@ async def _chat_interactive(
                     state = ConversationState(
                         conversation_id=conversation_id,
                         messages=[
-                            HumanMessage(content=m.content) if m.role == "user"
+                            HumanMessage(content=m.content)
+                            if m.role == "user"
                             else AIMessage(content=m.content)
                             for m in conv.messages
                         ],
@@ -142,9 +141,7 @@ async def _chat_interactive(
                     console.print(
                         f"\n[yellow]📋 Proposal pending approval: {pending_proposal_id}[/yellow]"
                     )
-                    console.print(
-                        "[dim]Type 'approve' or 'reject <reason>' to respond.[/dim]\n"
-                    )
+                    console.print("[dim]Type 'approve' or 'reject <reason>' to respond.[/dim]\n")
 
                 await session.commit()
 
@@ -216,9 +213,7 @@ async def _chat_interactive(
                     console.print(
                         f"\n[yellow]📋 Proposal pending approval: {pending_proposal_id}[/yellow]"
                     )
-                    console.print(
-                        "[dim]Type 'approve' or 'reject <reason>' to respond.[/dim]"
-                    )
+                    console.print("[dim]Type 'approve' or 'reject <reason>' to respond.[/dim]")
 
                 await session.commit()
 

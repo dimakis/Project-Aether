@@ -12,7 +12,6 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from src.api.rate_limit import limiter
-
 from src.dal.insight_schedules import InsightScheduleRepository
 from src.storage import get_session
 

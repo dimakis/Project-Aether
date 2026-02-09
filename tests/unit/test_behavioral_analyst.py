@@ -8,9 +8,11 @@ Enhanced data sources: scripts, scenes, call frequency, trigger source
 (automation vs human input).
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.graph.state import (
     AgentRole,
     AnalysisState,
@@ -18,7 +20,6 @@ from src.graph.state import (
     SpecialistFinding,
     TeamAnalysis,
 )
-from src.agents.behavioral_analyst import BehavioralAnalyst
 
 
 class TestBehavioralAnalystInit:
@@ -85,9 +86,11 @@ class TestBehavioralAnalystCollectData:
     async def test_collects_script_and_scene_usage(self):
         """Enhanced: should collect script and scene usage frequency and trigger source."""
         mock_ha = MagicMock()
-        mock_ha.list_automations = AsyncMock(return_value=[
-            {"entity_id": "automation.lights_on", "alias": "Lights On", "state": "on"},
-        ])
+        mock_ha.list_automations = AsyncMock(
+            return_value=[
+                {"entity_id": "automation.lights_on", "alias": "Lights On", "state": "on"},
+            ]
+        )
 
         analyst = BehavioralAnalyst(ha_client=mock_ha)
 
@@ -96,15 +99,17 @@ class TestBehavioralAnalystCollectData:
 
         # Mock logbook for script/scene usage
         mock_logbook = MagicMock()
-        mock_logbook.get_stats = AsyncMock(return_value=MagicMock(
-            total_entries=100,
-            by_domain={"script": 15, "scene": 8, "automation": 50},
-            automation_triggers=50,
-            manual_actions=30,
-            by_action_type={"triggered": 50, "turned_on": 30},
-            unique_entities=20,
-            by_hour={},
-        ))
+        mock_logbook.get_stats = AsyncMock(
+            return_value=MagicMock(
+                total_entries=100,
+                by_domain={"script": 15, "scene": 8, "automation": 50},
+                automation_triggers=50,
+                manual_actions=30,
+                by_action_type={"triggered": 50, "turned_on": 30},
+                unique_entities=20,
+                by_hour={},
+            )
+        )
         mock_behavioral._logbook = mock_logbook
 
         state = AnalysisState(
@@ -129,15 +134,17 @@ class TestBehavioralAnalystCollectData:
         analyst = BehavioralAnalyst(ha_client=mock_ha)
 
         mock_behavioral = MagicMock()
-        mock_behavioral.get_automation_effectiveness = AsyncMock(return_value=[
-            MagicMock(
-                automation_id="automation.morning",
-                alias="Morning Routine",
-                trigger_count=30,
-                manual_override_count=5,
-                efficiency_score=0.85,
-            ),
-        ])
+        mock_behavioral.get_automation_effectiveness = AsyncMock(
+            return_value=[
+                MagicMock(
+                    automation_id="automation.morning",
+                    alias="Morning Routine",
+                    trigger_count=30,
+                    manual_override_count=5,
+                    efficiency_score=0.85,
+                ),
+            ]
+        )
 
         state = AnalysisState(
             analysis_type=AnalysisType.AUTOMATION_ANALYSIS,

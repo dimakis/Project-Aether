@@ -8,20 +8,24 @@ structured automation proposals.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import TYPE_CHECKING, AsyncGenerator
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from collections.abc import AsyncGenerator
+
+    from langchain_core.language_models import BaseChatModel
     from langchain_core.messages import BaseMessage
     from langchain_core.tools import BaseTool
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from src.graph.state import AutomationSuggestion
+    from src.storage.entities import AutomationProposal
 
 import asyncio
+import contextlib
 
-from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.agents import BaseAgent
@@ -30,11 +34,16 @@ from src.agents.execution_context import (
     execution_context,
 )
 from src.agents.prompts import load_prompt
-from src.dal import AreaRepository, DeviceRepository, EntityRepository, ProposalRepository, ServiceRepository
+from src.dal import (
+    AreaRepository,
+    DeviceRepository,
+    EntityRepository,
+    ProposalRepository,
+    ServiceRepository,
+)
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
 from src.llm import get_llm
 from src.settings import ANALYSIS_TOOLS, get_settings
-from src.storage.entities import AutomationProposal, ProposalStatus
 
 
 class ArchitectAgent(BaseAgent):
@@ -95,7 +104,10 @@ class ArchitectAgent(BaseAgent):
         user_message = ""
         if state.messages:
             for msg in reversed(state.messages):
-                if hasattr(msg, "content") and type(msg).__name__ in ("HumanMessage", "UserMessage"):
+                if hasattr(msg, "content") and type(msg).__name__ in (
+                    "HumanMessage",
+                    "UserMessage",
+                ):
                     user_message = str(msg.content)[:1000]
                     break
 
@@ -217,9 +229,7 @@ class ArchitectAgent(BaseAgent):
         messages = [SystemMessage(content=load_prompt("architect_system"))]
 
         for msg in state.messages:
-            if isinstance(msg, HumanMessage):
-                messages.append(msg)
-            elif isinstance(msg, AIMessage):
+            if isinstance(msg, (HumanMessage, AIMessage)):
                 messages.append(msg)
             elif isinstance(msg, ToolMessage):
                 # Must include tool responses after AI messages with tool_calls
@@ -256,6 +266,7 @@ class ArchitectAgent(BaseAgent):
         """
         try:
             from src.tools import get_architect_tools
+
             return get_architect_tools()
         except Exception:
             import logging
@@ -270,28 +281,30 @@ class ArchitectAgent(BaseAgent):
     # Read-only tools that can execute without HITL approval.
     # Every tool in get_architect_tools() is read-only except seek_approval,
     # which is the approval mechanism itself (creating proposals, not mutations).
-    _READ_ONLY_TOOLS: frozenset[str] = frozenset({
-        # HA query tools (10)
-        "get_entity_state",
-        "list_entities_by_domain",
-        "search_entities",
-        "get_domain_summary",
-        "list_automations",
-        "get_automation_config",
-        "get_script_config",
-        "render_template",
-        "get_ha_logs",
-        "check_ha_config",
-        # Discovery (1)
-        "discover_entities",
-        # Specialist delegation (2) — read-only analysis
-        "consult_data_science_team",
-        "consult_dashboard_designer",
-        # Scheduling (1) — creates config, no HA mutation
-        "create_insight_schedule",
-        # Approval (1) — creating proposals IS the approval mechanism
-        "seek_approval",
-    })
+    _READ_ONLY_TOOLS: frozenset[str] = frozenset(
+        {
+            # HA query tools (10)
+            "get_entity_state",
+            "list_entities_by_domain",
+            "search_entities",
+            "get_domain_summary",
+            "list_automations",
+            "get_automation_config",
+            "get_script_config",
+            "render_template",
+            "get_ha_logs",
+            "check_ha_config",
+            # Discovery (1)
+            "discover_entities",
+            # Specialist delegation (2) — read-only analysis
+            "consult_data_science_team",
+            "consult_dashboard_designer",
+            # Scheduling (1) — creates config, no HA mutation
+            "create_insight_schedule",
+            # Approval (1) — creating proposals IS the approval mechanism
+            "seek_approval",
+        }
+    )
 
     def _is_mutating_tool(self, tool_name: str) -> bool:
         """Check if a tool call can mutate Home Assistant state.
@@ -358,9 +371,7 @@ class ArchitectAgent(BaseAgent):
             )
 
         # Ask LLM to produce a final response with tool results
-        follow_up = await self.llm.ainvoke(
-            messages + [response] + tool_messages
-        )
+        follow_up = await self.llm.ainvoke([*messages, response, *tool_messages])
 
         return {
             "messages": [response, *tool_messages, AIMessage(content=follow_up.content)],
@@ -394,15 +405,21 @@ class ArchitectAgent(BaseAgent):
             context_parts = ["Available entities in this Home Assistant instance:"]
 
             # Key domains to list in detail (most useful for automations)
-            detailed_domains = ["light", "switch", "climate", "cover", "fan", "lock", "alarm_control_panel"]
+            detailed_domains = [
+                "light",
+                "switch",
+                "climate",
+                "cover",
+                "fan",
+                "lock",
+                "alarm_control_panel",
+            ]
 
             # Batch-fetch entities for all detailed domains in a single query (T190)
-            domains_to_detail = [
-                d for d, c in counts.items()
-                if d in detailed_domains and c <= 50
-            ]
+            domains_to_detail = [d for d, c in counts.items() if d in detailed_domains and c <= 50]
             entities_by_domain = await repo.list_by_domains(
-                domains_to_detail, limit_per_domain=50,
+                domains_to_detail,
+                limit_per_domain=50,
             )
 
             for domain, count in sorted(counts.items()):
@@ -457,6 +474,7 @@ class ArchitectAgent(BaseAgent):
             return "\n".join(context_parts)
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).warning(f"Failed to get entity context: {e}")
             return None
 
@@ -642,7 +660,6 @@ class ArchitectAgent(BaseAgent):
 
         return updates
 
-
     async def receive_suggestion(
         self,
         suggestion: AutomationSuggestion,
@@ -675,6 +692,7 @@ class ArchitectAgent(BaseAgent):
 
         if suggestion.evidence:
             import json
+
             evidence_str = json.dumps(suggestion.evidence, indent=2, default=str)[:500]
             prompt += f"\n**Evidence:**\n```json\n{evidence_str}\n```\n"
 
@@ -775,9 +793,7 @@ class ArchitectWorkflow:
         )
         async def _traced_invoke():
             # Set session for grouping multiple turns
-            mlflow.update_current_trace(
-                tags={"mlflow.trace.session": state.conversation_id}
-            )
+            mlflow.update_current_trace(tags={"mlflow.trace.session": state.conversation_id})
             return await self.agent.invoke(state, session=session)
 
         updates = await _traced_invoke()
@@ -829,9 +845,7 @@ class ArchitectWorkflow:
             turn: int,
         ):
             # Set session for grouping multiple turns
-            mlflow.update_current_trace(
-                tags={"mlflow.trace.session": conversation_id}
-            )
+            mlflow.update_current_trace(tags={"mlflow.trace.session": conversation_id})
 
             # Capture the trace request_id so the SSE stream can include it
             # for the frontend Agent Activity panel.
@@ -881,7 +895,7 @@ class ArchitectWorkflow:
         import mlflow
 
         state.messages.append(HumanMessage(content=user_message))
-        turn_number = (len(state.messages) + 1) // 2
+        (len(state.messages) + 1) // 2
 
         # Capture trace ID and emit it early so the frontend can start polling
         try:
@@ -916,9 +930,7 @@ class ArchitectWorkflow:
         full_tool_calls: list[dict] = []
 
         async for chunk in tool_llm.astream(messages):
-            has_tool_chunks = (
-                hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
-            )
+            has_tool_chunks = hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
 
             # Token content — skip when tool call chunks are present in the
             # same chunk to avoid leaking partial JSON from some models
@@ -962,11 +974,13 @@ class ArchitectWorkflow:
                 except _json.JSONDecodeError:
                     args = {}
 
-                full_tool_calls.append({
-                    "name": tool_name,
-                    "args": args,
-                    "id": tool_call_id,
-                })
+                full_tool_calls.append(
+                    {
+                        "name": tool_name,
+                        "args": args,
+                        "id": tool_call_id,
+                    }
+                )
 
                 # Check mutating
                 if self.agent._is_mutating_tool(tool_name):
@@ -1014,9 +1028,7 @@ class ArchitectWorkflow:
                                 if remaining <= 0:
                                     timed_out = True
                                     break
-                                queue_get = asyncio.ensure_future(
-                                    progress_queue.get()
-                                )
+                                queue_get = asyncio.ensure_future(progress_queue.get())
                                 done_set, _ = await asyncio.wait(
                                     {tool_task, queue_get},
                                     timeout=min(0.5, remaining),
@@ -1035,10 +1047,8 @@ class ArchitectWorkflow:
 
                             if timed_out:
                                 tool_task.cancel()
-                                try:
+                                with contextlib.suppress(asyncio.CancelledError, Exception):
                                     await tool_task
-                                except (asyncio.CancelledError, Exception):
-                                    pass
                                 result_str = f"Error: Tool {tool_name} timed out after {timeout}s"
                                 tool_results[tool_call_id] = result_str
                                 yield StreamEvent(
@@ -1102,9 +1112,7 @@ class ArchitectWorkflow:
             tool_calls_buffer = []
 
             async for chunk in tool_llm.astream(follow_up_messages):
-                has_tool_chunks = (
-                    hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
-                )
+                has_tool_chunks = hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
 
                 if chunk.content and not has_tool_chunks:
                     token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
@@ -1131,9 +1139,8 @@ class ArchitectWorkflow:
                 break
 
         # If the while loop never ran (no initial tool calls)
-        if iteration == 0:
-            if collected_content:
-                all_new_messages.append(AIMessage(content=collected_content))
+        if iteration == 0 and collected_content:
+            all_new_messages.append(AIMessage(content=collected_content))
 
         state.messages.extend(all_new_messages)
 

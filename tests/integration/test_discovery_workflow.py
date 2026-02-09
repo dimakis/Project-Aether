@@ -4,7 +4,7 @@ Tests the discovery workflow with mocked HA client.
 Constitution: Reliability & Quality - workflow integration testing.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -66,20 +66,22 @@ def mock_workflow_entities():
 def mock_workflow_ha_client(mock_workflow_entities):
     """Create mock HA client for workflow testing."""
     client = MagicMock()
-    
+
     # Configure async methods
     client.list_entities = AsyncMock(return_value=mock_workflow_entities)
-    client.system_overview = AsyncMock(return_value={
-        "total_entities": len(mock_workflow_entities),
-        "domains": {
-            "light": {"count": 1},
-            "sensor": {"count": 1},
-            "automation": {"count": 1},
-            "script": {"count": 1},
-        },
-    })
+    client.system_overview = AsyncMock(
+        return_value={
+            "total_entities": len(mock_workflow_entities),
+            "domains": {
+                "light": {"count": 1},
+                "sensor": {"count": 1},
+                "automation": {"count": 1},
+                "script": {"count": 1},
+            },
+        }
+    )
     client.connect = AsyncMock()
-    
+
     return client
 
 
@@ -127,7 +129,9 @@ class TestDiscoveryWorkflow:
         # Automations/scripts don't have devices
         assert len(devices) == 2
 
-    async def test_workflow_extracts_metadata(self, mock_workflow_ha_client, mock_workflow_entities):
+    async def test_workflow_extracts_metadata(
+        self, mock_workflow_ha_client, mock_workflow_entities
+    ):
         """Test that workflow extracts entity metadata correctly."""
         from src.ha.parsers import parse_entity_list
         from src.ha.workarounds import extract_entity_metadata
@@ -166,9 +170,7 @@ class TestDiscoverySyncService:
     """Integration tests for DiscoverySyncService."""
 
     @pytest.mark.requires_postgres
-    async def test_sync_service_creates_session(
-        self, integration_session, mock_workflow_ha_client
-    ):
+    async def test_sync_service_creates_session(self, integration_session, mock_workflow_ha_client):
         """Test that sync service creates a discovery session."""
         from src.dal.sync import DiscoverySyncService
 
@@ -193,9 +195,7 @@ class TestDiscoverySyncService:
         assert session.entities_added == len(mock_workflow_entities)
 
     @pytest.mark.requires_postgres
-    async def test_sync_service_tracks_areas(
-        self, integration_session, mock_workflow_ha_client
-    ):
+    async def test_sync_service_tracks_areas(self, integration_session, mock_workflow_ha_client):
         """Test that sync service tracks discovered areas."""
         from src.dal.sync import DiscoverySyncService
 
@@ -206,9 +206,7 @@ class TestDiscoverySyncService:
         assert session.areas_found == 1
 
     @pytest.mark.requires_postgres
-    async def test_sync_service_tracks_devices(
-        self, integration_session, mock_workflow_ha_client
-    ):
+    async def test_sync_service_tracks_devices(self, integration_session, mock_workflow_ha_client):
         """Test that sync service tracks discovered devices."""
         from src.dal.sync import DiscoverySyncService
 
@@ -239,14 +237,14 @@ class TestDiscoverySyncService:
         from src.dal.sync import DiscoverySyncService
 
         service = DiscoverySyncService(integration_session, mock_workflow_ha_client)
-        
+
         # First run
         session1 = await service.run_discovery()
         assert session1.entities_added == len(mock_workflow_entities)
-        
+
         # Commit to persist
         await integration_session.commit()
-        
+
         # Second run should update, not add
         session2 = await service.run_discovery()
         assert session2.entities_updated == len(mock_workflow_entities)
@@ -326,7 +324,9 @@ class TestWorkflowEdgeCases:
 class TestWorkflowDomainFiltering:
     """Test domain filtering in workflow."""
 
-    async def test_filter_automation_entities(self, mock_workflow_ha_client, mock_workflow_entities):
+    async def test_filter_automation_entities(
+        self, mock_workflow_ha_client, mock_workflow_entities
+    ):
         """Test filtering automation entities from discovery results."""
         from src.ha.parsers import parse_entity_list
 
@@ -350,7 +350,9 @@ class TestWorkflowDomainFiltering:
         assert len(scripts) == 1
         assert scripts[0].entity_id == "script.goodnight"
 
-    async def test_automation_mode_extraction(self, mock_workflow_ha_client, mock_workflow_entities):
+    async def test_automation_mode_extraction(
+        self, mock_workflow_ha_client, mock_workflow_entities
+    ):
         """Test extracting automation mode from attributes."""
         from src.ha.parsers import parse_entity_list
 

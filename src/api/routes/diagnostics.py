@@ -12,15 +12,13 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from src.diagnostics.config_validator import ConfigCheckResult, run_config_check
+from src.diagnostics.config_validator import run_config_check
 from src.diagnostics.entity_health import (
-    EntityDiagnostic,
     find_stale_entities,
     find_unavailable_entities,
 )
 from src.diagnostics.error_patterns import analyze_errors
 from src.diagnostics.integration_health import (
-    IntegrationHealth,
     find_unhealthy_integrations,
 )
 from src.diagnostics.log_parser import (
@@ -160,7 +158,7 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
 
     try:
         settings = get_settings()
-        experiment_name = getattr(settings, "mlflow_experiment_name", "aether")
+        getattr(settings, "mlflow_experiment_name", "aether")
 
         # Search for traces (MLflow 2.x API)
         traces = client.search_traces(
@@ -175,7 +173,9 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
             items.append(
                 {
                     "trace_id": info.request_id,
-                    "status": info.status.value if hasattr(info.status, "value") else str(info.status),
+                    "status": info.status.value
+                    if hasattr(info.status, "value")
+                    else str(info.status),
                     "timestamp_ms": info.timestamp_ms,
                     "duration_ms": info.execution_time_ms,
                 }

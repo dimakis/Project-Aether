@@ -4,7 +4,6 @@ Pydantic schemas for conversation and message endpoints - User Story 2.
 """
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -149,14 +148,14 @@ class StreamChunk(BaseModel):
 
 # Exports
 __all__ = [
+    "ChatRequest",
+    "ChatResponse",
+    "ConversationCreate",
+    "ConversationDetailResponse",
+    "ConversationListResponse",
+    "ConversationResponse",
     "MessageBase",
     "MessageCreate",
     "MessageResponse",
-    "ConversationCreate",
-    "ConversationResponse",
-    "ConversationDetailResponse",
-    "ConversationListResponse",
-    "ChatRequest",
-    "ChatResponse",
     "StreamChunk",
 ]

@@ -37,28 +37,28 @@ from src.diagnostics.log_parser import (
 )
 
 __all__ = [
-    # Log parser
-    "ErrorLogEntry",
-    "parse_error_log",
-    "categorize_by_integration",
-    "find_patterns",
-    "get_error_summary",
-    # Error patterns
-    "match_known_errors",
-    "analyze_errors",
-    # Entity health
-    "EntityDiagnostic",
-    "find_unavailable_entities",
-    "find_stale_entities",
-    "correlate_unavailability",
-    # Integration health
-    "IntegrationHealth",
-    "get_integration_statuses",
-    "find_unhealthy_integrations",
-    "diagnose_integration",
     # Config validator
     "ConfigCheckResult",
-    "run_config_check",
+    # Entity health
+    "EntityDiagnostic",
+    # Log parser
+    "ErrorLogEntry",
+    # Integration health
+    "IntegrationHealth",
+    "analyze_errors",
+    "categorize_by_integration",
+    "correlate_unavailability",
+    "diagnose_integration",
+    "find_patterns",
+    "find_stale_entities",
+    "find_unavailable_entities",
+    "find_unhealthy_integrations",
+    "get_error_summary",
+    "get_integration_statuses",
+    # Error patterns
+    "match_known_errors",
     "parse_config_errors",
+    "parse_error_log",
+    "run_config_check",
     "validate_automation_yaml",
 ]

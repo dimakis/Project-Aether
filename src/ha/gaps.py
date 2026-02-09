@@ -203,9 +203,9 @@ def get_gaps_affecting_entity(entity_type: str) -> list[dict[str, Any]]:
 __all__ = [
     "MCP_GAPS",
     "get_all_gaps",
-    "get_gaps_by_priority",
     "get_gap_by_tool",
+    "get_gaps_affecting_entity",
+    "get_gaps_by_priority",
     "get_gaps_report",
     "log_gap_encounter",
-    "get_gaps_affecting_entity",
 ]

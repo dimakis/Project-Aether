@@ -8,16 +8,16 @@ Tests:
 - No password configured at all returns appropriate error
 """
 
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import bcrypt
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from contextlib import asynccontextmanager
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
-
 
 # =============================================================================
 # Fixtures
@@ -26,27 +26,28 @@ from src.settings import Settings, get_settings
 
 def _make_settings(**overrides) -> Settings:
     """Create test settings with auth defaults."""
-    defaults = dict(
-        environment="testing",
-        debug=True,
-        database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        ha_url="http://localhost:8123",
-        ha_token=SecretStr("test-token"),
-        openai_api_key=SecretStr("test-api-key"),
-        mlflow_tracking_uri="http://localhost:5000",
-        sandbox_enabled=False,
-        auth_username="admin",
-        auth_password=SecretStr("env-password-123"),
-        jwt_secret=SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        jwt_expiry_hours=72,
-        api_key=SecretStr(""),
-    )
+    defaults = {
+        "environment": "testing",
+        "debug": True,
+        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
+        "ha_url": "http://localhost:8123",
+        "ha_token": SecretStr("test-token"),
+        "openai_api_key": SecretStr("test-api-key"),
+        "mlflow_tracking_uri": "http://localhost:5000",
+        "sandbox_enabled": False,
+        "auth_username": "admin",
+        "auth_password": SecretStr("env-password-123"),
+        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
+        "jwt_expiry_hours": 72,
+        "api_key": SecretStr(""),
+    }
     defaults.update(overrides)
     return Settings(**defaults)
 
 
 def _patch_settings(monkeypatch, settings: Settings) -> None:
     from src import settings as settings_module
+
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
 
 
@@ -94,10 +95,13 @@ class TestPasswordDBLogin:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login", json={
-                    "username": "admin",
-                    "password": db_password,
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login",
+                    json={
+                        "username": "admin",
+                        "password": db_password,
+                    },
+                )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -122,10 +126,13 @@ class TestPasswordDBLogin:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 # Use the env var password
-                resp = await client.post("/api/v1/auth/login", json={
-                    "username": "admin",
-                    "password": "env-password-123",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login",
+                    json={
+                        "username": "admin",
+                        "password": "env-password-123",
+                    },
+                )
 
         assert resp.status_code == 200
         get_settings.cache_clear()
@@ -142,10 +149,13 @@ class TestPasswordDBLogin:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login", json={
-                    "username": "admin",
-                    "password": "env-only-pass",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login",
+                    json={
+                        "username": "admin",
+                        "password": "env-only-pass",
+                    },
+                )
 
         assert resp.status_code == 200
         get_settings.cache_clear()
@@ -165,10 +175,13 @@ class TestPasswordDBLogin:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login", json={
-                    "username": "admin",
-                    "password": "totally-wrong",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login",
+                    json={
+                        "username": "admin",
+                        "password": "totally-wrong",
+                    },
+                )
 
         assert resp.status_code == 401
         get_settings.cache_clear()
@@ -185,10 +198,13 @@ class TestPasswordDBLogin:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login", json={
-                    "username": "admin",
-                    "password": "anything",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login",
+                    json={
+                        "username": "admin",
+                        "password": "anything",
+                    },
+                )
 
         assert resp.status_code == 501
         get_settings.cache_clear()
@@ -208,10 +224,13 @@ class TestPasswordDBLogin:
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login", json={
-                    "username": "admin",
-                    "password": "env-fallback",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login",
+                    json={
+                        "username": "admin",
+                        "password": "env-fallback",
+                    },
+                )
 
         assert resp.status_code == 200
         get_settings.cache_clear()

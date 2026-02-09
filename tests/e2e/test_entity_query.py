@@ -4,7 +4,7 @@ Tests the full NL query flow from user input to entity results.
 Constitution: Reliability & Quality - E2E NL query validation.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -84,9 +84,11 @@ def mock_llm_for_query():
             usage_metadata={"input_tokens": 10, "output_tokens": 20, "total_tokens": 30},
         )
 
-    llm.ainvoke = AsyncMock(side_effect=lambda _: create_response(
-        '{"domain": "light", "area": null, "state": null, "name_contains": null}'
-    ))
+    llm.ainvoke = AsyncMock(
+        side_effect=lambda _: create_response(
+            '{"domain": "light", "area": null, "state": null, "name_contains": null}'
+        )
+    )
 
     return llm
 
@@ -101,9 +103,11 @@ class TestNaturalLanguageQuery:
         import json
 
         # Mock the LLM to return domain filter for lights
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": "light", "area": null, "state": null, "name_contains": null}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": "light", "area": null, "state": null, "name_contains": null}'
+            )
+        )
 
         # Simulate query parsing (what NaturalLanguageQueryEngine would do)
         query = "Show me all lights"
@@ -120,18 +124,22 @@ class TestNaturalLanguageQuery:
 
     async def test_query_lights_in_living_room(self, mock_query_entities, mock_llm_for_query):
         """Test querying for lights in a specific area."""
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": "light", "area": "living_room", "state": null, "name_contains": null}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": "light", "area": "living_room", "state": null, "name_contains": null}'
+            )
+        )
 
         query = "Show me lights in the living room"
 
         import json
+
         filter_response = await mock_llm_for_query.ainvoke(query)
         filters = json.loads(filter_response.content)
 
         results = [
-            e for e in mock_query_entities
+            e
+            for e in mock_query_entities
             if e["domain"] == filters["domain"] and e.get("area_id") == filters["area"]
         ]
 
@@ -140,18 +148,22 @@ class TestNaturalLanguageQuery:
 
     async def test_query_lights_that_are_on(self, mock_query_entities, mock_llm_for_query):
         """Test querying for lights with specific state."""
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": "light", "area": null, "state": "on", "name_contains": null}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": "light", "area": null, "state": "on", "name_contains": null}'
+            )
+        )
 
         query = "Which lights are on?"
 
         import json
+
         filter_response = await mock_llm_for_query.ainvoke(query)
         filters = json.loads(filter_response.content)
 
         results = [
-            e for e in mock_query_entities
+            e
+            for e in mock_query_entities
             if e["domain"] == filters["domain"] and e["state"] == filters["state"]
         ]
 
@@ -160,20 +172,27 @@ class TestNaturalLanguageQuery:
 
     async def test_query_temperature_sensors(self, mock_query_entities, mock_llm_for_query):
         """Test querying for temperature sensors."""
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": "sensor", "area": null, "state": null, "name_contains": "temperature"}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": "sensor", "area": null, "state": null, "name_contains": "temperature"}'
+            )
+        )
 
         query = "Show me all temperature sensors"
 
         import json
+
         filter_response = await mock_llm_for_query.ainvoke(query)
         filters = json.loads(filter_response.content)
 
         results = [
-            e for e in mock_query_entities
+            e
+            for e in mock_query_entities
             if e["domain"] == filters["domain"]
-            and (filters["name_contains"] is None or filters["name_contains"].lower() in e["name"].lower())
+            and (
+                filters["name_contains"] is None
+                or filters["name_contains"].lower() in e["name"].lower()
+            )
         ]
 
         assert len(results) == 2
@@ -181,19 +200,21 @@ class TestNaturalLanguageQuery:
 
     async def test_query_by_name_pattern(self, mock_query_entities, mock_llm_for_query):
         """Test querying entities by name pattern."""
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": null, "area": null, "state": null, "name_contains": "bedroom"}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": null, "area": null, "state": null, "name_contains": "bedroom"}'
+            )
+        )
 
         query = "Find anything related to bedroom"
 
         import json
+
         filter_response = await mock_llm_for_query.ainvoke(query)
         filters = json.loads(filter_response.content)
 
         results = [
-            e for e in mock_query_entities
-            if filters["name_contains"].lower() in e["name"].lower()
+            e for e in mock_query_entities if filters["name_contains"].lower() in e["name"].lower()
         ]
 
         assert len(results) == 2
@@ -207,11 +228,14 @@ class TestQueryEdgeCases:
 
     async def test_query_no_results(self, mock_query_entities, mock_llm_for_query):
         """Test query that returns no results."""
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": "climate", "area": null, "state": null, "name_contains": null}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": "climate", "area": null, "state": null, "name_contains": null}'
+            )
+        )
 
         import json
+
         filter_response = await mock_llm_for_query.ainvoke("Show me thermostats")
         filters = json.loads(filter_response.content)
 
@@ -221,11 +245,14 @@ class TestQueryEdgeCases:
 
     async def test_query_all_entities(self, mock_query_entities, mock_llm_for_query):
         """Test query that returns all entities."""
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": null, "area": null, "state": null, "name_contains": null}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": null, "area": null, "state": null, "name_contains": null}'
+            )
+        )
 
         import json
+
         filter_response = await mock_llm_for_query.ainvoke("Show me everything")
         filters = json.loads(filter_response.content)
 
@@ -237,16 +264,20 @@ class TestQueryEdgeCases:
 
     async def test_query_combined_filters(self, mock_query_entities, mock_llm_for_query):
         """Test query with multiple filters."""
-        mock_llm_for_query.ainvoke = AsyncMock(return_value=MagicMock(
-            content='{"domain": "sensor", "area": "living_room", "state": null, "name_contains": null}'
-        ))
+        mock_llm_for_query.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content='{"domain": "sensor", "area": "living_room", "state": null, "name_contains": null}'
+            )
+        )
 
         import json
+
         filter_response = await mock_llm_for_query.ainvoke("Show me sensors in the living room")
         filters = json.loads(filter_response.content)
 
         results = [
-            e for e in mock_query_entities
+            e
+            for e in mock_query_entities
             if e["domain"] == filters["domain"] and e.get("area_id") == filters["area"]
         ]
 
@@ -287,12 +318,14 @@ class TestQueryResultFormatting:
 
         formatted = []
         for light in lights:
-            formatted.append({
-                "entity_id": light["entity_id"],
-                "name": light["name"],
-                "state": light["state"],
-                "brightness": light["attributes"].get("brightness", "N/A"),
-            })
+            formatted.append(
+                {
+                    "entity_id": light["entity_id"],
+                    "name": light["name"],
+                    "state": light["state"],
+                    "brightness": light["attributes"].get("brightness", "N/A"),
+                }
+            )
 
         assert len(formatted) == 3
         assert formatted[0]["brightness"] == 200
@@ -304,12 +337,14 @@ class TestQueryResultFormatting:
 
         formatted = []
         for sensor in sensors:
-            formatted.append({
-                "entity_id": sensor["entity_id"],
-                "name": sensor["name"],
-                "value": sensor["state"],
-                "unit": sensor["attributes"].get("unit_of_measurement", ""),
-            })
+            formatted.append(
+                {
+                    "entity_id": sensor["entity_id"],
+                    "name": sensor["name"],
+                    "value": sensor["state"],
+                    "unit": sensor["attributes"].get("unit_of_measurement", ""),
+                }
+            )
 
         assert len(formatted) == 2
         assert formatted[0]["unit"] == "°C"
@@ -358,7 +393,10 @@ class TestQueryIntentRecognition:
 
         # All should be recognized as state queries
         for query in queries:
-            assert any(word in query.lower() for word in ["which", "what", "is", "are", "on", "off", "open"])
+            assert any(
+                word in query.lower()
+                for word in ["which", "what", "is", "are", "on", "off", "open"]
+            )
 
     async def test_recognizes_location_filter(self, mock_llm_for_query):
         """Test recognizing location/area filters."""

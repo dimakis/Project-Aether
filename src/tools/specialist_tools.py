@@ -28,7 +28,7 @@ from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
 from src.agents.execution_context import emit_delegation, emit_progress
 from src.agents.model_context import get_model_context, model_context
-from src.agents.synthesis import LLMSynthesizer, ProgrammaticSynthesizer, SynthesisStrategy
+from src.agents.synthesis import LLMSynthesizer, ProgrammaticSynthesizer
 from src.graph.state import AnalysisState, AnalysisType, TeamAnalysis
 from src.tracing import get_active_span, trace_with_uri
 
@@ -40,23 +40,76 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 SPECIALIST_TRIGGERS: dict[str, frozenset[str]] = {
-    "energy": frozenset({
-        "energy", "power", "consumption", "solar", "battery", "batteries",
-        "kwh", "cost", "costs", "watt", "watts", "grid", "peak",
-        "tariff", "electricity",
-    }),
-    "behavioral": frozenset({
-        "pattern", "patterns", "behavior", "behaviour", "routine", "routines",
-        "habit", "habits", "automation", "automations", "scene", "scenes",
-        "script", "scripts", "usage", "schedule", "schedules",
-        "occupancy", "manual", "trigger", "triggers", "frequency", "gap", "gaps",
-    }),
-    "diagnostic": frozenset({
-        "error", "errors", "unavailable", "broken", "offline", "health",
-        "diagnose", "diagnosis", "troubleshoot", "fix", "issue", "issues",
-        "problem", "problems", "integration", "integrations",
-        "sensor", "sensors", "unreliable",
-    }),
+    "energy": frozenset(
+        {
+            "energy",
+            "power",
+            "consumption",
+            "solar",
+            "battery",
+            "batteries",
+            "kwh",
+            "cost",
+            "costs",
+            "watt",
+            "watts",
+            "grid",
+            "peak",
+            "tariff",
+            "electricity",
+        }
+    ),
+    "behavioral": frozenset(
+        {
+            "pattern",
+            "patterns",
+            "behavior",
+            "behaviour",
+            "routine",
+            "routines",
+            "habit",
+            "habits",
+            "automation",
+            "automations",
+            "scene",
+            "scenes",
+            "script",
+            "scripts",
+            "usage",
+            "schedule",
+            "schedules",
+            "occupancy",
+            "manual",
+            "trigger",
+            "triggers",
+            "frequency",
+            "gap",
+            "gaps",
+        }
+    ),
+    "diagnostic": frozenset(
+        {
+            "error",
+            "errors",
+            "unavailable",
+            "broken",
+            "offline",
+            "health",
+            "diagnose",
+            "diagnosis",
+            "troubleshoot",
+            "fix",
+            "issue",
+            "issues",
+            "problem",
+            "problems",
+            "integration",
+            "integrations",
+            "sensor",
+            "sensors",
+            "unreliable",
+        }
+    ),
 }
 
 _ALL_SPECIALISTS = ["energy", "behavioral", "diagnostic"]
@@ -88,6 +141,7 @@ def _select_specialists(
             matched.append(domain)
 
     return sorted(matched) if matched else sorted(_ALL_SPECIALISTS)
+
 
 def _get_or_create_team_analysis(query: str) -> TeamAnalysis:
     """Get the current team analysis from the ExecutionContext, or create a new one.
@@ -441,6 +495,7 @@ async def consult_data_science_team(
 
     # 4. Auto-synthesise if 2+ specialists contributed findings
     from src.agents.execution_context import get_execution_context as _get_ctx
+
     _ctx = _get_ctx()
     ta = _ctx.team_analysis if _ctx else None
     if ta and len(ta.findings) > 0 and len(selected) >= 2:
@@ -624,10 +679,7 @@ async def consult_dashboard_designer(
         Dashboard Designer's response with Lovelace YAML and explanation.
     """
     if not await is_agent_enabled("dashboard_designer"):
-        return (
-            "Dashboard Designer is currently disabled. "
-            "Enable it on the Agents page to use."
-        )
+        return "Dashboard Designer is currently disabled. Enable it on the Agents page to use."
 
     # Emit delegation: architect -> dashboard_designer
     emit_delegation("architect", "dashboard_designer", query)
@@ -646,7 +698,9 @@ async def consult_dashboard_designer(
         # Extract the text response from the agent's messages
         messages = result.get("messages", [])
         if messages:
-            response = messages[-1].content if hasattr(messages[-1], "content") else str(messages[-1])
+            response = (
+                messages[-1].content if hasattr(messages[-1], "content") else str(messages[-1])
+            )
         else:
             response = "Dashboard Designer returned no response."
 

@@ -7,10 +7,9 @@ from the execution context.
 TDD: Insight model conversation/task tagging.
 """
 
-import pytest
 from uuid import uuid4
 
-from src.storage.entities.insight import Insight, InsightStatus, InsightType
+from src.storage.entities.insight import Insight, InsightType
 
 
 class TestInsightConversationFields:

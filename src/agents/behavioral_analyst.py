@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -30,8 +30,10 @@ from src.graph.state import (
     SpecialistFinding,
 )
 from src.ha.behavioral import BehavioralAnalysisClient
-from src.sandbox.runner import SandboxResult
 from src.tracing import log_metric, log_param
+
+if TYPE_CHECKING:
+    from src.sandbox.runner import SandboxResult
 
 logger = logging.getLogger(__name__)
 
@@ -296,8 +298,7 @@ class BehavioralAnalyst(BaseAnalyst):
 
                 return {
                     "insights": [
-                        {"title": f.title, "description": f.description}
-                        for f in findings
+                        {"title": f.title, "description": f.description} for f in findings
                     ],
                     "generated_script": script,
                     "team_analysis": state.team_analysis,
@@ -363,12 +364,8 @@ class BehavioralAnalyst(BaseAnalyst):
             return {
                 "automation_triggers": stats.automation_triggers,
                 "human_triggers": stats.manual_actions,
-                "automation_ratio": (
-                    stats.automation_triggers / total if total > 0 else 0.0
-                ),
-                "human_ratio": (
-                    stats.manual_actions / total if total > 0 else 0.0
-                ),
+                "automation_ratio": (stats.automation_triggers / total if total > 0 else 0.0),
+                "human_ratio": (stats.manual_actions / total if total > 0 else 0.0),
             }
         except Exception as e:
             logger.warning(f"Error collecting trigger breakdown: {e}")
@@ -378,9 +375,7 @@ class BehavioralAnalyst(BaseAnalyst):
     # Private helpers
     # -----------------------------------------------------------------
 
-    def _build_analysis_prompt(
-        self, state: AnalysisState, data: dict[str, Any]
-    ) -> str:
+    def _build_analysis_prompt(self, state: AnalysisState, data: dict[str, Any]) -> str:
         """Build behavioral analysis prompt."""
         entity_count = data.get("entity_count", 0)
         hours = state.time_range_hours

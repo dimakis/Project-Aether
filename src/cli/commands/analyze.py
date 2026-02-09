@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.panel import Panel
@@ -25,11 +25,11 @@ def analyze(
         typer.Option("--days", "-d", help="Days of history to analyze"),
     ] = 1,
     entity: Annotated[
-        Optional[str],  # noqa: UP007
+        str | None,
         typer.Option("--entity", "-e", help="Specific entity to analyze"),
     ] = None,
     query: Annotated[
-        Optional[str],  # noqa: UP007
+        str | None,
         typer.Option("--query", "-q", help="Custom analysis query"),
     ] = None,
 ) -> None:
@@ -177,12 +177,16 @@ async def _run_analysis(
 
 def insights(
     status: Annotated[
-        Optional[str],  # noqa: UP007
-        typer.Option("--status", "-s", help="Filter by status: pending, reviewed, actioned, dismissed"),
+        str | None,
+        typer.Option(
+            "--status", "-s", help="Filter by status: pending, reviewed, actioned, dismissed"
+        ),
     ] = None,
     type: Annotated[
-        Optional[str],  # noqa: UP007
-        typer.Option("--type", "-t", help="Filter by type: energy_optimization, anomaly_detection, etc."),
+        str | None,
+        typer.Option(
+            "--type", "-t", help="Filter by type: energy_optimization, anomaly_detection, etc."
+        ),
     ] = None,
     limit: Annotated[
         int,
@@ -366,7 +370,7 @@ def optimize(
         typer.Option("--days", "-d", help="Days of history to analyze"),
     ] = 7,
     entity: Annotated[
-        Optional[str],  # noqa: UP007
+        str | None,
         typer.Option("--entity", "-e", help="Specific entity to focus on"),
     ] = None,
 ) -> None:
@@ -391,7 +395,6 @@ async def _run_optimization(
     entity: str | None,
 ) -> None:
     """Run optimization analysis."""
-    from src.graph.state import AnalysisType
     from src.graph.workflows import run_optimization_workflow
     from src.storage import get_session
     from src.tracing import init_mlflow

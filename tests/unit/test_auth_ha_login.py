@@ -7,15 +7,15 @@ Tests:
 - Falls back to env var HA URL when no DB config exists
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
-
 
 # =============================================================================
 # Fixtures
@@ -24,27 +24,28 @@ from src.settings import Settings, get_settings
 
 def _make_settings(**overrides) -> Settings:
     """Create test settings with auth defaults."""
-    defaults = dict(
-        environment="testing",
-        debug=True,
-        database_url="postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        ha_url="http://localhost:8123",
-        ha_token=SecretStr("test-token"),
-        openai_api_key=SecretStr("test-api-key"),
-        mlflow_tracking_uri="http://localhost:5000",
-        sandbox_enabled=False,
-        auth_username="admin",
-        auth_password=SecretStr(""),
-        jwt_secret=SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        jwt_expiry_hours=72,
-        api_key=SecretStr(""),
-    )
+    defaults = {
+        "environment": "testing",
+        "debug": True,
+        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
+        "ha_url": "http://localhost:8123",
+        "ha_token": SecretStr("test-token"),
+        "openai_api_key": SecretStr("test-api-key"),
+        "mlflow_tracking_uri": "http://localhost:5000",
+        "sandbox_enabled": False,
+        "auth_username": "admin",
+        "auth_password": SecretStr(""),
+        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
+        "jwt_expiry_hours": 72,
+        "api_key": SecretStr(""),
+    }
     defaults.update(overrides)
     return Settings(**defaults)
 
 
 def _patch_settings(monkeypatch, settings: Settings) -> None:
     from src import settings as settings_module
+
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
 
 
@@ -79,23 +80,29 @@ class TestHATokenLogin:
 
         # Mock DB with stored HA config
         from src.dal.system_config import encrypt_token
+
         jwt_secret = "test-jwt-secret-key-for-testing-minimum-32bytes"
         mock_config = MagicMock()
         mock_config.ha_url = "http://ha.local:8123"
         mock_config.ha_token_encrypted = encrypt_token("stored-token", jwt_secret)
         mock_config.password_hash = None
 
-        with patch("src.api.routes.auth.get_session", _make_mock_session(mock_config)), \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
+        with (
+            patch("src.api.routes.auth.get_session", _make_mock_session(mock_config)),
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+        ):
             mock_verify.return_value = {"message": "API running."}
 
             app = create_app(settings)
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login/ha-token", json={
-                    "ha_token": "valid-user-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login/ha-token",
+                    json={
+                        "ha_token": "valid-user-token",
+                    },
+                )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -114,19 +121,22 @@ class TestHATokenLogin:
         settings = _make_settings()
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", _make_mock_session(None)), \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
-            mock_verify.side_effect = HTTPException(
-                status_code=401, detail="Invalid HA token"
-            )
+        with (
+            patch("src.api.routes.auth.get_session", _make_mock_session(None)),
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+        ):
+            mock_verify.side_effect = HTTPException(status_code=401, detail="Invalid HA token")
 
             app = create_app(settings)
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login/ha-token", json={
-                    "ha_token": "bad-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login/ha-token",
+                    json={
+                        "ha_token": "bad-token",
+                    },
+                )
 
         assert resp.status_code == 401
         get_settings.cache_clear()
@@ -140,19 +150,22 @@ class TestHATokenLogin:
         settings = _make_settings()
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", _make_mock_session(None)), \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
-            mock_verify.side_effect = HTTPException(
-                status_code=502, detail="Cannot connect to HA"
-            )
+        with (
+            patch("src.api.routes.auth.get_session", _make_mock_session(None)),
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+        ):
+            mock_verify.side_effect = HTTPException(status_code=502, detail="Cannot connect to HA")
 
             app = create_app(settings)
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login/ha-token", json={
-                    "ha_token": "some-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login/ha-token",
+                    json={
+                        "ha_token": "some-token",
+                    },
+                )
 
         assert resp.status_code == 502
         get_settings.cache_clear()
@@ -164,17 +177,22 @@ class TestHATokenLogin:
         settings = _make_settings(ha_url="http://env-ha:8123")
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", _make_mock_session(None)), \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
+        with (
+            patch("src.api.routes.auth.get_session", _make_mock_session(None)),
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+        ):
             mock_verify.return_value = {"message": "API running."}
 
             app = create_app(settings)
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
-                resp = await client.post("/api/v1/auth/login/ha-token", json={
-                    "ha_token": "valid-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login/ha-token",
+                    json={
+                        "ha_token": "valid-token",
+                    },
+                )
 
         assert resp.status_code == 200
         # Should have used the env var HA URL
@@ -189,8 +207,10 @@ class TestHATokenLogin:
         settings = _make_settings(api_key=SecretStr("required-key"))
         _patch_settings(monkeypatch, settings)
 
-        with patch("src.api.routes.auth.get_session", _make_mock_session(None)), \
-             patch("src.api.routes.auth.verify_ha_connection") as mock_verify:
+        with (
+            patch("src.api.routes.auth.get_session", _make_mock_session(None)),
+            patch("src.api.routes.auth.verify_ha_connection") as mock_verify,
+        ):
             mock_verify.return_value = {"message": "API running."}
 
             app = create_app(settings)
@@ -198,9 +218,12 @@ class TestHATokenLogin:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 # No API key or JWT, should still work
-                resp = await client.post("/api/v1/auth/login/ha-token", json={
-                    "ha_token": "valid-token",
-                })
+                resp = await client.post(
+                    "/api/v1/auth/login/ha-token",
+                    json={
+                        "ha_token": "valid-token",
+                    },
+                )
 
         assert resp.status_code == 200
         get_settings.cache_clear()

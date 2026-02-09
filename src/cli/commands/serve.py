@@ -12,7 +12,7 @@ def serve(
     host: Annotated[
         str,
         typer.Option("--host", "-h", help="Host to bind to"),
-    ] = "0.0.0.0",  # noqa: S104
+    ] = "0.0.0.0",
     port: Annotated[
         int,
         typer.Option("--port", "-p", help="Port to bind to"),

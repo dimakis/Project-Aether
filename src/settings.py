@@ -53,7 +53,9 @@ class Settings(BaseSettings):
 
     # LLM Configuration (Research Decision #6)
     # Supports: openai, openrouter, google, ollama, together, groq, or custom
-    llm_provider: Literal["openai", "openrouter", "google", "ollama", "together", "groq", "custom"] = Field(
+    llm_provider: Literal[
+        "openai", "openrouter", "google", "ollama", "together", "groq", "custom"
+    ] = Field(
         default="openai",
         description="LLM provider (openai, openrouter, google, ollama, together, groq, custom)",
     )
@@ -125,7 +127,7 @@ class Settings(BaseSettings):
     )
 
     # API
-    api_host: str = Field(default="0.0.0.0")  # noqa: S104
+    api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000, ge=1, le=65535)
     api_workers: int = Field(default=1, ge=1, le=16)
     api_key: SecretStr = Field(
@@ -215,7 +217,7 @@ class Settings(BaseSettings):
         default=30,
         ge=5,
         le=1440,
-        description="Interval in minutes between periodic delta syncs (5 min – 24 h)",
+        description="Interval in minutes between periodic delta syncs (5 min - 24 h)",
     )
 
     # Tool execution timeouts
@@ -247,17 +249,19 @@ class Settings(BaseSettings):
 
 # Tools that get the longer analysis_tool_timeout_seconds timeout.
 # All others use tool_timeout_seconds.
-ANALYSIS_TOOLS: frozenset[str] = frozenset({
-    "consult_data_science_team",
-    "consult_energy_analyst",
-    "consult_behavioral_analyst",
-    "consult_diagnostic_analyst",
-    "request_synthesis_review",
-    "analyze_energy",
-    "diagnose_issue",
-    "run_custom_analysis",
-    "discover_entities",
-})
+ANALYSIS_TOOLS: frozenset[str] = frozenset(
+    {
+        "consult_data_science_team",
+        "consult_energy_analyst",
+        "consult_behavioral_analyst",
+        "consult_diagnostic_analyst",
+        "request_synthesis_review",
+        "analyze_energy",
+        "diagnose_issue",
+        "run_custom_analysis",
+        "discover_entities",
+    }
+)
 
 
 @lru_cache

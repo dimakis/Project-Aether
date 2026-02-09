@@ -6,7 +6,7 @@ Constitution: Reliability & Quality - comprehensive schema testing.
 TDD: T102 - Insight schema tests.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -163,7 +163,7 @@ class TestInsightResponse:
             script_output=None,
             status=InsightStatus.PENDING,
             mlflow_run_id=None,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             reviewed_at=None,
             actioned_at=None,
         )
@@ -173,7 +173,7 @@ class TestInsightResponse:
 
     def test_response_with_timestamps(self):
         """Test response with all timestamps."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         response = InsightResponse(
             id="insight-123",
             type=InsightType.USAGE_PATTERN,
@@ -226,7 +226,7 @@ class TestInsightListResponse:
             script_output=None,
             status=InsightStatus.PENDING,
             mlflow_run_id=None,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             reviewed_at=None,
             actioned_at=None,
         )
@@ -308,7 +308,7 @@ class TestAnalysisJob:
             status="running",
             analysis_type="energy",
             progress=0.5,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             completed_at=None,
             mlflow_run_id="run-456",
         )
@@ -324,8 +324,8 @@ class TestAnalysisJob:
             status="completed",
             analysis_type="energy",
             progress=1.0,
-            started_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
             insight_ids=["insight-1", "insight-2"],
         )
 
@@ -340,7 +340,7 @@ class TestAnalysisJob:
             status="failed",
             analysis_type="energy",
             progress=0.3,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             error="Connection timeout",
         )
 
@@ -398,7 +398,7 @@ class TestEnergySchemas:
             total_kwh=150.5,
             average_kwh=6.25,
             peak_value=15.0,
-            peak_timestamp=datetime.now(timezone.utc),
+            peak_timestamp=datetime.now(UTC),
             daily_totals={"2024-01-01": 50.0},
             hourly_averages={"12": 7.5},
             hours_analyzed=24,
@@ -427,7 +427,7 @@ class TestEnergySchemas:
             total_kwh=100.0,
             sensor_count=1,
             hours_analyzed=24,
-            analysis_timestamp=datetime.now(timezone.utc),
+            analysis_timestamp=datetime.now(UTC),
         )
 
         assert len(overview.sensors) == 1

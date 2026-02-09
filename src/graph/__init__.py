@@ -4,7 +4,7 @@ Provides core LangGraph imports, configuration, and shared utilities
 for building agent graphs (Constitution: State).
 """
 
-from typing import Any
+from typing import Any, TypeVar
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -15,18 +15,18 @@ from src.settings import get_settings
 
 # Re-export common LangGraph types for convenience
 __all__ = [
-    # Graph building
-    "StateGraph",
-    "CompiledGraph",
-    "START",
     "END",
+    "START",
     # Messages
     "AIMessage",
+    "CompiledGraph",
     "HumanMessage",
+    # Graph building
+    "StateGraph",
     "SystemMessage",
+    "create_graph",
     # Utilities
     "get_llm",
-    "create_graph",
     # Workflows
     "get_workflow",
     "run_discovery_workflow",
@@ -39,6 +39,7 @@ def get_workflow(name: str, **kwargs):  # type: ignore[no-untyped-def]
     Lazy import to avoid circular dependencies.
     """
     from src.graph.workflows import get_workflow as _get_workflow
+
     return _get_workflow(name, **kwargs)
 
 
@@ -48,6 +49,7 @@ async def run_discovery_workflow(**kwargs):  # type: ignore[no-untyped-def]
     Lazy import to avoid circular dependencies.
     """
     from src.graph.workflows import run_discovery_workflow as _run
+
     return await _run(**kwargs)
 
 
@@ -84,7 +86,10 @@ def get_llm(
     )
 
 
-def create_graph[S](state_class: type[S]) -> StateGraph[S]:
+S = TypeVar("S")
+
+
+def create_graph(state_class: type[S]) -> StateGraph[S]:
     """Create a new StateGraph with the given state class.
 
     Type-safe factory for creating LangGraph state graphs.

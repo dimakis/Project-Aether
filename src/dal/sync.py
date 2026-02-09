@@ -2,7 +2,7 @@
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -70,7 +70,7 @@ class DiscoverySyncService:
         # Create session record
         discovery = DiscoverySession(
             id=str(uuid4()),
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             status=DiscoveryStatus.RUNNING,
             triggered_by=triggered_by,
             mlflow_run_id=mlflow_run_id,
@@ -117,7 +117,7 @@ class DiscoverySyncService:
 
             # Mark complete
             discovery.status = DiscoveryStatus.COMPLETED
-            discovery.completed_at = datetime.now(timezone.utc)
+            discovery.completed_at = datetime.now(UTC)
 
             # Record HA gaps encountered
             # areas_via_inference is True only if the HA API returned nothing
@@ -135,7 +135,7 @@ class DiscoverySyncService:
         except Exception as e:
             discovery.status = DiscoveryStatus.FAILED
             discovery.error_message = str(e)
-            discovery.completed_at = datetime.now(timezone.utc)
+            discovery.completed_at = datetime.now(UTC)
             raise
 
         await self.session.commit()
@@ -197,12 +197,14 @@ class DiscoverySyncService:
         mapping = {}
 
         for ha_area_id, area_data in inferred_areas.items():
-            area, created = await self.area_repo.upsert({
-                "ha_area_id": ha_area_id,
-                "name": area_data["name"],
-                "floor_id": area_data.get("floor_id"),
-                "icon": area_data.get("icon"),
-            })
+            area, _created = await self.area_repo.upsert(
+                {
+                    "ha_area_id": ha_area_id,
+                    "name": area_data["name"],
+                    "floor_id": area_data.get("floor_id"),
+                    "icon": area_data.get("icon"),
+                }
+            )
             mapping[ha_area_id] = area.id
 
         return mapping
@@ -229,14 +231,16 @@ class DiscoverySyncService:
             if device_data.get("area_id"):
                 internal_area_id = area_id_mapping.get(device_data["area_id"])
 
-            device, created = await self.device_repo.upsert({
-                "ha_device_id": ha_device_id,
-                "name": device_data["name"],
-                "area_id": internal_area_id,
-                "manufacturer": device_data.get("manufacturer"),
-                "model": device_data.get("model"),
-                "sw_version": device_data.get("sw_version"),
-            })
+            device, _created = await self.device_repo.upsert(
+                {
+                    "ha_device_id": ha_device_id,
+                    "name": device_data["name"],
+                    "area_id": internal_area_id,
+                    "manufacturer": device_data.get("manufacturer"),
+                    "model": device_data.get("model"),
+                    "sw_version": device_data.get("sw_version"),
+                }
+            )
             mapping[ha_device_id] = device.id
 
         return mapping
@@ -346,15 +350,17 @@ class DiscoverySyncService:
                     exc,
                 )
 
-            await self.automation_repo.upsert({
-                "ha_automation_id": ha_automation_id,
-                "entity_id": entity.entity_id,
-                "alias": attrs.get("friendly_name", entity.name),
-                "state": entity.state or "off",
-                "mode": attrs.get("mode", "single"),
-                "last_triggered": attrs.get("last_triggered"),
-                "config": config,
-            })
+            await self.automation_repo.upsert(
+                {
+                    "ha_automation_id": ha_automation_id,
+                    "entity_id": entity.entity_id,
+                    "alias": attrs.get("friendly_name", entity.name),
+                    "state": entity.state or "off",
+                    "mode": attrs.get("mode", "single"),
+                    "last_triggered": attrs.get("last_triggered"),
+                    "config": config,
+                }
+            )
             stats["automations_synced"] += 1
 
         # Remove stale automations
@@ -384,16 +390,18 @@ class DiscoverySyncService:
                     exc,
                 )
 
-            await self.script_repo.upsert({
-                "entity_id": entity.entity_id,
-                "alias": attrs.get("friendly_name", entity.name),
-                "state": entity.state or "off",
-                "mode": attrs.get("mode", "single"),
-                "icon": attrs.get("icon"),
-                "last_triggered": attrs.get("last_triggered"),
-                "sequence": sequence,
-                "fields": fields,
-            })
+            await self.script_repo.upsert(
+                {
+                    "entity_id": entity.entity_id,
+                    "alias": attrs.get("friendly_name", entity.name),
+                    "state": entity.state or "off",
+                    "mode": attrs.get("mode", "single"),
+                    "icon": attrs.get("icon"),
+                    "last_triggered": attrs.get("last_triggered"),
+                    "sequence": sequence,
+                    "fields": fields,
+                }
+            )
             stats["scripts_synced"] += 1
 
         # Remove stale scripts
@@ -407,11 +415,13 @@ class DiscoverySyncService:
             attrs = entity.attributes or {}
             seen_scene_ids.add(entity.entity_id)
 
-            await self.scene_repo.upsert({
-                "entity_id": entity.entity_id,
-                "name": attrs.get("friendly_name", entity.name),
-                "icon": attrs.get("icon"),
-            })
+            await self.scene_repo.upsert(
+                {
+                    "entity_id": entity.entity_id,
+                    "name": attrs.get("friendly_name", entity.name),
+                    "icon": attrs.get("icon"),
+                }
+            )
             stats["scenes_synced"] += 1
 
         # Remove stale scenes
@@ -454,11 +464,7 @@ class DiscoverySyncService:
             if db_record is not None:
                 ha_updated = getattr(entity, "last_updated", None)
                 db_synced = db_record.last_synced_at
-                if (
-                    ha_updated is not None
-                    and db_synced is not None
-                    and ha_updated <= db_synced
-                ):
+                if ha_updated is not None and db_synced is not None and ha_updated <= db_synced:
                     stats["skipped"] += 1
                     continue
 
@@ -553,6 +559,7 @@ async def run_discovery(
     """
     if ha_client is None:
         from src.ha import get_ha_client
+
         ha_client = get_ha_client()
 
     service = DiscoverySyncService(session, ha_client)
@@ -578,6 +585,7 @@ async def run_registry_sync(
     """
     if ha_client is None:
         from src.ha import get_ha_client
+
         ha_client = get_ha_client()
 
     start = time.monotonic()

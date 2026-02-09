@@ -6,10 +6,7 @@ translating user questions into database queries.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.areas import AreaRepository
 from src.dal.automations import AutomationRepository, SceneRepository, ScriptRepository
@@ -17,6 +14,8 @@ from src.dal.devices import DeviceRepository
 from src.dal.entities import EntityRepository
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from src.storage.entities.area import Area
     from src.storage.entities.automation import HAAutomation
     from src.storage.entities.device import Device
@@ -93,8 +92,17 @@ class NaturalLanguageQueryEngine:
 
         # Domain detection
         domains = [
-            "light", "switch", "sensor", "binary_sensor", "climate",
-            "cover", "fan", "media_player", "automation", "script", "scene",
+            "light",
+            "switch",
+            "sensor",
+            "binary_sensor",
+            "climate",
+            "cover",
+            "fan",
+            "media_player",
+            "automation",
+            "script",
+            "scene",
         ]
         for domain in domains:
             if domain in question_lower or f"{domain}s" in question_lower:
@@ -200,10 +208,7 @@ class NaturalLanguageQueryEngine:
         # Filter by area name if specified (post-query filter)
         area_name = filters.get("area_name")
         if area_name:
-            entities = [
-                e for e in entities
-                if e.area and area_name.lower() in e.area.name.lower()
-            ]
+            entities = [e for e in entities if e.area and area_name.lower() in e.area.name.lower()]
 
         return {
             "entities": [self._entity_to_dict(e) for e in entities],

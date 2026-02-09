@@ -5,9 +5,11 @@ which handles HA system health, entity diagnostics, integration health,
 config validation, and error log analysis.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.graph.state import (
     AgentRole,
     AnalysisState,
@@ -15,7 +17,6 @@ from src.graph.state import (
     SpecialistFinding,
     TeamAnalysis,
 )
-from src.agents.diagnostic_analyst import DiagnosticAnalyst
 
 
 class TestDiagnosticAnalystInit:
@@ -45,18 +46,22 @@ class TestDiagnosticAnalystCollectData:
             time_range_hours=24,
         )
 
-        with patch(
-            "src.agents.diagnostic_analyst.find_unavailable_entities",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.find_unhealthy_integrations",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.run_config_check",
-            new_callable=AsyncMock,
-            return_value=MagicMock(valid=True, errors=[], warnings=[]),
+        with (
+            patch(
+                "src.agents.diagnostic_analyst.find_unavailable_entities",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.find_unhealthy_integrations",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.run_config_check",
+                new_callable=AsyncMock,
+                return_value=MagicMock(valid=True, errors=[], warnings=[]),
+            ),
         ):
             data = await analyst.collect_data(state)
 
@@ -76,24 +81,30 @@ class TestDiagnosticAnalystCollectData:
             time_range_hours=24,
         )
 
-        with patch(
-            "src.agents.diagnostic_analyst.find_unavailable_entities",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.find_unhealthy_integrations",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.run_config_check",
-            new_callable=AsyncMock,
-            return_value=MagicMock(valid=True, errors=[], warnings=[]),
-        ), patch(
-            "src.agents.diagnostic_analyst.parse_error_log",
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.get_error_summary",
-            return_value={"total": 0, "counts_by_level": {}},
+        with (
+            patch(
+                "src.agents.diagnostic_analyst.find_unavailable_entities",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.find_unhealthy_integrations",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.run_config_check",
+                new_callable=AsyncMock,
+                return_value=MagicMock(valid=True, errors=[], warnings=[]),
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.parse_error_log",
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.get_error_summary",
+                return_value={"total": 0, "counts_by_level": {}},
+            ),
         ):
             data = await analyst.collect_data(state)
 
@@ -113,24 +124,30 @@ class TestDiagnosticAnalystCollectData:
             time_range_hours=24,
         )
 
-        with patch(
-            "src.agents.diagnostic_analyst.find_unavailable_entities",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.find_unhealthy_integrations",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.run_config_check",
-            new_callable=AsyncMock,
-            return_value=MagicMock(valid=True, errors=[], warnings=[]),
-        ), patch(
-            "src.agents.diagnostic_analyst.parse_error_log",
-            return_value=[],
-        ), patch(
-            "src.agents.diagnostic_analyst.get_error_summary",
-            return_value={"total": 0, "counts_by_level": {}},
+        with (
+            patch(
+                "src.agents.diagnostic_analyst.find_unavailable_entities",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.find_unhealthy_integrations",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.run_config_check",
+                new_callable=AsyncMock,
+                return_value=MagicMock(valid=True, errors=[], warnings=[]),
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.parse_error_log",
+                return_value=[],
+            ),
+            patch(
+                "src.agents.diagnostic_analyst.get_error_summary",
+                return_value={"total": 0, "counts_by_level": {}},
+            ),
         ):
             data = await analyst.collect_data(state)
 

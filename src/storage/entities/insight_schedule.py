@@ -7,7 +7,7 @@ Stores configuration for recurring cron jobs and HA webhook-triggered analysis.
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, func
@@ -19,8 +19,8 @@ from src.storage.models import Base
 class TriggerType(str, enum.Enum):
     """How the insight schedule is triggered."""
 
-    CRON = "cron"          # Periodic via APScheduler cron expression
-    WEBHOOK = "webhook"    # On-demand via HA webhook event
+    CRON = "cron"  # Periodic via APScheduler cron expression
+    WEBHOOK = "webhook"  # On-demand via HA webhook event
 
 
 class InsightSchedule(Base):
@@ -127,7 +127,7 @@ class InsightSchedule(Base):
 
     def record_run(self, success: bool, error: str | None = None) -> None:
         """Record the result of a job execution."""
-        self.last_run_at = datetime.now(timezone.utc)
+        self.last_run_at = datetime.now(UTC)
         self.last_result = "success" if success else "failed"
         self.last_error = error
         self.run_count += 1

@@ -6,7 +6,7 @@ Constitution: Reliability & Quality.
 TDD: T233 - Logbook client and parsing.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -43,7 +43,7 @@ def logbook_client(mock_ha_client):
 @pytest.fixture
 def sample_logbook_entries():
     """Create sample logbook entries from HA."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return [
         {
             "entity_id": "automation.morning_lights",
@@ -161,7 +161,9 @@ class TestLogbookHistoryClient:
         mock_ha_client.get_logbook.assert_called_once_with(hours=24, entity_id=None)
 
     @pytest.mark.asyncio
-    async def test_get_entries_by_domain(self, logbook_client, mock_ha_client, sample_logbook_entries):
+    async def test_get_entries_by_domain(
+        self, logbook_client, mock_ha_client, sample_logbook_entries
+    ):
         mock_ha_client.get_logbook.return_value = sample_logbook_entries
 
         entries = await logbook_client.get_entries_by_domain("automation", hours=24)
@@ -195,7 +197,9 @@ class TestLogbookHistoryClient:
         assert stats.total_entries == 0
 
     @pytest.mark.asyncio
-    async def test_aggregate_by_action_type(self, logbook_client, mock_ha_client, sample_logbook_entries):
+    async def test_aggregate_by_action_type(
+        self, logbook_client, mock_ha_client, sample_logbook_entries
+    ):
         mock_ha_client.get_logbook.return_value = sample_logbook_entries
         entries = await logbook_client.get_entries(hours=24)
 

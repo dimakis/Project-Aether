@@ -19,8 +19,11 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, field
-from typing import Generator
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 @dataclass(frozen=True)
@@ -39,9 +42,7 @@ class ModelContext:
 
 
 # Context variable holding the active model context
-_model_ctx: ContextVar[ModelContext | None] = ContextVar(
-    "model_context", default=None
-)
+_model_ctx: ContextVar[ModelContext | None] = ContextVar("model_context", default=None)
 
 
 def get_model_context() -> ModelContext | None:
@@ -145,9 +146,9 @@ def resolve_model(
 
 __all__ = [
     "ModelContext",
-    "get_model_context",
-    "set_model_context",
-    "model_context",
     "clear_model_context",
+    "get_model_context",
+    "model_context",
     "resolve_model",
+    "set_model_context",
 ]

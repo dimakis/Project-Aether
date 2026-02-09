@@ -1,14 +1,12 @@
 """Device repository for HA device CRUD operations."""
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.dal.base import BaseRepository
 from src.storage.entities import Device
 
 
 class DeviceRepository(BaseRepository[Device]):
     """Repository for Device CRUD operations."""
-    
+
     model = Device
     ha_id_field = "ha_device_id"
     order_by_field = "name"

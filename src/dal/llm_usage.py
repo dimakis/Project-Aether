@@ -3,7 +3,7 @@
 Provides queries for LLM usage tracking and aggregation.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import func, select, text
@@ -74,7 +74,7 @@ class LLMUsageRepository:
         Returns:
             Dict with total_calls, total_tokens, total_cost_usd, by_model
         """
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
 
         # Total aggregates
         result = await self.session.execute(
@@ -127,7 +127,7 @@ class LLMUsageRepository:
         Returns:
             List of dicts with date, calls, tokens, cost_usd
         """
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
 
         result = await self.session.execute(
             select(
@@ -201,7 +201,9 @@ class LLMUsageRepository:
                     "calls": r.calls,
                     "tokens": r.tokens,
                     "cost_usd": round(float(r.cost_usd), 6),
-                    "avg_latency_ms": round(float(r.avg_latency_ms), 0) if r.avg_latency_ms else None,
+                    "avg_latency_ms": round(float(r.avg_latency_ms), 0)
+                    if r.avg_latency_ms
+                    else None,
                 }
                 for r in agent_result
             ],
@@ -214,7 +216,7 @@ class LLMUsageRepository:
             List of dicts with model, provider, calls, input_tokens,
             output_tokens, tokens, cost_usd, avg_latency_ms
         """
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
 
         result = await self.session.execute(
             select(

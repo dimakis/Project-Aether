@@ -87,25 +87,43 @@ def get_architect_tools() -> list:
 
     This keeps the LLM tool surface small and focused.
     """
+    from src.tools.agent_tools import discover_entities as _discover_entities
+    from src.tools.approval_tools import seek_approval as _seek_approval
     from src.tools.ha_tools import (
         check_ha_config as _check_ha_config,
+    )
+    from src.tools.ha_tools import (
         get_automation_config as _get_automation_config,
+    )
+    from src.tools.ha_tools import (
         get_domain_summary as _get_domain_summary,
+    )
+    from src.tools.ha_tools import (
         get_entity_state as _get_entity_state,
+    )
+    from src.tools.ha_tools import (
         get_ha_logs as _get_ha_logs,
+    )
+    from src.tools.ha_tools import (
         get_script_config as _get_script_config,
+    )
+    from src.tools.ha_tools import (
         list_automations,
-        list_entities_by_domain as _list_entities_by_domain,
         render_template,
+    )
+    from src.tools.ha_tools import (
+        list_entities_by_domain as _list_entities_by_domain,
+    )
+    from src.tools.ha_tools import (
         search_entities as _search_entities,
     )
-    from src.tools.approval_tools import seek_approval as _seek_approval
     from src.tools.insight_schedule_tools import (
         create_insight_schedule as _create_insight_schedule,
     )
-    from src.tools.agent_tools import discover_entities as _discover_entities
     from src.tools.specialist_tools import (
         consult_dashboard_designer as _consult_dashboard,
+    )
+    from src.tools.specialist_tools import (
         consult_data_science_team as _consult_ds_team,
     )
 
@@ -136,48 +154,48 @@ def get_architect_tools() -> list:
 
 
 __all__ = [
-    # HA Tools
-    "get_entity_state",
-    "list_entities_by_domain",
-    "search_entities",
-    "get_domain_summary",
-    "get_automation_config",
-    "get_script_config",
-    "control_entity",
-    "get_ha_logs",
-    "check_ha_config",
-    "get_ha_tools",
     # Agent Delegation Tools
     "analyze_energy",
-    "discover_entities",
-    "get_entity_history",
-    "diagnose_issue",
-    "get_agent_tools",
     # Diagnostic Tools
     "analyze_error_log",
-    "find_unavailable_entities_tool",
-    "diagnose_entity",
+    "check_ha_config",
     "check_integration_health",
-    "validate_config",
-    "get_diagnostic_tools",
-    # Approval Tools
-    "seek_approval",
-    "get_approval_tools",
-    # Insight Schedule Tools
-    "create_insight_schedule",
-    "get_insight_schedule_tools",
-    # Custom Analysis Tools
-    "run_custom_analysis",
-    "get_analysis_tools",
-    # Specialist Tools
-    "consult_energy_analyst",
     "consult_behavioral_analyst",
-    "consult_diagnostic_analyst",
     "consult_dashboard_designer",
     "consult_data_science_team",
-    "request_synthesis_review",
-    "get_specialist_tools",
+    "consult_diagnostic_analyst",
+    # Specialist Tools
+    "consult_energy_analyst",
+    "control_entity",
+    # Insight Schedule Tools
+    "create_insight_schedule",
+    "diagnose_entity",
+    "diagnose_issue",
+    "discover_entities",
+    "find_unavailable_entities_tool",
+    "get_agent_tools",
     # Combined
     "get_all_tools",
+    "get_analysis_tools",
+    "get_approval_tools",
     "get_architect_tools",
+    "get_automation_config",
+    "get_diagnostic_tools",
+    "get_domain_summary",
+    "get_entity_history",
+    # HA Tools
+    "get_entity_state",
+    "get_ha_logs",
+    "get_ha_tools",
+    "get_insight_schedule_tools",
+    "get_script_config",
+    "get_specialist_tools",
+    "list_entities_by_domain",
+    "request_synthesis_review",
+    # Custom Analysis Tools
+    "run_custom_analysis",
+    "search_entities",
+    # Approval Tools
+    "seek_approval",
+    "validate_config",
 ]

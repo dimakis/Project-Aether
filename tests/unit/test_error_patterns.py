@@ -4,8 +4,6 @@ TDD: Tests written FIRST to define the API contract for
 KNOWN_ERROR_PATTERNS, match_known_errors, and analyze_errors.
 """
 
-import pytest
-
 from src.diagnostics.error_patterns import (
     analyze_errors,
     match_known_errors,
@@ -53,12 +51,16 @@ class TestMatchKnownErrors:
         matches = match_known_errors(entry)
 
         assert len(matches) >= 1
-        assert any("unavailable" in m["category"].lower() or "device" in m["category"].lower()
-                    for m in matches)
+        assert any(
+            "unavailable" in m["category"].lower() or "device" in m["category"].lower()
+            for m in matches
+        )
 
     def test_matches_config_error(self):
         """Test matching configuration/schema errors."""
-        entry = _make_entry("Invalid config for integration 'sensor': expected int for 'scan_interval'")
+        entry = _make_entry(
+            "Invalid config for integration 'sensor': expected int for 'scan_interval'"
+        )
         matches = match_known_errors(entry)
 
         assert len(matches) >= 1
@@ -101,8 +103,12 @@ class TestAnalyzeErrors:
     def test_batch_analysis_returns_issues(self):
         """Test batch analysis of multiple entries."""
         entries = [
-            _make_entry("Unable to connect to host: timeout", logger="homeassistant.components.zha"),
-            _make_entry("Unable to connect to host: timeout", logger="homeassistant.components.zha"),
+            _make_entry(
+                "Unable to connect to host: timeout", logger="homeassistant.components.zha"
+            ),
+            _make_entry(
+                "Unable to connect to host: timeout", logger="homeassistant.components.zha"
+            ),
             _make_entry("Authentication failed", logger="homeassistant.components.nest"),
             _make_entry("Something unique xyz", logger="homeassistant.components.sensor"),
         ]
@@ -120,9 +126,15 @@ class TestAnalyzeErrors:
     def test_deduplicates_similar_issues(self):
         """Test that similar errors are grouped, not listed separately."""
         entries = [
-            _make_entry("Unable to connect to host: timeout", logger="homeassistant.components.zha"),
-            _make_entry("Unable to connect to host: timeout", logger="homeassistant.components.zha"),
-            _make_entry("Unable to connect to host: timeout", logger="homeassistant.components.zha"),
+            _make_entry(
+                "Unable to connect to host: timeout", logger="homeassistant.components.zha"
+            ),
+            _make_entry(
+                "Unable to connect to host: timeout", logger="homeassistant.components.zha"
+            ),
+            _make_entry(
+                "Unable to connect to host: timeout", logger="homeassistant.components.zha"
+            ),
         ]
 
         issues = analyze_errors(entries)

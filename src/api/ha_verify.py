@@ -53,13 +53,13 @@ def _validate_url_not_ssrf(url: str) -> None:
     # Resolve hostname and check for dangerous IPs
     try:
         resolved_ips = socket.getaddrinfo(hostname, parsed.port or 80)
-    except socket.gaierror:
+    except socket.gaierror as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot resolve hostname: {hostname}",
-        )
+        ) from e
 
-    for family, _type, _proto, _canonname, sockaddr in resolved_ips:
+    for _family, _type, _proto, _canonname, sockaddr in resolved_ips:
         ip = ipaddress.ip_address(sockaddr[0])
 
         # Block cloud metadata endpoints (AWS, GCP, Azure, etc.)
@@ -104,21 +104,21 @@ async def verify_ha_connection(ha_url: str, ha_token: str) -> dict:
                 f"{base_url}/api/",
                 headers={"Authorization": f"Bearer {ha_token}"},
             )
-    except httpx.TimeoutException:
+    except httpx.TimeoutException as e:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail=f"Connection to Home Assistant at {base_url} timed out.",
-        )
-    except httpx.ConnectError:
+        ) from e
+    except httpx.ConnectError as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Cannot connect to Home Assistant at {base_url}. Check the URL and ensure HA is running.",
-        )
-    except httpx.HTTPError:
+        ) from e
+    except httpx.HTTPError as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Cannot connect to Home Assistant at {base_url}. Check the URL and network.",
-        )
+        ) from e
 
     if response.status_code == 200:
         return response.json()

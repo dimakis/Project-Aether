@@ -84,7 +84,7 @@ class AutomationMixin:
 
         try:
             # POST to config API creates or updates the automation
-            result = await self._request(
+            await self._request(
                 "POST",
                 f"/api/config/automation/config/{automation_id}",
                 json=config,

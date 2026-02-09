@@ -12,31 +12,30 @@ from langgraph.checkpoint.memory import MemorySaver
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
     from src.ha.client import HAClient
 
 from src.graph import END, START, StateGraph, create_graph
 from src.graph.nodes import (
+    # Analysis nodes (User Story 3)
+    analysis_error_node,
+    # Conversation nodes
+    approval_gate_node,
+    architect_propose_node,
+    collect_energy_data_node,
+    developer_deploy_node,
+    execute_sandbox_node,
+    extract_insights_node,
     # Discovery nodes
     fetch_entities_node,
     finalize_discovery_node,
+    generate_script_node,
     infer_areas_node,
     infer_devices_node,
     initialize_discovery_node,
     persist_entities_node,
-    sync_automations_node,
-    # Conversation nodes
-    approval_gate_node,
-    architect_propose_node,
-    conversation_error_node,
-    developer_deploy_node,
-    developer_rollback_node,
     process_approval_node,
-    # Analysis nodes (User Story 3)
-    analysis_error_node,
-    collect_energy_data_node,
-    execute_sandbox_node,
-    extract_insights_node,
-    generate_script_node,
+    sync_automations_node,
 )
 from src.graph.state import (
     AgentRole,
@@ -111,9 +110,7 @@ def build_discovery_graph(
         return await sync_automations_node(state, ha_client=ha_client)
 
     async def _persist_entities(state: DiscoveryState) -> dict[str, object]:
-        return await persist_entities_node(
-            state, session=session, ha_client=ha_client
-        )
+        return await persist_entities_node(state, session=session, ha_client=ha_client)
 
     async def _finalize(state: DiscoveryState) -> dict[str, object]:
         return await finalize_discovery_node(state)
@@ -178,29 +175,28 @@ async def run_discovery_workflow(
     # Run with MLflow tracking and session context
     import mlflow
 
-    with session_context() as session_id:
-        with start_experiment_run("discovery_workflow") as run:
-            mlflow.set_tag("workflow", "discovery")
-            mlflow.set_tag("session.id", session_id)
+    with session_context() as session_id, start_experiment_run("discovery_workflow"):
+        mlflow.set_tag("workflow", "discovery")
+        mlflow.set_tag("session.id", session_id)
 
-            try:
-                # Execute the graph
-                final_state = await compiled.ainvoke(initial_state)
+        try:
+            # Execute the graph
+            final_state = await compiled.ainvoke(initial_state)
 
-                # Handle the result
-                if isinstance(final_state, dict):
-                    # Merge into state
-                    result = initial_state.model_copy(update=final_state)
-                else:
-                    result = final_state
+            # Handle the result
+            if isinstance(final_state, dict):
+                # Merge into state
+                result = initial_state.model_copy(update=final_state)
+            else:
+                result = final_state
 
-                mlflow.set_tag("status", result.status.value)
-                return result
+            mlflow.set_tag("status", result.status.value)
+            return result
 
-            except Exception as e:
-                mlflow.set_tag("status", "failed")
-                mlflow.log_param("error", str(e)[:500])
-                raise
+        except Exception as e:
+            mlflow.set_tag("status", "failed")
+            mlflow.log_param("error", str(e)[:500])
+            raise
 
 
 def build_simple_discovery_graph() -> StateGraph:
@@ -407,32 +403,29 @@ async def run_conversation_workflow(
     # Run with MLflow tracking and session context
     import mlflow
 
-    with session_context() as session_id:
-        with start_experiment_run("conversation_workflow") as run:
-            mlflow.set_tag("workflow", "conversation")
-            mlflow.set_tag("thread_id", thread_id or state.conversation_id)
-            mlflow.set_tag("session.id", session_id)
+    with session_context() as session_id, start_experiment_run("conversation_workflow"):
+        mlflow.set_tag("workflow", "conversation")
+        mlflow.set_tag("thread_id", thread_id or state.conversation_id)
+        mlflow.set_tag("session.id", session_id)
 
-            try:
-                # Execute the graph
-                config = {
-                    "configurable": {"thread_id": thread_id or state.conversation_id}
-                }
-                final_state = await compiled.ainvoke(state, config=config)
+        try:
+            # Execute the graph
+            config = {"configurable": {"thread_id": thread_id or state.conversation_id}}
+            final_state = await compiled.ainvoke(state, config=config)
 
-                # Handle the result
-                if isinstance(final_state, dict):
-                    result = state.model_copy(update=final_state)
-                else:
-                    result = final_state
+            # Handle the result
+            if isinstance(final_state, dict):
+                result = state.model_copy(update=final_state)
+            else:
+                result = final_state
 
-                mlflow.set_tag("status", result.status.value)
-                return result
+            mlflow.set_tag("status", result.status.value)
+            return result
 
-            except Exception as e:
-                mlflow.set_tag("status", "failed")
-                mlflow.log_param("error", str(e)[:500])
-                raise
+        except Exception as e:
+            mlflow.set_tag("status", "failed")
+            mlflow.log_param("error", str(e)[:500])
+            raise
 
 
 @trace_with_uri(name="workflow.resume_after_approval", span_type="CHAIN")
@@ -483,14 +476,10 @@ async def resume_after_approval(
     # Update state with approval decision
     if approved:
         current_state.status = ConversationStatus.APPROVED
-        current_state.approved_items.extend(
-            [a.id for a in current_state.pending_approvals]
-        )
+        current_state.approved_items.extend([a.id for a in current_state.pending_approvals])
     else:
         current_state.status = ConversationStatus.REJECTED
-        current_state.rejected_items.extend(
-            [a.id for a in current_state.pending_approvals]
-        )
+        current_state.rejected_items.extend([a.id for a in current_state.pending_approvals])
 
     # Update the state in the graph
     compiled.update_state(config, current_state.model_dump())
@@ -499,7 +488,7 @@ async def resume_after_approval(
     import mlflow
 
     with session_context() as session_id:
-        with start_experiment_run("conversation_workflow_resume") as run:
+        with start_experiment_run("conversation_workflow_resume"):
             mlflow.set_tag("workflow", "conversation_resume")
             mlflow.set_tag("thread_id", thread_id)
             mlflow.set_tag("session.id", session_id)
@@ -638,20 +627,19 @@ async def run_analysis_workflow(
     compiled = graph.compile()
 
     # Run with tracing
-    with session_context() as session_id:
-        with start_experiment_run("analysis_workflow") as run:
-            if run:
-                initial_state.mlflow_run_id = run.info.run_id if hasattr(run, "info") else None
+    with session_context() as session_id, start_experiment_run("analysis_workflow") as run:
+        if run:
+            initial_state.mlflow_run_id = run.info.run_id if hasattr(run, "info") else None
 
-            mlflow.set_tag("workflow", "analysis")
-            mlflow.set_tag("session.id", session_id)
-            mlflow.set_tag("analysis_type", analysis_type)
+        mlflow.set_tag("workflow", "analysis")
+        mlflow.set_tag("session.id", session_id)
+        mlflow.set_tag("analysis_type", analysis_type)
 
-            final_state = await compiled.ainvoke(initial_state)
+        final_state = await compiled.ainvoke(initial_state)
 
-            if isinstance(final_state, dict):
-                return initial_state.model_copy(update=final_state)
-            return final_state
+        if isinstance(final_state, dict):
+            return initial_state.model_copy(update=final_state)
+        return final_state
 
 
 # =============================================================================
@@ -857,7 +845,7 @@ def build_team_analysis_graph() -> StateGraph:
         return await analyst.invoke(state)
 
     async def _synthesize(state: AnalysisState) -> dict:
-        from src.agents.synthesis import synthesize, SynthesisStrategy
+        from src.agents.synthesis import SynthesisStrategy, synthesize
 
         if state.team_analysis:
             result = synthesize(state.team_analysis, strategy=SynthesisStrategy.PROGRAMMATIC)
@@ -900,7 +888,7 @@ class TeamAnalysisWorkflow:
         query: str = "Full home analysis",
         hours: int = 24,
         entity_ids: list[str] | None = None,
-    ) -> "TeamAnalysis":
+    ) -> TeamAnalysis:
         """Run the full multi-specialist analysis pipeline.
 
         Args:
@@ -990,6 +978,7 @@ class DashboardWorkflow:
             Final state dict with messages and dashboard config.
         """
         from langchain_core.messages import HumanMessage
+
         from src.agents.dashboard_designer import DashboardDesignerAgent
 
         agent = DashboardDesignerAgent()

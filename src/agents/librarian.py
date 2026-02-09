@@ -5,8 +5,7 @@ all Home Assistant entities, inferring relationships, and
 maintaining the entity database.
 """
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from src.dal import DiscoverySyncService
 from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
@@ -43,6 +42,7 @@ class LibrarianWorkflow:
         """Get HA client, creating if needed."""
         if self._ha_client is None:
             from src.ha import get_ha_client
+
             self._ha_client = get_ha_client()
         return self._ha_client
 
@@ -68,8 +68,8 @@ class LibrarianWorkflow:
 
         with start_experiment_run(run_name="librarian_discovery") as run:
             if run:
-                state.mlflow_run_id = run.info.run_id if hasattr(run, 'info') else None
-            
+                state.mlflow_run_id = run.info.run_id if hasattr(run, "info") else None
+
             log_param("triggered_by", triggered_by)
             log_param("domain_filter", domain_filter or "all")
 
@@ -95,7 +95,7 @@ class LibrarianWorkflow:
                 log_metric("entities_removed", float(state.entities_removed))
                 log_metric("devices_found", float(state.devices_found))
                 log_metric("areas_found", float(state.areas_found))
-                
+
                 # Log discovery session as artifact
                 self._log_discovery_session(state, triggered_by, domain_filter)
 
@@ -127,7 +127,7 @@ class LibrarianWorkflow:
                 "session_id": state.run_id,
                 "triggered_by": triggered_by,
                 "domain_filter": domain_filter,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "status": state.status.value,
                 "summary": {
                     "entities_found": len(state.entities_found),
@@ -182,7 +182,7 @@ class LibrarianWorkflow:
         ]
 
         # Track domains scanned
-        domains_found = set(e.domain for e in state.entities_found)
+        domains_found = {e.domain for e in state.entities_found}
         state.domains_scanned = list(domains_found)
 
         return state

@@ -192,9 +192,8 @@ def _matches_filter(
         return False
 
     # Check event_type
-    if "event_type" in webhook_filter:
-        if payload.event_type != webhook_filter["event_type"]:
-            return False
+    if "event_type" in webhook_filter and payload.event_type != webhook_filter["event_type"]:
+        return False
 
     # Check to_state
     if "to_state" in webhook_filter:
@@ -237,7 +236,9 @@ async def _run_webhook_analysis(
             context_parts = []
             if schedule.options:
                 context_parts.append(f"Schedule options: {json.dumps(schedule.options)}")
-            context_parts.append(f"Triggered by webhook: {payload.webhook_event or payload.event_type}")
+            context_parts.append(
+                f"Triggered by webhook: {payload.webhook_event or payload.event_type}"
+            )
             if payload.entity_id:
                 context_parts.append(f"Trigger entity: {payload.entity_id}")
             if payload.data:

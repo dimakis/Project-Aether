@@ -8,10 +8,9 @@ Tests the API key authentication middleware including:
 - Health endpoint exemption
 """
 
-from pydantic import SecretStr
-
 import pytest
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import get_settings
@@ -22,23 +21,24 @@ async def client_with_auth(mock_settings, monkeypatch):
     """Create a test client with authentication enabled."""
     # Clear settings cache
     get_settings.cache_clear()
-    
+
     # Set API key
     mock_settings.api_key = SecretStr("test-api-key-123")
-    
+
     # Monkeypatch get_settings to return our test settings
     from src import settings as settings_module
+
     monkeypatch.setattr(settings_module, "get_settings", lambda: mock_settings)
-    
+
     # Create app with updated settings
     app = create_app(mock_settings)
-    
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
         yield client
-    
+
     # Clear cache after test
     get_settings.cache_clear()
 
@@ -48,23 +48,24 @@ async def client_without_auth(mock_settings, monkeypatch):
     """Create a test client with authentication disabled."""
     # Clear settings cache
     get_settings.cache_clear()
-    
+
     # Set empty API key (auth disabled)
     mock_settings.api_key = SecretStr("")
-    
+
     # Monkeypatch get_settings to return our test settings
     from src import settings as settings_module
+
     monkeypatch.setattr(settings_module, "get_settings", lambda: mock_settings)
-    
+
     # Create app with updated settings
     app = create_app(mock_settings)
-    
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
         yield client
-    
+
     # Clear cache after test
     get_settings.cache_clear()
 

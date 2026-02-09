@@ -4,7 +4,7 @@ Provides reusable schema definitions for consistent
 API responses across all endpoints.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Generic, TypeVar
 
@@ -143,7 +143,7 @@ class HealthResponse(BaseModel):
 
     status: HealthStatus = Field(..., description="Overall system health")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="Health check timestamp",
     )
     version: str = Field(default="0.1.0", description="Application version")
@@ -154,7 +154,7 @@ class SystemStatus(BaseModel):
 
     status: HealthStatus = Field(..., description="Overall system health")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="Status check timestamp",
     )
     version: str = Field(default="0.1.0", description="Application version")
@@ -194,98 +194,91 @@ class SuccessResponse(BaseModel, Generic[T]):
     message: str | None = Field(default=None, description="Optional success message")
 
 
-class MessageResponse(BaseModel):
-    """Simple message response."""
-
-    message: str = Field(..., description="Response message")
-
-
 # Exports
 __all__ = [
-    # Error types
-    "ErrorType",
-    "ErrorDetail",
-    "ErrorResponse",
-    # Health
-    "HealthStatus",
+    "ActionRequest",
+    "AnalysisJob",
+    "AnalysisJobResponse",
+    "AnalysisRequest",
+    "ApprovalRequest",
+    "AreaListResponse",
+    # Areas
+    "AreaResponse",
+    "AutomationListResponse",
+    # Automations, Scripts, Scenes
+    "AutomationResponse",
+    "AutomationSuggestionResponse",
+    "ChatRequest",
+    "ChatResponse",
     "ComponentHealth",
-    "HealthResponse",
-    "SystemStatus",
-    # Pagination
-    "PaginationMeta",
-    "PaginatedResponse",
-    "SuccessResponse",
-    "MessageResponse",
-    # Entities
-    "EntityResponse",
+    # Conversations (US2)
+    "ConversationCreate",
+    "ConversationDetailResponse",
+    "ConversationListResponse",
+    "ConversationResponse",
+    "DeploymentRequest",
+    "DeploymentResponse",
+    "DeviceListResponse",
+    # Devices
+    "DeviceResponse",
+    "DismissRequest",
+    "EnergyOverviewResponse",
+    "EnergyStatsResponse",
     "EntityListResponse",
     "EntityQueryRequest",
     "EntityQueryResult",
+    # Entities
+    "EntityResponse",
     "EntitySyncRequest",
     "EntitySyncResponse",
-    # Areas
-    "AreaResponse",
-    "AreaListResponse",
-    # Devices
-    "DeviceResponse",
-    "DeviceListResponse",
-    # Automations, Scripts, Scenes
-    "AutomationResponse",
-    "AutomationListResponse",
-    "ScriptResponse",
-    "ScriptListResponse",
-    "SceneResponse",
-    "SceneListResponse",
-    # Services
-    "ServiceResponse",
-    "ServiceListResponse",
-    "ServiceCallRequest",
-    "ServiceCallResponse",
+    "ErrorDetail",
+    "ErrorResponse",
+    # Error types
+    "ErrorType",
     # HA Registry
     "HARegistrySummary",
-    # Conversations (US2)
-    "ConversationCreate",
-    "ConversationResponse",
-    "ConversationDetailResponse",
-    "ConversationListResponse",
-    "MessageCreate",
-    "MessageResponse",
-    "ChatRequest",
-    "ChatResponse",
-    "StreamChunk",
-    # Proposals (US2)
-    "ProposalCreate",
-    "ProposalResponse",
-    "ProposalYAMLResponse",
-    "ProposalListResponse",
-    "ApprovalRequest",
-    "RejectionRequest",
-    "DeploymentRequest",
-    "DeploymentResponse",
-    "RollbackRequest",
-    "RollbackResponse",
-    # Optimization (Feature 03)
-    "OptimizationAnalysisType",
-    "SuggestionStatus",
-    "OptimizationRequest",
-    "AutomationSuggestionResponse",
-    "OptimizationResult",
-    "SuggestionAcceptRequest",
-    "SuggestionRejectRequest",
-    "SuggestionListResponse",
+    "HealthResponse",
+    # Health
+    "HealthStatus",
+    "InsightCreate",
+    "InsightListResponse",
+    "InsightResponse",
+    "InsightStatus",
+    "InsightSummary",
     # Insights (US3)
     "InsightType",
-    "InsightStatus",
-    "InsightCreate",
-    "InsightResponse",
-    "InsightListResponse",
-    "InsightSummary",
-    "AnalysisRequest",
-    "AnalysisJob",
-    "AnalysisJobResponse",
+    "MessageCreate",
+    "MessageResponse",
+    # Optimization (Feature 03)
+    "OptimizationAnalysisType",
+    "OptimizationRequest",
+    "OptimizationResult",
+    "PaginatedResponse",
+    # Pagination
+    "PaginationMeta",
+    # Proposals (US2)
+    "ProposalCreate",
+    "ProposalListResponse",
+    "ProposalResponse",
+    "ProposalYAMLResponse",
+    "RejectionRequest",
     "ReviewRequest",
-    "ActionRequest",
-    "DismissRequest",
-    "EnergyStatsResponse",
-    "EnergyOverviewResponse",
+    "RollbackRequest",
+    "RollbackResponse",
+    "SceneListResponse",
+    "SceneResponse",
+    "ScriptListResponse",
+    "ScriptResponse",
+    "ServiceCallRequest",
+    "ServiceCallResponse",
+    "ServiceListResponse",
+    # Services
+    "ServiceResponse",
+    "StreamChunk",
+    "SuccessResponse",
+    "SuggestionAcceptRequest",
+    "SuggestionListResponse",
+    "SuggestionRejectRequest",
+    "SuggestionStatus",
+    "SystemStatus",
 ]

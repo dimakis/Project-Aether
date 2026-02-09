@@ -4,7 +4,7 @@ Tests full discovery workflow with mocked Home Assistant.
 Constitution: Reliability & Quality - E2E workflow validation.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -141,9 +141,7 @@ class TestDiscoveryE2E:
         assert "device_hue_001" in devices
         assert "device_temp_001" in devices
 
-    async def test_discovery_associates_entities_with_areas(
-        self, mock_ha_client, mock_ha_entities
-    ):
+    async def test_discovery_associates_entities_with_areas(self, mock_ha_client, mock_ha_entities):
         """Test that entities are associated with correct areas."""
         from src.ha.parsers import parse_entity_list
 
@@ -163,9 +161,7 @@ class TestDiscoveryE2E:
         entities = parse_entity_list(mock_ha_entities)
 
         # Find temperature sensor
-        temp_sensor = next(
-            e for e in entities if e.entity_id == "sensor.living_room_temperature"
-        )
+        temp_sensor = next(e for e in entities if e.entity_id == "sensor.living_room_temperature")
         metadata = extract_entity_metadata(temp_sensor)
 
         assert metadata["device_class"] == "temperature"

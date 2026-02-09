@@ -52,4 +52,6 @@ class ModelRating(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<ModelRating(model={self.model_name}, agent={self.agent_role}, rating={self.rating})>"
+        return (
+            f"<ModelRating(model={self.model_name}, agent={self.agent_role}, rating={self.rating})>"
+        )

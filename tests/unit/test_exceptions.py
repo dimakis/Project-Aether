@@ -2,15 +2,13 @@
 
 import uuid
 
-import pytest
-
 from src.exceptions import (
-    AgentError,
     AetherError,
+    AgentError,
     ConfigurationError,
     DALError,
-    LLMError,
     HAClientError,
+    LLMError,
     SandboxError,
     ValidationError,
 )

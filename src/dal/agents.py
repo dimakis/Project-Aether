@@ -9,15 +9,18 @@ configurations (LLM settings and prompt templates).
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.storage.entities.agent import Agent, AgentStatus, VALID_AGENT_STATUS_TRANSITIONS
+from src.storage.entities.agent import VALID_AGENT_STATUS_TRANSITIONS, Agent, AgentStatus
 from src.storage.entities.agent_config_version import AgentConfigVersion, VersionStatus
 from src.storage.entities.agent_prompt_version import AgentPromptVersion
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 # ─── Semver helpers ───────────────────────────────────────────────────────────
 
@@ -59,9 +62,7 @@ class AgentRepository:
 
     async def get_by_id(self, agent_id: str) -> Agent | None:
         """Get agent by ID."""
-        result = await self.session.execute(
-            select(Agent).where(Agent.id == agent_id)
-        )
+        result = await self.session.execute(select(Agent).where(Agent.id == agent_id))
         return result.scalar_one_or_none()
 
     async def get_by_name(self, name: str) -> Agent | None:
@@ -73,9 +74,7 @@ class AgentRepository:
         Returns:
             Agent or None
         """
-        result = await self.session.execute(
-            select(Agent).where(Agent.name == name)
-        )
+        result = await self.session.execute(select(Agent).where(Agent.name == name))
         return result.scalar_one_or_none()
 
     async def list_all(self) -> list[Agent]:
@@ -84,9 +83,7 @@ class AgentRepository:
         Returns:
             List of agents
         """
-        result = await self.session.execute(
-            select(Agent).order_by(Agent.name)
-        )
+        result = await self.session.execute(select(Agent).order_by(Agent.name))
         return list(result.scalars().all())
 
     async def update_status(
@@ -324,8 +321,11 @@ class AgentConfigVersionRepository:
             raise ValueError("Only draft versions can be edited")
 
         allowed_fields = {
-            "model_name", "temperature", "fallback_model",
-            "tools_enabled", "change_summary",
+            "model_name",
+            "temperature",
+            "fallback_model",
+            "tools_enabled",
+            "change_summary",
         }
         for key, value in kwargs.items():
             if key in allowed_fields:
@@ -335,7 +335,9 @@ class AgentConfigVersionRepository:
         return version
 
     async def promote(
-        self, version_id: str, bump_type: str = "patch",
+        self,
+        version_id: str,
+        bump_type: str = "patch",
     ) -> AgentConfigVersion:
         """Promote a draft config version to active.
 
@@ -373,12 +375,10 @@ class AgentConfigVersionRepository:
 
         # Promote draft
         version.status = VersionStatus.ACTIVE.value
-        version.promoted_at = datetime.now(timezone.utc)
+        version.promoted_at = datetime.now(UTC)
 
         # Update agent FK pointer
-        agent_result = await self.session.execute(
-            select(Agent).where(Agent.id == version.agent_id)
-        )
+        agent_result = await self.session.execute(select(Agent).where(Agent.id == version.agent_id))
         agent = agent_result.scalar_one_or_none()
         if agent:
             agent.active_config_version_id = version.id
@@ -613,7 +613,9 @@ class AgentPromptVersionRepository:
         return version
 
     async def promote(
-        self, version_id: str, bump_type: str = "patch",
+        self,
+        version_id: str,
+        bump_type: str = "patch",
     ) -> AgentPromptVersion:
         """Promote a draft prompt version to active.
 
@@ -645,12 +647,10 @@ class AgentPromptVersionRepository:
 
         # Promote draft
         version.status = VersionStatus.ACTIVE.value
-        version.promoted_at = datetime.now(timezone.utc)
+        version.promoted_at = datetime.now(UTC)
 
         # Update agent FK pointer
-        agent_result = await self.session.execute(
-            select(Agent).where(Agent.id == version.agent_id)
-        )
+        agent_result = await self.session.execute(select(Agent).where(Agent.id == version.agent_id))
         agent = agent_result.scalar_one_or_none()
         if agent:
             agent.active_prompt_version_id = version.id

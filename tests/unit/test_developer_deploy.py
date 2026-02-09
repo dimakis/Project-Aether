@@ -4,8 +4,9 @@ Tests that _deploy_via_ha correctly delegates to AutomationDeployer
 for real HA REST API deployment instead of returning manual instructions.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.agents.developer import DeveloperAgent
 
@@ -27,16 +28,14 @@ class TestDeveloperDeployViaMCP:
             "note": "Automation created via HA REST API. Active immediately.",
         }
 
-        with patch(
-            "src.agents.developer.AutomationDeployer"
-        ) as MockDeployer:
+        with patch("src.agents.developer.AutomationDeployer") as MockDeployer:
             mock_deployer_instance = MagicMock()
-            mock_deployer_instance.deploy_automation = AsyncMock(
-                return_value=expected_result
-            )
+            mock_deployer_instance.deploy_automation = AsyncMock(return_value=expected_result)
             MockDeployer.return_value = mock_deployer_instance
 
-            result = await agent._deploy_via_ha("aether_test", "alias: Test\ntrigger: []\naction: []")
+            result = await agent._deploy_via_ha(
+                "aether_test", "alias: Test\ntrigger: []\naction: []"
+            )
 
             MockDeployer.assert_called_once_with(mock_mcp)
             mock_deployer_instance.deploy_automation.assert_called_once_with(
@@ -58,16 +57,14 @@ class TestDeveloperDeployViaMCP:
             "instructions": "To deploy this automation manually:\n...",
         }
 
-        with patch(
-            "src.agents.developer.AutomationDeployer"
-        ) as MockDeployer:
+        with patch("src.agents.developer.AutomationDeployer") as MockDeployer:
             mock_deployer_instance = MagicMock()
-            mock_deployer_instance.deploy_automation = AsyncMock(
-                return_value=fallback_result
-            )
+            mock_deployer_instance.deploy_automation = AsyncMock(return_value=fallback_result)
             MockDeployer.return_value = mock_deployer_instance
 
-            result = await agent._deploy_via_ha("aether_test", "alias: Test\ntrigger: []\naction: []")
+            result = await agent._deploy_via_ha(
+                "aether_test", "alias: Test\ntrigger: []\naction: []"
+            )
 
             assert result["success"] is False
             assert result["method"] == "manual"
@@ -88,9 +85,7 @@ action:
       entity_id: light.living_room
 """
 
-        with patch(
-            "src.agents.developer.AutomationDeployer"
-        ) as MockDeployer:
+        with patch("src.agents.developer.AutomationDeployer") as MockDeployer:
             mock_deployer_instance = MagicMock()
             mock_deployer_instance.deploy_automation = AsyncMock(
                 return_value={"success": True, "method": "rest_api"}
@@ -108,9 +103,7 @@ action:
         mock_mcp = MagicMock()
         agent = DeveloperAgent(ha_client=mock_mcp)
 
-        with patch(
-            "src.agents.developer.AutomationDeployer"
-        ) as MockDeployer:
+        with patch("src.agents.developer.AutomationDeployer") as MockDeployer:
             mock_deployer_instance = MagicMock()
             mock_deployer_instance.deploy_automation = AsyncMock(
                 return_value={"success": True, "method": "rest_api"}

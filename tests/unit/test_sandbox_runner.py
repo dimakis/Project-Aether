@@ -6,10 +6,9 @@ Constitution: Isolation - verify sandbox behavior.
 TDD: T109 - Sandbox execution logic tests.
 """
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -126,7 +125,7 @@ class TestSandboxRunnerUnsandboxed:
     async def test_run_unsandboxed_success(self):
         """Test running script without sandbox."""
         runner = SandboxRunner()
-        
+
         with patch.object(runner, "_run_unsandboxed") as mock_run:
             mock_run.return_value = SandboxResult(
                 success=True,
@@ -136,13 +135,13 @@ class TestSandboxRunnerUnsandboxed:
                 duration_seconds=0.1,
                 policy_name="standard",
             )
-            
+
             # Mock settings to disable sandbox
             with patch("src.sandbox.runner.get_settings") as mock_settings:
                 mock_settings.return_value.sandbox_enabled = False
-                
+
                 result = await runner.run("print(6 * 7)")
-                
+
                 assert result.success is True
                 assert result.stdout == "42"
 
@@ -154,7 +153,7 @@ class TestSandboxRunnerBuildCommand:
         """Test building a basic podman command."""
         runner = SandboxRunner()
         policy = get_default_policy()
-        
+
         # The runner should build a command with security options
         # This tests the command structure without actually running
         assert runner.podman_path == "podman"
@@ -163,7 +162,7 @@ class TestSandboxRunnerBuildCommand:
     def test_policy_applied(self):
         """Test that policy settings are respected."""
         from src.sandbox.policies import NetworkPolicy, PolicyLevel
-        
+
         policy = SandboxPolicy(
             name="test",
             level=PolicyLevel.STANDARD,
@@ -184,10 +183,10 @@ class TestSandboxRunnerScriptExecution:
     async def test_simple_script_mocked(self):
         """Test running a simple script with mocked subprocess."""
         runner = SandboxRunner()
-        
+
         with patch("src.sandbox.runner.get_settings") as mock_settings:
             mock_settings.return_value.sandbox_enabled = False
-            
+
             with patch.object(runner, "_run_unsandboxed") as mock_run:
                 mock_run.return_value = SandboxResult(
                     success=True,
@@ -197,9 +196,9 @@ class TestSandboxRunnerScriptExecution:
                     duration_seconds=0.05,
                     policy_name="standard",
                 )
-                
+
                 result = await runner.run("print('hello')")
-                
+
                 mock_run.assert_called_once()
                 assert result.success is True
 
@@ -207,10 +206,10 @@ class TestSandboxRunnerScriptExecution:
     async def test_script_with_error_mocked(self):
         """Test handling script errors."""
         runner = SandboxRunner()
-        
+
         with patch("src.sandbox.runner.get_settings") as mock_settings:
             mock_settings.return_value.sandbox_enabled = False
-            
+
             with patch.object(runner, "_run_unsandboxed") as mock_run:
                 mock_run.return_value = SandboxResult(
                     success=False,
@@ -220,9 +219,9 @@ class TestSandboxRunnerScriptExecution:
                     duration_seconds=0.05,
                     policy_name="standard",
                 )
-                
+
                 result = await runner.run("print(undefined)")
-                
+
                 assert result.success is False
                 assert result.exit_code == 1
                 assert "NameError" in result.stderr
@@ -251,7 +250,7 @@ class TestSandboxPolicy:
     def test_custom_policy(self):
         """Test creating custom policy."""
         from src.sandbox.policies import NetworkPolicy, PolicyLevel
-        
+
         policy = SandboxPolicy(
             name="custom",
             level=PolicyLevel.MINIMAL,
@@ -271,17 +270,19 @@ class TestSandboxRunnerDataMount:
     def test_data_path_parameter(self):
         """Test that data_path parameter is accepted."""
         runner = SandboxRunner()
-        
+
         # Verify the run method accepts data_path
         import inspect
+
         sig = inspect.signature(runner.run)
         assert "data_path" in sig.parameters
 
     def test_environment_parameter(self):
         """Test that environment parameter is accepted."""
         runner = SandboxRunner()
-        
+
         import inspect
+
         sig = inspect.signature(runner.run)
         assert "environment" in sig.parameters
 
@@ -300,8 +301,15 @@ class TestSandboxWarningsSuppression:
         runner = SandboxRunner()
         policy = get_default_policy()
 
-        with patch.object(runner, "_is_gvisor_available", new_callable=AsyncMock, return_value=False):
-            with patch.object(runner, "_get_available_image", new_callable=AsyncMock, return_value="aether-sandbox:latest"):
+        with patch.object(
+            runner, "_is_gvisor_available", new_callable=AsyncMock, return_value=False
+        ):
+            with patch.object(
+                runner,
+                "_get_available_image",
+                new_callable=AsyncMock,
+                return_value="aether-sandbox:latest",
+            ):
                 script_path = Path("/tmp/test_script.py")
                 cmd = await runner._build_command(
                     script_path=script_path,
@@ -320,8 +328,15 @@ class TestSandboxWarningsSuppression:
         runner = SandboxRunner()
         policy = get_default_policy()
 
-        with patch.object(runner, "_is_gvisor_available", new_callable=AsyncMock, return_value=False):
-            with patch.object(runner, "_get_available_image", new_callable=AsyncMock, return_value="aether-sandbox:latest"):
+        with patch.object(
+            runner, "_is_gvisor_available", new_callable=AsyncMock, return_value=False
+        ):
+            with patch.object(
+                runner,
+                "_get_available_image",
+                new_callable=AsyncMock,
+                return_value="aether-sandbox:latest",
+            ):
                 script_path = Path("/tmp/test_script.py")
                 cmd = await runner._build_command(
                     script_path=script_path,

@@ -73,6 +73,7 @@ async def analyze_energy(
         parent_span_id = None
         try:
             from src.tracing import get_active_span
+
             active_span = get_active_span()
             if active_span and hasattr(active_span, "span_id"):
                 parent_span_id = active_span.span_id
@@ -124,9 +125,7 @@ def _format_energy_analysis(state: Any, analysis_type: str, hours: int) -> str:
             f"**{len(high_impact)} important insight(s)** that need your attention:"
         )
     else:
-        parts.append(
-            f"I analyzed {hours} hours of energy data. Here's what I found:"
-        )
+        parts.append(f"I analyzed {hours} hours of energy data. Here's what I found:")
 
     # Key insights as bullet points
     parts.append("\n**Key Findings:**")
@@ -162,9 +161,7 @@ def _format_energy_analysis(state: Any, analysis_type: str, hours: int) -> str:
         desc = getattr(suggestion, "pattern", str(suggestion))
         entities = getattr(suggestion, "entities", [])
         confidence = getattr(suggestion, "confidence", 0)
-        parts.append(
-            f"\n---\n💡 **DS Team Suggestion:** {desc}"
-        )
+        parts.append(f"\n---\n💡 **DS Team Suggestion:** {desc}")
         if entities:
             parts.append(f"   Entities: {', '.join(entities[:5])}")
         if confidence:
@@ -196,7 +193,7 @@ async def discover_entities(domain_filter: str | None = None) -> str:
     from src.tracing.context import session_context
 
     try:
-        async with get_session() as session:
+        async with get_session():
             with session_context():
                 workflow = LibrarianWorkflow()
                 state = await workflow.run_discovery(
@@ -229,7 +226,7 @@ def _format_discovery_results(state: Any, domain_filter: str | None) -> str:
         parts.append("I've completed a full scan of your Home Assistant setup.")
 
     # Summary stats
-    parts.append(f"\n**Discovery Summary:**")
+    parts.append("\n**Discovery Summary:**")
     parts.append(f"• Found **{entities_found}** entities total")
     if devices:
         parts.append(f"• Identified **{devices}** devices")
@@ -238,7 +235,7 @@ def _format_discovery_results(state: Any, domain_filter: str | None) -> str:
 
     # Changes
     if added or updated or removed:
-        parts.append(f"\n**Changes since last sync:**")
+        parts.append("\n**Changes since last sync:**")
         if added:
             parts.append(f"• ✅ {added} new entities added")
         if updated:
@@ -329,7 +326,6 @@ def _format_detailed_history(
     count: int,
 ) -> str:
     """Format detailed history with gap detection, statistics, and more entries."""
-    from datetime import datetime, timedelta, timezone
 
     parts = [f"**Detailed History for {entity_id}** (last {hours} hours):"]
     parts.append(f"• Total state changes: {count}")
@@ -359,8 +355,7 @@ def _format_detailed_history(
         parts.append(f"\n**Data Gaps Detected ({len(gaps)}):**")
         for gap in gaps[:5]:  # Show up to 5 gaps
             parts.append(
-                f"• {gap['start']} → {gap['end']} "
-                f"({gap['duration_hours']:.1f}h with no data)"
+                f"• {gap['start']} → {gap['end']} ({gap['duration_hours']:.1f}h with no data)"
             )
     else:
         parts.append("\n**Data Gaps:** None detected")
@@ -386,7 +381,7 @@ def _detect_gaps(
     changes were recorded. For short time ranges, the threshold is
     smaller; for longer ranges, we allow bigger gaps.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     if len(states) < 2:
         return []
@@ -409,11 +404,13 @@ def _detect_gaps(
             delta = (curr_time - prev_time).total_seconds() / 3600
 
             if delta > threshold_hours:
-                gaps.append({
-                    "start": prev_time_str,
-                    "end": curr_time_str,
-                    "duration_hours": delta,
-                })
+                gaps.append(
+                    {
+                        "start": prev_time_str,
+                        "end": curr_time_str,
+                        "duration_hours": delta,
+                    }
+                )
         except (ValueError, TypeError):
             continue
 
@@ -458,6 +455,7 @@ async def diagnose_issue(
         parent_span_id = None
         try:
             from src.tracing import get_active_span
+
             active_span = get_active_span()
             if active_span and hasattr(active_span, "span_id"):
                 parent_span_id = active_span.span_id
@@ -523,9 +521,7 @@ def _format_diagnostic_results(state: Any, entity_ids: list[str], hours: int) ->
         title = insight.get("title", "Finding")
         description = insight.get("description", "")
 
-        indicator = {
-            "critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"
-        }.get(impact, "⚪")
+        indicator = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(impact, "⚪")
 
         parts.append(f"\n{i}. {indicator} **{title}**")
         if description:
@@ -537,10 +533,7 @@ def _format_diagnostic_results(state: Any, entity_ids: list[str], hours: int) ->
         for rec in recommendations[:5]:
             parts.append(f"• {rec}")
 
-    parts.append(
-        f"\n_Diagnostic covered {hours}h of data from "
-        f"{len(entity_ids)} entities._"
-    )
+    parts.append(f"\n_Diagnostic covered {hours}h of data from {len(entity_ids)} entities._")
 
     # Reverse communication: if the DS Team suggests an automation
     suggestion = getattr(state, "automation_suggestion", None)
@@ -548,9 +541,7 @@ def _format_diagnostic_results(state: Any, entity_ids: list[str], hours: int) ->
         desc = getattr(suggestion, "pattern", str(suggestion))
         entities = getattr(suggestion, "entities", [])
         confidence = getattr(suggestion, "confidence", 0)
-        parts.append(
-            f"\n---\n💡 **DS Team Suggestion:** {desc}"
-        )
+        parts.append(f"\n---\n💡 **DS Team Suggestion:** {desc}")
         if entities:
             parts.append(f"   Entities: {', '.join(entities[:5])}")
         if confidence:
@@ -619,6 +610,7 @@ async def analyze_behavior(
         parent_span_id = None
         try:
             from src.tracing import get_active_span
+
             active_span = get_active_span()
             if active_span and hasattr(active_span, "span_id"):
                 parent_span_id = active_span.span_id
@@ -667,9 +659,7 @@ def _format_behavioral_analysis(state: Any, analysis_type: str, hours: int) -> s
             f"**{len(high_impact)} important finding(s)**:"
         )
     else:
-        parts.append(
-            f"I analyzed {hours} hours of behavioral data. Here's what I found:"
-        )
+        parts.append(f"I analyzed {hours} hours of behavioral data. Here's what I found:")
 
     parts.append("\n**Key Findings:**")
     for i, insight in enumerate(insights[:5], 1):
@@ -679,14 +669,13 @@ def _format_behavioral_analysis(state: Any, analysis_type: str, hours: int) -> s
         description = insight.get("description", "")
         insight_type = insight.get("type", "")
 
-        impact_indicator = {
-            "critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"
-        }.get(impact, "⚪")
+        impact_indicator = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(
+            impact, "⚪"
+        )
 
         type_label = insight_type.replace("_", " ").title()
         parts.append(
-            f"\n{i}. {impact_indicator} **{title}** "
-            f"[{type_label}] ({confidence:.0f}% confidence)"
+            f"\n{i}. {impact_indicator} **{title}** [{type_label}] ({confidence:.0f}% confidence)"
         )
         if description:
             parts.append(f"   {description[:200]}")
@@ -702,9 +691,7 @@ def _format_behavioral_analysis(state: Any, analysis_type: str, hours: int) -> s
         desc = getattr(suggestion, "pattern", str(suggestion))
         trigger = getattr(suggestion, "proposed_trigger", "")
         action = getattr(suggestion, "proposed_action", "")
-        parts.append(
-            f"\n---\n💡 **Automation Suggestion:** {desc}"
-        )
+        parts.append(f"\n---\n💡 **Automation Suggestion:** {desc}")
         if trigger:
             parts.append(f"   Trigger: {trigger}")
         if action:
@@ -766,17 +753,13 @@ async def propose_automation_from_insight(
         proposal_name = result.get("proposal_name")
 
         if proposal_name:
-            response_parts.append(
-                f"I've created an automation proposal: **{proposal_name}**"
-            )
+            response_parts.append(f"I've created an automation proposal: **{proposal_name}**")
         if proposal_yaml:
             response_parts.append(f"\n```yaml\n{proposal_yaml}```")
         if response_text:
             response_parts.append(f"\n{response_text[:500]}")
 
-        response_parts.append(
-            "\nThis proposal is pending your approval before deployment."
-        )
+        response_parts.append("\nThis proposal is pending your approval before deployment.")
 
         return "\n".join(response_parts)
 
@@ -797,11 +780,11 @@ def get_agent_tools() -> list[Any]:
 
 
 __all__ = [
-    "analyze_energy",
     "analyze_behavior",
-    "discover_entities",
-    "get_entity_history",
+    "analyze_energy",
     "diagnose_issue",
-    "propose_automation_from_insight",
+    "discover_entities",
     "get_agent_tools",
+    "get_entity_history",
+    "propose_automation_from_insight",
 ]

@@ -4,10 +4,10 @@ Proposed automation rules requiring HITL approval - User Story 2.
 """
 
 import enum
-from datetime import datetime, timezone
-from typing import Any, TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -76,9 +76,7 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
     """
 
     __tablename__ = "automation_proposal"
-    __table_args__ = (
-        Index("ix_proposals_status_created", "status", "created_at"),
-    )
+    __table_args__ = (Index("ix_proposals_status_created", "status", "created_at"),)
 
     proposal_type: Mapped[str] = mapped_column(
         String(20),
@@ -211,7 +209,7 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         if not self.can_transition_to(ProposalStatus.PROPOSED):
             raise ValueError(f"Cannot propose from status {self.status.value}")
         self.status = ProposalStatus.PROPOSED
-        self.proposed_at = datetime.now(timezone.utc)
+        self.proposed_at = datetime.now(UTC)
 
     def approve(self, approved_by: str) -> None:
         """Approve the proposal.
@@ -222,7 +220,7 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         if not self.can_transition_to(ProposalStatus.APPROVED):
             raise ValueError(f"Cannot approve from status {self.status.value}")
         self.status = ProposalStatus.APPROVED
-        self.approved_at = datetime.now(timezone.utc)
+        self.approved_at = datetime.now(UTC)
         self.approved_by = approved_by
 
     def reject(self, reason: str) -> None:
@@ -245,7 +243,7 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         if not self.can_transition_to(ProposalStatus.DEPLOYED):
             raise ValueError(f"Cannot deploy from status {self.status.value}")
         self.status = ProposalStatus.DEPLOYED
-        self.deployed_at = datetime.now(timezone.utc)
+        self.deployed_at = datetime.now(UTC)
         self.ha_automation_id = ha_automation_id
 
     def rollback(self) -> None:
@@ -253,7 +251,7 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         if not self.can_transition_to(ProposalStatus.ROLLED_BACK):
             raise ValueError(f"Cannot rollback from status {self.status.value}")
         self.status = ProposalStatus.ROLLED_BACK
-        self.rolled_back_at = datetime.now(timezone.utc)
+        self.rolled_back_at = datetime.now(UTC)
 
     def archive(self) -> None:
         """Archive the proposal (terminal state)."""
@@ -343,9 +341,7 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
                     conditions = conditions["condition"]
                 else:
                     conditions = [conditions]
-            automation["condition"] = (
-                conditions if isinstance(conditions, list) else [conditions]
-            )
+            automation["condition"] = conditions if isinstance(conditions, list) else [conditions]
 
         return automation
 

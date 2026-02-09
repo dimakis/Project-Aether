@@ -6,7 +6,6 @@ and persistence to the database.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from src.graph.state import (
@@ -18,6 +17,7 @@ from src.graph.state import (
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
     from src.ha.client import HAClient
 
 
@@ -51,7 +51,7 @@ async def fetch_entities_node(
     Returns:
         State updates with fetched entities
     """
-    from src.ha import HAClient, get_ha_client, parse_entity_list
+    from src.ha import get_ha_client, parse_entity_list
 
     ha: HAClient = ha_client or get_ha_client()
 
@@ -73,7 +73,7 @@ async def fetch_entities_node(
     ]
 
     # Track domains
-    domains = list(set(e.domain for e in entity_summaries))
+    domains = list({e.domain for e in entity_summaries})
 
     return {
         "entities_found": entity_summaries,
@@ -168,7 +168,7 @@ async def sync_automations_node(
     except Exception as e:
         # Log but don't fail - automations are optional
         return {
-            "errors": state.errors + [f"Automation sync warning: {e}"],
+            "errors": [*state.errors, f"Automation sync warning: {e}"],
         }
 
 
@@ -227,17 +227,19 @@ async def finalize_discovery_node(state: DiscoveryState) -> dict[str, object]:
     """
     # Log metrics to MLflow (lazy import to avoid early loading)
     import mlflow
-    
+
     if mlflow.active_run():
-        mlflow.log_metrics({
-            "entities_found": len(state.entities_found),
-            "entities_added": state.entities_added,
-            "entities_updated": state.entities_updated,
-            "entities_removed": state.entities_removed,
-            "devices_found": state.devices_found,
-            "areas_found": state.areas_found,
-            "domains_count": len(state.domains_scanned),
-        })
+        mlflow.log_metrics(
+            {
+                "entities_found": len(state.entities_found),
+                "entities_added": state.entities_added,
+                "entities_updated": state.entities_updated,
+                "entities_removed": state.entities_removed,
+                "devices_found": state.devices_found,
+                "areas_found": state.areas_found,
+                "domains_count": len(state.domains_scanned),
+            }
+        )
         mlflow.set_tag("status", state.status.value)
 
     return {
@@ -262,14 +264,14 @@ async def error_handler_node(
 
     # Lazy import to avoid early loading
     import mlflow
-    
+
     if mlflow.active_run():
         mlflow.set_tag("error", "true")
         mlflow.log_param("error_message", error_msg[:500])
 
     return {
         "status": DiscoveryStatus.FAILED,
-        "errors": state.errors + [error_msg],
+        "errors": [*state.errors, error_msg],
     }
 
 

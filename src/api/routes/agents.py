@@ -16,7 +16,6 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from src.api.rate_limit import limiter
-
 from src.dal.agents import (
     AgentConfigVersionRepository,
     AgentPromptVersionRepository,
@@ -181,7 +180,9 @@ def _serialize_prompt(pv: Any) -> dict[str, Any]:
     }
 
 
-def _serialize_agent(agent: Any, active_config: Any = None, active_prompt: Any = None) -> dict[str, Any]:
+def _serialize_agent(
+    agent: Any, active_config: Any = None, active_prompt: Any = None
+) -> dict[str, Any]:
     """Serialize an agent to response dict."""
     result: dict[str, Any] = {
         "id": agent.id,
@@ -256,16 +257,16 @@ async def update_agent_status(
 
         try:
             new_status = AgentStatus(body.status)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid status: {body.status}. Must be disabled, enabled, or primary.",
-            )
+            ) from e
 
         try:
             agent = await repo.update_status(agent_name, new_status)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         if not agent:
             raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
@@ -408,7 +409,7 @@ async def quick_model_switch(
             await config_repo.promote(version.id)
             await session.flush()
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         await session.commit()
         invalidate_agent_config(agent_name)
@@ -471,7 +472,7 @@ async def create_config_version(
                 bump_type=body.bump_type,
             )
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         await session.commit()
         return ConfigVersionResponse(**_serialize_config(version))
@@ -496,7 +497,7 @@ async def update_config_version(
         try:
             version = await config_repo.update_draft(version_id, **fields)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         if not version:
             raise HTTPException(status_code=404, detail="Config version not found")
@@ -526,12 +527,13 @@ async def promote_config_version(
         try:
             version = await config_repo.promote(version_id, bump_type=bump_type)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         await session.commit()
 
         # Invalidate runtime cache so agents pick up the new config
         from src.agents.config_cache import invalidate_agent_config
+
         invalidate_agent_config(agent_name)
 
         logger.info(
@@ -559,7 +561,7 @@ async def rollback_config_version(agent_name: str) -> ConfigVersionResponse:
         try:
             version = await config_repo.rollback(agent.id)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         await session.commit()
         return ConfigVersionResponse(**_serialize_config(version))
@@ -576,7 +578,7 @@ async def delete_config_version(agent_name: str, version_id: str) -> None:
         try:
             deleted = await config_repo.delete_draft(version_id)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         if not deleted:
             raise HTTPException(status_code=404, detail="Config version not found")
@@ -629,7 +631,7 @@ async def create_prompt_version(
                 bump_type=body.bump_type,
             )
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         await session.commit()
         return PromptVersionResponse(**_serialize_prompt(version))
@@ -655,7 +657,7 @@ async def update_prompt_version(
                 change_summary=body.change_summary,
             )
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         if not version:
             raise HTTPException(status_code=404, detail="Prompt version not found")
@@ -685,12 +687,13 @@ async def promote_prompt_version(
         try:
             version = await prompt_repo.promote(version_id, bump_type=bump_type)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         await session.commit()
 
         # Invalidate runtime cache so agents pick up the new prompt
         from src.agents.config_cache import invalidate_agent_config
+
         invalidate_agent_config(agent_name)
 
         logger.info(
@@ -717,7 +720,7 @@ async def rollback_prompt_version(agent_name: str) -> PromptVersionResponse:
         try:
             version = await prompt_repo.rollback(agent.id)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         await session.commit()
         return PromptVersionResponse(**_serialize_prompt(version))
@@ -734,7 +737,7 @@ async def delete_prompt_version(agent_name: str, version_id: str) -> None:
         try:
             deleted = await prompt_repo.delete_draft(version_id)
         except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+            raise HTTPException(status_code=409, detail=str(e)) from e
 
         if not deleted:
             raise HTTPException(status_code=404, detail="Prompt version not found")
@@ -783,7 +786,8 @@ async def promote_both(
         if config_draft:
             try:
                 promoted_config = await config_repo.promote(
-                    config_draft.id, bump_type=bump_type,
+                    config_draft.id,
+                    bump_type=bump_type,
                 )
             except ValueError as e:
                 errors.append(f"Config: {e}")
@@ -793,7 +797,8 @@ async def promote_both(
         if prompt_draft:
             try:
                 promoted_prompt = await prompt_repo.promote(
-                    prompt_draft.id, bump_type=bump_type,
+                    prompt_draft.id,
+                    bump_type=bump_type,
                 )
             except ValueError as e:
                 errors.append(f"Prompt: {e}")
@@ -827,8 +832,12 @@ async def promote_both(
             parts.append(f"prompt v{promoted_prompt.version or promoted_prompt.version_number}")
 
         return PromoteBothResponse(
-            config=ConfigVersionResponse(**_serialize_config(promoted_config)) if promoted_config else None,
-            prompt=PromptVersionResponse(**_serialize_prompt(promoted_prompt)) if promoted_prompt else None,
+            config=ConfigVersionResponse(**_serialize_config(promoted_config))
+            if promoted_config
+            else None,
+            prompt=PromptVersionResponse(**_serialize_prompt(promoted_prompt))
+            if promoted_prompt
+            else None,
             message=f"Promoted {' and '.join(parts)} to active",
         )
 
@@ -951,9 +960,7 @@ async def generate_prompt(
         repo = AgentRepository(session)
         agent = await repo.get_by_name(agent_name)
         if not agent:
-            raise HTTPException(
-                status_code=404, detail=f"Agent '{agent_name}' not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
 
         # Gather context
         tools = _AGENT_TOOLS.get(agent_name, [])
@@ -976,16 +983,13 @@ async def generate_prompt(
             meta_parts.append("")
             meta_parts.append("## Available Tools")
             meta_parts.append(
-                "The agent has access to these tools: "
-                + ", ".join(f"`{t}`" for t in tools)
+                "The agent has access to these tools: " + ", ".join(f"`{t}`" for t in tools)
             )
 
         if current_prompt:
             meta_parts.append("")
             meta_parts.append("## Current System Prompt")
-            meta_parts.append(
-                "Here is the agent's current system prompt for reference:"
-            )
+            meta_parts.append("Here is the agent's current system prompt for reference:")
             # Truncate very long prompts to avoid token waste
             truncated = current_prompt[:8000]
             if len(current_prompt) > 8000:
@@ -1020,9 +1024,7 @@ async def generate_prompt(
         llm = get_llm()
         messages = [
             SystemMessage(content=meta_prompt),
-            HumanMessage(
-                content=f"Generate the system prompt for the {agent_name} agent."
-            ),
+            HumanMessage(content=f"Generate the system prompt for the {agent_name} agent."),
         ]
         response = await llm.ainvoke(messages)
 

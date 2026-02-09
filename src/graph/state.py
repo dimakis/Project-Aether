@@ -4,7 +4,7 @@ Provides Pydantic models for graph state management.
 All graphs use these models to maintain typed, validated state.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Any
 from uuid import uuid4
@@ -67,7 +67,7 @@ class BaseState(BaseModel):
         description="Unique identifier for this graph run",
     )
     started_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="When this graph run started",
     )
     current_agent: AgentRole | None = Field(
@@ -148,7 +148,7 @@ class HITLApproval(BaseModel):
     request_type: str  # "automation", "script", "scene"
     description: str
     yaml_content: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     approved: bool | None = None  # None = pending
     approved_by: str | None = None
     approved_at: datetime | None = None
@@ -206,7 +206,7 @@ class ApprovalState(BaseModel):
         """
         self.user_decision = ApprovalDecision.APPROVED
         self.decided_by = approved_by
-        self.decided_at = datetime.now(timezone.utc)
+        self.decided_at = datetime.now(UTC)
         self.comment = comment
 
     def reject(self, rejected_by: str, reason: str) -> None:
@@ -218,7 +218,7 @@ class ApprovalState(BaseModel):
         """
         self.user_decision = ApprovalDecision.REJECTED
         self.decided_by = rejected_by
-        self.decided_at = datetime.now(timezone.utc)
+        self.decided_at = datetime.now(UTC)
         self.rejection_reason = reason
 
     @property
@@ -447,7 +447,7 @@ class ScriptExecution(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     script_content: str
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     exit_code: int | None = None
     stdout: str | None = None
@@ -609,33 +609,33 @@ DEFAULT_WORKFLOW_PRESETS: list[WorkflowPreset] = [
 
 # Exports
 __all__ = [
+    "DEFAULT_WORKFLOW_PRESETS",
     # Enums
     "AgentRole",
-    "ConversationStatus",
-    "DiscoveryStatus",
+    "AnalysisState",
     "AnalysisType",
     "ApprovalDecision",
-    # Base states
-    "BaseState",
-    "MessageState",
-    # Discovery
-    "EntitySummary",
-    "DiscoveryState",
-    # Conversation
-    "HITLApproval",
     "ApprovalState",
-    "ConversationState",
     # Analysis
     "AutomationSuggestion",
-    "SpecialistFinding",
-    "TeamAnalysis",
-    "ScriptExecution",
-    "AnalysisState",
+    # Base states
+    "BaseState",
+    "ConversationState",
+    "ConversationStatus",
     # Dashboard
     "DashboardState",
-    # Workflow presets
-    "WorkflowPreset",
-    "DEFAULT_WORKFLOW_PRESETS",
+    "DiscoveryState",
+    "DiscoveryStatus",
+    # Discovery
+    "EntitySummary",
+    # Conversation
+    "HITLApproval",
+    "MessageState",
     # Orchestrator
     "OrchestratorState",
+    "ScriptExecution",
+    "SpecialistFinding",
+    "TeamAnalysis",
+    # Workflow presets
+    "WorkflowPreset",
 ]

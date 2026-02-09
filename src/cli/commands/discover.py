@@ -1,7 +1,7 @@
 """Discovery commands."""
 
 import asyncio
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.panel import Panel
@@ -13,7 +13,7 @@ from src.cli.utils import console
 
 def discover(
     domain: Annotated[
-        Optional[str],  # noqa: UP007
+        str | None,
         typer.Option("--domain", "-d", help="Specific domain to discover (e.g., 'light')"),
     ] = None,
     force: Annotated[
@@ -44,7 +44,7 @@ async def _run_discovery(domain: str | None, force: bool) -> None:
     from src.dal.sync import run_discovery
     from src.ha import get_ha_client
     from src.storage import get_session
-    from src.tracing import init_mlflow, start_experiment_run, log_param, log_metric
+    from src.tracing import init_mlflow, log_metric, log_param, start_experiment_run
     from src.tracing.context import session_context
 
     # Initialize MLflow tracing
@@ -64,7 +64,7 @@ async def _run_discovery(domain: str | None, force: bool) -> None:
 
             # Run discovery with session context and MLflow tracking
             with session_context() as session_id:
-                with start_experiment_run(run_name="librarian_discovery") as run:
+                with start_experiment_run(run_name="librarian_discovery"):
                     log_param("triggered_by", "cli")
                     log_param("domain_filter", domain or "all")
                     log_param("session.id", session_id)
