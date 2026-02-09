@@ -32,6 +32,7 @@ import src.logging_config  # noqa: F401
 from src.cli.commands import analyze as analyze_commands
 from src.cli.commands import chat as chat_commands
 from src.cli.commands import discover as discover_commands
+from src.cli.commands import evaluate as evaluate_commands
 from src.cli.commands import list as list_commands
 from src.cli.commands import proposals as proposals_commands
 from src.cli.commands import serve as serve_commands
@@ -55,6 +56,7 @@ app.command(name="insight")(analyze_commands.show_insight)
 app.command()(analyze_commands.optimize)
 app.command()(status_commands.status)
 app.command()(status_commands.version)
+app.command()(evaluate_commands.evaluate)
 
 # Register list commands
 app.command()(list_commands.entities)
