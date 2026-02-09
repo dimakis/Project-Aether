@@ -1,15 +1,15 @@
 """Unit tests for the real LLM token streaming pipeline.
 
 Tests the StreamEvent, ArchitectWorkflow.stream_conversation(),
-and the TOOL_AGENT_MAP module-level constant.
+the TOOL_AGENT_MAP module-level constant, and proposal extraction.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
-from src.agents.architect import ArchitectWorkflow, StreamEvent
+from src.agents.architect import ArchitectAgent, ArchitectWorkflow, StreamEvent
 from src.api.routes.openai_compat import TOOL_AGENT_MAP
 from src.graph.state import ConversationState
 
@@ -195,6 +195,258 @@ class TestStreamConversation:
         token_events = [e for e in events if e["type"] == "token"]
         assert len(token_events) == 1
         assert token_events[0]["content"] == "Real content"
+
+
+# ---------------------------------------------------------------------------
+# _extract_proposals (multi-proposal extraction)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractProposals:
+    """Test the new _extract_proposals method that returns ALL proposals."""
+
+    def setup_method(self):
+        self.agent = ArchitectAgent(model_name="test")
+
+    def test_single_proposal(self):
+        response = """Here's a proposal:
+```json
+{"proposal": {"name": "Sunset Lights", "trigger": [{"platform": "sun"}], "actions": []}}
+```"""
+        proposals = self.agent._extract_proposals(response)
+        assert len(proposals) == 1
+        assert proposals[0]["name"] == "Sunset Lights"
+
+    def test_multiple_proposals(self):
+        response = """Here are 3 proposals:
+
+```json
+{"proposal": {"name": "Morning Lights", "trigger": [{"platform": "time"}], "actions": []}}
+```
+
+```json
+{"proposal": {"name": "Evening Routine", "trigger": [{"platform": "sun"}], "actions": []}}
+```
+
+```json
+{"proposal": {"name": "Night Lock", "trigger": [{"platform": "time"}], "actions": []}}
+```"""
+        proposals = self.agent._extract_proposals(response)
+        assert len(proposals) == 3
+        assert proposals[0]["name"] == "Morning Lights"
+        assert proposals[1]["name"] == "Evening Routine"
+        assert proposals[2]["name"] == "Night Lock"
+
+    def test_no_proposals(self):
+        response = "I don't have any proposals yet."
+        proposals = self.agent._extract_proposals(response)
+        assert len(proposals) == 0
+
+    def test_non_proposal_json_blocks_ignored(self):
+        response = """Here's some data:
+```json
+{"data": "not a proposal"}
+```"""
+        proposals = self.agent._extract_proposals(response)
+        assert len(proposals) == 0
+
+    def test_malformed_json_skipped(self):
+        response = """Proposals:
+```json
+{"proposal": {"name": "Good One", "trigger": [], "actions": []}}
+```
+
+```json
+{"proposal": {"name": truncated
+```
+
+```json
+{"proposal": {"name": "Also Good", "trigger": [], "actions": []}}
+```"""
+        proposals = self.agent._extract_proposals(response)
+        assert len(proposals) == 2
+        assert proposals[0]["name"] == "Good One"
+        assert proposals[1]["name"] == "Also Good"
+
+    def test_extract_proposal_returns_first(self):
+        """The singular _extract_proposal returns only the first."""
+        response = """
+```json
+{"proposal": {"name": "First", "trigger": [], "actions": []}}
+```
+
+```json
+{"proposal": {"name": "Second", "trigger": [], "actions": []}}
+```"""
+        result = self.agent._extract_proposal(response)
+        assert result is not None
+        assert result["name"] == "First"
+
+
+# ---------------------------------------------------------------------------
+# Truncated tool call handling
+# ---------------------------------------------------------------------------
+
+
+class TestTruncatedToolCalls:
+    """Test that stream_conversation gracefully handles truncated tool calls."""
+
+    @pytest.mark.asyncio
+    async def test_empty_name_tool_call_skipped(self):
+        """Tool calls with empty name (truncated output) should be skipped."""
+        # Simulate LLM generating a tool call with empty name (truncated output)
+        chunk_with_tool = AIMessageChunk(
+            content="",
+            tool_call_chunks=[
+                {"name": "", "args": '{"action_type": "automation"}', "id": "call_1", "index": 0}
+            ],
+        )
+        # Follow-up produces text
+        follow_up_chunk = AIMessageChunk(content="Here's the result")
+
+        call_count = 0
+
+        async def mock_astream(msgs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                yield chunk_with_tool
+            else:
+                yield follow_up_chunk
+
+        mock_llm = MagicMock()
+        mock_llm.astream = mock_astream
+        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
+
+        workflow = ArchitectWorkflow(model_name="test-model")
+        workflow.agent._llm = mock_llm
+
+        # Create a mock tool so the tool lookup isn't empty
+        mock_tool = MagicMock()
+        mock_tool.name = "seek_approval"
+        mock_tool.ainvoke = AsyncMock(return_value="Proposal submitted")
+
+        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+            with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
+                state = ConversationState(messages=[])
+                events = []
+                async for ev in workflow.stream_conversation(state, "Create automation"):
+                    events.append(ev)
+
+        # The empty-name tool call should NOT have triggered tool_start
+        tool_start_events = [e for e in events if e["type"] == "tool_start"]
+        assert len(tool_start_events) == 0
+
+        # The mock tool should not have been called
+        mock_tool.ainvoke.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_bad_json_args_tool_call_skipped(self):
+        """Tool calls with unparseable JSON args should be skipped."""
+        chunk_with_tool = AIMessageChunk(
+            content="",
+            tool_call_chunks=[
+                {
+                    "name": "seek_approval",
+                    "args": '{"action_type": "automation", "name": "Test", "trigger": {"platfor',
+                    "id": "call_1",
+                    "index": 0,
+                }
+            ],
+        )
+        follow_up_chunk = AIMessageChunk(content="I'll try again")
+
+        call_count = 0
+
+        async def mock_astream(msgs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                yield chunk_with_tool
+            else:
+                yield follow_up_chunk
+
+        mock_llm = MagicMock()
+        mock_llm.astream = mock_astream
+        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
+
+        workflow = ArchitectWorkflow(model_name="test-model")
+        workflow.agent._llm = mock_llm
+
+        mock_tool = MagicMock()
+        mock_tool.name = "seek_approval"
+        mock_tool.ainvoke = AsyncMock(return_value="Proposal submitted")
+
+        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+            with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
+                state = ConversationState(messages=[])
+                events = []
+                async for ev in workflow.stream_conversation(state, "Create automation"):
+                    events.append(ev)
+
+        # The tool should not have been called with corrupt args
+        mock_tool.ainvoke.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Fallback response when no visible content
+# ---------------------------------------------------------------------------
+
+
+class TestFallbackResponse:
+    """Test that empty visible content produces a fallback message."""
+
+    @pytest.mark.asyncio
+    async def test_fallback_when_tools_produce_no_text(self):
+        """If tool iterations produce no visible content, emit a fallback."""
+        # First call: LLM generates a tool call (no text)
+        chunk_with_tool = AIMessageChunk(
+            content="",
+            tool_call_chunks=[
+                {
+                    "name": "get_entity_state",
+                    "args": '{"entity_id": "light.living_room"}',
+                    "id": "call_1",
+                    "index": 0,
+                }
+            ],
+        )
+        # Follow-up: LLM generates empty content (simulating truncated/empty response)
+        follow_up_chunk = AIMessageChunk(content="")
+
+        call_count = 0
+
+        async def mock_astream(msgs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                yield chunk_with_tool
+            else:
+                yield follow_up_chunk
+
+        mock_llm = MagicMock()
+        mock_llm.astream = mock_astream
+        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
+
+        workflow = ArchitectWorkflow(model_name="test-model")
+        workflow.agent._llm = mock_llm
+
+        mock_tool = MagicMock()
+        mock_tool.name = "get_entity_state"
+        mock_tool.ainvoke = AsyncMock(return_value="light is on")
+
+        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+            with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
+                state = ConversationState(messages=[])
+                events = []
+                async for ev in workflow.stream_conversation(state, "Check light"):
+                    events.append(ev)
+
+        # Should have a fallback token event
+        token_events = [e for e in events if e["type"] == "token"]
+        assert len(token_events) > 0
+        fallback_text = "".join(e["content"] for e in token_events)
+        assert "try rephrasing" in fallback_text.lower() or "processed" in fallback_text.lower()
 
 
 # ---------------------------------------------------------------------------
