@@ -9,6 +9,7 @@ Constitution: Reliability & Quality - real service testing.
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 
 def _configure_container_runtime() -> None:
@@ -23,12 +24,12 @@ def _configure_container_runtime() -> None:
     """
     if os.environ.get("DOCKER_HOST"):
         return
-    if os.path.exists("/var/run/docker.sock"):
+    if Path("/var/run/docker.sock").exists():
         return
 
     # Linux rootless Podman
     linux_socket = f"/run/user/{os.getuid()}/podman/podman.sock"
-    if os.path.exists(linux_socket):
+    if Path(linux_socket).exists():
         os.environ["DOCKER_HOST"] = f"unix://{linux_socket}"
         os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
         return
@@ -40,10 +41,11 @@ def _configure_container_runtime() -> None:
                 ["podman", "machine", "inspect",
                  "--format", "{{.ConnectionInfo.PodmanSocket.Path}}"],
                 capture_output=True, text=True, timeout=5,
+                check=False,
             )
             if result.returncode == 0:
                 sock = result.stdout.strip()
-                if sock and os.path.exists(sock):
+                if sock and Path(sock).exists():
                     os.environ["DOCKER_HOST"] = f"unix://{sock}"
                     os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
         except (subprocess.TimeoutExpired, FileNotFoundError):
