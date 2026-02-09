@@ -48,8 +48,6 @@ async def get_or_create_architect_agent(session: AsyncSession) -> Agent:
             id=str(uuid4()),
             name="Architect",
             description="Conversational automation design agent",
-            agent_type="architect",
-            is_active=True,
         )
         session.add(agent)
         await session.flush()

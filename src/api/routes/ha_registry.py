@@ -449,8 +449,8 @@ async def get_service(
 @router.post("/services/call", response_model=ServiceCallResponse)
 @limiter.limit("10/minute")
 async def call_service(
-    http_request: Request,
-    request: ServiceCallRequest,
+    request: Request,
+    body: ServiceCallRequest,
     session: AsyncSession = Depends(get_db),
 ) -> ServiceCallResponse:
     """Call a Home Assistant service via MCP.
@@ -459,8 +459,8 @@ async def call_service(
     dangerous domains that should only go through the HITL approval flow.
 
     Args:
-        http_request: FastAPI request (for rate limiter)
-        request: Service call request
+        request: FastAPI/Starlette request (for rate limiter)
+        body: Service call request body
         session: Database session
 
     Returns:
@@ -479,34 +479,34 @@ async def call_service(
             "hassio",  # supervisor control
         }
     )
-    if request.domain in BLOCKED_DOMAINS:
+    if body.domain in BLOCKED_DOMAINS:
         return ServiceCallResponse(
             success=False,
-            domain=request.domain,
-            service=request.service,
-            message=f"Domain '{request.domain}' is restricted. Use the chat interface for this operation.",
+            domain=body.domain,
+            service=body.service,
+            message=f"Domain '{body.domain}' is restricted. Use the chat interface for this operation.",
         )
 
     try:
         ha = get_ha_client()
         await ha.call_service(
-            domain=request.domain,
-            service=request.service,
-            data=request.data or {},
+            domain=body.domain,
+            service=body.service,
+            data=body.data or {},
         )
 
         return ServiceCallResponse(
             success=True,
-            domain=request.domain,
-            service=request.service,
-            message=f"Successfully called {request.domain}.{request.service}",
+            domain=body.domain,
+            service=body.service,
+            message=f"Successfully called {body.domain}.{body.service}",
         )
 
     except Exception as e:
         return ServiceCallResponse(
             success=False,
-            domain=request.domain,
-            service=request.service,
+            domain=body.domain,
+            service=body.service,
             message=sanitize_error(e, context="Service call"),
         )
 
