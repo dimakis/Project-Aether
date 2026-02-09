@@ -7,6 +7,7 @@ Constitution: Isolation - All analysis scripts run in sandbox.
 """
 
 import asyncio
+import logging
 import tempfile
 import uuid
 from datetime import UTC, datetime
@@ -17,6 +18,8 @@ from pydantic import BaseModel, Field
 
 from src.sandbox.policies import SandboxPolicy, get_default_policy
 from src.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class SandboxResult(BaseModel):
@@ -342,12 +345,9 @@ class SandboxRunner:
                 return self.image
 
         except Exception:
-            pass
+            logger.debug("Failed to verify container image availability", exc_info=True)
 
         # Fall back to basic Python image
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.warning(
             f"Container image '{self.image}' not found — falling back to '{self.FALLBACK_IMAGE}'. "
             f"The fallback image lacks data-science packages (numpy, pandas, scipy, etc.) "

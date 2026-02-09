@@ -262,7 +262,9 @@ def _publish_llm_activity(event: str, model: str, **extra: Any) -> None:
             }
         )
     except Exception:
-        pass  # Non-critical: never block on activity broadcast
+        logger.debug(
+            "Failed to publish LLM activity event", exc_info=True
+        )  # Non-critical: never block on activity broadcast
 
 
 def _log_usage_async(result: Any, provider: str, model: str, latency_ms: int) -> None:

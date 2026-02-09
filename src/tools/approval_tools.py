@@ -187,7 +187,9 @@ async def _create_automation_proposal(
                 conditions = conditions or parsed.get("condition", parsed.get("conditions"))
                 mode = parsed.get("mode", mode)
         except Exception:
-            pass  # Fall through to use explicit params
+            logger.debug(
+                "Failed to parse YAML content, falling back to explicit params", exc_info=True
+            )  # Fall through to use explicit params
 
     # Validate required fields — reject early so the LLM retries with full data
     missing: list[str] = []

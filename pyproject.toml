@@ -254,6 +254,7 @@ module = [
     # Tracing
     "src.tracing",
     "src.tracing.mlflow",
+    "src.tracing.scorers",
 ]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false

@@ -797,8 +797,7 @@ class ArchitectWorkflow:
             updates = await self.agent.invoke(state, session=session)
             return state.model_copy(update=updates)
 
-        updates = await _traced_invoke()
-        state = state.model_copy(update=updates)
+        state = await _traced_invoke()
 
         return state
 
@@ -857,17 +856,16 @@ class ArchitectWorkflow:
                     if request_id:
                         state.last_trace_id = str(request_id)
             except Exception:
-                pass  # trace capture is best-effort
+                logger.debug("trace capture failed", exc_info=True)
 
             updates = await self.agent.invoke(state, session=session)
             return state.model_copy(update=updates)
 
-        updates = await _traced_invoke(
+        state = await _traced_invoke(
             user_message=user_message,
             conversation_id=state.conversation_id,
             turn=turn_number,
         )
-        state = state.model_copy(update=updates)
 
         return state
 
@@ -909,7 +907,7 @@ class ArchitectWorkflow:
                     state.last_trace_id = str(request_id)
                     yield StreamEvent(type="trace_id", content=str(request_id))
         except Exception:
-            pass
+            logger.debug("trace ID capture failed", exc_info=True)
 
         # Build messages for LLM
         messages = self.agent._build_messages(state)

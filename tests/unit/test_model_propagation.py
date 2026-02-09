@@ -63,7 +63,8 @@ class TestDataScientistModelResolution:
         mock_llm = MagicMock()
         mock_get_llm.return_value = mock_llm
 
-        self._make_agent()
+        agent = self._make_agent()
+        _ = agent.llm  # trigger lazy LLM init
 
         mock_get_llm.assert_called_once_with(model="gpt-4o-mini", temperature=0.3)
 
@@ -83,13 +84,13 @@ class TestDataScientistModelResolution:
         mock_llm = MagicMock()
         mock_get_llm.return_value = mock_llm
 
-        self._make_agent()
+        agent = self._make_agent()
 
         with model_context(
             model_name="anthropic/claude-sonnet-4",
             temperature=0.8,
         ):
-            pass
+            _ = agent.llm  # trigger LLM init inside context
 
         # Should use the context model, not the agent setting
         mock_get_llm.assert_called_with(

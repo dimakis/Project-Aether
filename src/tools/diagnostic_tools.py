@@ -7,7 +7,11 @@ diagnose individual entities, and validate configuration.
 
 from __future__ import annotations
 
+import logging
+
 from langchain_core.tools import tool
+
+logger = logging.getLogger(__name__)
 
 from src.diagnostics.config_validator import run_config_check
 from src.diagnostics.entity_health import (
@@ -170,7 +174,7 @@ async def diagnose_entity(entity_id: str) -> str:
                     for entry in related[:3]:
                         lines.append(f"    {entry[:120]}")
         except Exception:
-            pass
+            logger.debug("Failed to extract related log entries", exc_info=True)
 
         # Assessment
         if state in ("unavailable", "unknown"):

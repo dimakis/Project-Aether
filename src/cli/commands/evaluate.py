@@ -121,8 +121,7 @@ async def _run_evaluation(
     _display_results(eval_result, len(trace_df))
 
     console.print(
-        "\n[dim]Full results are available in the MLflow UI "
-        "under the evaluation run.[/dim]"
+        "\n[dim]Full results are available in the MLflow UI under the evaluation run.[/dim]"
     )
 
 

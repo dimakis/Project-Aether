@@ -6,11 +6,14 @@ Wraps the base HA get_history with energy-specific filtering,
 aggregation, and statistical calculations.
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.ha.client import HAClient
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -228,7 +231,9 @@ class EnergyHistoryClient:
                 history = await self.get_energy_history(entity_id, hours)
                 histories.append(history)
             except Exception:
-                # Skip entities that fail
+                logger.debug(
+                    "Failed to get energy history for entity %s, skipping", entity_id, exc_info=True
+                )
                 continue
 
         if not histories:
