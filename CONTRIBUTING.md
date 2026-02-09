@@ -9,7 +9,7 @@ Thank you for your interest in contributing to Aether! This guide will help you 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (package manager)
 - [Podman](https://podman.io/) (container runtime)
-- Node.js 22+ (for UI development)
+- Node.js 18+ (for UI development)
 
 ### Quick Start
 
