@@ -38,9 +38,16 @@ def _configure_container_runtime() -> None:
     if shutil.which("podman"):
         try:
             result = subprocess.run(
-                ["podman", "machine", "inspect",
-                 "--format", "{{.ConnectionInfo.PodmanSocket.Path}}"],
-                capture_output=True, text=True, timeout=5,
+                [
+                    "podman",
+                    "machine",
+                    "inspect",
+                    "--format",
+                    "{{.ConnectionInfo.PodmanSocket.Path}}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
                 check=False,
             )
             if result.returncode == 0:
