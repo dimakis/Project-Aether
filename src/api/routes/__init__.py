@@ -14,6 +14,7 @@ from src.api.routes.chat import router as chat_router
 from src.api.routes.devices import router as devices_router
 from src.api.routes.diagnostics import router as diagnostics_router
 from src.api.routes.entities import router as entities_router
+from src.api.routes.evaluations import router as evaluations_router
 from src.api.routes.flow_grades import router as flow_grades_router
 from src.api.routes.ha_registry import router as ha_registry_router
 from src.api.routes.ha_zones import router as ha_zones_router
@@ -70,6 +71,8 @@ api_router.include_router(openai_router)
 api_router.include_router(activity_router)
 # Flow grading
 api_router.include_router(flow_grades_router)
+# Trace evaluation (MLflow 3.x GenAI scorers)
+api_router.include_router(evaluations_router)
 # HA Zones (multi-server)
 api_router.include_router(ha_zones_router)
 
