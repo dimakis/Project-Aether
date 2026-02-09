@@ -1,10 +1,13 @@
-"""MLflow experiment setup and tracing decorators.
+"""MLflow 3.x experiment setup, tracing, and GenAI evaluation utilities.
 
 Provides comprehensive tracing for agent operations, LLM calls,
-and data science workflows (Constitution: Observability).
+and data science workflows (Constitution: Observability), plus
+MLflow 3.x feedback/assessment bridging and trace search.
 
 All functions are defensive - they silently skip tracing if MLflow
 is unavailable or misconfigured, rather than crashing the application.
+
+Requires MLflow >= 3.5.0 (v2 fallback paths have been removed).
 """
 
 # IMPORTANT: Set MLflow environment variables BEFORE any imports that might
@@ -672,23 +675,15 @@ def search_traces(
 
 
 def get_active_span() -> Any | None:
-    """Return the current active span if supported by this MLflow version."""
+    """Return the current active MLflow span, or None."""
     mlflow = _safe_import_mlflow()
     if mlflow is None:
         return None
 
     try:
-        # MLflow 3.x uses get_current_active_span()
-        get_span = getattr(mlflow, "get_current_active_span", None)
-        if get_span:
-            return get_span()
-        # Fallback for older versions
-        active_span = getattr(mlflow, "active_span", None)
-        if active_span:
-            return active_span()
+        return mlflow.get_current_active_span()
     except Exception:
-        pass
-    return None
+        return None
 
 
 def add_span_event(
@@ -696,10 +691,9 @@ def add_span_event(
     name: str,
     attributes: dict[str, Any] | None = None,
 ) -> None:
-    """Add an event to a span (MLflow 3.x compatible).
+    """Add a SpanEvent to an MLflow span.
 
-    MLflow 3.x changed add_event() to require a SpanEvent object.
-    This helper provides a backward-compatible interface.
+    Wraps the SpanEvent construction for a cleaner call-site API.
     """
     if span is None or not hasattr(span, "add_event"):
         return
@@ -750,27 +744,21 @@ def trace_with_uri(
         span_name = name or func.__name__
         traced_func: Callable[..., Any] | None = None
 
-        def _get_traced(mlflow: Any) -> Callable[..., Any] | None:
+        def _get_traced(mlflow: Any) -> Callable[..., Any]:
+            """Create and cache the mlflow.trace()-wrapped function."""
             nonlocal traced_func
-            if traced_func is not None:
-                return traced_func
-            if hasattr(mlflow, "trace"):
+            if traced_func is None:
                 traced_func = mlflow.trace(
                     func,
                     name=span_name,
                     span_type=span_type,
                     attributes=attributes,
                 )
-                return traced_func
-            return None
+            return traced_func
 
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
-            global _traces_available
-            if not _ensure_mlflow_initialized():
-                return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
-
-            if not _traces_available:
+            if not _ensure_mlflow_initialized() or not _traces_available:
                 return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
 
             mlflow = _safe_import_mlflow()
@@ -779,16 +767,7 @@ def trace_with_uri(
 
             try:
                 traced = _get_traced(mlflow)
-                if traced is not None:
-                    return await traced(*args, **kwargs)  # type: ignore[misc, no-any-return]
-
-                # Fallback for older MLflow versions without trace()
-                with mlflow.start_span(
-                    name=span_name,
-                    span_type=span_type,
-                    attributes=attributes,
-                ):
-                    return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
+                return await traced(*args, **kwargs)  # type: ignore[misc, no-any-return]
             except Exception as e:
                 _disable_traces("span creation failed; backend rejected traces")
                 _logger.debug(f"Span creation failed, running without trace: {e}")
@@ -796,11 +775,7 @@ def trace_with_uri(
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            global _traces_available
-            if not _ensure_mlflow_initialized():
-                return func(*args, **kwargs)
-
-            if not _traces_available:
+            if not _ensure_mlflow_initialized() or not _traces_available:
                 return func(*args, **kwargs)
 
             mlflow = _safe_import_mlflow()
@@ -809,16 +784,7 @@ def trace_with_uri(
 
             try:
                 traced = _get_traced(mlflow)
-                if traced is not None:
-                    return traced(*args, **kwargs)
-
-                # Fallback for older MLflow versions without trace()
-                with mlflow.start_span(
-                    name=span_name,
-                    span_type=span_type,
-                    attributes=attributes,
-                ):
-                    return func(*args, **kwargs)
+                return traced(*args, **kwargs)
             except Exception as e:
                 _disable_traces("span creation failed; backend rejected traces")
                 _logger.debug(f"Span creation failed, running without trace: {e}")
