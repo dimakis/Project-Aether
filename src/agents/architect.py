@@ -8,7 +8,7 @@ structured automation proposals.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ class ArchitectAgent(BaseAgent):
 
             return updates
 
-    def _build_messages(self, state: ConversationState) -> list:
+    def _build_messages(self, state: ConversationState) -> list[BaseMessage]:
         """Build message list for LLM from state.
 
         Args:
@@ -226,7 +226,7 @@ class ArchitectAgent(BaseAgent):
         """
         from langchain_core.messages import ToolMessage
 
-        messages = [SystemMessage(content=load_prompt("architect_system"))]
+        messages: list[BaseMessage] = [SystemMessage(content=load_prompt("architect_system"))]
 
         for msg in state.messages:
             if isinstance(msg, (HumanMessage, AIMessage)):
@@ -498,7 +498,7 @@ class ArchitectAgent(BaseAgent):
         try:
             data = json.loads(json_match.group(1))
             if "proposal" in data:
-                return data["proposal"]
+                return cast("dict[str, Any] | None", data.get("proposal"))
             return None
         except json.JSONDecodeError:
             return None
@@ -628,7 +628,7 @@ class ArchitectAgent(BaseAgent):
 
         # Generate refined response
         response = await self.llm.ainvoke(messages)
-        response_text = response.content
+        response_text = str(response.content)
 
         # Check for new proposal
         proposal_data = self._extract_proposal(response_text)
@@ -708,7 +708,7 @@ class ArchitectAgent(BaseAgent):
 
         async with self.trace_span("receive_suggestion", None) as span:
             response = await self.llm.ainvoke(messages)
-            response_text = response.content
+            response_text = str(response.content)
 
             span["outputs"] = {"response_length": len(response_text)}
 
@@ -791,10 +791,11 @@ class ArchitectWorkflow:
                 "type": "new_conversation",
             },
         )
-        async def _traced_invoke():
+        async def _traced_invoke() -> ConversationState:
             # Set session for grouping multiple turns
             mlflow.update_current_trace(tags={"mlflow.trace.session": state.conversation_id})
-            return await self.agent.invoke(state, session=session)
+            updates = await self.agent.invoke(state, session=session)
+            return state.model_copy(update=updates)
 
         updates = await _traced_invoke()
         state = state.model_copy(update=updates)
@@ -843,7 +844,7 @@ class ArchitectWorkflow:
             user_message: str,
             conversation_id: str,
             turn: int,
-        ):
+        ) -> ConversationState:
             # Set session for grouping multiple turns
             mlflow.update_current_trace(tags={"mlflow.trace.session": conversation_id})
 
@@ -858,7 +859,8 @@ class ArchitectWorkflow:
             except Exception:
                 pass  # trace capture is best-effort
 
-            return await self.agent.invoke(state, session=session)
+            updates = await self.agent.invoke(state, session=session)
+            return state.model_copy(update=updates)
 
         updates = await _traced_invoke(
             user_message=user_message,
@@ -941,7 +943,8 @@ class ArchitectWorkflow:
 
             # Tool call chunks (accumulated across multiple stream chunks)
             if has_tool_chunks:
-                for tc_chunk in chunk.tool_call_chunks:
+                tool_call_chunks = getattr(chunk, "tool_call_chunks", None) or []
+                for tc_chunk in tool_call_chunks:
                     # Merge into buffer by index
                     idx = tc_chunk.get("index", 0)
                     while len(tool_calls_buffer) <= idx:
@@ -1040,7 +1043,7 @@ class ArchitectWorkflow:
                                         type=event.type,
                                         agent=event.agent,
                                         content=event.message,
-                                        **({"target": event.target} if event.target else {}),
+                                        **({"target": event.target} if event.target else {}),  # type: ignore[arg-type]
                                     )
                                 else:
                                     queue_get.cancel()
@@ -1064,7 +1067,7 @@ class ArchitectWorkflow:
                                         type=event.type,
                                         agent=event.agent,
                                         content=event.message,
-                                        **({"target": event.target} if event.target else {}),
+                                        **({"target": event.target} if event.target else {}),  # type: ignore[arg-type]
                                     )
 
                                 # Collect result (tool is already done)
@@ -1120,7 +1123,8 @@ class ArchitectWorkflow:
                     yield StreamEvent(type="token", content=token)
 
                 if has_tool_chunks:
-                    for tc_chunk in chunk.tool_call_chunks:
+                    tool_call_chunks = getattr(chunk, "tool_call_chunks", None) or []
+                    for tc_chunk in tool_call_chunks:
                         idx = tc_chunk.get("index", 0)
                         while len(tool_calls_buffer) <= idx:
                             tool_calls_buffer.append({"name": "", "args": "", "id": ""})
@@ -1142,13 +1146,13 @@ class ArchitectWorkflow:
         if iteration == 0 and collected_content:
             all_new_messages.append(AIMessage(content=collected_content))
 
-        state.messages.extend(all_new_messages)
+        state.messages.extend(all_new_messages)  # type: ignore[arg-type]
 
         # Yield final state
         yield StreamEvent(type="state", state=state)
 
 
-class StreamEvent(dict):
+class StreamEvent(dict[str, Any]):
     """A typed dict for streaming events from the workflow.
 
     Attributes:

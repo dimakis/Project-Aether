@@ -258,7 +258,7 @@ class BehavioralAnalyst(BaseAnalyst):
 
         return findings
 
-    async def invoke(self, state: AnalysisState, **kwargs) -> dict[str, Any]:
+    async def invoke(self, state: AnalysisState, **kwargs: object) -> dict[str, Any]:
         """Run behavioral analysis workflow.
 
         Args:

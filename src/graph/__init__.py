@@ -73,13 +73,13 @@ def get_llm(
     """
     settings = get_settings()
 
-    api_key = settings.openai_api_key.get_secret_value()
+    api_key = settings.llm_api_key.get_secret_value()
     if not api_key:
-        msg = "OPENAI_API_KEY not configured. Set it in .env or environment."
+        msg = "LLM_API_KEY not configured. Set it in .env or environment."
         raise ValueError(msg)
 
     return ChatOpenAI(
-        model=model or settings.openai_model,
+        model=model or settings.llm_model,
         temperature=temperature,
         api_key=api_key,
         **kwargs,

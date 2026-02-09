@@ -106,7 +106,7 @@ def configure_logging(
 
     # Console handler with clean format
     console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(getattr(logging, log_level))
+    console_handler.setLevel(getattr(logging, str(log_level), logging.INFO))
 
     # Simple format for console
     formatter = logging.Formatter(
@@ -118,7 +118,7 @@ def configure_logging(
 
     # Set application loggers to configured level
     for app_logger in ["src", "aether"]:
-        logging.getLogger(app_logger).setLevel(getattr(logging, log_level))
+        logging.getLogger(app_logger).setLevel(getattr(logging, str(log_level), logging.INFO))
 
     # Suppress noisy third-party loggers
     suppress_noisy_loggers()

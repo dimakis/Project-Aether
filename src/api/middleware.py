@@ -6,6 +6,7 @@ Logs request method, path, status code, duration, and correlation ID.
 
 import time
 from collections.abc import Callable
+from typing import cast
 
 import structlog
 from fastapi import Request, Response
@@ -72,7 +73,7 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
                 correlation_id=correlation_id,
             )
 
-            return response
+            return cast("Response", response)
 
         except Exception as e:
             # Calculate duration even on error

@@ -254,13 +254,20 @@ class BehavioralAnalysisClient:
                 if delta > time_window_seconds:
                     break  # Beyond window
 
-                if entry_a.entity_id != entry_b.entity_id:
+                if (
+                    entry_a.entity_id != entry_b.entity_id
+                    and entry_a.entity_id
+                    and entry_b.entity_id
+                ):
                     pair = tuple(sorted([entry_a.entity_id, entry_b.entity_id]))
                     co_occurrences[pair].append(delta)
 
         # Build results
         results = []
         for (entity_a, entity_b), deltas in co_occurrences.items():
+            # Filter out None values from keys
+            if entity_a is None or entity_b is None:
+                continue
             if len(deltas) >= 3:  # Minimum 3 co-occurrences
                 avg_delta = sum(deltas) / len(deltas)
                 # Confidence based on frequency

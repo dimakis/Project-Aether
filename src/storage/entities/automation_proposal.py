@@ -332,16 +332,24 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
             automation["description"] = self.description
 
         if self.conditions:
-            conditions = self.conditions
-            if isinstance(conditions, dict):
+            conditions_value: dict[str, Any] | list[dict[str, Any]] = self.conditions
+            if isinstance(conditions_value, dict):
                 # Unwrap {"conditions": [...]}
-                if "conditions" in conditions and isinstance(conditions["conditions"], list):
-                    conditions = conditions["conditions"]
-                elif "condition" in conditions and isinstance(conditions["condition"], list):
-                    conditions = conditions["condition"]
+                if "conditions" in conditions_value and isinstance(
+                    conditions_value["conditions"], list
+                ):
+                    conditions_list: list[dict[str, Any]] = conditions_value["conditions"]
+                elif "condition" in conditions_value and isinstance(
+                    conditions_value["condition"], list
+                ):
+                    conditions_list = conditions_value["condition"]
                 else:
-                    conditions = [conditions]
-            automation["condition"] = conditions if isinstance(conditions, list) else [conditions]
+                    conditions_list = [conditions_value]
+            else:
+                conditions_list = (
+                    conditions_value if isinstance(conditions_value, list) else [conditions_value]
+                )
+            automation["condition"] = conditions_list
 
         return automation
 

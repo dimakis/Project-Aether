@@ -211,7 +211,7 @@ async def _create_automation_proposal(
                 description=description,
                 trigger=trigger if isinstance(trigger, dict) else {"triggers": trigger or []},
                 actions=actions if isinstance(actions, dict) else {"actions": actions or []},
-                conditions=conditions,
+                conditions=conditions,  # type: ignore[arg-type]
                 mode=mode,
                 proposal_type="automation",
             )
@@ -285,7 +285,7 @@ async def _create_scene_proposal(
                 name=name,
                 description=description,
                 trigger={},
-                actions=actions or {},
+                actions=actions or {},  # type: ignore[arg-type]
                 proposal_type="scene",
             )
             await repo.propose(proposal.id)

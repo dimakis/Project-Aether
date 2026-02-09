@@ -4,7 +4,7 @@ Provides methods for creating, managing, and deleting automations,
 scripts, scenes, and input helpers.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from src.ha.base import HAClientError, _trace_ha_call
 from src.tracing import log_param
@@ -118,9 +118,12 @@ class AutomationMixin:
         Returns:
             Automation config or None if not found
         """
-        return await self._request(
-            "GET",
-            f"/api/config/automation/config/{automation_id}",
+        return cast(
+            "dict[str, Any] | None",
+            await self._request(
+                "GET",
+                f"/api/config/automation/config/{automation_id}",
+            ),
         )
 
     @_trace_ha_call("ha.get_script_config")

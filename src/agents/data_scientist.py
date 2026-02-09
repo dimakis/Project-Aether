@@ -14,9 +14,10 @@ Constitution: Observability - All analysis traced in MLflow.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
     from sqlalchemy.ext.asyncio import AsyncSession
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -74,7 +75,7 @@ class DataScientistAgent(BaseAgent):
             name="DataScientist",
         )
         self._ha_client = ha_client
-        self._llm = None
+        self._llm: BaseChatModel | None = None
         self._sandbox = SandboxRunner()
 
     @property
@@ -85,7 +86,7 @@ class DataScientistAgent(BaseAgent):
         return self._ha_client
 
     @property
-    def llm(self):
+    def llm(self) -> BaseChatModel:
         """Get LLM using the model context resolution chain.
 
         Resolution order:
@@ -97,6 +98,7 @@ class DataScientistAgent(BaseAgent):
         requests may carry different model selections. When no context is
         active, the instance is cached for reuse.
         """
+
         settings = get_settings()
         model_name, temperature = resolve_model(
             agent_model=settings.data_scientist_model,
@@ -144,10 +146,13 @@ class DataScientistAgent(BaseAgent):
             try:
                 # 1. Collect data based on analysis type
                 session = kwargs.get("session")
+
                 if state.analysis_type in BEHAVIORAL_ANALYSIS_TYPES:
                     analysis_data = await self._collect_behavioral_data(state)
                 else:
-                    analysis_data = await self._collect_energy_data(state, session=session)
+                    analysis_data = await self._collect_energy_data(
+                        state, session=cast("AsyncSession | None", session)
+                    )
 
                 # 2. Generate analysis script
                 script = await self._generate_script(state, analysis_data)
@@ -162,7 +167,7 @@ class DataScientistAgent(BaseAgent):
                 # 5. Save insights to database (if session provided)
                 session = kwargs.get("session")
                 if session and insights:
-                    await self._persist_insights(insights, session, state)
+                    await self._persist_insights(insights, cast("AsyncSession", session), state)
 
                 # Check for high-confidence, high-impact insights that
                 # could be addressed by an automation (reverse communication)
@@ -408,7 +413,7 @@ class DataScientistAgent(BaseAgent):
                 }
                 data["entity_count"] = stats.unique_entities
 
-            log_metric("behavioral.entity_count", float(data.get("entity_count", 0)))
+            log_metric("behavioral.entity_count", float(cast("float", data.get("entity_count", 0))))
             log_param("behavioral.analysis_type", state.analysis_type.value)
 
         except Exception as e:
@@ -810,7 +815,7 @@ Output insights as JSON to stdout.
 
         try:
             output = json.loads(result.stdout)
-            return output.get("recommendations", [])
+            return cast("list[str]", output.get("recommendations", []))
         except (json.JSONDecodeError, KeyError):
             return []
 
@@ -917,14 +922,14 @@ Output insights as JSON to stdout.
 
             insight = await repo.create(
                 type=insight_type,
-                title=insight_data.get("title", "Analysis Result"),
-                description=insight_data.get("description", ""),
-                evidence=insight_data.get("evidence", {}),
-                confidence=insight_data.get("confidence", 0.5),
-                impact=insight_data.get("impact", "medium"),
-                entities=insight_data.get("entities", []),
+                title=cast("str", insight_data.get("title", "Analysis Result")),
+                description=cast("str", insight_data.get("description", "")),
+                evidence=cast("dict[str, Any]", insight_data.get("evidence", {})),
+                confidence=cast("float", insight_data.get("confidence", 0.5)),
+                impact=cast("str", insight_data.get("impact", "medium")),
+                entities=cast("list[str]", insight_data.get("entities", [])),
                 script_path=None,  # Could store in MLflow artifacts
-                script_output={"stdout": insight_data.get("raw_output", "")[:1000]},
+                script_output={"stdout": cast("str", insight_data.get("raw_output", ""))[:1000]},
                 mlflow_run_id=state.mlflow_run_id,
             )
             insight_ids.append(insight.id)
@@ -1025,7 +1030,7 @@ class DataScientistWorkflow:
                 "entity_count": len(state.entity_ids),
             },
         )
-        async def _traced_analysis():
+        async def _traced_analysis() -> AnalysisState:
             updates = await self.agent.invoke(state, session=session)
             for key, value in updates.items():
                 if hasattr(state, key):
@@ -1033,7 +1038,7 @@ class DataScientistWorkflow:
             return state
 
         try:
-            return await _traced_analysis()
+            return cast("AnalysisState", await _traced_analysis())
         except Exception as e:
             state.insights.append(
                 {

@@ -151,9 +151,9 @@ async def create_insight_schedule(
             # Sync APScheduler if it's a cron schedule
             if trigger_type == "cron":
                 try:
-                    from src.scheduler.service import get_scheduler
+                    from src.scheduler.service import SchedulerService
 
-                    scheduler = get_scheduler()
+                    scheduler = SchedulerService.get_instance()
                     if scheduler:
                         await scheduler.sync_jobs()
                 except Exception:

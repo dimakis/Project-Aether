@@ -142,7 +142,7 @@ def get_gaps_report() -> dict[str, Any]:
     Returns:
         Report dictionary with counts and categorization
     """
-    priority_counts = {}
+    priority_counts: dict[str, int] = {}
     for gap in MCP_GAPS:
         p = gap["priority"]
         priority_counts[p] = priority_counts.get(p, 0) + 1

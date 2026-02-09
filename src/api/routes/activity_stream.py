@@ -31,7 +31,7 @@ router = APIRouter(prefix="/activity", tags=["activity"])
 
 # ─── In-process broadcast ─────────────────────────────────────────────────────
 
-_subscribers: set[asyncio.Queue] = set()
+_subscribers: set[asyncio.Queue[str | None]] = set()
 _shutting_down = False
 
 
@@ -60,7 +60,7 @@ def publish_activity(event: dict) -> None:
     """
     event.setdefault("ts", time.time())
     data = json.dumps(event)
-    dead: list[asyncio.Queue] = []
+    dead: list[asyncio.Queue[str | None]] = []
     for q in _subscribers:
         try:
             q.put_nowait(data)
@@ -77,7 +77,7 @@ async def _subscribe() -> AsyncGenerator[str, None]:
     _shutting_down=True and pushes a None sentinel into every queue.
     This allows uvicorn to proceed with graceful shutdown / reload.
     """
-    q: asyncio.Queue = asyncio.Queue(maxsize=200)
+    q: asyncio.Queue[str | None] = asyncio.Queue(maxsize=200)
     _subscribers.add(q)
     try:
         while not _shutting_down:
@@ -93,7 +93,7 @@ async def _subscribe() -> AsyncGenerator[str, None]:
 
 
 @router.get("/stream")
-async def activity_stream():
+async def activity_stream() -> StreamingResponse:
     """SSE endpoint for global system activity events.
 
     Events include:

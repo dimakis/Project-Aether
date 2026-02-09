@@ -4,6 +4,9 @@ Provides endpoints for querying LLM usage statistics, costs, and
 daily/model breakdowns.
 """
 
+from collections.abc import AsyncGenerator
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +16,7 @@ from src.storage import get_session
 router = APIRouter(prefix="/usage", tags=["Usage"])
 
 
-async def get_db():
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get database session."""
     async with get_session() as session:
         yield session
@@ -23,7 +26,7 @@ async def get_db():
 async def get_usage_summary(
     days: int = Query(default=30, ge=1, le=365, description="Number of days to summarize"),
     session: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """Get LLM usage summary for the specified period.
 
     Returns total calls, tokens, cost, and per-model breakdown.

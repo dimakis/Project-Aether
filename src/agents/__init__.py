@@ -441,7 +441,7 @@ class LibrarianAgent(BaseAgent):
     - Track MCP capability gaps
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Librarian agent."""
         super().__init__(
             role=AgentRole.LIBRARIAN,
@@ -466,9 +466,12 @@ class LibrarianAgent(BaseAgent):
         """
         # Implementation delegated to graph nodes for modularity
         # This method serves as the entry point
-        from src.graph.nodes import run_discovery_node
+        from typing import cast
 
-        return await run_discovery_node(state, **kwargs)
+        from src.graph.nodes import run_discovery_node
+        from src.graph.state import DiscoveryState
+
+        return await run_discovery_node(cast("DiscoveryState", state), **kwargs)
 
 
 # Import other agents

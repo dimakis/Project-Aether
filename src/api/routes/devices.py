@@ -1,5 +1,7 @@
 """Device API routes."""
 
+from collections.abc import AsyncGenerator
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +12,7 @@ from src.storage import get_session
 router = APIRouter(prefix="/devices", tags=["Devices"])
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get database session."""
     async with get_session() as session:
         yield session

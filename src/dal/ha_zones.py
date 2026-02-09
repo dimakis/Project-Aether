@@ -173,15 +173,15 @@ class HAZoneRepository:
             zone.slug = _slugify(name)
         if ha_url is not None:
             zone.ha_url = ha_url
-        if ha_url_remote is not ...:
+        if ha_url_remote is not ...:  # type: ignore[comparison-overlap]
             zone.ha_url_remote = ha_url_remote
         if ha_token is not None:
             zone.ha_token_encrypted = encrypt_token(ha_token, secret)
-        if latitude is not ...:
+        if latitude is not ...:  # type: ignore[comparison-overlap]
             zone.latitude = latitude
-        if longitude is not ...:
+        if longitude is not ...:  # type: ignore[comparison-overlap]
             zone.longitude = longitude
-        if icon is not ...:
+        if icon is not ...:  # type: ignore[comparison-overlap]
             zone.icon = icon
         if url_preference is not None:
             zone.url_preference = url_preference

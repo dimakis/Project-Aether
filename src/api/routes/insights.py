@@ -5,6 +5,7 @@ User Story 3: Energy Optimization Suggestions.
 
 import contextlib
 from datetime import UTC
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
@@ -28,7 +29,7 @@ from src.storage.entities.insight import InsightStatus, InsightType
 router = APIRouter(prefix="/insights", tags=["Insights"])
 
 
-def _insight_to_response(insight) -> InsightResponse:
+def _insight_to_response(insight: Any) -> InsightResponse:
     """Convert Insight model to response schema."""
     return InsightResponse(
         id=insight.id,

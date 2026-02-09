@@ -1029,7 +1029,7 @@ async def generate_prompt(
         response = await llm.ainvoke(messages)
 
         return PromptGenerateResponse(
-            generated_prompt=response.content,
+            generated_prompt=str(response.content),
             agent_name=agent.name,
             agent_role=agent_name,
         )

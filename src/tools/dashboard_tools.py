@@ -33,7 +33,11 @@ async def generate_dashboard_yaml(title: str, areas: list[str] | None = None) ->
     if areas:
         for area_id in areas:
             try:
-                entities = await ha.get_entities_by_area(area_id)
+                # HAClient doesn't have get_entities_by_area; filter list_entities instead
+                all_entities = await ha.list_entities()
+                entities = [
+                    e for e in all_entities if e.get("attributes", {}).get("area_id") == area_id
+                ]  # type: ignore[attr-defined]
             except Exception:
                 entities = []
 

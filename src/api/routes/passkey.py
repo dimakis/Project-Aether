@@ -19,6 +19,7 @@ Management (requires active JWT session):
 import base64
 import logging
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -224,7 +225,7 @@ def _get_current_username(request: Request) -> str | None:
 
     payload = decode_jwt_token(token, settings)
     if payload and "sub" in payload:
-        return payload["sub"]
+        return cast("str", payload["sub"])
     return None
 
 
@@ -234,7 +235,7 @@ def _get_current_username(request: Request) -> str | None:
 
 
 @router.post("/passkey/register/options")
-async def passkey_register_options(request: Request) -> dict:
+async def passkey_register_options(request: Request) -> dict[str, Any]:
     """Generate WebAuthn registration options (challenge).
 
     Requires active JWT session. Returns options for the browser's
@@ -478,7 +479,7 @@ async def delete_passkey(passkey_id: str, request: Request) -> dict:
 # =============================================================================
 
 
-def _options_to_dict(options) -> dict:
+def _options_to_dict(options: Any) -> dict[str, Any]:
     """Convert WebAuthn options object to a JSON-serializable dict.
 
     py_webauthn returns dataclass-like objects; we convert to dict with
@@ -489,4 +490,4 @@ def _options_to_dict(options) -> dict:
     from webauthn.helpers import options_to_json
 
     # options_to_json returns a JSON string
-    return _json.loads(options_to_json(options))
+    return cast("dict[str, Any]", _json.loads(options_to_json(options)))

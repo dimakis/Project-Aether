@@ -162,7 +162,7 @@ class EnergyAnalyst(BaseAnalyst):
 
         return findings
 
-    async def invoke(self, state: AnalysisState, **kwargs) -> dict[str, Any]:
+    async def invoke(self, state: AnalysisState, **kwargs: object) -> dict[str, Any]:
         """Run energy analysis workflow.
 
         Full pipeline: collect -> generate script -> execute -> extract.

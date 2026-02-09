@@ -29,9 +29,11 @@ class AetherError(Exception):
 class AgentError(AetherError):
     """Errors from agent operations."""
 
-    def __init__(self, message: str, *, agent_role: str | None = None, **kwargs):
+    def __init__(
+        self, message: str, *, agent_role: str | None = None, correlation_id: str | None = None
+    ):
         self.agent_role = agent_role
-        super().__init__(message, **kwargs)
+        super().__init__(message, correlation_id=correlation_id)
 
 
 class DALError(AetherError):
@@ -65,17 +67,19 @@ class HAClientError(AetherError):
 class SandboxError(AetherError):
     """Errors from sandbox script execution."""
 
-    def __init__(self, message: str, *, timeout: bool = False, **kwargs):
+    def __init__(self, message: str, *, timeout: bool = False, correlation_id: str | None = None):
         self.timeout = timeout
-        super().__init__(message, **kwargs)
+        super().__init__(message, correlation_id=correlation_id)
 
 
 class LLMError(AetherError):
     """Errors from LLM provider operations."""
 
-    def __init__(self, message: str, *, provider: str | None = None, **kwargs):
+    def __init__(
+        self, message: str, *, provider: str | None = None, correlation_id: str | None = None
+    ):
         self.provider = provider
-        super().__init__(message, **kwargs)
+        super().__init__(message, correlation_id=correlation_id)
 
 
 class ValidationError(AetherError):

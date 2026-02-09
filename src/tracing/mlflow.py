@@ -600,19 +600,19 @@ def trace_with_uri(
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
             global _traces_available
             if not _ensure_mlflow_initialized():
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
 
             if not _traces_available:
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
 
             mlflow = _safe_import_mlflow()
             if mlflow is None:
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
 
             try:
                 traced = _get_traced(mlflow)
                 if traced is not None:
-                    return await traced(*args, **kwargs)  # type: ignore[misc]
+                    return await traced(*args, **kwargs)  # type: ignore[misc, no-any-return]
 
                 # Fallback for older MLflow versions without trace()
                 with mlflow.start_span(
@@ -620,11 +620,11 @@ def trace_with_uri(
                     span_type=span_type,
                     attributes=attributes,
                 ):
-                    return await func(*args, **kwargs)  # type: ignore[misc]
+                    return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
             except Exception as e:
                 _disable_traces("span creation failed; backend rejected traces")
                 _logger.debug(f"Span creation failed, running without trace: {e}")
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

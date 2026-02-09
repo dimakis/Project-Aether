@@ -5,7 +5,7 @@ and testing connectivity to Home Assistant zones.
 """
 
 from contextlib import suppress
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -15,6 +15,7 @@ from src.api.auth import _get_jwt_secret
 from src.api.ha_verify import verify_ha_connection
 from src.dal.ha_zones import HAZoneRepository
 from src.storage import get_session
+from src.storage.entities.ha_zone import HAZone
 
 router = APIRouter(prefix="/zones", tags=["HA Zones"])
 
@@ -84,7 +85,7 @@ class ZoneTestResult(BaseModel):
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _serialize_zone(zone) -> dict:
+def _serialize_zone(zone: HAZone) -> dict[str, Any]:
     """Serialize a zone entity to a response dict."""
     return {
         "id": zone.id,
@@ -112,7 +113,7 @@ def _get_secret() -> str:
 
 
 @router.get("", response_model=list[ZoneResponse])
-async def list_zones():
+async def list_zones() -> list[ZoneResponse]:
     """List all configured HA zones."""
     async with get_session() as session:
         repo = HAZoneRepository(session)
@@ -121,7 +122,7 @@ async def list_zones():
 
 
 @router.post("", response_model=ZoneResponse, status_code=status.HTTP_201_CREATED)
-async def create_zone(body: ZoneCreate):
+async def create_zone(body: ZoneCreate) -> ZoneResponse:
     """Create a new HA zone. Validates connectivity before saving."""
     # Validate HA connection (SSRF-protected)
     await verify_ha_connection(body.ha_url, body.ha_token)
@@ -154,7 +155,7 @@ async def create_zone(body: ZoneCreate):
 
 
 @router.patch("/{zone_id}", response_model=ZoneResponse)
-async def update_zone(zone_id: str, body: ZoneUpdate):
+async def update_zone(zone_id: str, body: ZoneUpdate) -> ZoneResponse:
     """Update a zone's configuration."""
     secret = _get_secret()
 
@@ -210,7 +211,7 @@ async def update_zone(zone_id: str, body: ZoneUpdate):
 
 
 @router.delete("/{zone_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_zone(zone_id: str):
+async def delete_zone(zone_id: str) -> None:
     """Delete a zone. Cannot delete the default or last zone."""
     async with get_session() as session:
         repo = HAZoneRepository(session)
@@ -225,7 +226,7 @@ async def delete_zone(zone_id: str):
 
 
 @router.post("/{zone_id}/set-default", response_model=ZoneResponse)
-async def set_default_zone(zone_id: str):
+async def set_default_zone(zone_id: str) -> ZoneResponse:
     """Set a zone as the default."""
     async with get_session() as session:
         repo = HAZoneRepository(session)
@@ -240,7 +241,7 @@ async def set_default_zone(zone_id: str):
 
 
 @router.post("/{zone_id}/test", response_model=ZoneTestResult)
-async def test_zone(zone_id: str):
+async def test_zone(zone_id: str) -> ZoneTestResult:
     """Test connectivity to a zone's local and remote URLs."""
     secret = _get_secret()
 

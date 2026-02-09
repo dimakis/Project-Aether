@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 
 from src.agents import ArchitectWorkflow
@@ -175,7 +175,7 @@ async def list_models() -> ModelsResponse:
 
 
 @router.post("/feedback")
-async def submit_feedback(body: FeedbackRequest):
+async def submit_feedback(body: FeedbackRequest) -> dict[str, str]:
     """Submit thumbs up/down feedback for a chat response.
 
     Logs user sentiment against the MLflow trace for model evaluation.
@@ -217,7 +217,7 @@ async def submit_feedback(body: FeedbackRequest):
 async def create_chat_completion(
     request: Request,
     body: ChatCompletionRequest,
-):
+) -> StreamingResponse | dict[str, Any]:
     """Create a chat completion.
 
     OpenAI-compatible endpoint for chat completions.
@@ -302,7 +302,7 @@ async def _create_chat_completion(
                 if state.messages:
                     for msg in reversed(state.messages):
                         if isinstance(msg, AIMessage):
-                            assistant_content = msg.content
+                            assistant_content = str(msg.content)
                             break
 
                 # Normalize content (handle list, None, etc.)
@@ -337,7 +337,7 @@ async def _create_chat_completion(
             ],
         )
         # Include trace_id as extra metadata in the response
-        result = response.model_dump()
+        result: dict[str, Any] = response.model_dump()
         if trace_id:
             result["trace_id"] = trace_id
         return result
@@ -642,9 +642,9 @@ async def _stream_chat_completion(
         yield _format_sse_error(str(e))
 
 
-def _convert_to_langchain_messages(messages: list[ChatMessage]) -> list[Any]:
+def _convert_to_langchain_messages(messages: list[ChatMessage]) -> list[BaseMessage]:
     """Convert OpenAI messages to LangChain format."""
-    lc_messages = []
+    lc_messages: list[BaseMessage] = []
 
     for msg in messages:
         if msg.role == "system":
@@ -836,7 +836,7 @@ class _StreamingTagFilter:
         return result
 
 
-def _strip_thinking_tags(content: str | list) -> str:
+def _strip_thinking_tags(content: str | list[Any]) -> str:
     """Strip LLM thinking/reasoning tags from response content.
 
     Many reasoning models (GPT-5, DeepSeek-R1, QwQ, etc.) include
