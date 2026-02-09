@@ -34,7 +34,7 @@ dependencies = [
     "asyncpg>=0.30.0,<1.0.0",
     "alembic>=1.14.0,<2.0.0",
     # MLflow for observability (Constitution: Observability)
-    "mlflow>=2.18.0,<3.0.0",
+    "mlflow>=3.5.0,<4.0.0",
     # Pydantic for validation
     "pydantic>=2.10.0,<3.0.0",
     "pydantic-settings>=2.6.0,<3.0.0",
@@ -280,6 +280,7 @@ disable_error_code = [
     "var-annotated",
     "typeddict-unknown-key",
     "typeddict-item",
+    "abstract",
 ]
 
 # =============================================================================
