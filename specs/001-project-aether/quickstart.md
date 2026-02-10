@@ -11,7 +11,7 @@
 - **Podman**: 4.0+ with rootless mode configured
 - **gVisor**: runsc runtime installed and configured
 - **PostgreSQL**: 15+ (can use containerized)
-- **OpenAI API Key**: For LLM access
+- **LLM API Key**: OpenAI, OpenRouter, Google Gemini, or other supported provider
 
 ## Quick Setup (5 minutes)
 
@@ -43,14 +43,16 @@ cp .env.example .env
 HA_TOKEN=your_long_lived_access_token
 HA_URL=http://192.168.1.10:8123
 
-# OpenAI
-OPENAI_API_KEY=sk-...
+# LLM Provider (openrouter, openai, google, ollama, together, groq)
+LLM_PROVIDER=openrouter
+LLM_API_KEY=sk-or-v1-your-key
+LLM_MODEL=anthropic/claude-sonnet-4
 
 # Database
 DATABASE_URL=postgresql://aether:aether@localhost:5432/aether
 
 # MLflow
-MLFLOW_TRACKING_URI=http://localhost:5000
+MLFLOW_TRACKING_URI=http://localhost:5002
 
 # Optional
 LOG_LEVEL=INFO
@@ -71,7 +73,7 @@ This starts infrastructure containers + API on host with hot-reload.
 make run-ui
 open http://localhost:3000
 ```
-Adds Open WebUI for a beautiful chat experience.
+Adds the Aether React UI for a full chat experience.
 
 **Production Mode** (fully containerized):
 ```bash
@@ -87,8 +89,8 @@ make down
 
 **Verify services**:
 ```bash
-curl http://localhost:5002/health  # MLflow
-curl http://localhost:8000/api/health  # API
+curl http://localhost:5002/health       # MLflow
+curl http://localhost:8000/api/v1/health  # API
 ```
 
 ### 4. Run Initial Discovery
@@ -98,7 +100,7 @@ curl http://localhost:8000/api/health  # API
 aether discover
 
 # Verify entities were discovered
-aether entities list
+aether entities
 ```
 
 ### 5. Start the API Server
@@ -117,25 +119,23 @@ aether serve --reload
 
 ### Chat with the Architect
 
-**Option 1: Open WebUI (Recommended)**
+**Option 1: Aether UI (Recommended)**
 
 ```bash
-# Start Open WebUI (beautiful chat interface)
-podman-compose -f infrastructure/podman/compose.yaml up -d open-webui
-
-# Make sure Aether API is running
-aether serve --reload
+# Start everything (infrastructure + API + UI)
+make run-ui
 
 # Open in browser
 open http://localhost:3000
 ```
 
-Open WebUI provides:
-- Streaming chat responses
-- Code syntax highlighting
-- Markdown rendering
-- File downloads (for reports/dashboards)
-- Conversation history
+The Aether UI provides:
+- Streaming chat responses with markdown rendering
+- Agent activity panel (real-time trace visualization)
+- Model selection per conversation
+- Thinking disclosure blocks
+- Conversation history with auto-titling
+- Passkey / biometric login
 
 **Option 2: CLI**
 
@@ -160,7 +160,7 @@ curl -X POST http://localhost:8000/api/v1/chat/completions \
   }'
 
 # Or the native conversation endpoint
-curl -X POST http://localhost:8000/api/conversations \
+curl -X POST http://localhost:8000/api/v1/conversations \
   -H "Content-Type: application/json" \
   -d '{"initial_message": "I want to automate my morning routine"}'
 ```
@@ -168,10 +168,7 @@ curl -X POST http://localhost:8000/api/conversations \
 ### Query Entities (Natural Language)
 
 ```bash
-# CLI
-aether entities query "all lights in the living room"
-
-# API
+# API (natural language query is API-only)
 curl -X POST http://localhost:8000/api/v1/entities/query \
   -H "Content-Type: application/json" \
   -d '{"query": "all lights in the living room"}'
@@ -180,14 +177,14 @@ curl -X POST http://localhost:8000/api/v1/entities/query \
 ### Approve an Automation (HITL)
 
 ```bash
-# List pending automations
-aether automations list --status proposed
+# List pending proposals
+aether proposals list --status proposed
 
-# Approve with comment
-aether automations approve <automation-id> --comment "Looks good"
+# Approve a proposal
+aether proposals approve <proposal-id>
 
 # Or reject
-aether automations reject <automation-id> --reason "Too aggressive"
+aether proposals reject <proposal-id>
 ```
 
 ### Request Energy Analysis
@@ -304,15 +301,21 @@ traces = mlflow.search_traces(
 ```
 home_agent/
 ├── src/
-│   ├── agents/          # LangGraph agent implementations
-│   ├── dal/             # Entity abstraction layer
-│   ├── graph/           # LangGraph workflows
+│   ├── agents/          # AI agents (Architect, DS Team, Librarian, Developer, Dashboard Designer)
+│   ├── api/             # FastAPI endpoints (21 route modules)
+│   ├── cli/             # Typer CLI commands
+│   ├── dal/             # Data access layer (repositories)
+│   ├── diagnostics/     # HA diagnostic modules
+│   ├── graph/           # LangGraph workflows and state
+│   ├── ha/              # Home Assistant integration
 │   ├── sandbox/         # gVisor script execution
-│   ├── storage/         # PostgreSQL models
-│   ├── tracing/         # MLflow integration
-│   ├── api/             # FastAPI endpoints
-│   └── cli/             # CLI commands
-├── tests/
+│   ├── schema/          # YAML schema validation
+│   ├── scheduler/       # APScheduler cron jobs
+│   ├── storage/         # SQLAlchemy ORM models
+│   ├── tools/           # Agent tool definitions
+│   └── tracing/         # MLflow integration and scorers
+├── tests/               # unit/, integration/, e2e/
+├── ui/                  # React frontend (Vite + TypeScript)
 ├── infrastructure/
 │   ├── podman/          # Container definitions
 │   └── gvisor/          # Sandbox configuration
@@ -350,7 +353,7 @@ podman info | grep -A5 runtimes
 
 ```bash
 # Check MLflow server
-curl http://localhost:5000/health
+curl http://localhost:5002/health
 
 # Verify environment
 echo $MLFLOW_TRACKING_URI
@@ -378,7 +381,7 @@ alembic downgrade base && alembic upgrade head
 
 Before deploying, verify:
 
-- [ ] **Safety First**: All automations go through HITL approval (`/api/v1/automations/{id}/approve`)
+- [ ] **Safety First**: All automations go through HITL approval (`/api/v1/proposals/{id}/approve`)
 - [ ] **Isolation**: Data Scientist scripts run in gVisor sandbox (`podman run --runtime=runsc`)
 - [ ] **Observability**: All agent actions traced to MLflow (check experiments)
 - [ ] **State**: Checkpoints persisted to PostgreSQL (verify `checkpoints` table)
