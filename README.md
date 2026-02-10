@@ -53,6 +53,18 @@ When something goes wrong — missing sensor data, unavailable devices, integrat
 ### Intelligent Optimization
 The Data Science team's Behavioral Analyst detects behavioral patterns from logbook data, identifies manual actions that could be automated, and suggests optimizations. When it finds a high-impact opportunity, it proposes it to the Architect, who can design an automation for you.
 
+### YAML Schema Validation
+Validates Home Assistant configuration YAML (automations, scripts, scenes, dashboards) against structural schemas and — optionally — against live HA state. Catches typos, missing entities, invalid service calls, and unknown areas before deployment. Integrates with Smart Config Review and the Architect's automation design flow.
+
+### Smart Config Review
+Ask the Architect to review your existing HA configurations. It fetches the current YAML from Home Assistant, consults the Data Science team for analysis, and produces improvement suggestions as proposal diffs you can approve and deploy — just like the automation design flow.
+
+### Dashboard Designer
+The Dashboard Designer agent creates Lovelace dashboard YAML by consulting the Data Science team for entity and area data, then generating a dashboard layout tailored to your home. Dashboards can be validated against the schema before deployment.
+
+### Trace Evaluation
+Custom MLflow 3.x scorers automatically evaluate agent trace quality: response latency, tool usage safety (mutation tools require prior approval), delegation depth (detects runaway chains), and tool call counts. Run evaluations on-demand via the API or the `aether evaluate` CLI command.
+
 ### Scheduled & Event-Driven Insights
 Set up cron schedules (e.g., daily energy analysis at 2 AM) or HA webhook triggers (e.g., run diagnostics when a device goes unavailable). Uses APScheduler with PostgreSQL-backed persistence.
 
@@ -104,18 +116,19 @@ Circuit breaker pattern with automatic provider failover. When your primary LLM 
 │              │   (Routes + Orchestrates)   │      for all user requests     │
 │              └──────────────┬──────────────┘                                │
 │                             │ delegates via tools                           │
-│         ┌───────────────────┼───────────────────┐                           │
-│         ▼                   ▼                   ▼                           │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │   Data      │    │  Librarian  │    │  Developer  │                     │
-│  │  Scientist  │    │   Agent     │    │   Agent     │                     │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                     │
-│         │                  │                  │                             │
-│         ▼                  ▼                  ▼                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │  Sandbox    │    │    MCP      │    │  Automation  │                    │
-│  │  (gVisor)   │    │   Client    │    │   Deploy     │                    │
-│  └─────────────┘    └─────────────┘    └──────────────┘                    │
+│         ┌──────────┬────────┼────────┬──────────┐                          │
+│         ▼          ▼        ▼        ▼          ▼                          │
+│  ┌───────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────────┐            │
+│  │   Data    │ │Librarian│ │Developer│ │Dashboard│ │  Schema    │            │
+│  │  Science  │ │ Agent  │ │ Agent  │ │Designer│ │ Validator  │            │
+│  │   Team    │ │        │ │        │ │        │ │            │            │
+│  └─────┬─────┘ └───┬────┘ └───┬────┘ └───┬────┘ └──────┬─────┘            │
+│        │           │          │           │             │                  │
+│        ▼           ▼          ▼           ▼             ▼                  │
+│  ┌───────────┐ ┌────────┐ ┌────────────┐ ┌────────┐ ┌──────────┐          │
+│  │ Sandbox   │ │  MCP   │ │ Automation │ │Lovelace│ │ YAML     │          │
+│  │ (gVisor)  │ │ Client │ │  Deploy    │ │ YAML   │ │ Schemas  │          │
+│  └───────────┘ └────────┘ └────────────┘ └────────┘ └──────────┘          │
 └─────────────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────┼───────────────────────────────────────────────┐
@@ -143,10 +156,11 @@ Circuit breaker pattern with automatic provider failover. When your primary LLM 
 
 | Agent | Role | What It Does |
 |-------|------|--------------|
-| **Architect** | Orchestrator & Chat | The unified entry point. Handles conversation, routes to specialists, designs automations. Has 12 curated tools. |
-| **Data Science Team** | Analysis & Insights | Three specialists: Energy Analyst, Behavioral Analyst, Diagnostic Analyst. Share findings via TeamAnalysis, auto-synthesize. Scripts run in gVisor sandbox. |
+| **Architect** | Orchestrator & Chat | The unified entry point. Handles conversation, routes to specialists, designs automations, reviews existing configs. Has 14 curated tools. |
+| **Data Science Team** | Analysis & Insights | Three specialists: Energy Analyst, Behavioral Analyst, Diagnostic Analyst. Share findings via TeamAnalysis with dual synthesis (programmatic + LLM). Scripts run in gVisor sandbox. |
 | **Librarian** | Discovery & Catalog | Discovers all HA entities, devices, and areas. Builds a searchable local catalog. |
 | **Developer** | Deployment | Takes approved automation proposals and deploys them to Home Assistant via the REST API (`/api/config/automation/config`). Falls back to manual instructions if the API is unreachable. |
+| **Dashboard Designer** | Dashboard Generation | Designs Lovelace dashboards by consulting the DS team for entity/area data and generating validated YAML configs. |
 
 ### Model Context Propagation
 
@@ -698,13 +712,14 @@ The circuit breaker opens after 5 consecutive failures and retries after a 60-se
 
 ### Agent System
 
-The Architect is the unified entry point for all user requests. It has 12 curated tools and delegates to specialist agents:
+The Architect is the unified entry point for all user requests. It has 14 curated tools and delegates to specialist agents:
 
 | Tool | Delegates To | Purpose |
 |------|-------------|---------|
 | `consult_data_science_team` | DS Team (Energy, Behavioral, Diagnostic Analysts) | All analysis, diagnostics, and optimization. Smart-routes to the right specialist(s). |
 | `discover_entities` | Librarian | Entity catalog refresh |
 | `seek_approval` | Developer (on approval) | Route all mutating actions through the approval workflow |
+| `review_config` | Review workflow (DS Team + Architect) | Review existing HA configs and suggest improvements |
 | `create_insight_schedule` | System | Recurring or event-driven analysis |
 | `get_entity_state`, `list_entities_by_domain`, `search_entities`, `get_domain_summary` | — (direct HA) | Entity queries |
 | `list_automations`, `render_template`, `get_ha_logs`, `check_ha_config` | — (direct HA) | HA state and config queries |
@@ -736,12 +751,21 @@ Two trigger mechanisms feed into the same analysis pipeline:
                                  └──────────────────────────────
 ```
 
+### Schema Validation
+
+HA configuration YAML is validated in two phases:
+
+1. **Structural** — Pydantic models + JSON Schema validate triggers, actions, conditions, and dashboard cards against known HA schemas (`src/schema/core.py`, `src/schema/ha/`).
+2. **Semantic** — `SemanticValidator` checks entity IDs, service calls, and area IDs against the live HA registry (`src/schema/semantic.py`).
+
+Validation is used during automation design, config review, and dashboard generation.
+
 ### Data Layer
 
 | Store | Purpose |
 |-------|---------|
-| **PostgreSQL** | Conversations, messages, entities, devices, areas, automation proposals, insights, insight schedules, discovery sessions, LangGraph checkpoints |
-| **MLflow** | Agent traces with parent-child spans, token usage, latency metrics |
+| **PostgreSQL** | Conversations, messages, entities, devices, areas, automation proposals, insights, insight schedules, discovery sessions, agents, flow grades, LLM usage, LangGraph checkpoints |
+| **MLflow** | Agent traces with parent-child spans, token usage, latency metrics, evaluation scores |
 
 ### Observability
 
@@ -776,11 +800,12 @@ The React frontend provides a modern interface for interacting with Aether:
 | **Proposals** | `/proposals` | View, approve, deploy to HA, or rollback automation proposals. Includes an Architect prompt for generating new proposals directly. |
 | **Insights** | `/insights` | Browse analysis results — energy patterns, behavioral insights, diagnostics |
 | **Entities** | `/entities` | Browse and search all discovered HA entities with filtering |
-| **Registry** | `/registry` | Home Assistant registry management — devices, areas, automations |
+| **Registry** | `/registry` | Home Assistant registry management — devices, areas, automations, scripts, scenes, services |
+| **Agents** | `/agents` | Agent configuration — LLM model, temperature, prompt versioning, tool assignment, enable/disable |
 | **Schedules** | `/schedules` | Manage cron schedules and webhook triggers for automated insights |
 | **LLM Usage** | `/usage` | LLM API call tracking — daily trends, cost by model, token breakdown |
-| **Diagnostics** | `/diagnostics` | System health, error logs, integration status, entity diagnostics |
-| **Login** | `/login` | Authentication — passkey (Face ID / Touch ID) or password login |
+| **Diagnostics** | `/diagnostics` | System health, HA error log with pattern matching, integration status, entity diagnostics, recent agent traces |
+| **Login** | `/login` | Authentication — passkey (Face ID / Touch ID), HA token, or password login |
 
 ### Chat Features
 
@@ -796,7 +821,7 @@ The React frontend provides a modern interface for interacting with Aether:
 
 ## API Reference
 
-All endpoints require authentication via JWT token (cookie or Bearer header), API key (`X-API-Key` header or `api_key` query parameter), or passkey. Health, status, metrics, and login endpoints are exempt.
+All endpoints require authentication via JWT token (cookie or Bearer header), API key (`X-API-Key` header or `api_key` query parameter), or passkey. Health, ready, status, and login endpoints are exempt.
 
 ### OpenAI-Compatible Endpoints
 
@@ -813,7 +838,8 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | **System** | | |
-| `GET` | `/api/v1/health` | Health check (no auth required) |
+| `GET` | `/api/v1/health` | Liveness probe (no auth required) |
+| `GET` | `/api/v1/ready` | Readiness probe for Kubernetes (no auth required) |
 | `GET` | `/api/v1/status` | System status with component health (no auth required) |
 | `GET` | `/api/v1/metrics` | Operational metrics (request rates, latency, errors) |
 | **Conversations** | | |
@@ -821,6 +847,7 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `GET` | `/api/v1/conversations` | List conversations |
 | `GET` | `/api/v1/conversations/{id}` | Get conversation with messages |
 | `POST` | `/api/v1/conversations/{id}/messages` | Send a message |
+| `WS` | `/api/v1/conversations/{id}/stream` | WebSocket streaming |
 | `DELETE` | `/api/v1/conversations/{id}` | Delete conversation |
 | **Entities** | | |
 | `GET` | `/api/v1/entities` | List entities (with filtering) |
@@ -830,14 +857,24 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `GET` | `/api/v1/entities/domains/summary` | Domain counts |
 | **Devices & Areas** | | |
 | `GET` | `/api/v1/devices` | List devices |
+| `GET` | `/api/v1/devices/{id}` | Get device details |
 | `GET` | `/api/v1/areas` | List areas |
+| `GET` | `/api/v1/areas/{id}` | Get area details |
 | **Insights** | | |
 | `GET` | `/api/v1/insights` | List insights |
+| `GET` | `/api/v1/insights/pending` | List pending insights |
+| `GET` | `/api/v1/insights/summary` | Insights summary |
 | `GET` | `/api/v1/insights/{id}` | Get insight details |
+| `POST` | `/api/v1/insights` | Create insight |
+| `POST` | `/api/v1/insights/{id}/review` | Mark insight reviewed |
+| `POST` | `/api/v1/insights/{id}/action` | Mark insight actioned |
+| `POST` | `/api/v1/insights/{id}/dismiss` | Dismiss insight |
+| `DELETE` | `/api/v1/insights/{id}` | Delete insight |
 | `POST` | `/api/v1/insights/analyze` | Trigger analysis |
 | **Insight Schedules** | | |
 | `GET` | `/api/v1/insight-schedules` | List schedules |
 | `POST` | `/api/v1/insight-schedules` | Create schedule |
+| `GET` | `/api/v1/insight-schedules/{id}` | Get schedule |
 | `PUT` | `/api/v1/insight-schedules/{id}` | Update schedule |
 | `DELETE` | `/api/v1/insight-schedules/{id}` | Delete schedule |
 | `POST` | `/api/v1/insight-schedules/{id}/run` | Manual trigger |
@@ -850,6 +887,7 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `POST` | `/api/v1/proposals/{id}/reject` | Reject proposal |
 | `POST` | `/api/v1/proposals/{id}/deploy` | Deploy approved proposal to HA |
 | `POST` | `/api/v1/proposals/{id}/rollback` | Rollback deployed proposal |
+| `DELETE` | `/api/v1/proposals/{id}` | Delete proposal |
 | **Optimization** | | |
 | `POST` | `/api/v1/optimize` | Run optimization analysis |
 | `GET` | `/api/v1/optimize/{job_id}` | Get optimization status |
@@ -857,17 +895,70 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `POST` | `/api/v1/optimize/suggestions/{id}/accept` | Accept suggestion |
 | `POST` | `/api/v1/optimize/suggestions/{id}/reject` | Reject suggestion |
 | **HA Registry** | | |
-| `GET` | `/api/v1/registry/automations` | List HA automations |
-| `GET` | `/api/v1/registry/scripts` | List HA scripts |
-| `GET` | `/api/v1/registry/scenes` | List HA scenes |
-| `GET` | `/api/v1/registry/services` | List known services |
 | `POST` | `/api/v1/registry/sync` | Sync automations/scripts/scenes from HA |
+| `GET` | `/api/v1/registry/automations` | List HA automations |
+| `GET` | `/api/v1/registry/automations/{id}` | Get automation details |
+| `GET` | `/api/v1/registry/automations/{id}/config` | Get automation YAML config |
+| `GET` | `/api/v1/registry/scripts` | List HA scripts |
+| `GET` | `/api/v1/registry/scripts/{id}` | Get script details |
+| `GET` | `/api/v1/registry/scenes` | List HA scenes |
+| `GET` | `/api/v1/registry/scenes/{id}` | Get scene details |
+| `GET` | `/api/v1/registry/services` | List known services |
+| `GET` | `/api/v1/registry/services/{id}` | Get service details |
 | `POST` | `/api/v1/registry/services/call` | Call an HA service |
+| `POST` | `/api/v1/registry/services/seed` | Seed common services |
 | `GET` | `/api/v1/registry/summary` | Registry summary |
+| **Diagnostics** | | |
+| `GET` | `/api/v1/diagnostics/ha-health` | HA health (unavailable entities, unhealthy integrations) |
+| `GET` | `/api/v1/diagnostics/error-log` | Parsed HA error log with pattern matching |
+| `GET` | `/api/v1/diagnostics/config-check` | HA config validation |
+| `GET` | `/api/v1/diagnostics/traces/recent` | Recent agent traces from MLflow |
+| **Evaluations** | | |
+| `GET` | `/api/v1/evaluations/summary` | Latest trace evaluation summary |
+| `POST` | `/api/v1/evaluations/run` | Trigger on-demand trace evaluation |
+| `GET` | `/api/v1/evaluations/scorers` | List available scorers |
+| **Agents** | | |
+| `GET` | `/api/v1/agents` | List all agents with active config |
+| `GET` | `/api/v1/agents/{name}` | Get agent by name |
+| `PATCH` | `/api/v1/agents/{name}` | Update agent status |
+| `PATCH` | `/api/v1/agents/{name}/model` | Quick model switch |
+| `POST` | `/api/v1/agents/{name}/clone` | Clone agent |
+| `GET` | `/api/v1/agents/{name}/config/versions` | List config versions |
+| `POST` | `/api/v1/agents/{name}/config/versions` | Create config draft |
+| `PATCH` | `/api/v1/agents/{name}/config/versions/{id}` | Update config draft |
+| `POST` | `/api/v1/agents/{name}/config/versions/{id}/promote` | Promote config |
+| `POST` | `/api/v1/agents/{name}/config/rollback` | Rollback config |
+| `GET` | `/api/v1/agents/{name}/prompt/versions` | List prompt versions |
+| `POST` | `/api/v1/agents/{name}/prompt/versions` | Create prompt draft |
+| `POST` | `/api/v1/agents/{name}/prompt/versions/{id}/promote` | Promote prompt |
+| `POST` | `/api/v1/agents/{name}/prompt/rollback` | Rollback prompt |
+| `POST` | `/api/v1/agents/{name}/promote-all` | Promote config + prompt |
+| `POST` | `/api/v1/agents/{name}/prompt/generate` | AI-generate system prompt |
+| `POST` | `/api/v1/agents/seed` | Seed default agents |
+| **Activity** | | |
+| `GET` | `/api/v1/activity/stream` | SSE stream for real-time agent activity |
+| **Flow Grades** | | |
+| `POST` | `/api/v1/flow-grades` | Submit flow grade |
+| `GET` | `/api/v1/flow-grades/{conversation_id}` | Get grades for conversation |
+| `DELETE` | `/api/v1/flow-grades/{grade_id}` | Delete grade |
+| **HA Zones** | | |
+| `GET` | `/api/v1/zones` | List HA zones |
+| `POST` | `/api/v1/zones` | Create zone |
+| `PATCH` | `/api/v1/zones/{id}` | Update zone |
+| `DELETE` | `/api/v1/zones/{id}` | Delete zone |
+| `POST` | `/api/v1/zones/{id}/set-default` | Set default zone |
+| `POST` | `/api/v1/zones/{id}/test` | Test zone connectivity |
+| **Model Ratings** | | |
+| `GET` | `/api/v1/models/ratings` | List model ratings |
+| `POST` | `/api/v1/models/ratings` | Create model rating |
+| `GET` | `/api/v1/models/summary` | Model summaries |
+| `GET` | `/api/v1/models/performance` | Model performance metrics |
 | **Webhooks** | | |
 | `POST` | `/api/v1/webhooks/ha` | Receive HA webhook events |
 | **Traces** | | |
 | `GET` | `/api/v1/traces/{trace_id}/spans` | Get trace span tree for visualization |
+| **Workflows** | | |
+| `GET` | `/api/v1/workflows/presets` | List workflow presets for chat UI |
 | **Authentication** | | |
 | `GET` | `/api/v1/auth/setup-status` | Check if first-time setup is complete (public) |
 | `POST` | `/api/v1/auth/setup` | First-time setup: validate HA, store config, return JWT (public, one-shot) |
@@ -875,6 +966,8 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `POST` | `/api/v1/auth/login/ha-token` | HA token login (validates against stored HA URL) |
 | `POST` | `/api/v1/auth/logout` | Clear session cookie |
 | `GET` | `/api/v1/auth/me` | Check session status |
+| `GET` | `/api/v1/auth/google/url` | Google OAuth URL |
+| `POST` | `/api/v1/auth/google/callback` | Google OAuth callback |
 | `POST` | `/api/v1/auth/passkey/register/options` | Start passkey registration (auth required) |
 | `POST` | `/api/v1/auth/passkey/register/verify` | Complete passkey registration |
 | `POST` | `/api/v1/auth/passkey/authenticate/options` | Start passkey login (public) |
@@ -885,6 +978,7 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 | `GET` | `/api/v1/usage/summary` | Usage summary with cost (query: `?days=30`) |
 | `GET` | `/api/v1/usage/daily` | Daily usage breakdown |
 | `GET` | `/api/v1/usage/models` | Per-model usage breakdown |
+| `GET` | `/api/v1/usage/conversation/{id}` | Conversation cost breakdown |
 
 Interactive API docs available at `http://localhost:8000/api/docs` when running in debug mode.
 
@@ -902,37 +996,53 @@ aether serve [--reload]
 
 # Entity discovery
 aether discover                    # Run full entity discovery
-aether entities list               # List all entities
-aether entities query "kitchen lights"  # Natural language query
-aether entities show <entity_id>   # Show entity details
+aether discover --domain light     # Discover specific domain
+aether discover --force            # Force re-discovery
+aether entities                    # List all entities
+aether entities --domain sensor    # Filter by domain
 
 # Devices & Areas
-aether devices list                # List discovered devices
-aether areas list                  # List discovered areas
+aether devices                     # List discovered devices
+aether areas                       # List discovered areas
 
 # Chat
 aether chat                        # Interactive chat session
+aether chat --continue <id>        # Continue existing conversation
 
 # Automation proposals
 aether proposals list              # List proposals
+aether proposals show <id>         # Show proposal details
 aether proposals approve <id>      # Approve a proposal
 aether proposals reject <id>       # Reject a proposal
+aether proposals deploy <id>       # Deploy approved proposal to HA
+aether proposals rollback <id>     # Rollback deployed proposal
 
-# Energy analysis
+# Analysis
 aether analyze energy --days 7     # Run energy analysis
+aether analyze behavior            # Run behavioral analysis
+aether analyze health              # Run health analysis
+aether optimize behavior           # Run optimization analysis
 
 # Insights
-aether insights list               # List generated insights
-aether insights show <id>          # Show insight details
+aether insights                    # List generated insights
+aether insight <id>                # Show insight details
 
 # HA Registry
-aether automations list            # List HA automations
-aether scripts list                # List HA scripts
-aether scenes list                 # List HA scenes
-aether services list               # List known services
+aether automations                 # List HA automations
+aether scripts                     # List HA scripts
+aether scenes                      # List HA scenes
+aether services                    # List known services
+aether seed-services               # Seed common services into DB
+
+# Evaluation
+aether evaluate                    # Evaluate recent agent traces
+aether evaluate --traces 50        # Evaluate last 50 traces
+aether evaluate --hours 48         # Evaluate traces from last 48 hours
 
 # System
 aether status                      # Show system status
+aether version                     # Show version info
+aether ha-gaps                     # Show MCP capability gaps
 ```
 
 ---
@@ -1020,48 +1130,80 @@ make build-sandbox
 
 ```
 src/
-├── agents/              # AI agents (Architect, DS Team, Librarian, Developer)
-│   ├── architect.py     # Orchestrator — routes to DS team, designs automations
-│   ├── energy_analyst.py# Energy consumption analysis (DS Team)
-│   ├── behavioral_analyst.py # Behavioral patterns (DS Team)
-│   ├── diagnostic_analyst.py # System health diagnostics (DS Team)
-│   ├── data_scientist.py# Legacy orchestrator (used by scheduled analysis)
+├── agents/              # AI agents (Architect, DS Team, Librarian, Developer, Dashboard Designer)
+│   ├── architect.py     # Orchestrator — routes to DS team, designs automations, reviews configs
+│   ├── energy_analyst.py       # Energy consumption analysis (DS Team)
+│   ├── behavioral_analyst.py   # Behavioral patterns (DS Team)
+│   ├── diagnostic_analyst.py   # System health diagnostics (DS Team)
+│   ├── data_scientist.py       # Legacy orchestrator (used by scheduled analysis)
+│   ├── dashboard_designer.py   # Lovelace dashboard generation
+│   ├── synthesis.py            # Dual synthesis (programmatic + LLM) for DS team findings
 │   ├── librarian.py     # Entity discovery and cataloging
 │   ├── developer.py     # Automation deployment (HITL)
 │   ├── model_context.py # Model routing and per-agent overrides
+│   ├── config_cache.py  # Runtime agent config cache (Feature 23)
 │   └── prompts/         # Externalized prompt templates (markdown)
 ├── api/                 # FastAPI application
-│   ├── routes/          # API endpoints (chat, entities, insights, proposals, etc.)
+│   ├── routes/          # 21 route modules (chat, entities, agents, diagnostics, etc.)
 │   ├── schemas/         # Pydantic request/response models
-│   ├── auth.py          # API key authentication dependency
+│   ├── auth.py          # JWT + WebAuthn + API key + HA token authentication
+│   ├── ha_verify.py     # HA connection verification for setup
+│   ├── rate_limit.py    # SlowAPI rate limiting
 │   ├── metrics.py       # In-memory operational metrics collector
 │   ├── middleware.py    # Request tracing middleware
 │   └── main.py          # App factory with lazy initialization
 ├── cli/                 # Typer CLI application
 │   ├── main.py          # CLI entry point and top-level commands
-│   └── commands/        # Subcommands (chat, discover, analyze, serve, etc.)
+│   └── commands/        # Subcommands (chat, discover, analyze, serve, evaluate, etc.)
 ├── dal/                 # Data Access Layer (repositories)
 │   ├── base.py          # Generic BaseRepository[T] for common CRUD
 │   ├── entities.py      # Entity repository
-│   ├── areas.py         # Area repository
-│   ├── devices.py       # Device repository
-│   └── ...              # Other domain repositories
-├── diagnostics/         # HA diagnostic modules (log parser, entity health, etc.)
+│   ├── agents.py        # Agent config repository (Feature 23)
+│   ├── flow_grades.py   # Flow grade repository
+│   ├── llm_usage.py     # LLM usage tracking repository
+│   ├── insight_schedules.py  # Insight schedule repository
+│   └── ...              # Other domain repositories (areas, devices, conversations, etc.)
+├── diagnostics/         # HA diagnostic modules
+│   ├── log_parser.py    # Parse HA error log into structured entries
+│   ├── error_patterns.py # Known error patterns with fix suggestions
+│   ├── entity_health.py  # Unavailable/stale entity detection
+│   ├── integration_health.py  # Integration config health checks
+│   └── config_validator.py    # HA config validation
 ├── graph/               # LangGraph workflows and state management
-│   ├── nodes/           # Domain-specific nodes (discovery, conversation, analysis)
-│   └── workflows.py     # Workflow graph definitions
-├── mcp/                 # MCP client for Home Assistant communication
-│   ├── base.py          # Base HTTP client
+│   ├── nodes/           # Domain-specific nodes (discovery, conversation, analysis, review)
+│   ├── state.py         # State types (ConversationState, AnalysisState, ReviewState, etc.)
+│   └── workflows.py     # Workflow graph definitions and registry
+├── ha/                  # Home Assistant integration
+│   ├── client.py        # HAClient (MCP wrapper)
+│   ├── automations.py   # Automation CRUD
+│   ├── automation_deploy.py  # Deploy automations to HA
+│   ├── behavioral.py    # Logbook behavioral data
+│   ├── diagnostics.py   # Diagnostic data collection
 │   ├── entities.py      # Entity operations
-│   ├── automations.py   # Automation/script/scene management
-│   ├── diagnostics.py   # Diagnostic operations
-│   └── client.py        # Thin facade
+│   ├── history.py       # History data
+│   └── parsers.py       # Response parsers
+├── schema/              # YAML schema validation (Features 26+27)
+│   ├── core.py          # SchemaRegistry, validate_yaml, validate_yaml_semantic
+│   ├── semantic.py      # SemanticValidator (validates against live HA state)
+│   └── ha/              # HA-specific schemas (automation, script, scene, dashboard)
 ├── sandbox/             # gVisor sandbox runner for script execution
 ├── scheduler/           # APScheduler for cron/webhook insight triggers
 ├── storage/             # SQLAlchemy models and database setup
-│   └── entities/        # Domain models (entity, device, area, conversation, etc.)
-├── tools/               # Agent tool definitions (HA tools, diagnostic tools)
-├── tracing/             # MLflow tracing integration
+│   └── entities/        # 19 domain models (entity, device, area, agent, conversation, etc.)
+├── tools/               # Agent tool definitions
+│   ├── agent_tools.py   # Core agent tools (consult DS team, discover, etc.)
+│   ├── ha_tools.py      # HA entity/service tools
+│   ├── diagnostic_tools.py   # Diagnostic tools (error log, entity health, etc.)
+│   ├── review_tools.py       # Config review tools (Feature 28)
+│   ├── dashboard_tools.py    # Dashboard generation tools
+│   ├── analysis_tools.py     # Analysis tools for DS team
+│   ├── approval_tools.py     # HITL approval tools
+│   ├── specialist_tools.py   # DS team specialist delegation
+│   └── insight_schedule_tools.py  # Insight schedule tools
+├── tracing/             # MLflow observability
+│   ├── mlflow.py        # Tracing setup and utilities
+│   ├── scorers.py       # Custom MLflow 3.x scorers for trace evaluation
+│   └── context.py       # Session correlation context
 ├── exceptions.py        # Centralized exception hierarchy (AetherError + subtypes)
 ├── llm.py               # Multi-provider LLM factory with circuit breaker & failover
 ├── settings.py          # Pydantic settings (environment variables)
@@ -1074,8 +1216,10 @@ ui/
 │   │   ├── insights/    # Insights page (InsightCard, EvidencePanel, Filters, etc.)
 │   │   ├── proposals/   # Proposals page (ProposalCard, ProposalDetail, etc.)
 │   │   ├── registry/    # Registry page (AutomationTab, SceneTab, etc.)
+│   │   ├── agents/      # Agent configuration page (Feature 23)
 │   │   ├── dashboard.tsx
-│   │   └── entities.tsx
+│   │   ├── entities.tsx
+│   │   └── diagnostics.tsx
 │   ├── components/      # Reusable UI components
 │   │   ├── chat/        # Chat-specific (markdown renderer, thinking, agent activity)
 │   │   └── ui/          # Base components (button, card, badge, etc.)
@@ -1103,17 +1247,19 @@ infrastructure/
 
 ## Project Principles
 
-Project Aether follows a constitution with five core principles:
+Project Aether follows a constitution with six core principles:
 
 1. **Safety First (HITL)**: All mutating Home Assistant actions require explicit human approval. No automation deploys without your "approve."
 
 2. **Isolation**: DS Team analysis scripts run in gVisor sandboxes — no network access, read-only filesystem, enforced resource limits. Generated code never touches your HA instance directly.
 
-3. **Observability**: Every agent action is traced via MLflow with full span trees, token counts, and latency metrics. Nothing happens in the dark.
+3. **Observability**: Every agent action is traced via MLflow with full span trees, token counts, and latency metrics. Custom scorers evaluate trace quality. Nothing happens in the dark.
 
 4. **Reliable State**: LangGraph + PostgreSQL for checkpointed workflow state. Conversations, proposals, and insights persist across restarts.
 
-5. **Quality**: Comprehensive testing (unit, integration, E2E) with TDD workflow support. Ruff linting, MyPy type checking, and pre-commit hooks.
+5. **Reliability**: Comprehensive testing (unit, integration, E2E) with TDD workflow support. 80% minimum unit test coverage target. Ruff linting, MyPy type checking.
+
+6. **Security**: Defence in depth — encrypted credentials (Fernet/AES-256), bcrypt password hashing, Pydantic input validation, parameterized queries, security headers (HSTS, CSP), no plaintext secrets.
 
 ---
 
