@@ -6,31 +6,40 @@ Constitution: Reliability & Quality.
 TDD: T240 - Optimization API endpoints.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def client():
-    """Create a test client for the API."""
+def client(mock_settings):
+    """Create a test client for the API.
+
+    Uses mock_settings (environment='testing') so the lifespan
+    skips real DB/MLflow init.
+    """
     from src.api.main import create_app
 
-    app = create_app()
+    app = create_app(mock_settings)
     return TestClient(app)
 
 
 class TestOptimizationRoutes:
     def test_optimization_endpoint_exists(self, client):
         """POST /optimize should exist."""
-        # This may return 429 (rate limited) or 422 (validation) or 202 in real use
-        # Just verify the route is registered
-        response = client.post(
-            "/api/v1/optimize",
-            json={
-                "analysis_types": ["behavior_analysis"],
-                "hours": 24,
-            },
-        )
+        # Patch background task to prevent real DB connection attempts
+        with patch(
+            "src.api.routes.optimization._run_optimization_background",
+            new_callable=AsyncMock,
+        ):
+            response = client.post(
+                "/api/v1/optimize",
+                json={
+                    "analysis_types": ["behavior_analysis"],
+                    "hours": 24,
+                },
+            )
         # Should not be 404
         assert response.status_code != 404
 

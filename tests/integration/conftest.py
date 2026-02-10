@@ -217,6 +217,30 @@ def integration_settings(postgres_url: str) -> Any:
 
 
 # =============================================================================
+# DB SINGLETON CLEANUP
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _reset_storage_singletons():
+    """Reset the DB engine/session_factory singletons after each test.
+
+    Prevents cross-test contamination when the asyncpg engine is created
+    in one event loop and later accessed from a different loop.
+    """
+    import src.storage as _storage
+
+    yield
+
+    with _storage._init_lock:
+        if _storage._engine is not None:
+            # Engine dispose is async; just drop the reference so the next
+            # test gets a fresh engine on its own event loop.
+            _storage._engine = None
+        _storage._session_factory = None
+
+
+# =============================================================================
 # MARKERS
 # =============================================================================
 

@@ -3,9 +3,10 @@
 T096: Full conversation flow with mocks.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 
 
 class TestConversationWorkflow:
@@ -32,82 +33,84 @@ Here's my proposal:
 ```
 
 Would you like me to adjust anything?"""
-        response = MagicMock()
-        response.content = content
-        response.response_metadata = {"token_usage": {"total_tokens": 150}}
-        return response
+        return AIMessage(
+            content=content,
+            response_metadata={"token_usage": {"total_tokens": 150}},
+        )
 
     @pytest.fixture
     def mock_llm_response_clarifying(self):
         """Mock LLM response asking for clarification."""
-        content = "I'd be happy to help you automate your lights. Could you tell me more about when you want them to turn on? At a specific time, when you arrive home, or based on another trigger?"
-        response = MagicMock()
-        response.content = content
-        response.response_metadata = {"token_usage": {"total_tokens": 50}}
-        return response
+        return AIMessage(
+            content="I'd be happy to help you automate your lights. Could you tell me more about when you want them to turn on? At a specific time, when you arrive home, or based on another trigger?",
+            response_metadata={"token_usage": {"total_tokens": 50}},
+        )
+
+    @staticmethod
+    def _make_mock_llm(response):
+        """Create a mock LLM that handles bind_tools and ainvoke."""
+        mock_llm = MagicMock()
+        mock_llm.ainvoke = AsyncMock(return_value=response)
+        # bind_tools returns a new mock with the same ainvoke behaviour
+        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
+        return mock_llm
 
     @pytest.mark.asyncio
     async def test_conversation_starts_with_user_message(self, mock_llm_response_clarifying):
         """Test that conversation workflow starts correctly."""
         from src.agents.architect import ArchitectWorkflow
 
-        with patch("src.agents.architect.ChatOpenAI") as MockLLM:
-            mock_llm = MockLLM.return_value
-            mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response_clarifying)
+        mock_llm = self._make_mock_llm(mock_llm_response_clarifying)
 
-            workflow = ArchitectWorkflow()
-            workflow.agent._llm = mock_llm
+        workflow = ArchitectWorkflow()
+        workflow.agent._llm = mock_llm
 
-            state = await workflow.start_conversation(user_message="I want to automate my lights")
+        state = await workflow.start_conversation(user_message="I want to automate my lights")
 
-            assert state is not None
-            assert len(state.messages) >= 1
-            # First message should be the assistant response
-            assert any(hasattr(m, "type") and m.type == "ai" for m in state.messages)
+        assert state is not None
+        assert len(state.messages) >= 1
+        # First message should be the assistant response
+        assert any(hasattr(m, "type") and m.type == "ai" for m in state.messages)
 
     @pytest.mark.asyncio
     async def test_conversation_generates_proposal(self, mock_llm_response_with_proposal):
         """Test that conversation can generate proposals."""
         from src.agents.architect import ArchitectWorkflow
 
-        with patch("src.agents.architect.ChatOpenAI") as MockLLM:
-            mock_llm = MockLLM.return_value
-            mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response_with_proposal)
+        mock_llm = self._make_mock_llm(mock_llm_response_with_proposal)
 
-            workflow = ArchitectWorkflow()
-            workflow.agent._llm = mock_llm
+        workflow = ArchitectWorkflow()
+        workflow.agent._llm = mock_llm
 
-            state = await workflow.start_conversation(user_message="Turn on lights at sunset")
+        state = await workflow.start_conversation(user_message="Turn on lights at sunset")
 
-            # Check workflow processed the request and LLM response is in messages
-            assert state is not None
-            assert len(state.messages) >= 1
-            # The LLM response should contain proposal keywords
-            ai_messages = [m for m in state.messages if hasattr(m, "type") and m.type == "ai"]
-            assert any("proposal" in m.content.lower() for m in ai_messages)
+        # Check workflow processed the request and LLM response is in messages
+        assert state is not None
+        assert len(state.messages) >= 1
+        # The LLM response should contain proposal keywords
+        ai_messages = [m for m in state.messages if hasattr(m, "type") and m.type == "ai"]
+        assert any("proposal" in m.content.lower() for m in ai_messages)
 
     @pytest.mark.asyncio
     async def test_conversation_continues_with_context(self, mock_llm_response_clarifying):
         """Test that conversation maintains context."""
         from src.agents.architect import ArchitectWorkflow
 
-        with patch("src.agents.architect.ChatOpenAI") as MockLLM:
-            mock_llm = MockLLM.return_value
-            mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response_clarifying)
+        mock_llm = self._make_mock_llm(mock_llm_response_clarifying)
 
-            workflow = ArchitectWorkflow()
-            workflow.agent._llm = mock_llm
+        workflow = ArchitectWorkflow()
+        workflow.agent._llm = mock_llm
 
-            # Start conversation
-            state = await workflow.start_conversation(user_message="I want to automate something")
+        # Start conversation
+        state = await workflow.start_conversation(user_message="I want to automate something")
 
-            # Continue conversation
-            state = await workflow.continue_conversation(
-                state=state, user_message="Specifically, I want my lights to turn on at sunset"
-            )
+        # Continue conversation
+        state = await workflow.continue_conversation(
+            state=state, user_message="Specifically, I want my lights to turn on at sunset"
+        )
 
-            # Verify invoke was called twice
-            assert mock_llm.ainvoke.call_count >= 2
+        # Verify invoke was called twice
+        assert mock_llm.ainvoke.call_count >= 2
 
 
 class TestConversationGraph:

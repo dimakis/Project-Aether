@@ -30,6 +30,8 @@ def mock_insight():
     insight.status = MagicMock()
     insight.status.value = "pending"
     insight.mlflow_run_id = "run-abc123"
+    insight.conversation_id = None
+    insight.task_label = None
     insight.created_at = datetime(2026, 2, 4, 12, 0, 0)
     insight.reviewed_at = None
     insight.actioned_at = None
@@ -238,14 +240,16 @@ class TestInsightAnalyzeEndpoint:
 
     async def test_start_analysis(self, async_client):
         """Test starting an analysis job."""
-        response = await async_client.post(
-            "/api/v1/insights/analyze",
-            json={
-                "analysis_type": "energy_optimization",
-                "hours": 24,
-                "options": {},
-            },
-        )
+        # Patch the background task to prevent real DB connections
+        with patch("src.api.routes.insights._run_analysis_job", new_callable=AsyncMock):
+            response = await async_client.post(
+                "/api/v1/insights/analyze",
+                json={
+                    "analysis_type": "energy_optimization",
+                    "hours": 24,
+                    "options": {},
+                },
+            )
 
         assert response.status_code == 202
         data = response.json()
@@ -255,15 +259,16 @@ class TestInsightAnalyzeEndpoint:
 
     async def test_start_analysis_with_entities(self, async_client):
         """Test starting analysis with specific entities."""
-        response = await async_client.post(
-            "/api/v1/insights/analyze",
-            json={
-                "analysis_type": "anomaly_detection",
-                "entity_ids": ["sensor.grid_power", "sensor.solar_power"],
-                "hours": 48,
-                "options": {},
-            },
-        )
+        with patch("src.api.routes.insights._run_analysis_job", new_callable=AsyncMock):
+            response = await async_client.post(
+                "/api/v1/insights/analyze",
+                json={
+                    "analysis_type": "anomaly_detection",
+                    "entity_ids": ["sensor.grid_power", "sensor.solar_power"],
+                    "hours": 48,
+                    "options": {},
+                },
+            )
 
         assert response.status_code == 202
         data = response.json()
