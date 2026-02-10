@@ -80,10 +80,11 @@ Project Aether is an agentic home automation system that provides conversational
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| **Architect** | Unified chat entry point, routes to specialists, system diagnostics | consult_data_science_team (auto-routes to Energy/Behavioral/Diagnostic Analysts), discover_entities, get_entity_history, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, seek_approval, HA tools |
-| **Data Science Team** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode |
+| **Architect** | Unified chat entry point, routes to specialists, system diagnostics, config review | consult_data_science_team (auto-routes to Energy/Behavioral/Diagnostic Analysts), discover_entities, review_config, get_entity_history, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, seek_approval, HA tools |
+| **Data Science Team** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode, dual synthesis (programmatic + LLM) |
 | **Librarian** | Entity discovery, catalog maintenance | HA list_entities, domain_summary |
 | **Developer** | Automation creation, YAML generation | deploy_automation (with HITL) |
+| **Dashboard Designer** | Lovelace dashboard generation | generate_dashboard_yaml, validate_dashboard_yaml, list_dashboards |
 
 ### Diagnostic Collaboration Flow
 
@@ -132,6 +133,83 @@ Provides structured analysis of HA system health, used by agent diagnostic tools
 | `entity_health.py` | Find unavailable/stale entities, correlate by integration to detect common root causes |
 | `integration_health.py` | Check all integration config entry health, find unhealthy integrations, deep-dive diagnosis |
 | `config_validator.py` | Structured config check with parsed errors/warnings, local automation YAML validation |
+
+### YAML Schema Validation (`src/schema/`)
+
+Validates HA configuration YAML in two phases:
+
+| Module | Purpose |
+|--------|---------|
+| `core.py` | `SchemaRegistry` maps schema names to Pydantic models and JSON schemas. `validate_yaml()` parses YAML and validates structure. `validate_yaml_semantic()` adds live-state checks. |
+| `semantic.py` | `SemanticValidator` checks entity IDs, service calls, and area IDs against the live HA registry. |
+| `ha/automation.py` | Schema for HA automations (triggers, conditions, actions). |
+| `ha/script.py` | Schema for HA scripts (sequences). |
+| `ha/scene.py` | Schema for HA scenes (entity states). |
+| `ha/dashboard.py` | Schema for Lovelace dashboards (views, cards). |
+
+Used during: automation design, Smart Config Review, dashboard generation.
+
+### Smart Config Review Workflow
+
+The Architect's `review_config` tool triggers a dedicated LangGraph workflow that reviews existing HA configurations:
+
+```
+review_config(target, focus)
+         │
+         ▼
+┌─────────────────────┐
+│ resolve_targets_node │  Resolve "all_automations" → concrete entity IDs
+└──────────┬──────────┘  or accept specific entity_id
+           │
+           ▼
+┌─────────────────────┐
+│ fetch_configs_node   │  Fetch current YAML from HA REST API
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ gather_context_node  │  Collect entities, registry, configs for DS team
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ DS Team consultation │  Analyze config quality, suggest improvements
+└──────────┬──────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│ create_review_proposals  │  Create AutomationProposal entries with
+│         _node            │  original_yaml for diff view
+└──────────────────────────┘
+```
+
+Proposals from config review follow the same approval/deploy/rollback flow as new automations.
+
+### MLflow 3.x Trace Evaluation
+
+Custom scorers evaluate agent trace quality:
+
+| Scorer | What It Checks |
+|--------|----------------|
+| `response_latency` | Flags traces exceeding 30-second threshold |
+| `tool_usage_safety` | Ensures HA mutation tools (deploy, service calls) have approval ancestor spans |
+| `agent_delegation_depth` | Detects runaway delegation chains (max depth 6) |
+| `tool_call_count` | Counts tool invocations per trace |
+
+Run evaluations via:
+- **API**: `POST /api/v1/evaluations/run` — on-demand evaluation
+- **CLI**: `aether evaluate --traces 50` — evaluate recent traces
+- **Scheduler**: Nightly evaluation job via APScheduler
+
+### Agent Configuration (`src/agents/config_cache.py`)
+
+Runtime agent configuration is stored in PostgreSQL and cached in-memory with 60-second TTL:
+
+- **`AgentRuntimeConfig`** — Resolved config (model, temperature, fallback model, tools, prompt template)
+- **`get_agent_runtime_config(agent_name)`** — Returns cached config; falls back to DB on cache miss
+- **`invalidate_agent_config(agent_name)`** — Invalidates cache on config/prompt promotion or rollback
+
+API: Full CRUD at `/api/v1/agents/{name}/config/versions` with version promotion, rollback, and cloning.
 
 ## Deployment Modes
 
@@ -248,7 +326,7 @@ Migration:
 
 ## API Endpoints
 
-All endpoints require API key authentication via `X-API-Key` header (except health/status).
+All endpoints require authentication via JWT token (cookie or Bearer header), API key (`X-API-Key` header or `api_key` query param), or passkey. Health, ready, status, and login endpoints are exempt.
 
 ### OpenAI-Compatible
 
@@ -262,28 +340,81 @@ All endpoints require API key authentication via `X-API-Key` header (except heal
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/health` | GET | Health check |
+| `/api/v1/health` | GET | Liveness probe |
+| `/api/v1/ready` | GET | Readiness probe (Kubernetes) |
 | `/api/v1/status` | GET | System status with component health |
 | `/api/v1/metrics` | GET | Operational metrics (requests, latency, errors) |
-| `/api/v1/conversations` | POST | Start new conversation |
-| `/api/v1/conversations/{id}/messages` | POST | Continue conversation |
+| `/api/v1/conversations` | GET/POST | List/create conversations |
+| `/api/v1/conversations/{id}` | GET/DELETE | Get/delete conversation |
+| `/api/v1/conversations/{id}/messages` | POST | Send message |
+| `/api/v1/conversations/{id}/stream` | WS | WebSocket streaming |
 | `/api/v1/entities` | GET | List entities |
+| `/api/v1/entities/{id}` | GET | Get entity details |
 | `/api/v1/entities/query` | POST | Natural language query |
 | `/api/v1/entities/sync` | POST | Trigger entity sync from HA |
-| `/api/v1/insights` | GET/POST | Manage insights |
+| `/api/v1/entities/domains/summary` | GET | Entity count per domain |
+| `/api/v1/devices` | GET | List devices |
+| `/api/v1/areas` | GET | List areas |
+| `/api/v1/insights` | GET/POST | List/create insights |
+| `/api/v1/insights/pending` | GET | Pending insights |
+| `/api/v1/insights/summary` | GET | Insights summary |
+| `/api/v1/insights/{id}/review` | POST | Mark reviewed |
+| `/api/v1/insights/{id}/action` | POST | Mark actioned |
+| `/api/v1/insights/{id}/dismiss` | POST | Dismiss insight |
 | `/api/v1/insights/analyze` | POST | Trigger analysis |
 | `/api/v1/insight-schedules` | GET/POST | Manage insight schedules |
+| `/api/v1/insight-schedules/{id}` | GET/PUT/DELETE | CRUD schedule |
+| `/api/v1/insight-schedules/{id}/run` | POST | Manual trigger |
 | `/api/v1/proposals` | GET/POST | List/create automation proposals |
+| `/api/v1/proposals/pending` | GET | Pending proposals |
 | `/api/v1/proposals/{id}/approve` | POST | Approve automation (HITL) |
+| `/api/v1/proposals/{id}/reject` | POST | Reject proposal |
 | `/api/v1/proposals/{id}/deploy` | POST | Deploy to Home Assistant |
 | `/api/v1/proposals/{id}/rollback` | POST | Rollback deployment |
 | `/api/v1/optimize` | POST | Run optimization analysis |
-| `/api/v1/registry/automations` | GET | List HA automations |
+| `/api/v1/optimize/suggestions/list` | GET | List automation suggestions |
 | `/api/v1/registry/sync` | POST | Sync automations/scripts/scenes from HA |
+| `/api/v1/registry/automations` | GET | List HA automations |
+| `/api/v1/registry/automations/{id}/config` | GET | Get automation YAML |
+| `/api/v1/registry/scripts` | GET | List HA scripts |
+| `/api/v1/registry/scenes` | GET | List HA scenes |
 | `/api/v1/registry/services` | GET | List HA services |
 | `/api/v1/registry/services/call` | POST | Call an HA service |
+| `/api/v1/registry/summary` | GET | Registry summary |
+| `/api/v1/diagnostics/ha-health` | GET | HA health (unavailable entities, integrations) |
+| `/api/v1/diagnostics/error-log` | GET | Parsed HA error log with pattern matching |
+| `/api/v1/diagnostics/config-check` | GET | HA config validation |
+| `/api/v1/diagnostics/traces/recent` | GET | Recent agent traces from MLflow |
+| `/api/v1/evaluations/summary` | GET | Latest trace evaluation summary |
+| `/api/v1/evaluations/run` | POST | Trigger on-demand trace evaluation |
+| `/api/v1/evaluations/scorers` | GET | List available scorers |
+| `/api/v1/agents` | GET | List agents with active config |
+| `/api/v1/agents/{name}` | GET/PATCH | Get/update agent |
+| `/api/v1/agents/{name}/config/versions` | GET/POST | Config versioning |
+| `/api/v1/agents/{name}/prompt/versions` | GET/POST | Prompt versioning |
+| `/api/v1/agents/seed` | POST | Seed default agents |
+| `/api/v1/activity/stream` | GET | SSE real-time agent activity |
+| `/api/v1/flow-grades` | POST | Submit flow grade |
+| `/api/v1/flow-grades/{conversation_id}` | GET | Get conversation grades |
+| `/api/v1/zones` | GET/POST | List/create HA zones |
+| `/api/v1/zones/{id}` | PATCH/DELETE | Update/delete zone |
+| `/api/v1/zones/{id}/test` | POST | Test zone connectivity |
+| `/api/v1/models/ratings` | GET/POST | Model ratings |
+| `/api/v1/models/summary` | GET | Model summaries |
+| `/api/v1/models/performance` | GET | Model performance metrics |
 | `/api/v1/webhooks/ha` | POST | Receive HA webhook events |
 | `/api/v1/traces/{trace_id}/spans` | GET | Get trace span tree |
+| `/api/v1/workflows/presets` | GET | Workflow presets for chat UI |
+| `/api/v1/usage/summary` | GET | LLM usage summary |
+| `/api/v1/usage/daily` | GET | Daily usage breakdown |
+| `/api/v1/usage/models` | GET | Per-model usage |
+| `/api/v1/usage/conversation/{id}` | GET | Conversation cost |
+| `/api/v1/auth/setup-status` | GET | Setup status (public) |
+| `/api/v1/auth/setup` | POST | First-time setup (public) |
+| `/api/v1/auth/login` | POST | Password login |
+| `/api/v1/auth/login/ha-token` | POST | HA token login |
+| `/api/v1/auth/google/url` | GET | Google OAuth URL |
+| `/api/v1/auth/passkey/*` | POST | WebAuthn passkey auth |
 
 ## Data Flow
 
@@ -441,15 +572,16 @@ View traces: `make mlflow` → http://localhost:5002
 ### Request Pipeline
 
 ```
-Request → CORS → Correlation ID → Rate Limiting → API Key Auth → Route Handler
-                                                                        │
-Response ← Tracing Middleware ← Exception Handler ← ─────────────────────
+Request → CORS → Security Headers → Correlation ID → Rate Limiting → Auth → Route Handler
+                                                                                │
+Response ← Tracing Middleware ← Exception Handler ← ────────────────────────────
 ```
 
 | Layer | Description |
 |-------|-------------|
+| **Security Headers** | HSTS, CSP, Permissions-Policy headers added in production/staging |
 | **Correlation ID** | UUID generated per request, propagated through context vars to all logs and error responses |
-| **API Key Auth** | Validates `X-API-Key` header or `api_key` query param; bypasses for health endpoints |
+| **Auth** | JWT token (cookie/Bearer), WebAuthn passkey, API key (`X-API-Key` header or `api_key` param), or HA token; bypasses for health/ready/status/login endpoints |
 | **Rate Limiting** | SlowAPI-based limits on LLM-backed and resource-intensive endpoints |
 | **Request Tracing** | Logs method, path, status, duration, correlation ID for every request |
 | **Metrics Collection** | In-memory counters for request rates, latency percentiles, error rates, active connections |
