@@ -47,8 +47,8 @@ Project Aether is an agentic home automation system that provides conversational
 │         │                  │                  │                             │
 │         ▼                  ▼                  ▼                             │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │  Sandbox    │    │    MCP      │    │  Automation │                     │
-│  │  (gVisor)   │    │   Client    │    │   Deploy    │                     │
+│  │  Sandbox    │    │  HA Client  │    │  Automation │                     │
+│  │  (gVisor)   │    │  (REST API) │    │   Deploy    │                     │
 │  └─────────────┘    └─────────────┘    └─────────────┘                     │
 └─────────────────────────────────────────────────────────────────────────────┘
                               │
@@ -71,7 +71,7 @@ Project Aether is an agentic home automation system that provides conversational
 │         ▼                                       ▼                           │
 │  ┌─────────────────┐                    ┌─────────────────┐                 │
 │  │ Home Assistant  │                    │  LLM Provider   │                 │
-│  │    (MCP)        │                    │   (LLM)         │                 │
+│  │  (REST API)     │                    │   (LLM)         │                 │
 │  └─────────────────┘                    └─────────────────┘                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -82,7 +82,7 @@ Project Aether is an agentic home automation system that provides conversational
 |-------|------|-------|
 | **Architect** | Unified chat entry point, routes to specialists, system diagnostics | consult_data_science_team (auto-routes to Energy/Behavioral/Diagnostic Analysts), discover_entities, get_entity_history, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, seek_approval, HA tools |
 | **Data Science Team** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode |
-| **Librarian** | Entity discovery, catalog maintenance | MCP list_entities, domain_summary |
+| **Librarian** | Entity discovery, catalog maintenance | HA list_entities, domain_summary |
 | **Developer** | Automation creation, YAML generation | deploy_automation (with HITL) |
 
 ### Diagnostic Collaboration Flow
@@ -303,7 +303,7 @@ User Message
                         ▼                    ▼                    ▼
                  ┌─────────────┐      ┌──────────────────────┐      ┌─────────────┐
                  │ HA Tools    │      │consult_data_science_ │     │discover_    │
-                 │(direct MCP) │      │team (auto-routes)    │      │entities     │
+                 │(direct HA)  │      │team (auto-routes)    │      │entities     │
                  └─────────────┘      └──────┬───────────────┘      └──────┬──────┘
                                              │                              │
                                              ▼                              ▼
@@ -337,7 +337,7 @@ User Message
          │                      │
          │                      ▼
          │             ┌─────────────────┐
-         │             │  MCP History    │
+         │             │  HA History     │
          │             │  (24-168 hrs)   │
          │             └────────┬────────┘
          │                      │
@@ -401,7 +401,7 @@ User: "Turn on the living room lights"
          ▼
 ┌─────────────────┐
 │  Execute via    │
-│  MCP → HA       │
+│  HA Client → HA │
 └─────────────────┘
 ```
 
@@ -453,7 +453,7 @@ Response ← Tracing Middleware ← Exception Handler ← ───────�
 | **Rate Limiting** | SlowAPI-based limits on LLM-backed and resource-intensive endpoints |
 | **Request Tracing** | Logs method, path, status, duration, correlation ID for every request |
 | **Metrics Collection** | In-memory counters for request rates, latency percentiles, error rates, active connections |
-| **Exception Hierarchy** | `AetherError` → `AgentError`, `DALError`, `MCPError`, `SandboxError`, `LLMError`, `ConfigurationError`, `ValidationError` — all include correlation IDs |
+| **Exception Hierarchy** | `AetherError` → `AgentError`, `DALError`, `HAClientError`, `SandboxError`, `LLMError`, `ConfigurationError`, `ValidationError` -- all include correlation IDs |
 
 ## Configuration
 
@@ -492,3 +492,92 @@ Response ← Tracing Middleware ← Exception Handler ← ───────�
 | `ui` | + chat-ui | Add React UI |
 | `full` | + aether-app | Containerized API |
 | `full` + `ui` | All services | Production stack |
+
+---
+
+## Target Architecture (Jarvis Pivot)
+
+> **Status**: Planned (Features 29/30). See `docs/architecture-review.md` for the full readiness assessment.
+
+The current Architect-centric architecture will evolve into a domain-agnostic Orchestrator pattern. The Architect becomes one of several domain agents, and a new Orchestrator handles intent classification and routing.
+
+### Target System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              User Interfaces                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────────┐  │
+│  │   CLI       │    │  REST API   │    │      Chat UI (React)            │  │
+│  │  (aether)   │    │  (FastAPI)  │    │  (Agent Picker + Model Picker)  │  │
+│  └──────┬──────┘    └──────┬──────┘    └───────────────┬─────────────────┘  │
+│         │                  │                           │                     │
+│         └──────────────────┼───────────────────────────┘                     │
+│                            │                                                 │
+│                            ▼                                                 │
+│              ┌─────────────────────────────┐                                │
+│              │   /v1/chat/completions      │  (OpenAI-compatible)           │
+│              │   agent: auto | <name>      │  (agent field for routing)     │
+│              └──────────────┬──────────────┘                                │
+└─────────────────────────────┼───────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────┼───────────────────────────────────────────────┐
+│                      Agent Layer                                             │
+├─────────────────────────────┼───────────────────────────────────────────────┤
+│                             ▼                                                │
+│              ┌─────────────────────────────┐                                │
+│              │    Orchestrator (Jarvis)    │  ◄── Intent Classification     │
+│              │   (Routes by intent or      │      + Personality             │
+│              │    explicit agent selection) │                                │
+│              └──────────────┬──────────────┘                                │
+│                             │                                                │
+│     ┌───────────┬───────────┼───────────┬───────────┐                       │
+│     │           │           │           │           │                       │
+│     ▼           ▼           ▼           ▼           ▼                       │
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
+│ │  Home   │ │Knowledge│ │Research │ │  Food   │ │Dynamic  │              │
+│ │  Agent  │ │  Agent  │ │  Agent  │ │  Agent  │ │ Agents  │              │
+│ │(Archit.)│ │(no tools│ │(web     │ │(recipes │ │(user-   │              │
+│ │         │ │ pure LLM│ │ search) │ │+ HA     │ │ created)│              │
+│ │         │ │         │ │         │ │ deleg.) │ │         │              │
+│ └────┬────┘ └─────────┘ └─────────┘ └────┬────┘ └─────────┘              │
+│      │                                    │                                │
+│      ▼                                    ▼                                │
+│ ┌──────────────┐                    ┌──────────┐                           │
+│ │ DS Team      │                    │ Cross-   │                           │
+│ │ Librarian    │                    │ Domain   │                           │
+│ │ Developer    │                    │ Delegat. │                           │
+│ └──────────────┘                    └──────────┘                           │
+│                                                                             │
+│ ┌──────────────────────────────────────────────────────────────┐           │
+│ │  Shared Infrastructure                                       │           │
+│ │  ├─ MutatingToolRegistry (centralized HITL enforcement)     │           │
+│ │  ├─ AgentRegistry (name → class, DB-driven config)          │           │
+│ │  ├─ ToolRegistry (per-agent tool resolution)                │           │
+│ │  └─ WorkflowCompiler (dynamic graph composition)            │           │
+│ └──────────────────────────────────────────────────────────────┘           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Changes from Current Architecture
+
+| Aspect | Current | Target |
+|--------|---------|--------|
+| Entry point | Architect Agent (fixed) | Orchestrator with intent routing |
+| Agent selection | Implicit (always Architect) | Explicit (`agent` field) or auto (Orchestrator) |
+| Domain scope | Home Assistant only | Multi-domain (HA, Knowledge, Research, Food, ...) |
+| HITL enforcement | Per-agent (`_READ_ONLY_TOOLS`) | Centralized `MutatingToolRegistry` |
+| Tool assignment | Hardcoded (`get_architect_tools()`) | DB-driven via `tools_enabled` + agent config |
+| Agent configuration | Code-defined | DB-driven (Feature 23 wired to runtime) |
+| Workflows | Static (Python-defined) | Static + dynamic (declarative composition) |
+| Voice support | Not supported | HA Voice Pipeline (Wyoming + Whisper + Piper) |
+| Personality | None | Consistent "Jarvis" personality, channel-aware |
+
+### Implementation Phases
+
+1. **Phase 0**: Pre-pivot refactoring (centralize HITL, wire Feature 23, split workflows.py)
+2. **Phase 1**: Orchestrator + intent routing + KnowledgeAgent + `agent` field + UI picker
+3. **Phase 2**: ResearchAgent + FoodAgent + cross-domain delegation + voice pipeline
+4. **Phase 3**: Dynamic workflow composition + dynamic agent creation + persistence
+
+See `docs/architecture-review.md` for the full assessment, gap analysis, and risk register.
