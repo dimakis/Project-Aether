@@ -156,7 +156,7 @@ export function MarkdownRenderer({ content, className, onCreateProposal }: Markd
     // Route fenced code blocks through our shiki CodeBlock
     // Uses react-shiki's isInlineCode helper to distinguish inline vs fenced
     code(props: ComponentPropsWithoutRef<"code"> & { node?: unknown }) {
-      const { children, className: codeClassName, node, ...rest } = props;
+      const { children, className: codeClassName, node } = props;
       const match = /language-(\w+)/.exec(codeClassName || "");
       const isInline = node ? isInlineCode(node as Parameters<typeof isInlineCode>[0]) : !match;
 

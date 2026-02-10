@@ -9,7 +9,6 @@ import {
   BookOpen,
   Wrench,
   Code,
-  Server,
   BarChart3,
   Brain,
   Tags,

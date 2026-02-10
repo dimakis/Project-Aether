@@ -21,7 +21,7 @@ const RECONNECT_MAX_MS = 30_000;
 
 export function useGlobalActivityStream() {
   const retriesRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const esRef = useRef<EventSource | null>(null);
   /** Track all auto-complete timeouts so we can cancel on unmount. */
   const pendingTimeouts = useRef(new Set<ReturnType<typeof setTimeout>>());

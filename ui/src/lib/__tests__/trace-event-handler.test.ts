@@ -6,11 +6,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Mock } from "vitest";
 import {
   handleTraceEvent,
   type TraceEventChunk,
 } from "@/lib/trace-event-handler";
-import type { AgentActivity, AgentNodeState } from "@/lib/agent-activity-store";
+import type { AgentActivity } from "@/lib/agent-activity-store";
+
+type SetActivityFn = (activity: Partial<AgentActivity>) => void;
 
 /** Build a fresh default AgentActivity snapshot. */
 function defaultActivity(overrides?: Partial<AgentActivity>): AgentActivity {
@@ -23,15 +26,16 @@ function defaultActivity(overrides?: Partial<AgentActivity>): AgentActivity {
     thinkingStream: "",
     activeEdges: [],
     delegationMessages: [],
+    completedAt: null,
     ...overrides,
   };
 }
 
 describe("handleTraceEvent", () => {
-  let setActivity: ReturnType<typeof vi.fn>;
+  let setActivity: Mock<SetActivityFn>;
 
   beforeEach(() => {
-    setActivity = vi.fn();
+    setActivity = vi.fn<SetActivityFn>();
   });
 
   // ─── Architect start ─────────────────────────────────────────────────

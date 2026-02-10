@@ -1,13 +1,4 @@
 import { motion } from "framer-motion";
-import { Bot, Sparkles } from "lucide-react";
-
-const THINKING_MESSAGES = [
-  "Analyzing your smart home...",
-  "Processing request...",
-  "Consulting the knowledge graph...",
-  "Evaluating automations...",
-  "Crunching the data...",
-];
 
 interface ThinkingIndicatorProps {
   /** If content has started streaming, show the streaming cursor instead */

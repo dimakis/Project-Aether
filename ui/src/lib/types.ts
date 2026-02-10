@@ -89,6 +89,9 @@ export interface Proposal {
   deployed_at?: string;
   rolled_back_at?: string;
   rejection_reason?: string;
+  ha_automation_id?: string;
+  ha_disabled?: boolean;
+  ha_error?: string;
   created_at: string;
   updated_at: string;
 }

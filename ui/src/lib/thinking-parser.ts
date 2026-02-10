@@ -57,7 +57,6 @@ export function parseThinkingContent(raw: string): ParsedContent {
     // Check if this open tag has a corresponding close tag
     const tag = openMatch[1].toLowerCase();
     const closeTag = `</${tag}>`;
-    const afterOpen = raw.indexOf(`<${openMatch[1]}>`) + openMatch[0].length;
     // If there's no close tag after the open tag, we're mid-thinking
     if (!raw.slice(raw.indexOf(`<${openMatch[1]}>`)).includes(closeTag)) {
       isThinking = true;

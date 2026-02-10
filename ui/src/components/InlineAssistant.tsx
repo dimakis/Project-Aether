@@ -132,9 +132,23 @@ export function InlineAssistant({
             }
             if (chunk.type === "trace") {
               // Update local agent activity indicator
-              handleTraceEvent(chunk as TraceEventChunk, (activity) => {
-                setActiveAgent(activity.activeAgent ?? null);
-              });
+              handleTraceEvent(
+                chunk as TraceEventChunk,
+                (activity) => {
+                  setActiveAgent(activity.activeAgent ?? null);
+                },
+                {
+                  isActive: false,
+                  activeAgent: null,
+                  agentsSeen: [],
+                  agentStates: {},
+                  liveTimeline: [],
+                  thinkingStream: "",
+                  activeEdges: [],
+                  delegationMessages: [],
+                  completedAt: null,
+                },
+              );
               continue;
             }
           }

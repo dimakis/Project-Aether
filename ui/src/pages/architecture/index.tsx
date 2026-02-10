@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   BookOpen,
   Wrench,
-  Server,
   Network,
   ArrowDown,
   ArrowLeftRight,
@@ -22,7 +21,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAgents } from "@/api/hooks";
-import type { AgentDetail } from "@/lib/types";
 
 // ─── Agent Node Definitions ───────────────────────────────────────────────────
 
@@ -393,19 +391,6 @@ export function ArchitecturePage() {
     if (!groupedAgents[node.group]) groupedAgents[node.group] = [];
     groupedAgents[node.group].push(node);
   }
-
-  // Filtered edges for highlighting
-  const visibleEdges =
-    edgeFilter === "all"
-      ? EDGES
-      : EDGES.filter((e) => e.type === edgeFilter);
-
-  // Check if an agent has visible edges
-  const hasVisibleEdge = (agentId: string) => {
-    return visibleEdges.some(
-      (e) => e.from === agentId || e.to === agentId,
-    );
-  };
 
   return (
     <div className="space-y-6 p-6">

@@ -78,7 +78,7 @@ function mockFetchSSE(
 /** Collect all chunks from the streamChat async generator. */
 async function collectChunks(
   model: string,
-  messages: { role: string; content: string }[],
+  messages: import("@/lib/types").ChatMessage[],
 ): Promise<StreamChunk[]> {
   const result: StreamChunk[] = [];
   for await (const chunk of streamChat(model, messages)) {

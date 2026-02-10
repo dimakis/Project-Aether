@@ -13,7 +13,7 @@ const messageVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   },
 };
 
@@ -164,7 +164,7 @@ export const MessageBubble = memo(function MessageBubble({
             )}
           </div>
         ) : (
-          <MarkdownRenderer content={msg.content} className="text-sm" onCreateProposal={msg.role === "assistant" ? onCreateProposal : undefined} />
+          <MarkdownRenderer content={msg.content} className="text-sm" />
         )}
       </div>
 

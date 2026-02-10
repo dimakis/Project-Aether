@@ -1,5 +1,4 @@
 import { useRef, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   X,
   FileCheck,
@@ -121,7 +120,6 @@ function ReviewNotesPanel({ notes }: { notes: ReviewNote[] }) {
 }
 
 export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
-  const navigate = useNavigate();
   const overlayRef = useRef<HTMLDivElement>(null);
   const { data: detail, isLoading } = useProposal(proposalId);
   const approveMut = useApproveProposal();

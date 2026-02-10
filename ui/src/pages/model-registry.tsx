@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronRight,
   MessageSquare,
-  Settings2,
   Zap,
   Clock,
   DollarSign,
@@ -37,7 +36,7 @@ const TIME_RANGES: { label: string; hours: number }[] = [
   { label: "30d", hours: 720 },
 ];
 
-const _FALLBACK_AGENT_ROLES = [
+const AGENT_ROLES = [
   "architect",
   "data_scientist",
   "orchestrator",
@@ -396,7 +395,7 @@ export function ModelRegistryPage() {
 
   // Derive role list from actual data (+ fallback for empty state)
   const dataRoles = useMemo(() => {
-    if (!perfData || perfData.length === 0) return _FALLBACK_AGENT_ROLES;
+    if (!perfData || perfData.length === 0) return AGENT_ROLES;
     const roles = new Set<string>();
     for (const p of perfData) {
       if (p.agent_role) roles.add(p.agent_role);

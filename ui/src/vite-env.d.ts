@@ -2,6 +2,6 @@
 
 interface Window {
   __ENV__?: {
-    API_URL: string;
+    API_URL?: string;
   };
 }
