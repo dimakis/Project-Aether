@@ -545,7 +545,7 @@ time curl -X POST http://localhost:8000/v1/chat/completions \
   -d '{"model": "architect", "messages": [{"role": "user", "content": "hello"}]}'
 
 # Entity query
-time curl -X POST http://localhost:8000/api/entities/query \
+time curl -X POST http://localhost:8000/api/v1/entities/query \
   -H "Content-Type: application/json" \
   -d '{"query": "all lights in the living room"}'
 ```
