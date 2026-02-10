@@ -33,6 +33,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open-source readiness files (LICENSE, CONTRIBUTING.md, SECURITY.md, CHANGELOG.md)
 - GitHub CI pipeline (lint, type check, unit/integration/E2E tests, coverage, security scan)
 - PR templates, issue templates, and PR governance workflows (dependency review, conventional commit title check, auto-labelling)
+- **YAML schema validation** (Feature 26) — Pydantic + JSON Schema validation for HA automation, script, scene, and dashboard YAML; `SchemaRegistry` with pluggable schemas
+- **Semantic YAML validation** (Feature 27) — validates entity IDs, service calls, and area IDs against the live HA registry via `SemanticValidator`
+- **Smart Config Review** (Feature 28) — Architect reviews existing HA configs, consults DS team, and produces improvement proposals with original/proposed YAML diffs
+- **Dashboard Designer agent** — Lovelace dashboard generation by consulting DS team for entity/area data; tools: `generate_dashboard_yaml`, `validate_dashboard_yaml`, `list_dashboards`
+- **MLflow 3.x trace evaluation** — custom scorers (`response_latency`, `tool_usage_safety`, `agent_delegation_depth`, `tool_call_count`) with on-demand and nightly evaluation
+- **`aether evaluate` CLI command** — evaluate recent agent traces with MLflow 3.x scorers
+- **Evaluations API** — `GET /evaluations/summary`, `POST /evaluations/run`, `GET /evaluations/scorers`
+- **Diagnostics API** — `GET /diagnostics/ha-health`, `GET /diagnostics/error-log`, `GET /diagnostics/config-check`, `GET /diagnostics/traces/recent`
+- **Agent configuration API** (Feature 23) — full CRUD for agent config/prompt versioning, promotion, rollback, cloning, and AI-generated prompts; runtime config cache with 60s TTL
+- **Activity stream** — `GET /activity/stream` SSE endpoint for real-time agent activity events
+- **Flow grades API** — submit, list, and delete flow grades for conversation quality tracking
+- **HA zones API** — CRUD for HA zones with connectivity testing and default zone selection
+- **Model ratings API** — rate models, view summaries, and track performance metrics
+- **Workflow presets API** — `GET /workflows/presets` for chat UI workflow selection
+- **Dual synthesis** — programmatic + LLM synthesis strategies for DS team findings (`src/agents/synthesis.py`)
+- **Agent runtime config cache** — async in-memory cache for agent configs to avoid per-call DB queries (`src/agents/config_cache.py`)
 
 ### Changed
 - Upgraded Fernet key derivation from SHA-256 to PBKDF2-HMAC-SHA256 (480k iterations)
