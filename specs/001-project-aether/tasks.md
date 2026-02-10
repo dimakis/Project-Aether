@@ -203,7 +203,7 @@ These features would unlock additional capabilities. **Report back when these be
 ### CLI Commands for User Story 1
 
 - [x] T062 [US1] Add `aether discover` command in src/cli/main.py to trigger Librarian discovery
-- [x] T063 [US1] Add `aether entities list/query/show` commands in src/cli/main.py
+- [x] T063 [US1] Add `aether entities` command in src/cli/main.py (list implemented; NL query is API-only)
 - [x] T064 [US1] Add `aether devices list/show` commands in src/cli/main.py
 - [x] T065 [US1] Add `aether areas list/show` commands in src/cli/main.py
 - [x] T066 [US1] Add `aether automations/scripts/scenes/services list` commands in src/cli/main.py
@@ -415,7 +415,7 @@ These features would unlock additional capabilities. **Report back when these be
 ### Documentation & Deployment
 
 - [ ] T124 [P] Create README.md with project overview, setup instructions, and usage examples
-- [ ] T125 [P] Create systemd unit files for production deployment in infrastructure/systemd/
+- [ ] T125 [P] ~~Create systemd unit files for production deployment~~ (deferred — using Podman Compose / Kubernetes instead)
 - [ ] T126 Run quickstart.md validation to ensure all setup steps work
 - [x] T144 [P] Add scripts/mlflow_local.sh and Makefile targets for local MLflow (mlflow, mlflow-up) with separate aether_mlflow DB
 
@@ -615,8 +615,8 @@ New features are tracked individually in `features/` — see transition note bel
 
 ### Short-term Priority (Sprint 2-3)
 
-- [ ] T190 Fix N+1 query pattern in Architect entity context building (src/agents/architect.py _get_entity_context) - batch domain queries
-- [ ] T191 [P] Add database indexes for frequently queried columns:
+- [x] T190 Fix N+1 query pattern in Architect entity context building (src/agents/architect.py _get_entity_context) - batch domain queries (resolved per code-healthcheck)
+- [x] T191 [P] Add database indexes for frequently queried columns (resolved per code-healthcheck):
   - Composite index on HAEntity(domain, state)
   - Index on Message(conversation_id, created_at)
   - Index on AutomationProposal(status, created_at)
@@ -664,7 +664,7 @@ The healthcheck covers all items below plus detailed findings, severity ratings,
 |----|-------|----------|--------|--------|
 | TD001 | Thread-unsafe singletons | storage/__init__.py, mcp/client.py | High | ✅ Fixed (T186) |
 | TD002 | Deprecated datetime.utcnow() | Multiple files | Medium | ✅ Fixed (T187) |
-| TD003 | N+1 queries in Architect | agents/architect.py | High | Open |
+| TD003 | N+1 queries in Architect | agents/architect.py | High | ✅ Resolved (T190) |
 | TD004 | Missing rate limiting | api/main.py | High | ✅ Fixed (T188) |
 | TD005 | Bare exception handling | agents/architect.py:282 | Low | Open |
 | TD006 | Incomplete TODO items | cli/main.py:653,691 | Medium | Open |
@@ -675,7 +675,7 @@ The healthcheck covers all items below plus detailed findings, severity ratings,
 
 | Metric | Target | Current | Notes |
 |--------|--------|---------|-------|
-| Entity discovery (1000 entities) | <30s | TBD | Measure after T190 |
+| Entity discovery (1000 entities) | <30s | TBD | T190 resolved |
 | NL query response | <500ms | TBD | Requires indexes |
 | Chat response (first token) | <2s | TBD | LLM dependent |
 | Sandbox script execution | <30s | TBD | Policy enforced |
