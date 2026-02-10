@@ -1,12 +1,13 @@
 /**
- * Obsidian-style force-directed agent topology graph.
+ * Brain-architecture agent topology graph.
  *
+ * Renders agents as neurons within a brain silhouette (coronal view).
  * Uses d3-force (via useForceGraph) for physics-based layout:
- * - Nodes float organically with ambient micro-drift
- * - Drag a node and connected nodes follow via spring forces
- * - Resizes automatically when the panel changes size
- * - Framer Motion handles visual effects (glow, pulse, opacity)
- *   while d3 owns the (x, y) positions
+ * - Agents positioned within anatomical brain regions
+ * - Neural pathway edges as curved connections between nodes
+ * - Brain silhouette background with subtle cerebral fold textures
+ * - Live neural pulse animation during active workflows
+ * - Framer Motion handles visual effects; d3 owns (x, y) positions
  */
 
 import { useMemo } from "react";
@@ -28,6 +29,73 @@ export { TOPOLOGY_AGENT_IDS as ALL_TOPOLOGY_AGENTS } from "@/lib/agent-registry"
 
 const SVG_SIZE = 300;
 const NODE_RADIUS = 15;
+
+// ─── Brain Silhouette Paths (coronal / top-down view, 300×300) ───────────────
+
+const BRAIN_LEFT_HEMISPHERE =
+  "M 147,25 C 115,25 70,40 45,80 C 22,118 18,160 22,195 C 28,235 55,265 90,275 C 118,282 140,278 147,270 Z";
+const BRAIN_RIGHT_HEMISPHERE =
+  "M 153,25 C 185,25 230,40 255,80 C 278,118 282,160 278,195 C 272,235 245,265 210,275 C 182,282 160,278 153,270 Z";
+const BRAIN_FISSURE = "M 150,28 Q 149,150 150,272";
+
+/** Subtle cerebral fold lines inside each hemisphere (gyri/sulci). */
+const BRAIN_FOLDS_LEFT = [
+  "M 105,50 Q 65,95 78,140",
+  "M 42,105 Q 55,140 38,178",
+  "M 68,175 Q 42,215 72,252",
+];
+const BRAIN_FOLDS_RIGHT = [
+  "M 195,50 Q 235,95 222,140",
+  "M 258,105 Q 245,140 262,178",
+  "M 232,175 Q 258,215 228,252",
+];
+
+// ─── Edge Curve Helpers ──────────────────────────────────────────────────────
+
+/**
+ * Compute a quadratic bezier control point for a neural pathway edge.
+ * Uses a deterministic hash to vary curve direction across edges.
+ */
+function edgeCurveControl(
+  x1: number, y1: number,
+  x2: number, y2: number,
+  a: string, b: string,
+): { cx: number; cy: number } {
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 1) return { cx: mx, cy: my };
+
+  // Perpendicular direction
+  const px = -dy / dist;
+  const py = dx / dist;
+
+  // Deterministic hash for varied curve direction per edge
+  const hash =
+    a.split("").reduce((s, c) => s + c.charCodeAt(0), 0) +
+    b.split("").reduce((s, c) => s + c.charCodeAt(0), 0);
+  const sign = hash % 2 === 0 ? 1 : -1;
+  const offset = sign * Math.min(dist * 0.2, 25);
+
+  return { cx: mx + px * offset, cy: my + py * offset };
+}
+
+/**
+ * Compute the midpoint of a quadratic bezier (at t = 0.5).
+ * Used for 3-keyframe pulse animation that follows the curve.
+ */
+function bezierMidpoint(
+  x1: number, y1: number,
+  cx: number, cy: number,
+  x2: number, y2: number,
+): { x: number; y: number } {
+  return {
+    x: 0.25 * x1 + 0.5 * cx + 0.25 * x2,
+    y: 0.25 * y1 + 0.5 * cy + 0.25 * y2,
+  };
+}
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -150,7 +218,56 @@ export function AgentTopology({
           </filter>
         </defs>
 
-        {/* ── Edges ─────────────────────────────────────────────── */}
+        {/* ── Brain Silhouette Background ────────────────────── */}
+        <g opacity={isLive ? 1 : 0.7}>
+          {/* Left hemisphere */}
+          <path
+            d={BRAIN_LEFT_HEMISPHERE}
+            fill="hsl(var(--muted-foreground))"
+            fillOpacity={0.03}
+            stroke="hsl(var(--muted-foreground))"
+            strokeWidth={0.8}
+            strokeOpacity={0.12}
+          />
+          {/* Right hemisphere */}
+          <path
+            d={BRAIN_RIGHT_HEMISPHERE}
+            fill="hsl(var(--muted-foreground))"
+            fillOpacity={0.03}
+            stroke="hsl(var(--muted-foreground))"
+            strokeWidth={0.8}
+            strokeOpacity={0.12}
+          />
+          {/* Longitudinal fissure */}
+          <path
+            d={BRAIN_FISSURE}
+            fill="none"
+            stroke="hsl(var(--muted-foreground))"
+            strokeWidth={0.5}
+            strokeOpacity={0.08}
+          />
+          {/* Cerebral folds — left hemisphere */}
+          {BRAIN_FOLDS_LEFT.map((d, i) => (
+            <path key={`fl-${i}`} d={d} fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={0.5} strokeOpacity={0.05} />
+          ))}
+          {/* Cerebral folds — right hemisphere */}
+          {BRAIN_FOLDS_RIGHT.map((d, i) => (
+            <path key={`fr-${i}`} d={d} fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={0.5} strokeOpacity={0.05} />
+          ))}
+        </g>
+
+        {/* Live neural pulse overlay on brain outline */}
+        {isLive && !prefersReducedMotion && (
+          <motion.g
+            animate={{ opacity: [0, 0.1, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <path d={BRAIN_LEFT_HEMISPHERE} fill="none" stroke="#a855f7" strokeWidth={1.5} />
+            <path d={BRAIN_RIGHT_HEMISPHERE} fill="none" stroke="#a855f7" strokeWidth={1.5} />
+          </motion.g>
+        )}
+
+        {/* ── Neural Pathway Edges ─────────────────────────────── */}
         {visibleEdges.map(([a, b]) => {
           const pA = positions[a];
           const pB = positions[b];
@@ -176,16 +293,24 @@ export function AgentTopology({
           const x2 = pB.x - nx * (rB + 2);
           const y2 = pB.y - ny * (rB + 2);
 
+          // Curved neural pathway
+          const ctrl = edgeCurveControl(pA.x, pA.y, pB.x, pB.y, a, b);
+          const pathD = `M ${x1},${y1} Q ${ctrl.cx},${ctrl.cy} ${x2},${y2}`;
+
           const edgeColor = edgeActive
             ? aFiring ? metaA.hex : metaB.hex
             : "hsl(var(--border))";
+
+          // Midpoint on curve for pulse animation
+          const mid = bezierMidpoint(x1, y1, ctrl.cx, ctrl.cy, x2, y2);
 
           return (
             <g key={`${a}-${b}`}>
               {/* Active edge glow underlay */}
               {edgeActive && (
-                <line
-                  x1={x1} y1={y1} x2={x2} y2={y2}
+                <path
+                  d={pathD}
+                  fill="none"
                   stroke={edgeColor}
                   strokeWidth={4}
                   strokeOpacity={0.3}
@@ -193,25 +318,26 @@ export function AgentTopology({
                 />
               )}
 
-              {/* Edge line */}
-              <line
-                x1={x1} y1={y1} x2={x2} y2={y2}
+              {/* Neural pathway */}
+              <path
+                d={pathD}
+                fill="none"
                 stroke={edgeColor}
                 strokeWidth={edgeActive ? 2.5 : 0.6}
                 strokeLinecap="round"
                 strokeOpacity={edgeActive ? 1 : 0.18}
               />
 
-              {/* Traveling pulses when active */}
+              {/* Traveling pulses along curved pathway when active */}
               {edgeActive && !prefersReducedMotion && (
                 <>
                   <motion.circle
                     r={3}
                     fill={metaA.hex}
                     animate={{
-                      cx: [x1, x2],
-                      cy: [y1, y2],
-                      opacity: [1, 0.3],
+                      cx: [x1, mid.x, x2],
+                      cy: [y1, mid.y, y2],
+                      opacity: [1, 0.8, 0.3],
                     }}
                     transition={{
                       duration: 0.8,
@@ -223,9 +349,9 @@ export function AgentTopology({
                     r={2}
                     fill={metaB.hex}
                     animate={{
-                      cx: [x2, x1],
-                      cy: [y2, y1],
-                      opacity: [0.9, 0.2],
+                      cx: [x2, mid.x, x1],
+                      cy: [y2, mid.y, y1],
+                      opacity: [0.9, 0.7, 0.2],
                     }}
                     transition={{
                       duration: 1.1,
