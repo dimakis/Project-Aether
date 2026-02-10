@@ -88,36 +88,23 @@ async def generate_dashboard_yaml(title: str, areas: list[str] | None = None) ->
 async def validate_dashboard_yaml(yaml_content: str) -> str:
     """Validate a Lovelace YAML configuration string.
 
+    Uses the schema validator (Feature 26) for structural validation.
+
     Args:
         yaml_content: The YAML string to validate.
 
     Returns:
         A validation result string (success or error details).
     """
-    try:
-        parsed = yaml.safe_load(yaml_content)
-    except yaml.YAMLError as exc:
-        return f"Invalid YAML: {exc}"
+    from src.schema import validate_yaml
 
-    if not isinstance(parsed, dict):
-        return "Invalid: Expected a YAML mapping (dictionary) at the top level."
+    result = validate_yaml(yaml_content, "ha.dashboard")
 
-    issues: list[str] = []
+    if result.valid:
+        return "Valid: Lovelace YAML structure looks correct."
 
-    if "views" not in parsed:
-        issues.append("Missing required 'views' key. Lovelace dashboards must have a views list.")
-
-    if "views" in parsed:
-        views = parsed["views"]
-        if not isinstance(views, list):
-            issues.append("'views' must be a list of view objects.")
-        elif len(views) == 0:
-            issues.append("'views' is empty — add at least one view.")
-
-    if issues:
-        return "Validation issues:\n" + "\n".join(f"- {i}" for i in issues)
-
-    return "Valid: Lovelace YAML structure looks correct."
+    issues = [f"{e.path}: {e.message}" if e.path else e.message for e in result.errors]
+    return "Validation issues:\n" + "\n".join(f"- {i}" for i in issues)
 
 
 @tool("list_dashboards")

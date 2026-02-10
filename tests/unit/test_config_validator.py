@@ -138,8 +138,8 @@ trigger:
         errors = validate_automation_yaml(yaml_str)
         assert any("action" in e.lower() for e in errors)
 
-    def test_missing_alias(self):
-        """Test that missing alias is caught."""
+    def test_missing_alias_is_ok(self):
+        """Test that missing alias is accepted (alias is optional in HA)."""
         yaml_str = """
 trigger:
   - platform: state
@@ -148,7 +148,7 @@ action:
   - service: light.turn_on
 """
         errors = validate_automation_yaml(yaml_str)
-        assert any("alias" in e.lower() for e in errors)
+        assert not any("alias" in e.lower() for e in errors)
 
     def test_invalid_yaml(self):
         """Test that invalid YAML syntax is caught."""
