@@ -172,27 +172,30 @@ export const DELEGATION_EDGES: [string, string][] = [
 /**
  * Brain layout: fractional (0-1) target positions for each agent.
  *
- * Arranged as a top-down neural hierarchy:
- *  - Tier 0 (crown): Aether — system entry, pinned at top
- *  - Tier 1 (cortex): Architect — primary routing hub
- *  - Tier 2 (lobes): Direct delegates fan out left-to-right
- *  - Tier 3 (deep): DS specialist analysts
- *  - Tier 4 (stem): Synthesizer — analysis output
+ * Arranged within a top-down brain silhouette (coronal view):
+ *  - Prefrontal (top center): Aether — executive control
+ *  - Central sulcus: Architect — primary routing hub
+ *  - Left hemisphere: Librarian (Broca's), Dashboard (parietal), Developer (temporal)
+ *  - Right hemisphere: DS Team (frontal), Energy (parietal), Behavioral (temporal)
+ *  - Occipital-temporal junction: Diagnostic Analyst
+ *  - Occipital (bottom center): Synthesizer — analysis output
  */
 export const BRAIN_LAYOUT: Record<string, { x: number; y: number }> = {
-  aether:             { x: 0.50, y: 0.07 },
-  architect:          { x: 0.50, y: 0.26 },
-  // Left lobe — utility / knowledge
-  librarian:          { x: 0.12, y: 0.48 },
-  dashboard_designer: { x: 0.34, y: 0.50 },
-  // Center — execution
-  developer:          { x: 0.56, y: 0.52 },
-  // Right lobe — analytics
-  data_science_team:  { x: 0.82, y: 0.40 },
-  energy_analyst:     { x: 0.68, y: 0.68 },
-  behavioral_analyst: { x: 0.90, y: 0.68 },
-  diagnostic_analyst: { x: 0.79, y: 0.84 },
-  synthesizer:        { x: 0.92, y: 0.92 },
+  // Prefrontal cortex — executive control
+  aether:             { x: 0.50, y: 0.10 },
+  // Central sulcus — primary routing hub
+  architect:          { x: 0.50, y: 0.30 },
+  // Left hemisphere — language / knowledge / execution
+  librarian:          { x: 0.22, y: 0.40 },
+  dashboard_designer: { x: 0.20, y: 0.60 },
+  developer:          { x: 0.30, y: 0.76 },
+  // Right hemisphere — analytics / spatial
+  data_science_team:  { x: 0.78, y: 0.38 },
+  energy_analyst:     { x: 0.80, y: 0.58 },
+  behavioral_analyst: { x: 0.74, y: 0.72 },
+  diagnostic_analyst: { x: 0.64, y: 0.84 },
+  // Occipital lobe — synthesis output
+  synthesizer:        { x: 0.50, y: 0.92 },
 };
 
 // ─── Lookup Helpers ──────────────────────────────────────────────────────────
