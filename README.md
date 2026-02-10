@@ -982,7 +982,23 @@ make lint          # Ruff linter
 make format        # Ruff formatter + auto-fix
 make typecheck     # MyPy type checking
 make check         # All quality checks
+make ci-local      # Full CI locally (lint + typecheck + unit tests)
 ```
+
+### Branch Workflow
+
+All features and functional changes use feature branches with squash-before-push:
+
+```bash
+git checkout -b feat/my-feature develop  # 1. Create branch
+# ... develop with TDD, commit incrementally ...
+make ci-local                            # 2. Run CI locally — must pass
+git rebase -i develop                    # 3. Squash into one commit
+git push -u origin HEAD                  # 4. Push
+gh pr create                             # 5. Open PR (rebase-merged)
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
 
 ### Database
 

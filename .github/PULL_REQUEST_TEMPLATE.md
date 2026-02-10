@@ -53,3 +53,6 @@ Closes #
 - [ ] I've updated documentation if needed
 - [ ] I've added conventional commit messages
 - [ ] Coverage has not decreased
+- [ ] CI passed locally (`make ci-local`)
+- [ ] Branch commits squashed into a single conventional commit
+- [ ] Ready for rebase-merge

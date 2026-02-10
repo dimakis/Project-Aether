@@ -14,6 +14,7 @@ After each logical unit of work, self-check before proceeding.
 3. **Max ~400 uncommitted lines**: If approaching this limit, stop and commit what is complete.
 4. **Proactive commits**: Committing is part of the task. Do NOT wait for the user to ask.
 5. **Session end**: All uncommitted work must be committed or stashed before switching context.
+6. **Branch context**: On feature branches, incremental commits are working checkpoints. They will be squashed into a single conventional commit before pushing. This does NOT reduce the need for clean, atomic commits during development — they aid local review, bisect, and rollback on the branch.
 
 ## Commit Format
 

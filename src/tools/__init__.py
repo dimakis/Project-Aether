@@ -61,6 +61,8 @@ def get_all_tools() -> list:
     custom analysis tools (free-form DS Team queries),
     and specialist tools (individual + team delegation).
     """
+    from src.tools.review_tools import review_config as _review_config
+
     return (
         get_ha_tools()
         + get_agent_tools()
@@ -69,11 +71,12 @@ def get_all_tools() -> list:
         + get_insight_schedule_tools()
         + get_analysis_tools()
         + get_specialist_tools()
+        + [_review_config]
     )
 
 
 def get_architect_tools() -> list:
-    """Curated tool set for the Architect agent (lean router, 15 tools).
+    """Curated tool set for the Architect agent (lean router, 16 tools).
 
     The Architect is a conversationalist and router.  It does NOT directly
     execute analysis, diagnostics, or mutations.  Instead:
@@ -120,6 +123,7 @@ def get_architect_tools() -> list:
     from src.tools.insight_schedule_tools import (
         create_insight_schedule as _create_insight_schedule,
     )
+    from src.tools.review_tools import review_config as _review_config
     from src.tools.specialist_tools import (
         consult_dashboard_designer as _consult_dashboard,
     )
@@ -150,6 +154,8 @@ def get_architect_tools() -> list:
         _consult_ds_team,
         # Dashboard (1)
         _consult_dashboard,
+        # Config review (1)
+        _review_config,
     ]
 
 

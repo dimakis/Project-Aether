@@ -51,12 +51,27 @@ make check         # Run all quality checks (lint + typecheck)
 
 ## Development Workflow
 
+### Test-Driven Development (TDD)
+
 Aether follows **Test-Driven Development (TDD)**:
 
 1. **Red**: Write a failing test first.
 2. **Green**: Write the minimum code to make it pass.
 3. **Refactor**: Clean up while keeping tests green.
 4. **Commit**: Commit the test and implementation together.
+
+### Feature Branch Workflow
+
+All new features and functional changes follow this process:
+
+1. **Create a branch**: `git checkout -b feat/my-feature develop`
+2. **Develop with TDD**: Write tests first, commit incrementally (see above).
+3. **Run CI locally**: `make ci-local` — runs lint, typecheck, and unit tests. Must pass.
+4. **Squash commits**: `git rebase -i develop` — squash all commits into one with a conventional commit message.
+5. **Push and open PR**: `git push -u origin HEAD && gh pr create`
+6. **Rebase-merge**: After review and remote CI passes, rebase-merge the PR.
+
+> **Why squash before push?** Each feature lands as a single clean commit on `develop`/`main`, keeping `git log` readable and `git bisect` effective. Incremental commits on your branch are working checkpoints — they help you during development but don't need to persist in the main history.
 
 ### Commit Convention
 
@@ -115,12 +130,12 @@ infrastructure/ # Container and deployment configs
 
 ## Pull Request Process
 
-1. Fork the repository and create a feature branch.
-2. Write tests first (TDD), then implement.
-3. Ensure all checks pass: `make check && make test`.
-4. Update documentation if needed.
-5. Submit a pull request with a clear description.
-6. PRs require at least one review before merging.
+1. Create a feature branch from `develop` and develop with TDD.
+2. Run `make ci-local` — all checks must pass before proceeding.
+3. Squash all branch commits into a single conventional commit (`git rebase -i develop`).
+4. Push the branch and open a pull request with a clear description.
+5. Ensure remote CI passes and request review.
+6. PRs are rebase-merged to maintain linear history.
 
 ## Code of Conduct
 

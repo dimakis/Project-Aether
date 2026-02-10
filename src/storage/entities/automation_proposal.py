@@ -176,6 +176,30 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         doc="Why the proposal was rejected",
     )
 
+    # Review fields (Feature 28: Smart Config Review)
+    original_yaml: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc="Original YAML before review suggestions (present = review proposal)",
+    )
+    review_notes: Mapped[list | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        doc="Structured change annotations [{change, rationale, category}]",
+    )
+    review_session_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        nullable=True,
+        index=True,
+        doc="Groups proposals from a batch review",
+    )
+    parent_proposal_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("automation_proposal.id", ondelete="SET NULL"),
+        nullable=True,
+        doc="Links split proposals back to the combined review",
+    )
+
     # Observability
     mlflow_run_id: Mapped[str | None] = mapped_column(
         String(100),
@@ -188,6 +212,11 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         "Conversation",
         back_populates="proposals",
     )
+
+    @property
+    def is_review(self) -> bool:
+        """Whether this is a review proposal (has original YAML to diff against)."""
+        return self.original_yaml is not None
 
     def __repr__(self) -> str:
         """Return string representation."""

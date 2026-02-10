@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import jsonschema  # type: ignore[import-untyped]
+import jsonschema  # type: ignore[import-untyped,unused-ignore]
 import yaml
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
