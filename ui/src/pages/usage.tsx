@@ -3,7 +3,6 @@ import {
   DollarSign,
   Cpu,
   Zap,
-  Clock,
   BarChart3,
   TrendingUp,
 } from "lucide-react";
@@ -18,7 +17,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -208,8 +206,8 @@ export function UsagePage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={90}
-                    label={({ model, percent }) =>
-                      `${model.split("/").pop()} (${(percent * 100).toFixed(0)}%)`
+                    label={({ name, percent }) =>
+                      `${String(name).split("/").pop()} (${((percent ?? 0) * 100).toFixed(0)}%)`
                     }
                     labelLine={false}
                     fontSize={11}
@@ -222,7 +220,7 @@ export function UsagePage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value) => formatCurrency(Number(value))}
                     contentStyle={{
                       backgroundColor: "var(--color-card)",
                       border: "1px solid var(--color-border)",

@@ -14,10 +14,8 @@ import {
   Network,
   Star,
   LogOut,
-  User,
   ChevronDown,
   MapPin,
-  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";

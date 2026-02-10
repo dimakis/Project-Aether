@@ -203,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(body?.detail || "Setup failed");
       }
 
-      const data = await res.json();
+      await res.json();
       setState((s) => ({
         ...s,
         authenticated: true,

@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
-import { Check, Copy, FileJson, FileCode } from "lucide-react";
+import { useState, useMemo } from "react";
+import { FileJson, FileCode } from "lucide-react";
 import yaml from "js-yaml";
 import { CodeBlock } from "./code-block";
 import { cn } from "@/lib/utils";
