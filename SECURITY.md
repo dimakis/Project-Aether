@@ -18,8 +18,9 @@ If you discover a security vulnerability in Aether, **please do not open a publi
 
 Aether follows a defence-in-depth approach (see Constitution Principle VI):
 
-- **Authentication**: JWT session tokens + WebAuthn passkeys + API key support. Auth required on all endpoints except health probes.
-- **Encryption at rest**: HA tokens encrypted with Fernet (PBKDF2-derived keys). Passwords hashed with bcrypt (12+ rounds).
+- **Authentication**: Four methods coexist — WebAuthn passkeys (primary, biometric), HA token login (validates against stored HA URL), JWT password login (bcrypt-hashed), and API key (programmatic). Optional Google OAuth 2.0. Auth required on all endpoints except exempt routes.
+- **Exempt routes**: `/api/v1/health`, `/api/v1/ready`, `/api/v1/status`, `/api/v1/auth/setup-status`, `/api/v1/auth/setup`, `/api/v1/auth/login`, `/api/v1/auth/login/ha-token`, `/api/v1/auth/passkey/authenticate/*`, `/api/v1/auth/google/*`.
+- **Encryption at rest**: HA tokens encrypted with Fernet (PBKDF2-HMAC-SHA256, 480k iterations). Passwords hashed with bcrypt (12+ rounds).
 - **Input validation**: All inputs validated via Pydantic schemas with strict constraints.
 - **SQL injection**: Prevented via SQLAlchemy ORM with parameterized queries only.
 - **SSRF protection**: User-provided URLs validated against cloud metadata endpoints and dangerous addresses.
