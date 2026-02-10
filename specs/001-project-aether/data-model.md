@@ -7,6 +7,47 @@
 
 This document defines the core entities, their relationships, and state transitions for Project Aether. The model mirrors Home Assistant's internal architecture to expose **all HA primitives** to the agents.
 
+## Implementation Status
+
+The following table maps spec entities to their implementation status:
+
+| Entity | Status | ORM Model |
+|--------|--------|-----------|
+| **Floor** | Not implemented | Area has nullable `floor_id` only |
+| **Area** | Implemented | `src/storage/entities/area.py` |
+| **Label** | Not implemented | — |
+| **Category** | Not implemented | — |
+| **Device** | Implemented | `src/storage/entities/device.py` |
+| **Entity (HAEntity)** | Implemented | `src/storage/entities/ha_entity.py` |
+| **ConfigEntry** | Not implemented | — |
+| **Integration** | Not implemented | — |
+| **Helper** | Not implemented | — |
+| **Scene** | Implemented (partial) | `src/storage/entities/ha_scene.py` (entity_states null until MCP supports) |
+| **Script** | Implemented (partial) | `src/storage/entities/ha_script.py` (sequence null until MCP supports) |
+| **Service** | Implemented | `src/storage/entities/ha_service.py` |
+| **Event** | Not implemented | — |
+| **HAAutomation** | Implemented | `src/storage/entities/ha_automation.py` |
+| **DiscoverySession** | Implemented | `src/storage/entities/discovery_session.py` |
+| **Agent** | Implemented (expanded) | `src/storage/entities/agent.py` — includes config/prompt versioning (Feature 23) |
+| **Conversation** | Implemented | `src/storage/entities/conversation.py` |
+| **Message** | Implemented | `src/storage/entities/message.py` |
+| **AutomationProposal** | Implemented | `src/storage/entities/automation_proposal.py` |
+| **Insight** | Implemented | `src/storage/entities/insight.py` |
+| **Dashboard** | Not implemented | — |
+| **Checkpoint** | Implemented | `src/storage/checkpoints.py` (LangGraph managed) |
+
+**Additional entities in codebase (not in original spec):**
+
+| Entity | ORM Model | Purpose |
+|--------|-----------|---------|
+| **UserProfile** | `src/storage/entities/user_profile.py` | User accounts (password, Google OAuth) |
+| **PasskeyCredential** | `src/storage/entities/passkey_credential.py` | WebAuthn passkey storage |
+| **SystemConfig** | `src/storage/entities/system_config.py` | HA URL/token (encrypted), setup state |
+| **HAZone** | `src/storage/entities/ha_zone.py` | HA zone connection configs |
+| **InsightSchedule** | `src/storage/entities/insight_schedule.py` | Cron/webhook insight triggers |
+| **LLMUsage** | `src/storage/entities/llm_usage.py` | Token counts, costs, latency per LLM call |
+| **FlowGrade** | `src/storage/entities/flow_grade.py` | Conversation quality grades |
+
 ---
 
 ## Home Assistant Registry Hierarchy
@@ -152,6 +193,8 @@ These entities mirror Home Assistant's internal registries to provide full acces
 
 ### Floor
 
+> **Status: Not Yet Implemented** — Area has a nullable `floor_id` column but no Floor table exists.
+
 Represents a floor/level in the home (HA 2024.x+).
 
 | Field | Type | Description | Constraints |
@@ -187,6 +230,8 @@ Represents a physical area/room in the home.
 
 ### Label
 
+> **Status: Not Yet Implemented**
+
 Custom tagging system for entities/devices/areas (HA 2024.x+).
 
 | Field | Type | Description | Constraints |
@@ -203,6 +248,8 @@ Custom tagging system for entities/devices/areas (HA 2024.x+).
 ---
 
 ### Category
+
+> **Status: Not Yet Implemented**
 
 Domain-specific category for organization.
 
@@ -316,6 +363,8 @@ Represents a Home Assistant entity (the controllable unit).
 
 ### ConfigEntry
 
+> **Status: Not Yet Implemented**
+
 Represents an integration configuration (how integrations are set up).
 
 | Field | Type | Description | Constraints |
@@ -339,6 +388,8 @@ Represents an integration configuration (how integrations are set up).
 
 ### Integration
 
+> **Status: Not Yet Implemented**
+
 Represents an available HA integration (metadata).
 
 | Field | Type | Description | Constraints |
@@ -360,6 +411,8 @@ Represents an available HA integration (metadata).
 ---
 
 ### Helper
+
+> **Status: Not Yet Implemented**
 
 Represents a user-created helper entity.
 
@@ -472,6 +525,8 @@ Represents an available HA service (callable actions).
 ---
 
 ### Event
+
+> **Status: Not Yet Implemented**
 
 Represents HA event types for agent awareness.
 
@@ -721,6 +776,8 @@ Data-driven observation from the Data Scientist agent.
 ---
 
 ### Dashboard
+
+> **Status: Not Yet Implemented** — Dashboard generation exists in agents but no persistent Dashboard table.
 
 Generated Home Assistant dashboard configuration.
 
