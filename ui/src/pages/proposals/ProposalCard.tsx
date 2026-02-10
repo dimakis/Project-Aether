@@ -1,7 +1,7 @@
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Search, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import type { Proposal } from "@/lib/types";
+import type { Proposal, ProposalWithYAML } from "@/lib/types";
 import { STATUS_CONFIG, STATUS_STRIP, TYPE_ICONS } from "./types";
 
 interface ProposalCardProps {
@@ -55,16 +55,24 @@ export function ProposalCard({
               )}
             </div>
           </div>
-          <Badge
-            className={cn(
-              "text-[10px] ring-1",
-              config.bg,
-              config.color,
-              config.ring,
+          <div className="flex items-center gap-1.5">
+            {(proposal as ProposalWithYAML).original_yaml && (
+              <Badge className="text-[10px] bg-violet-500/10 text-violet-400 ring-1 ring-violet-500/20">
+                <Search className="mr-0.5 h-2.5 w-2.5" />
+                Review
+              </Badge>
             )}
-          >
-            {config.label}
-          </Badge>
+            <Badge
+              className={cn(
+                "text-[10px] ring-1",
+                config.bg,
+                config.color,
+                config.ring,
+              )}
+            >
+              {config.label}
+            </Badge>
+          </div>
         </div>
 
         {/* Name */}

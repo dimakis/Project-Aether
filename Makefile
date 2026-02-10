@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox openapi
+.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -45,6 +45,7 @@ help:
 	@echo "  make lint        - Run ruff linter"
 	@echo "  make format      - Format code with ruff"
 	@echo "  make check       - Run all quality checks"
+	@echo "  make ci-local    - Run full CI locally (lint + typecheck + unit tests)"
 	@echo ""
 	@echo "Application:"
 	@echo "  make chat        - Start interactive CLI chat"
@@ -266,6 +267,12 @@ typecheck:
 
 check: format-check lint typecheck
 	@echo "All quality checks passed!"
+
+# Run CI checks locally (mirrors GitHub Actions pipeline)
+# Run this before squashing and pushing a feature branch
+ci-local: format-check lint typecheck test-unit
+	@echo ""
+	@echo "All CI checks passed! Safe to squash, push, and open PR."
 
 format-check:
 	uv run ruff format --check src/ tests/

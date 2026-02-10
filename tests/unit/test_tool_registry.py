@@ -33,6 +33,8 @@ EXPECTED_ARCHITECT_TOOLS = {
     "discover_entities",
     # DS Team (1)
     "consult_data_science_team",
+    # Config review (1)
+    "review_config",
     # Dashboard (1)
     "consult_dashboard_designer",
 }
@@ -77,7 +79,7 @@ class TestGetArchitectTools:
         from src.tools import get_architect_tools
 
         tools = get_architect_tools()
-        assert len(tools) == 15, f"Expected 15 tools, got {len(tools)}: {[t.name for t in tools]}"
+        assert len(tools) == 16, f"Expected 16 tools, got {len(tools)}: {[t.name for t in tools]}"
 
     def test_expected_names(self):
         from src.tools import get_architect_tools

@@ -12,11 +12,13 @@ import {
   Code,
   Sparkles,
   Trash2,
+  Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YamlViewer } from "@/components/ui/data-viewer";
+import { YamlDiffViewer } from "@/components/ui/yaml-diff-viewer";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import {
   useProposal,
@@ -26,7 +28,7 @@ import {
   useRollbackProposal,
   useDeleteProposal,
 } from "@/api/hooks";
-import type { Proposal } from "@/lib/types";
+import type { Proposal, ProposalWithYAML, ReviewNote } from "@/lib/types";
 import { STATUS_CONFIG, TYPE_ICONS } from "./types";
 
 interface ProposalDetailProps {
@@ -74,6 +76,46 @@ function TimelineEntry({
       <span className="ml-auto text-[10px] text-muted-foreground">
         {formatRelativeTime(time)}
       </span>
+    </div>
+  );
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  energy: "bg-amber-500/10 text-amber-400 ring-amber-500/20",
+  behavioral: "bg-blue-500/10 text-blue-400 ring-blue-500/20",
+  efficiency: "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20",
+  security: "bg-red-500/10 text-red-400 ring-red-500/20",
+  redundancy: "bg-zinc-500/10 text-zinc-400 ring-zinc-500/20",
+};
+
+function ReviewNotesPanel({ notes }: { notes: ReviewNote[] }) {
+  return (
+    <div>
+      <h4 className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <Search className="h-3 w-3" />
+        Review Notes ({notes.length})
+      </h4>
+      <div className="space-y-2">
+        {notes.map((note, i) => (
+          <div
+            key={i}
+            className="rounded-lg border border-border bg-muted/20 p-3"
+          >
+            <div className="mb-1.5 flex items-center gap-2">
+              <Badge
+                className={cn(
+                  "text-[10px] ring-1",
+                  CATEGORY_COLORS[note.category] ?? CATEGORY_COLORS.efficiency,
+                )}
+              >
+                {note.category}
+              </Badge>
+              <span className="text-xs font-medium">{note.change}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">{note.rationale}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -150,6 +192,12 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                     {((detail as Proposal).proposal_type ?? "").replace("_", " ")}
                   </Badge>
                 )}
+                {(detail as ProposalWithYAML).original_yaml && (
+                  <Badge className="text-[10px] bg-violet-500/10 text-violet-400 ring-1 ring-violet-500/20">
+                    <Search className="mr-1 h-2.5 w-2.5" />
+                    Review
+                  </Badge>
+                )}
                 {detail.conversation_id && (
                   <Badge variant="secondary" className="text-[10px]">
                     <MessageSquare className="mr-1 h-2.5 w-2.5" />
@@ -195,8 +243,20 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
             )}
           </div>
 
-          {/* YAML Viewer */}
-          {detail.yaml_content && (
+          {/* YAML Diff Viewer (review) or plain YAML Viewer */}
+          {(detail as ProposalWithYAML).original_yaml && detail.yaml_content ? (
+            <div>
+              <h4 className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <Code className="h-3 w-3" />
+                Config Diff
+              </h4>
+              <YamlDiffViewer
+                originalYaml={(detail as ProposalWithYAML).original_yaml!}
+                suggestedYaml={detail.yaml_content}
+                maxHeight={400}
+              />
+            </div>
+          ) : detail.yaml_content ? (
             <div>
               <h4 className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <Code className="h-3 w-3" />
@@ -209,6 +269,12 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                 />
               </div>
             </div>
+          ) : null}
+
+          {/* Review Notes */}
+          {(detail as ProposalWithYAML).review_notes &&
+            (detail as ProposalWithYAML).review_notes!.length > 0 && (
+              <ReviewNotesPanel notes={(detail as ProposalWithYAML).review_notes!} />
           )}
 
           {/* Timeline */}

@@ -303,6 +303,8 @@ class ArchitectAgent(BaseAgent):
             "create_insight_schedule",
             # Approval (1) — creating proposals IS the approval mechanism
             "seek_approval",
+            # Review (1) — creates review proposals for HITL approval
+            "review_config",
         }
     )
 

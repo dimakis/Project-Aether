@@ -50,6 +50,12 @@ When triggered, perform these verification steps using file system tools. Report
    - Each commit is one logical change.
    - Tool: Use `git log --stat` to check commit sizes.
 
+8. **Branch & PR**
+   - Check: Feature was developed on a dedicated branch (not main/develop).
+   - Check: PR exists and was rebase-merged (single clean commit on target).
+   - Check: `make ci-local` was run before pushing (check PR checklist or CI status).
+   - Tool: `git log --oneline` to verify linear history, `gh pr list --state merged` to find PR.
+
 ### Output Format
 
 ```
@@ -64,8 +70,9 @@ When triggered, perform these verification steps using file system tools. Report
 | 5 | Tests co-committed        | PASS    | Spot-checked 3 commits         |
 | 6 | Docs updated              | MISSING | architecture.md not updated    |
 | 7 | Incremental commits       | PASS    | Largest commit: 187 lines      |
+| 8 | Branch & PR               | PASS    | PR #42 rebase-merged           |
 
-**Result**: X/7 passed. Feature is [READY / NOT READY] for completion.
+**Result**: X/8 passed. Feature is [READY / NOT READY] for completion.
 **Action items**: [list of missing artifacts to create]
 ```
 

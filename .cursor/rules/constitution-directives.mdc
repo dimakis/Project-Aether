@@ -32,8 +32,9 @@ These are non-negotiable constraints from `.specify/memory/constitution.md`. Vio
 - **Commits**: One logical change per commit, max ~400 lines, proactive commits after each TDD cycle.
 - **Conventional Commits**: `<type>[scope]: <description>` (feat, fix, docs, style, refactor, perf, test, build, ci, chore).
 - **Feature delivery**: Create feature dir with spec/plan/tasks before coding. Update docs alongside code.
+- **Branch workflow**: New features on dedicated branch → `make ci-local` → squash commits locally → push → open PR → rebase-merge. Never push directly to main/develop for functional changes.
 
 ## Reference
 
 Full governance with rationale: `.specify/memory/constitution.md`
-Active skills: `security-review`, `tdd-cycle`, `feature-checklist` (in `.cursor/skills/`)
+Active skills: `security-review`, `tdd-cycle`, `feature-checklist`, `feature-branch` (in `.cursor/skills/`)

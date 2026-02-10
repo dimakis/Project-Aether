@@ -1,11 +1,14 @@
 <!--
 Sync Impact Report:
-Version: 1.10.0 → 1.11.0 (MINOR: Restructured with AI Directives section; no principle changes)
+Version: 1.11.0 → 1.12.0 (MINOR: Added "Branching & PR Workflow" development standard)
 Modified Principles: None
-Added Sections: "AI Directives" compact reference at top
+Added Sections: "Branching & PR Workflow" under Development Standards; AI Directives updated
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ No template updates required
+  ✅ CONTRIBUTING.md — add feature branch workflow section
+  ✅ .cursor/rules/feature-branch-workflow.mdc — new rule
+  ✅ .cursor/skills/feature-branch/SKILL.md — new skill
+  ✅ .github/PULL_REQUEST_TEMPLATE.md — add CI/squash checklist items
 Follow-up TODOs: None
 -->
 
@@ -46,6 +49,7 @@ Follow-up TODOs: None
 - MUST create feature directory (`specs/<project>/features/NN-name/`) with spec.md, plan.md, tasks.md before implementation begins.
 - MUST update documentation (architecture.md, tasks.md, plan.md) alongside code — never batch docs as an afterthought.
 - MUST NOT choose a simpler implementation that weakens security or creates tech debt degrading security posture later.
+- MUST develop new features on a dedicated branch, run CI locally (`make ci-local`), squash commits into one, then push and open a PR. PRs are rebase-merged for linear history.
 
 ### Reference
 
@@ -380,6 +384,29 @@ specs/<project>/features/NN-feature-name/
 
 **Rationale**: Feature directories create a historical record of how the architecture evolved over time. Each feature's spec, plan, and tasks document the "why" and "how" decisions were made, enabling future developers (and AI agents) to understand context without re-deriving it. This is especially important for agentic systems where capabilities compound over time.
 
+### Branching & PR Workflow
+
+All new features and functional changes MUST be developed on a dedicated branch and merged via pull request. Direct commits to `main` or `develop` are prohibited for functional changes.
+
+**Required Workflow**:
+
+1. **Create feature branch**: Branch from `develop` using the naming convention `feat/short-description`, `fix/short-description`, `docs/short-description`, `refactor/short-description`, or `ci/short-description`.
+2. **Develop incrementally**: Follow TDD and incremental commit discipline (see above). Commits on the feature branch are working checkpoints that aid local review, bisect, and rollback.
+3. **Run CI locally**: Run `make ci-local` to execute the same checks that run in GitHub Actions (lint, typecheck, unit tests). The branch MUST pass locally before proceeding.
+4. **Squash commits locally**: Once CI passes, squash all branch commits into a single conventional commit: `git rebase -i develop`. The squash commit message MUST follow the Conventional Commits format.
+5. **Push and open PR**: Push the squashed branch (`git push -u origin HEAD`) and create a pull request via `gh pr create`. The PR description MUST follow the PR template.
+6. **Rebase-merge**: PRs are rebase-merged onto the target branch. Since the branch is already a single commit, this lands one clean commit with linear history.
+
+**Exceptions**: Typo fixes, single-commit doc changes, and CI config tweaks MAY be committed directly to `develop` if they are trivially correct.
+
+**Anti-patterns (Prohibited)**:
+- Pushing directly to `main` or `develop` for functional changes
+- Pushing a branch with unsquashed commits (multiple commits in the PR)
+- Merging without running `make ci-local` first
+- Using squash-merge or merge-commit strategies on the PR (rebase-merge only)
+
+**Rationale**: Feature branches isolate in-progress work and enable code review before integration. Local CI catches issues before they reach the remote pipeline. Squashing locally produces one clean commit per feature, and rebase-merging preserves linear history — making `git log`, `git bisect`, and rollbacks straightforward.
+
 ### Conventional Commits
 
 All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification. Commit messages MUST use the format:
@@ -424,4 +451,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.11.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-07
+**Version**: 1.12.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-09

@@ -42,6 +42,12 @@ from src.graph.nodes.discovery import (
     run_discovery_node,
     sync_automations_node,
 )
+from src.graph.nodes.review import (
+    create_review_proposals_node,
+    fetch_configs_node,
+    gather_context_node,
+    resolve_targets_node,
+)
 
 __all__ = [
     "analysis_error_node",
@@ -56,13 +62,17 @@ __all__ = [
     # Analysis nodes
     "collect_energy_data_node",
     "conversation_error_node",
+    # Review nodes
+    "create_review_proposals_node",
     "developer_deploy_node",
     "developer_rollback_node",
     "error_handler_node",
     "execute_sandbox_node",
     "extract_insights_node",
+    "fetch_configs_node",
     "fetch_entities_node",
     "finalize_discovery_node",
+    "gather_context_node",
     "generate_script_node",
     "infer_areas_node",
     "infer_devices_node",
@@ -71,6 +81,7 @@ __all__ = [
     "persist_entities_node",
     "present_recommendations_node",
     "process_approval_node",
+    "resolve_targets_node",
     "run_discovery_node",
     "sync_automations_node",
 ]

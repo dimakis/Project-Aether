@@ -2,6 +2,11 @@
 
 When implementing any feature in this project, follow these requirements automatically. Do NOT wait for the user to remind you.
 
+## Branch Requirement
+
+Every feature MUST be developed on a dedicated branch (`feat/<name>`), not directly on main/develop.
+Before pushing: run `make ci-local`, squash commits into one (`git rebase -i develop`), then push and open a PR. PRs are rebase-merged.
+
 ## Feature Directory
 
 Every feature MUST have a directory at `specs/001-project-aether/features/<feature-name>/` containing:

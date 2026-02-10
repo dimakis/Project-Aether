@@ -1,0 +1,36 @@
+---
+description: Feature branch workflow for all new features and functional changes.
+alwaysApply: true
+---
+
+# Feature Branch Workflow
+
+All new features and functional work MUST follow this workflow. Do NOT commit directly to main or develop for functional changes.
+
+## Workflow
+
+1. **Branch**: Create feature branch from develop: `git checkout -b feat/<name> develop`
+2. **Develop**: Follow TDD cycle. Commit incrementally on the branch (working checkpoints).
+3. **CI locally**: Run `make ci-local` before proceeding. Fix any failures.
+4. **Squash**: `git rebase -i develop` — squash all commits into one conventional commit.
+5. **Push + PR**: `git push -u origin HEAD` then `gh pr create`.
+6. **Rebase-merge**: PR is rebase-merged for linear history.
+
+## Branch Naming
+
+- `feat/short-description` — new feature
+- `fix/short-description` — bug fix
+- `docs/short-description` — documentation
+- `refactor/short-description` — refactoring
+- `ci/short-description` — CI changes
+
+## Self-Check
+
+Before squashing and pushing, ask:
+- Did `make ci-local` pass? If not, fix first.
+- Have I squashed all commits into one clean conventional commit?
+- Is my PR description clear and follows the template?
+
+## Reference
+
+Full details: `.specify/memory/constitution.md` under "Branching & PR Workflow".

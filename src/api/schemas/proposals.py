@@ -39,6 +39,16 @@ class ProposalCreate(BaseModel):
     )
 
 
+class ReviewNote(BaseModel):
+    """A single review annotation describing a suggested change."""
+
+    change: str = Field(description="What was changed")
+    rationale: str = Field(description="Why the change was suggested")
+    category: str = Field(
+        description="Category: energy, behavioral, efficiency, security, redundancy"
+    )
+
+
 class ProposalResponse(BaseModel):
     """Schema for proposal response."""
 
@@ -66,6 +76,20 @@ class ProposalResponse(BaseModel):
     rejection_reason: str | None = Field(description="Why rejected")
     created_at: datetime = Field(description="Record creation")
     updated_at: datetime = Field(description="Last update")
+
+    # Review fields (Feature 28: Smart Config Review)
+    original_yaml: str | None = Field(
+        default=None, description="Original YAML before review (present = review proposal)"
+    )
+    review_notes: list[dict] | None = Field(
+        default=None, description="Structured change annotations [{change, rationale, category}]"
+    )
+    review_session_id: str | None = Field(
+        default=None, description="UUID grouping proposals from a batch review"
+    )
+    parent_proposal_id: str | None = Field(
+        default=None, description="Parent proposal ID for split reviews"
+    )
 
     model_config = {"from_attributes": True}
 
@@ -188,6 +212,7 @@ __all__ = [
     "ProposalResponse",
     "ProposalYAMLResponse",
     "RejectionRequest",
+    "ReviewNote",
     "RollbackRequest",
     "RollbackResponse",
 ]

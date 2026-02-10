@@ -93,8 +93,19 @@ export interface Proposal {
   updated_at: string;
 }
 
+export interface ReviewNote {
+  change: string;
+  rationale: string;
+  category: string;
+}
+
 export interface ProposalWithYAML extends Proposal {
   yaml_content?: string;
+  // Review fields (Feature 28)
+  original_yaml?: string;
+  review_notes?: ReviewNote[];
+  review_session_id?: string;
+  parent_proposal_id?: string;
 }
 
 export interface ProposalList {
