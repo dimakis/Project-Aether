@@ -128,55 +128,20 @@ class AutomationDeployer:
     def validate_automation_yaml(self, yaml_content: str) -> tuple[bool, list[str]]:
         """Validate automation YAML structure.
 
+        Uses the schema validator (Feature 26) for structural validation
+        of required keys, types, trigger/action structure, and mode enum.
+
         Args:
             yaml_content: YAML string to validate
 
         Returns:
             Tuple of (is_valid, list of errors)
         """
-        errors: list[str] = []
+        from src.schema import validate_yaml
 
-        try:
-            data = yaml.safe_load(yaml_content)
-        except yaml.YAMLError as e:
-            return False, [f"Invalid YAML: {e}"]
-
-        if not isinstance(data, dict):
-            return False, ["Automation must be a dictionary"]
-
-        # Required fields
-        if "trigger" not in data:
-            errors.append("Missing required field: trigger")
-        if "action" not in data:
-            errors.append("Missing required field: action")
-
-        # Validate trigger structure
-        if "trigger" in data:
-            triggers = data["trigger"]
-            if not isinstance(triggers, list):
-                triggers = [triggers]
-            for i, t in enumerate(triggers):
-                if not isinstance(t, dict):
-                    errors.append(f"Trigger {i} must be a dictionary")
-                elif "platform" not in t and "trigger" not in t:
-                    # HA 2024.1+ allows either "platform" or "trigger" key
-                    errors.append(f"Trigger {i} missing 'platform' or 'trigger' key")
-
-        # Validate action structure
-        if "action" in data:
-            actions = data["action"]
-            if not isinstance(actions, list):
-                actions = [actions]
-            for i, a in enumerate(actions):
-                if not isinstance(a, dict):
-                    errors.append(f"Action {i} must be a dictionary")
-
-        # Validate mode
-        valid_modes = {"single", "restart", "queued", "parallel"}
-        if "mode" in data and data["mode"] not in valid_modes:
-            errors.append(f"Invalid mode: {data['mode']}. Must be one of {valid_modes}")
-
-        return len(errors) == 0, errors
+        result = validate_yaml(yaml_content, "ha.automation")
+        errors = [f"{e.path}: {e.message}" if e.path else e.message for e in result.errors]
+        return result.valid, errors
 
     async def deploy_automation(
         self,

@@ -69,15 +69,12 @@ def parse_config_errors(raw_result: dict[str, Any]) -> ConfigCheckResult:
     )
 
 
-_REQUIRED_AUTOMATION_KEYS = {"alias", "trigger", "action"}
-
-
 def validate_automation_yaml(yaml_str: str) -> list[str]:
     """Validate automation YAML locally before deploying.
 
-    Checks for required keys (alias, trigger, action) and valid
-    YAML syntax. Does NOT validate trigger/action schemas -- that's
-    HA's job at deploy time.
+    Uses the schema validator (Feature 26) for structural validation
+    of required keys, types, and enum values. Falls back to basic
+    YAML syntax checking if the schema module is unavailable.
 
     Args:
         yaml_str: YAML string representing an automation config
@@ -85,23 +82,7 @@ def validate_automation_yaml(yaml_str: str) -> list[str]:
     Returns:
         List of error strings. Empty list means valid.
     """
-    import yaml as yaml_lib
+    from src.schema import validate_yaml
 
-    errors: list[str] = []
-
-    # Parse YAML
-    try:
-        data = yaml_lib.safe_load(yaml_str)
-    except yaml_lib.YAMLError as e:
-        return [f"Invalid YAML syntax: {e}"]
-
-    # Must be a dict
-    if not isinstance(data, dict):
-        return ["Automation config must be a YAML mapping (dict), not a list or scalar"]
-
-    # Check required keys
-    for key in _REQUIRED_AUTOMATION_KEYS:
-        if key not in data:
-            errors.append(f"Missing required key: '{key}'")
-
-    return errors
+    result = validate_yaml(yaml_str, "ha.automation")
+    return [f"{e.path}: {e.message}" if e.path else e.message for e in result.errors]

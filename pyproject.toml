@@ -54,6 +54,8 @@ dependencies = [
     "webauthn>=2.7.0,<3.0.0",
     "cryptography>=46.0.4,<48.0.0",
     "google-auth>=2.28.0,<3.0.0",
+    # YAML schema validation (Feature 26: YAML Schema Compiler/Validator)
+    "jsonschema>=4.20.0,<5.0.0",
 ]
 
 [project.scripts]
