@@ -1,73 +1,73 @@
-# React + TypeScript + Vite
+# Aether UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React frontend for Project Aether — the conversational interface for your smart home.
 
-Currently, two official plugins are available:
+## Pages
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+| Page | Path | Description |
+|------|------|-------------|
+| **Dashboard** | `/` | System overview — entity counts, pending proposals, recent insights |
+| **Chat** | `/chat` | Conversational interface with streaming, model selection, agent activity panel |
+| **Proposals** | `/proposals` | View, approve, deploy, or rollback automation proposals |
+| **Insights** | `/insights` | Browse analysis results — energy, behavioral, diagnostic |
+| **Entities** | `/entities` | Browse and search discovered HA entities |
+| **Registry** | `/registry` | HA registry — automations, scripts, scenes, services |
+| **Agents** | `/agents` | Agent configuration — model, temperature, prompt versioning |
+| **Schedules** | `/schedules` | Manage cron schedules and webhook triggers |
+| **LLM Usage** | `/usage` | Token tracking, cost by model, daily trends |
+| **Diagnostics** | `/diagnostics` | HA health, error log, integration status, recent traces |
+| **Login** | `/login` | Passkey (Face ID / Touch ID), HA token, or password login |
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19** with TypeScript
+- **Vite** for build and HMR
+- **TanStack Query** (React Query) for server state
+- **Tailwind CSS** + **shadcn/ui** components
+- **D3** for force-directed agent topology visualization
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+```bash
+# From the project root (recommended)
+make ui-dev          # Start dev server with HMR
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Or directly
+cd ui
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server proxies `/api` requests to `http://localhost:8000` (the Aether API).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Build
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# From the project root
+make ui-build
+
+# Or directly
+cd ui
+npm run build        # Output to ui/dist/
 ```
+
+## Running with the API
+
+```bash
+# Start everything (infrastructure + API + UI)
+make run-ui
+
+# Or start separately:
+make run             # Infrastructure + API
+make ui-dev          # UI dev server (separate terminal)
+```
+
+## Configuration
+
+The Vite dev server is configured in `vite.config.ts`:
+
+- **Port**: 3000
+- **API proxy**: `/api` -> `http://localhost:8000`
+- **WebSocket proxy**: `/api/v1/conversations/*/stream` -> `ws://localhost:8000`
+
+No additional environment variables are required for development. The UI reads all configuration from the API.
