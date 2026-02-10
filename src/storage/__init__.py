@@ -3,8 +3,10 @@
 Provides async SQLAlchemy engine, session factory, and connection utilities.
 Uses asyncpg for PostgreSQL async support (Constitution: State).
 
-Thread-safety: All singleton access is protected by threading.Lock to prevent
-race conditions during concurrent initialization (T186).
+Thread-safety: All singleton access is protected by threading.RLock to prevent
+race conditions during concurrent initialization (T186).  RLock (reentrant)
+is required because get_session_factory() calls get_engine() while holding
+the lock.
 """
 
 import threading
@@ -28,7 +30,7 @@ if TYPE_CHECKING:
 # Module-level engine and session factory (initialized lazily)
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
-_init_lock = threading.Lock()
+_init_lock = threading.RLock()
 
 
 def get_engine(settings: Settings | None = None) -> AsyncEngine:
