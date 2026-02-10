@@ -38,15 +38,20 @@ make run-ui
 make test          # All tests
 make test-unit     # Unit tests only
 make test-int      # Integration tests (requires services)
+make test-e2e      # End-to-end tests
 make test-cov      # Tests with coverage report
 ```
+
+**Test isolation**: Unit tests must never open real DB connections, network calls, or filesystem I/O. If a test uses `create_app()`, override all DB dependencies with mocks. An autouse DB guard in `tests/unit/conftest.py` catches accidental real connections.
 
 ### Code Quality
 
 ```bash
 make lint          # Run ruff linter
 make format        # Format code
-make check         # Run all quality checks (lint + typecheck)
+make typecheck     # Run mypy type checking
+make check         # All quality checks (lint + format-check + typecheck)
+make ci-local      # Full CI locally (lint + typecheck + unit tests) — must pass before pushing
 ```
 
 ## Development Workflow
@@ -102,22 +107,25 @@ test(dal): add repository edge case tests
 
 ```
 src/
-  agents/       # LangGraph agent definitions
-  api/          # FastAPI routes, middleware, schemas
+  agents/       # AI agents (Architect, DS Team, Librarian, Developer, Dashboard Designer)
+  api/          # FastAPI routes (21 modules), middleware, schemas, auth
+  cli/          # Typer CLI application and subcommands
   dal/          # Data access layer (repositories)
-  graph/        # LangGraph workflows and state
-  mcp/          # Home Assistant MCP client
+  diagnostics/  # HA diagnostic modules (log parser, entity health, error patterns)
+  graph/        # LangGraph workflows, state types, and domain-specific nodes
+  ha/           # Home Assistant integration (client, automations, history, parsers)
+  schema/       # YAML schema validation (HA automation, script, scene, dashboard)
   sandbox/      # gVisor script execution sandbox
   scheduler/    # APScheduler cron job service
-  storage/      # SQLAlchemy ORM models
-  tools/        # LangChain tool definitions
-  tracing/      # MLflow observability
+  storage/      # SQLAlchemy ORM models (19 entity models)
+  tools/        # Agent tool definitions (HA, diagnostic, review, dashboard, approval)
+  tracing/      # MLflow observability and custom scorers
 tests/
-  unit/         # Fast, isolated unit tests
-  integration/  # Tests requiring services (DB, etc.)
+  unit/         # Fast, isolated unit tests (mocked dependencies)
+  integration/  # Tests requiring services (DB via testcontainers)
   e2e/          # End-to-end tests
-ui/             # React frontend (Vite + TypeScript)
-infrastructure/ # Container and deployment configs
+ui/             # React frontend (Vite + TypeScript + TanStack Query + Tailwind)
+infrastructure/ # Container and deployment configs (Podman, gVisor, Postgres)
 ```
 
 ## Security
