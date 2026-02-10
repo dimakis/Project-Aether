@@ -224,6 +224,7 @@ module = [
     # Graph layer
     "src.graph",
     "src.graph.workflows",
+    "src.graph.workflows.*",
     # HA client
     "src.ha.automation_deploy",
     "src.ha.automations",
