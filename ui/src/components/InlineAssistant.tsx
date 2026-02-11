@@ -190,7 +190,12 @@ export function InlineAssistant({
             run_custom_analysis: [["insights"], ["insightsSummary"]],
             analyze_energy: [["insights"], ["insightsSummary"]],
             diagnose_issue: [["insights"], ["insightsSummary"]],
-            seek_approval: [["proposals"]],
+            seek_approval: [
+              ["proposals"],
+              ["registry", "automations"],
+              ["registryScripts"],
+              ["registryScenes"],
+            ],
           };
           for (const toolName of toolCallsUsed) {
             const keys = TOOL_INVALIDATION_MAP[toolName];
