@@ -157,6 +157,7 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with resolved config (simulates DB-resolved URL)
         mock_ha_config = MagicMock()
@@ -224,6 +225,7 @@ class TestSystemStatus:
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with resolved config
         mock_ha_config = MagicMock()
@@ -279,6 +281,7 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with resolved config
         mock_ha_config = MagicMock()
@@ -335,6 +338,7 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with empty URL (not configured)
         mock_ha_config = MagicMock()
@@ -377,6 +381,7 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with resolved config
         mock_ha_config = MagicMock()
@@ -432,6 +437,7 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with resolved config
         mock_ha_config = MagicMock()
@@ -487,6 +493,7 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with resolved config
         mock_ha_config = MagicMock()
@@ -542,6 +549,7 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+        mock_settings.public_url = None
 
         # Mock HA client with empty URL (not configured)
         mock_ha_config = MagicMock()

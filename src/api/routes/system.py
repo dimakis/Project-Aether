@@ -155,6 +155,7 @@ async def system_status() -> SystemStatus:
         environment=settings.environment,
         components=components,
         uptime_seconds=time.time() - _start_time,
+        public_url=settings.public_url,
     )
 
 

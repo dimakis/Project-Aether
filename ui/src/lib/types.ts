@@ -504,4 +504,5 @@ export interface SystemStatus {
   environment: string;
   components: SystemComponent[];
   uptime_seconds?: number;
+  public_url?: string | null;
 }
