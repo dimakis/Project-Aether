@@ -4,9 +4,21 @@ Provides endpoints for accessing Home Assistant registry data
 including automations, scripts, scenes, and the service registry.
 """
 
+import uuid as _uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _is_valid_uuid(value: str) -> bool:
+    """Return True if *value* is a valid UUID string."""
+    try:
+        _uuid.UUID(value)
+        return True
+    except (ValueError, AttributeError):
+        return False
+
 
 from src.api.rate_limit import limiter
 from src.api.schemas import (
@@ -134,8 +146,8 @@ async def get_automation(
     """
     repo = AutomationRepository(session)
 
-    # Try internal ID first
-    automation = await repo.get_by_id(automation_id)
+    # Try internal UUID first (only if value looks like a UUID)
+    automation = await repo.get_by_id(automation_id) if _is_valid_uuid(automation_id) else None
 
     # Try HA automation ID
     if not automation:
@@ -171,7 +183,7 @@ async def get_automation_config(
 
     # Resolve to HA automation ID
     repo = AutomationRepository(session)
-    automation = await repo.get_by_id(automation_id)
+    automation = await repo.get_by_id(automation_id) if _is_valid_uuid(automation_id) else None
     if not automation:
         automation = await repo.get_by_ha_automation_id(automation_id)
     if not automation:
@@ -293,8 +305,8 @@ async def get_script(
     """
     repo = ScriptRepository(session)
 
-    # Try internal ID first
-    script = await repo.get_by_id(script_id)
+    # Try internal UUID first (only if value looks like a UUID)
+    script = await repo.get_by_id(script_id) if _is_valid_uuid(script_id) else None
 
     # Try entity ID
     if not script:
@@ -358,8 +370,8 @@ async def get_scene(
     """
     repo = SceneRepository(session)
 
-    # Try internal ID first
-    scene = await repo.get_by_id(scene_id)
+    # Try internal UUID first (only if value looks like a UUID)
+    scene = await repo.get_by_id(scene_id) if _is_valid_uuid(scene_id) else None
 
     # Try entity ID
     if not scene:
@@ -433,8 +445,8 @@ async def get_service(
     """
     repo = ServiceRepository(session)
 
-    # Try internal ID first
-    service = await repo.get_by_id(service_id)
+    # Try internal UUID first (only if value looks like a UUID)
+    service = await repo.get_by_id(service_id) if _is_valid_uuid(service_id) else None
 
     # Try full service name
     if not service:
