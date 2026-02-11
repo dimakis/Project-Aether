@@ -257,6 +257,96 @@ class TestSeekApprovalTool:
             mock_repo.propose.assert_called_once_with(mock_proposal.id)
             mock_session.commit.assert_called_once()
 
+    # ── Review proposals: original_yaml passthrough ────────────────────
+
+    async def test_automation_passes_original_yaml_to_repo(
+        self, mock_repo, mock_session, mock_proposal
+    ):
+        """seek_approval forwards original_yaml so the proposal stores the baseline config."""
+        original = "alias: Old\ntrigger:\n  platform: sun\n  event: sunset\n"
+
+        with (
+            patch("src.tools.approval_tools.get_session") as mock_get_session,
+            patch("src.tools.approval_tools.ProposalRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            from src.tools.approval_tools import seek_approval
+
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "automation",
+                    "name": "Improved: Sunset Lights",
+                    "description": "Better sunset automation",
+                    "trigger": {"platform": "sun", "event": "sunset", "offset": "-00:30:00"},
+                    "actions": [{"service": "light.turn_on"}],
+                    "original_yaml": original,
+                }
+            )
+
+            assert "submitted an automation proposal" in result
+            call_kwargs = mock_repo.create.call_args.kwargs
+            assert call_kwargs["original_yaml"] == original
+
+    async def test_script_passes_original_yaml_to_repo(
+        self, mock_repo, mock_session, mock_proposal
+    ):
+        """seek_approval forwards original_yaml for script proposals."""
+        original = "sequence:\n  - service: light.turn_on\n"
+
+        with (
+            patch("src.tools.approval_tools.get_session") as mock_get_session,
+            patch("src.tools.approval_tools.ProposalRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            from src.tools.approval_tools import seek_approval
+
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "script",
+                    "name": "Improved: Movie Mode",
+                    "description": "Better movie mode",
+                    "actions": [
+                        {"service": "light.turn_on", "data": {"brightness": 50}},
+                        {"service": "media_player.turn_on"},
+                    ],
+                    "original_yaml": original,
+                }
+            )
+
+            assert "submitted a script proposal" in result
+            call_kwargs = mock_repo.create.call_args.kwargs
+            assert call_kwargs["original_yaml"] == original
+
+    async def test_omitted_original_yaml_defaults_to_none(
+        self, mock_repo, mock_session, mock_proposal
+    ):
+        """When original_yaml is not passed, repo.create receives None."""
+        with (
+            patch("src.tools.approval_tools.get_session") as mock_get_session,
+            patch("src.tools.approval_tools.ProposalRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            from src.tools.approval_tools import seek_approval
+
+            await seek_approval.ainvoke(
+                {
+                    "action_type": "automation",
+                    "name": "Fresh automation",
+                    "description": "No original",
+                    "trigger": {"platform": "state", "entity_id": "light.test"},
+                    "actions": [{"service": "light.turn_on"}],
+                }
+            )
+
+            call_kwargs = mock_repo.create.call_args.kwargs
+            assert call_kwargs.get("original_yaml") is None
+
     # ── Validation: reject incomplete proposals ──────────────────────────
 
     async def test_automation_rejects_missing_trigger(self):

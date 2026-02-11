@@ -337,8 +337,57 @@ export interface HARegistrySummary {
   scenes_count: number;
   services_count: number;
   services_seeded: number;
+  helpers_count?: number;
   last_synced_at?: string | null;
   mcp_gaps?: string[];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+export type HelperType =
+  | "input_boolean"
+  | "input_number"
+  | "input_text"
+  | "input_select"
+  | "input_datetime"
+  | "input_button"
+  | "counter"
+  | "timer";
+
+export interface Helper {
+  entity_id: string;
+  domain: string;
+  name: string;
+  state: string;
+  attributes: Record<string, unknown>;
+}
+
+export interface HelperList {
+  helpers: Helper[];
+  total: number;
+  by_type: Record<string, number>;
+}
+
+export interface HelperCreateRequest {
+  helper_type: HelperType;
+  input_id: string;
+  name: string;
+  icon?: string;
+  config: Record<string, unknown>;
+}
+
+export interface HelperCreateResponse {
+  success: boolean;
+  entity_id?: string;
+  input_id: string;
+  helper_type: string;
+  error?: string;
+}
+
+export interface HelperDeleteResponse {
+  success: boolean;
+  entity_id: string;
+  error?: string;
 }
 
 // ─── Insight Schedules (Feature 10) ──────────────────────────────────────────
@@ -568,4 +617,20 @@ export interface ModelPerformanceItem {
   total_tokens: number;
   total_cost_usd: number | null;
   avg_cost_per_call: number | null;
+}
+
+// ─── Registry entity context ─────────────────────────────────────────────────
+
+/** Context about a specific entity, passed to InlineAssistant for focused chat. */
+export interface EntityContext {
+  /** Entity ID, e.g. "automation.kitchen_lights" */
+  entityId: string;
+  /** Domain type: automation, script, or scene */
+  entityType: "automation" | "script" | "scene";
+  /** Human-friendly display name */
+  label: string;
+  /** Original YAML config (if available) */
+  configYaml?: string;
+  /** User-edited YAML (if the user modified it) */
+  editedYaml?: string;
 }

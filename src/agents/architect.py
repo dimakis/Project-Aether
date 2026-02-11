@@ -611,6 +611,87 @@ class ArchitectAgent(BaseAgent):
 
         return yaml.dump(automation, default_flow_style=False, sort_keys=False)
 
+    # -----------------------------------------------------------------
+    # Config review synthesis (used by review workflow)
+    # -----------------------------------------------------------------
+
+    async def synthesize_review(
+        self,
+        configs: dict[str, str],
+        ds_findings: list[dict[str, Any]],
+        entity_context: dict[str, Any] | None = None,
+        focus: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Synthesize DS team findings into concrete YAML improvement suggestions.
+
+        Called by the config review workflow after the DS team has analyzed
+        the configs. The Architect combines findings with its understanding
+        of HA best practices to produce actionable YAML suggestions.
+
+        Args:
+            configs: Mapping of entity_id -> original YAML config.
+            ds_findings: Findings from DS team specialists.
+            entity_context: Optional context (areas, entities, etc.).
+            focus: Optional focus area (energy, behavioral, efficiency, security).
+
+        Returns:
+            List of suggestion dicts with entity_id, suggested_yaml, review_notes.
+        """
+        import json
+
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        configs_block = "\n---\n".join(f"# {eid}\n{yaml_str}" for eid, yaml_str in configs.items())
+        findings_block = json.dumps(ds_findings, indent=2, default=str)
+        context_block = json.dumps(entity_context or {}, default=str)[:2000]
+
+        focus_instruction = ""
+        if focus:
+            focus_instruction = (
+                f"\nFocus area: {focus}. Prioritize improvements related to {focus}.\n"
+            )
+
+        system_prompt = (
+            "You are the Architect agent. Synthesize the Data Science team's "
+            "findings into concrete YAML improvement suggestions for Home "
+            "Assistant configurations.\n\n"
+            "For each entity that needs changes, produce a suggestion with:\n"
+            '  "entity_id": the HA entity ID,\n'
+            '  "suggested_yaml": the improved YAML configuration,\n'
+            '  "review_notes": explanation of what changed and why\n\n'
+            "Return ONLY a JSON array of suggestion objects. "
+            "No markdown fencing."
+            f"{focus_instruction}"
+        )
+
+        user_prompt = (
+            f"Original configurations:\n```yaml\n{configs_block}\n```\n\n"
+            f"DS team findings:\n{findings_block}\n\n"
+            f"Entity context:\n{context_block}"
+        )
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+
+        try:
+            response = await self.llm.ainvoke(messages)
+            content = response.content.strip()
+            # Strip markdown fencing if present
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1] if "\n" in content else content
+            if content.endswith("```"):
+                content = content.rsplit("```", 1)[0]
+            suggestions = json.loads(content.strip())
+            if not isinstance(suggestions, list):
+                suggestions = []
+        except (json.JSONDecodeError, Exception):
+            logger.warning("Architect: failed to parse synthesize_review response")
+            suggestions = []
+
+        return suggestions
+
     async def refine_proposal(
         self,
         state: ConversationState,

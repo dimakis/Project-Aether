@@ -52,10 +52,16 @@ vi.mock("../ServiceTab", () => ({
 vi.mock("../OverviewTab", () => ({
   OverviewTab: () => <div data-testid="overview-tab-content">OverviewTab</div>,
 }));
+vi.mock("@/components/InlineAssistant", () => ({
+  InlineAssistant: () => <div data-testid="inline-assistant" />,
+}));
 
 describe("RegistryPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Reset module-level store between tests
+    const { clearRegistryState } = await import("@/lib/registry-store");
+    clearRegistryState();
   });
 
   it("renders overview tab as the default active tab", () => {

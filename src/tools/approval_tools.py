@@ -35,6 +35,7 @@ async def seek_approval(
     actions: dict | list | None = None,
     conditions: dict | list | None = None,
     mode: str = "single",
+    original_yaml: str | None = None,
 ) -> str:
     """Submit an action for user approval before execution.
 
@@ -65,6 +66,9 @@ async def seek_approval(
             delays, conditions, etc.). Do NOT omit this.
         conditions: Condition config for automation type (optional)
         mode: Execution mode for automation/script (default: "single")
+        original_yaml: The original YAML config being improved (enables diff view
+            in the Proposals page). Pass the current entity config when proposing
+            improvements to existing automations, scripts, or scenes.
 
     Returns:
         Confirmation message with the proposal details
@@ -84,6 +88,7 @@ async def seek_approval(
             service_domain=service_domain,
             service_action=service_action,
             service_data=service_data,
+            original_yaml=original_yaml,
         )
     elif action_type == "automation":
         return await _create_automation_proposal(
@@ -94,6 +99,7 @@ async def seek_approval(
             actions=actions,
             conditions=conditions,
             mode=mode,
+            original_yaml=original_yaml,
         )
     elif action_type == "script":
         return await _create_script_proposal(
@@ -101,12 +107,14 @@ async def seek_approval(
             description=description,
             actions=actions,
             mode=mode,
+            original_yaml=original_yaml,
         )
     elif action_type == "scene":
         return await _create_scene_proposal(
             name=name,
             description=description,
             actions=actions,
+            original_yaml=original_yaml,
         )
 
     return f"Unknown action type: {action_type}"
@@ -119,6 +127,7 @@ async def _create_entity_command_proposal(
     service_domain: str | None,
     service_action: str | None,
     service_data: dict | None,
+    original_yaml: str | None = None,
 ) -> str:
     """Create an entity command proposal."""
     if not entity_id:
@@ -148,6 +157,7 @@ async def _create_entity_command_proposal(
                 actions={},
                 proposal_type="entity_command",
                 service_call=service_call,
+                original_yaml=original_yaml,
             )
             await repo.propose(proposal.id)
             await session.commit()
@@ -173,6 +183,7 @@ async def _create_automation_proposal(
     actions: dict | list | None,
     conditions: dict | list | None,
     mode: str,
+    original_yaml: str | None = None,
 ) -> str:
     """Create an automation proposal."""
     # If yaml_content provided, try to parse it
@@ -216,6 +227,7 @@ async def _create_automation_proposal(
                 conditions=conditions,  # type: ignore[arg-type]
                 mode=mode,
                 proposal_type="automation",
+                original_yaml=original_yaml,
             )
             await repo.propose(proposal.id)
             await session.commit()
@@ -238,6 +250,7 @@ async def _create_script_proposal(
     description: str,
     actions: dict | list | None,
     mode: str,
+    original_yaml: str | None = None,
 ) -> str:
     """Create a script proposal."""
     # Validate required fields — reject early so the LLM retries with full data
@@ -257,6 +270,7 @@ async def _create_script_proposal(
                 actions=actions if isinstance(actions, dict) else {"sequence": actions or []},
                 mode=mode,
                 proposal_type="script",
+                original_yaml=original_yaml,
             )
             await repo.propose(proposal.id)
             await session.commit()
@@ -278,6 +292,7 @@ async def _create_scene_proposal(
     name: str,
     description: str,
     actions: dict | list | None,
+    original_yaml: str | None = None,
 ) -> str:
     """Create a scene proposal."""
     try:
@@ -289,6 +304,7 @@ async def _create_scene_proposal(
                 trigger={},
                 actions=actions or {},  # type: ignore[arg-type]
                 proposal_type="scene",
+                original_yaml=original_yaml,
             )
             await repo.propose(proposal.id)
             await session.commit()

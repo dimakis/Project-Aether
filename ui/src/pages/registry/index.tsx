@@ -1,10 +1,23 @@
-import { useState } from "react";
+import { useCallback } from "react";
 import { BookOpen, Zap, FileText, Clapperboard, Wrench, Activity, Search, X, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { queryKeys } from "@/api/hooks/queryKeys";
+import type { EntityContext } from "@/lib/types";
+import {
+  useRegistryState,
+  setActiveTab as storeSetActiveTab,
+  setSearchQuery as storeSetSearchQuery,
+  setEntityContext as storeSetEntityContext,
+  setTriggerMessage as storeSetTriggerMessage,
+  setMessages as storeSetMessages,
+  updateMessages as storeUpdateMessages,
+  setDelegationMsgs as storeSetDelegationMsgs,
+  type InlineMessage,
+} from "@/lib/registry-store";
+import type { EntityAction } from "./EntityActionMenu";
 import {
   useRegistryAutomations,
   useRegistrySummary,
@@ -29,11 +42,53 @@ const TABS = [
   { key: "services", label: "Services", icon: Wrench },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
-
 export function RegistryPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
-  const [searchQuery, setSearchQuery] = useState("");
+  const {
+    activeTab,
+    searchQuery,
+    entityContext,
+    triggerMessage,
+    messages,
+    delegationMsgs,
+  } = useRegistryState();
+
+  /** Called by tab components when a user picks an action from EntityActionMenu or submits an edit. */
+  const handleEntityAction = useCallback(
+    (
+      entityId: string,
+      entityType: "automation" | "script" | "scene",
+      label: string,
+      configYaml: string | undefined,
+      action: EntityAction,
+      editedYaml?: string,
+    ) => {
+      const ctx: EntityContext = { entityId, entityType, label, configYaml, editedYaml };
+      storeSetEntityContext(ctx);
+
+      switch (action) {
+        case "improve":
+          storeSetTriggerMessage(
+            `Review ${entityId} ("${label}") and suggest improvements. Use seek_approval to propose changes.`,
+          );
+          break;
+        case "deep_review":
+          storeSetTriggerMessage(
+            `Run a deep review of ${entityId} ("${label}") with the full DS team covering energy, behavioral, and efficiency analysis.`,
+          );
+          break;
+        case "edit_yaml":
+          storeSetTriggerMessage(
+            `I've manually edited the YAML config for ${entityId} ("${label}"). Please review my changes, explain what I modified, and submit as a proposal via seek_approval.`,
+          );
+          break;
+        case "chat":
+          // Just set context, don't auto-send
+          storeSetTriggerMessage(null);
+          break;
+      }
+    },
+    [],
+  );
 
   const { data: summary, isLoading: summaryLoading } = useRegistrySummary({
     enabled: activeTab === "overview",
@@ -97,6 +152,20 @@ export function RegistryPage() {
             queryKeys.proposals.all,
           ]}
           placeholder="Ask Architect to optimize, edit, or create automations..."
+          entityContext={entityContext}
+          onClearEntityContext={() => storeSetEntityContext(null)}
+          triggerMessage={triggerMessage}
+          onTriggerConsumed={() => storeSetTriggerMessage(null)}
+          externalMessages={messages}
+          onMessagesChange={(action: InlineMessage[] | ((prev: InlineMessage[]) => InlineMessage[])) => {
+            if (typeof action === "function") {
+              storeUpdateMessages(action);
+            } else {
+              storeSetMessages(action);
+            }
+          }}
+          externalDelegationMsgs={delegationMsgs}
+          onDelegationMsgsChange={storeSetDelegationMsgs}
         />
       </div>
 
@@ -110,8 +179,8 @@ export function RegistryPage() {
               role="tab"
               aria-selected={activeTab === tab.key}
               onClick={() => {
-                setActiveTab(tab.key);
-                setSearchQuery("");
+                storeSetActiveTab(tab.key);
+                storeSetSearchQuery("");
               }}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
@@ -141,13 +210,13 @@ export function RegistryPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => storeSetSearchQuery(e.target.value)}
             placeholder={`Search ${activeTab}...`}
             className="pl-9"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery("")}
+              onClick={() => storeSetSearchQuery("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
@@ -166,6 +235,7 @@ export function RegistryPage() {
           disabledCount={automations?.disabled_count}
           onSync={() => syncMut.mutate()}
           isSyncing={syncMut.isPending}
+          onEntityAction={handleEntityAction}
         />
       )}
       {activeTab === "scripts" && (
@@ -176,6 +246,7 @@ export function RegistryPage() {
           runningCount={scripts?.running_count}
           onSync={() => syncMut.mutate()}
           isSyncing={syncMut.isPending}
+          onEntityAction={handleEntityAction}
         />
       )}
       {activeTab === "scenes" && (
@@ -185,6 +256,7 @@ export function RegistryPage() {
           searchQuery={searchQuery}
           onSync={() => syncMut.mutate()}
           isSyncing={syncMut.isPending}
+          onEntityAction={handleEntityAction}
         />
       )}
       {activeTab === "services" && (

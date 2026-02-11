@@ -19,16 +19,16 @@ import {
   Bot,
   User,
   X,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { streamChat } from "@/api/client";
 import { queryKeys } from "@/api/hooks/queryKeys";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, EntityContext } from "@/lib/types";
 import { handleTraceEvent } from "@/lib/trace-event-handler";
 import type { TraceEventChunk } from "@/lib/trace-event-handler";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +36,13 @@ interface InlineMessage {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+}
+
+interface DelegationMsg {
+  from: string;
+  to: string;
+  content: string;
+  ts: number;
 }
 
 export interface InlineAssistantProps {
@@ -51,6 +58,24 @@ export interface InlineAssistantProps {
   defaultCollapsed?: boolean;
   /** Model to use (defaults to gpt-4o-mini) */
   model?: string;
+  /** Entity context injected alongside the system message */
+  entityContext?: EntityContext | null;
+  /** Callback to clear the entity context */
+  onClearEntityContext?: () => void;
+  /** Auto-send this message when set (one-shot, clears previous chat) */
+  triggerMessage?: string | null;
+  /** Called after triggerMessage has been consumed */
+  onTriggerConsumed?: () => void;
+  /** External messages state (store-driven) — when provided, internal useState is bypassed */
+  externalMessages?: InlineMessage[];
+  /** External setter for messages — supports both direct value and functional updater */
+  onMessagesChange?: (
+    action: InlineMessage[] | ((prev: InlineMessage[]) => InlineMessage[]),
+  ) => void;
+  /** External delegation messages (store-driven) */
+  externalDelegationMsgs?: DelegationMsg[];
+  /** External setter for delegation messages */
+  onDelegationMsgsChange?: (msgs: DelegationMsg[]) => void;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -82,14 +107,30 @@ export function InlineAssistant({
   placeholder = "Ask Architect...",
   defaultCollapsed = true,
   model = "gpt-4o-mini",
+  entityContext = null,
+  onClearEntityContext,
+  triggerMessage = null,
+  onTriggerConsumed,
+  externalMessages,
+  onMessagesChange,
+  externalDelegationMsgs,
+  onDelegationMsgsChange,
 }: InlineAssistantProps) {
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const [messages, setMessages] = useState<InlineMessage[]>([]);
+  const [internalMessages, setInternalMessages] = useState<InlineMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
+  const [internalDelegationMsgs, setInternalDelegationMsgs] = useState<DelegationMsg[]>([]);
+
+  // Use external state when provided, otherwise fall back to internal
+  const messages = externalMessages ?? internalMessages;
+  const setMessages = onMessagesChange ?? setInternalMessages;
+  const delegationMsgs = externalDelegationMsgs ?? internalDelegationMsgs;
+  const setDelegationMsgs = onDelegationMsgsChange ?? setInternalDelegationMsgs;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Refs for values read inside sendMessage so the callback stays stable
@@ -102,9 +143,22 @@ export function InlineAssistant({
   // Memoize invalidateKeys identity to avoid unnecessary callback recreation
   const stableInvalidateKeys = useMemo(() => invalidateKeys, [invalidateKeys]);
 
-  // Auto-scroll to bottom
+  // Smart auto-scroll: only scroll if user is near the bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isNearBottom = distanceFromBottom < 80;
+
+    if (isNearBottom) {
+      // During streaming use instant scroll to avoid jitter;
+      // for new user messages use smooth scroll.
+      const lastMsg = messages[messages.length - 1];
+      const behavior = lastMsg?.isStreaming ? "instant" : "smooth";
+      messagesEndRef.current?.scrollIntoView({ behavior: behavior as ScrollBehavior });
+    }
   }, [messages]);
 
   // Focus input when expanded
@@ -123,6 +177,46 @@ export function InlineAssistant({
     }
   }, [input]);
 
+  // Build effective system context with entity info
+  const effectiveSystemContext = useMemo(() => {
+    if (!entityContext) return systemContext;
+
+    let ctx = `${systemContext}\n\n--- ENTITY CONTEXT ---\nThe user is viewing: ${entityContext.entityId} ("${entityContext.label}")\nType: ${entityContext.entityType}`;
+
+    if (entityContext.configYaml) {
+      ctx += `\n\nCurrent configuration:\n\`\`\`yaml\n${entityContext.configYaml}\n\`\`\``;
+    }
+    if (entityContext.editedYaml) {
+      ctx += `\n\nUser's edited YAML:\n\`\`\`yaml\n${entityContext.editedYaml}\n\`\`\``;
+    }
+
+    return ctx;
+  }, [systemContext, entityContext]);
+
+  // Handle triggerMessage: auto-expand, clear chat, auto-send
+  const triggerMessageRef = useRef(triggerMessage);
+  useEffect(() => {
+    // Only fire when triggerMessage transitions from null/undefined to a string
+    if (
+      triggerMessage &&
+      triggerMessage !== triggerMessageRef.current &&
+      !isStreaming
+    ) {
+      triggerMessageRef.current = triggerMessage;
+      setCollapsed(false);
+      setMessages([]);
+      setDelegationMsgs([]);
+      // Defer send to next tick so state updates settle
+      setTimeout(() => {
+        sendMessageFn(triggerMessage);
+        onTriggerConsumed?.();
+      }, 50);
+    } else if (!triggerMessage) {
+      triggerMessageRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerMessage]);
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isStreamingRef.current) return;
@@ -138,9 +232,9 @@ export function InlineAssistant({
       setInput("");
       setIsStreaming(true);
 
-      // Build full message history from ref (avoids stale closure)
+      // Build full message history from ref (avoids stale closure) with system + entity context
       const chatHistory: ChatMessage[] = [
-        { role: "system", content: systemContext },
+        { role: "system", content: effectiveSystemContext },
         ...messagesRef.current.map((m) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
@@ -180,6 +274,17 @@ export function InlineAssistant({
                   completedAt: null,
                 },
               );
+              continue;
+            }
+            if (chunk.type === "delegation") {
+              // Capture inter-agent delegation messages
+              const msg: DelegationMsg = {
+                from: (chunk as Record<string, unknown>).from as string,
+                to: (chunk as Record<string, unknown>).to as string,
+                content: (chunk as Record<string, unknown>).content as string,
+                ts: ((chunk as Record<string, unknown>).ts as number) ?? Date.now() / 1000,
+              };
+              setDelegationMsgs((prev) => [...prev, msg]);
               continue;
             }
           }
@@ -239,7 +344,13 @@ export function InlineAssistant({
         inputRef.current?.focus();
       }
     },
-    [systemContext, model, stableInvalidateKeys, queryClient],
+    [effectiveSystemContext, model, stableInvalidateKeys, queryClient],
+  );
+
+  // Stable ref for sendMessage so triggerMessage effect doesn't depend on the callback
+  const sendMessageFn = useCallback(
+    (msg: string) => sendMessage(msg),
+    [sendMessage],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -251,6 +362,7 @@ export function InlineAssistant({
 
   const clearChat = () => {
     setMessages([]);
+    setDelegationMsgs([]);
     setInput("");
   };
 
@@ -291,7 +403,7 @@ export function InlineAssistant({
           >
             <div className="border-t border-border">
               {/* Messages area */}
-              <div className="max-h-80 overflow-y-auto px-4 py-3">
+              <div ref={scrollContainerRef} className="max-h-80 overflow-y-auto px-4 py-3">
                 {messages.length === 0 ? (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">
@@ -336,9 +448,10 @@ export function InlineAssistant({
                         >
                           {msg.role === "assistant" ? (
                             <div className="prose prose-xs prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {msg.content || (msg.isStreaming ? "..." : "")}
-                              </ReactMarkdown>
+                              <MarkdownRenderer
+                                content={msg.content || (msg.isStreaming ? "..." : "")}
+                                originalYaml={entityContext?.configYaml}
+                              />
                               {msg.isStreaming && (
                                 <span className="ml-1 inline-flex items-center gap-1">
                                   <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary/60" />
@@ -365,10 +478,53 @@ export function InlineAssistant({
                         )}
                       </div>
                     ))}
+
+                    {/* Delegation activity feed */}
+                    {delegationMsgs.length > 0 && (
+                      <div className="mt-2 space-y-1 rounded-lg border border-border/50 bg-muted/30 p-2">
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                          Agent Activity
+                        </p>
+                        {delegationMsgs.map((d, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                          >
+                            <span className="font-medium text-foreground/70">
+                              {d.from}
+                            </span>
+                            <ArrowRight className="h-2.5 w-2.5 text-muted-foreground/40" />
+                            <span className="font-medium text-foreground/70">
+                              {d.to}
+                            </span>
+                            <span className="ml-1 truncate">{d.content}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div ref={messagesEndRef} />
                   </div>
                 )}
               </div>
+
+              {/* Entity context badge */}
+              {entityContext && (
+                <div className="flex items-center gap-2 border-t border-border px-4 py-1.5">
+                  <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-medium text-primary">
+                    Focused: {entityContext.entityId}
+                  </span>
+                  {onClearEntityContext && (
+                    <button
+                      onClick={onClearEntityContext}
+                      className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      title="Clear focus"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Input area */}
               <div className="border-t border-border px-4 py-2">

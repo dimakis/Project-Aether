@@ -12,15 +12,12 @@ vi.mock("@/components/ui/code-block", () => ({
   }: {
     code: string;
     language: string;
-    action?: { label: string; icon?: React.ReactNode; onClick: (code: string) => void };
+    action?: { label: string; icon?: React.ReactNode; onClick: (c: string) => void };
   }) => (
     <div data-testid="code-block" data-language={language}>
       {code}
       {action && (
-        <button onClick={() => action.onClick(code)}>
-          {action.icon}
-          {action.label}
-        </button>
+        <button onClick={() => action.onClick(code)}>{action.label}</button>
       )}
     </div>
   ),
@@ -195,5 +192,65 @@ describe("MarkdownRenderer", () => {
     render(<MarkdownRenderer content="This is **bold** text" />);
     const bold = screen.getByText("bold");
     expect(bold.tagName).toBe("STRONG");
+  });
+
+  // ── Diff rendering ────────────────────────────────────────────────────
+
+  it("renders YAML diff when originalYaml is provided", () => {
+    const original = "alias: Old\ntrigger:\n  platform: sun\n";
+    const content = [
+      "Here is the improved config:",
+      "",
+      "```yaml",
+      "alias: New",
+      "trigger:",
+      "  platform: sun",
+      "  offset: '-00:30:00'",
+      "```",
+    ].join("\n");
+
+    render(
+      <MarkdownRenderer content={content} originalYaml={original} />,
+    );
+
+    // The mock diff viewer is rendered by the test setup
+    const diffViewer = screen.getByTestId("mock-diff-viewer");
+    expect(diffViewer).toBeInTheDocument();
+    expect(diffViewer).toHaveAttribute("data-old-value", original);
+  });
+
+  it("does not render diff for non-YAML code when originalYaml provided", () => {
+    const content = [
+      "Here is some JS:",
+      "",
+      "```javascript",
+      "const x = 1;",
+      "```",
+    ].join("\n");
+
+    render(
+      <MarkdownRenderer content={content} originalYaml="alias: Test\n" />,
+    );
+
+    // Should render a normal code block, not a diff
+    expect(screen.queryByTestId("mock-diff-viewer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("code-block")).toBeInTheDocument();
+  });
+
+  it("renders normal YAML code block when originalYaml is not provided", () => {
+    const content = [
+      "Here is some YAML:",
+      "",
+      "```yaml",
+      "alias: Test",
+      "key: value",
+      "```",
+    ].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    // No diff viewer, just a code block
+    expect(screen.queryByTestId("mock-diff-viewer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("code-block")).toBeInTheDocument();
   });
 });
