@@ -166,9 +166,7 @@ class TestSystemStatus:
         mock_ha_config.ha_token = "resolved-token"
         mock_ha_client = MagicMock()
         mock_ha_client.config = mock_ha_config
-        mock_ha_client._build_urls_to_try = MagicMock(
-            return_value=["http://remote-ha:8123"]
-        )
+        mock_ha_client._build_urls_to_try = MagicMock(return_value=["http://remote-ha:8123"])
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -233,9 +231,7 @@ class TestSystemStatus:
         mock_ha_config.ha_token = "test-token"
         mock_ha_client = MagicMock()
         mock_ha_client.config = mock_ha_config
-        mock_ha_client._build_urls_to_try = MagicMock(
-            return_value=["http://localhost:8123"]
-        )
+        mock_ha_client._build_urls_to_try = MagicMock(return_value=["http://localhost:8123"])
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -289,9 +285,7 @@ class TestSystemStatus:
         mock_ha_config.ha_token = "test-token"
         mock_ha_client = MagicMock()
         mock_ha_client.config = mock_ha_config
-        mock_ha_client._build_urls_to_try = MagicMock(
-            return_value=["http://localhost:8123"]
-        )
+        mock_ha_client._build_urls_to_try = MagicMock(return_value=["http://localhost:8123"])
 
         mock_mlflow_client_instance = MagicMock()
         mock_mlflow_client_instance.search_experiments = MagicMock(
@@ -389,9 +383,7 @@ class TestSystemStatus:
         mock_ha_config.ha_token = "test-token"
         mock_ha_client = MagicMock()
         mock_ha_client.config = mock_ha_config
-        mock_ha_client._build_urls_to_try = MagicMock(
-            return_value=["http://localhost:8123"]
-        )
+        mock_ha_client._build_urls_to_try = MagicMock(return_value=["http://localhost:8123"])
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -445,9 +437,7 @@ class TestSystemStatus:
         mock_ha_config.ha_token = "invalid-token"
         mock_ha_client = MagicMock()
         mock_ha_client.config = mock_ha_config
-        mock_ha_client._build_urls_to_try = MagicMock(
-            return_value=["http://localhost:8123"]
-        )
+        mock_ha_client._build_urls_to_try = MagicMock(return_value=["http://localhost:8123"])
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -501,9 +491,7 @@ class TestSystemStatus:
         mock_ha_config.ha_token = "test-token"
         mock_ha_client = MagicMock()
         mock_ha_client.config = mock_ha_config
-        mock_ha_client._build_urls_to_try = MagicMock(
-            return_value=["http://localhost:8123"]
-        )
+        mock_ha_client._build_urls_to_try = MagicMock(return_value=["http://localhost:8123"])
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
