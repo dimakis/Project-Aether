@@ -288,7 +288,7 @@ export function ChatPage() {
     try {
       let traceId: string | undefined;
 
-      for await (const chunk of streamChat(selectedModel, chatHistory)) {
+      for await (const chunk of streamChat(selectedModel, chatHistory, activeSessionId ?? undefined)) {
         if (typeof chunk === "object" && "type" in chunk) {
           if (chunk.type === "metadata") {
             if (chunk.trace_id) {

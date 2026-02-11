@@ -180,7 +180,7 @@ async def run_conversation_workflow(
     """
     from langchain_core.messages import HumanMessage
 
-    from src.tracing.context import session_context
+    from src.tracing.context import get_session_id, session_context
 
     # Compile graph
     compiled = compile_conversation_graph(session=session, thread_id=thread_id)
@@ -195,10 +195,13 @@ async def run_conversation_workflow(
             messages=[HumanMessage(content=user_message)],
         )
 
-    # Run with MLflow tracking and session context
+    # Run with MLflow tracking and session context (inherit parent session if one exists)
     import mlflow
 
-    with session_context() as session_id, start_experiment_run("conversation_workflow"):
+    with (
+        session_context(get_session_id()) as session_id,
+        start_experiment_run("conversation_workflow"),
+    ):
         mlflow.set_tag("workflow", "conversation")
         mlflow.set_tag("thread_id", thread_id or state.conversation_id)
         mlflow.set_tag("session.id", session_id)
@@ -246,7 +249,7 @@ async def resume_after_approval(
         Updated conversation state after resumption
     """
     from src.dal import ProposalRepository
-    from src.tracing.context import session_context
+    from src.tracing.context import get_session_id, session_context
 
     # Compile graph with same checkpointer
     compiled = compile_conversation_graph(session=session, thread_id=thread_id)
@@ -279,10 +282,10 @@ async def resume_after_approval(
     # Update the state in the graph
     compiled.update_state(config, current_state.model_dump())  # type: ignore[attr-defined]
 
-    # Resume execution with session context
+    # Resume execution with session context (inherit parent session if one exists)
     import mlflow
 
-    with session_context() as session_id:
+    with session_context(get_session_id()) as session_id:
         with start_experiment_run("conversation_workflow_resume"):
             mlflow.set_tag("workflow", "conversation_resume")
             mlflow.set_tag("thread_id", thread_id)

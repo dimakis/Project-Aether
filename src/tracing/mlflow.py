@@ -756,6 +756,17 @@ def trace_with_uri(
                 )
             return traced_func
 
+        def _tag_trace_session(mlflow: Any) -> None:
+            """Tag the current trace with session ID for grouping."""
+            try:
+                from src.tracing.context import get_session_id
+
+                session_id = get_session_id()
+                if session_id:
+                    mlflow.update_current_trace(tags={"mlflow.trace.session": session_id})
+            except Exception:
+                _logger.debug("Failed to tag trace with session ID", exc_info=True)
+
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
             if not _ensure_mlflow_initialized() or not _traces_available:
@@ -767,7 +778,9 @@ def trace_with_uri(
 
             try:
                 traced = _get_traced(mlflow)
-                return await traced(*args, **kwargs)  # type: ignore[misc, no-any-return]
+                result = await traced(*args, **kwargs)  # type: ignore[misc, no-any-return]
+                _tag_trace_session(mlflow)
+                return result  # type: ignore[no-any-return]
             except Exception as e:
                 _disable_traces("span creation failed; backend rejected traces")
                 _logger.debug(f"Span creation failed, running without trace: {e}")
@@ -784,7 +797,9 @@ def trace_with_uri(
 
             try:
                 traced = _get_traced(mlflow)
-                return traced(*args, **kwargs)
+                result = traced(*args, **kwargs)
+                _tag_trace_session(mlflow)
+                return result
             except Exception as e:
                 _disable_traces("span creation failed; backend rejected traces")
                 _logger.debug(f"Span creation failed, running without trace: {e}")

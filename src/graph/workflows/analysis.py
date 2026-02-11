@@ -126,7 +126,7 @@ async def run_analysis_workflow(
     import mlflow
 
     from src.graph.state import AnalysisType
-    from src.tracing.context import session_context
+    from src.tracing.context import get_session_id, session_context
 
     # Map string to enum
     try:
@@ -146,8 +146,11 @@ async def run_analysis_workflow(
     graph = build_analysis_graph(ha_client=ha_client, session=session)
     compiled = graph.compile()
 
-    # Run with tracing
-    with session_context() as session_id, start_experiment_run("analysis_workflow") as run:
+    # Run with tracing (inherit parent session if one exists)
+    with (
+        session_context(get_session_id()) as session_id,
+        start_experiment_run("analysis_workflow") as run,
+    ):
         if run:
             initial_state.mlflow_run_id = run.info.run_id if hasattr(run, "info") else None
 
