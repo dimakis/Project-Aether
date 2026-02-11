@@ -93,11 +93,61 @@ def mock_proposal():
     proposal.rejection_reason = None
     proposal.created_at = datetime(2026, 2, 9, 9, 0, 0, tzinfo=UTC)
     proposal.updated_at = datetime(2026, 2, 9, 9, 0, 0, tzinfo=UTC)
+    # Review fields (Feature 28)
+    proposal.original_yaml = None
+    proposal.review_notes = None
+    proposal.review_session_id = None
+    proposal.parent_proposal_id = None
     proposal.to_ha_yaml_dict = MagicMock(
         return_value={
             "alias": "Test Automation",
             "trigger": {"platform": "state", "entity_id": "light.test"},
             "action": {"service": "light.turn_on", "entity_id": "light.test"},
+        }
+    )
+    return proposal
+
+
+@pytest.fixture
+def mock_review_proposal():
+    """Create a mock review proposal with original_yaml and review_notes set."""
+    proposal = MagicMock()
+    proposal.id = "prop-uuid-review"
+    proposal.proposal_type = ProposalType.AUTOMATION.value
+    proposal.conversation_id = None
+    proposal.name = "Improved: Sunset Lights"
+    proposal.description = "Optimised sunset automation with energy savings"
+    proposal.trigger = {"platform": "sun", "event": "sunset", "offset": "-00:30:00"}
+    proposal.conditions = None
+    proposal.actions = {"service": "light.turn_on", "data": {"brightness": 180}}
+    proposal.mode = "single"
+    proposal.service_call = None
+    proposal.status = ProposalStatus.PROPOSED
+    proposal.ha_automation_id = None
+    proposal.proposed_at = datetime(2026, 2, 10, 14, 0, 0, tzinfo=UTC)
+    proposal.approved_at = None
+    proposal.approved_by = None
+    proposal.deployed_at = None
+    proposal.rolled_back_at = None
+    proposal.rejection_reason = None
+    proposal.created_at = datetime(2026, 2, 10, 14, 0, 0, tzinfo=UTC)
+    proposal.updated_at = datetime(2026, 2, 10, 14, 0, 0, tzinfo=UTC)
+    # Review fields populated
+    proposal.original_yaml = (
+        "alias: Sunset Lights\ntrigger:\n  platform: sun\n  event: sunset\n"
+        "action:\n  service: light.turn_on\n"
+    )
+    proposal.review_notes = [
+        {"change": "Added offset", "rationale": "Pre-warm before sunset", "category": "behavioral"},
+        {"change": "Reduced brightness", "rationale": "Energy saving", "category": "energy"},
+    ]
+    proposal.review_session_id = "review-session-abc"
+    proposal.parent_proposal_id = None
+    proposal.to_ha_yaml_dict = MagicMock(
+        return_value={
+            "alias": "Improved: Sunset Lights",
+            "trigger": {"platform": "sun", "event": "sunset", "offset": "-00:30:00"},
+            "action": {"service": "light.turn_on", "data": {"brightness": 180}},
         }
     )
     return proposal
@@ -127,6 +177,11 @@ def mock_proposal_approved():
     proposal.rejection_reason = None
     proposal.created_at = datetime(2026, 2, 9, 9, 0, 0, tzinfo=UTC)
     proposal.updated_at = datetime(2026, 2, 9, 11, 0, 0, tzinfo=UTC)
+    # Review fields (Feature 28)
+    proposal.original_yaml = None
+    proposal.review_notes = None
+    proposal.review_session_id = None
+    proposal.parent_proposal_id = None
     proposal.to_ha_yaml_dict = MagicMock(
         return_value={
             "alias": "Approved Automation",
@@ -161,6 +216,11 @@ def mock_proposal_deployed():
     proposal.rejection_reason = None
     proposal.created_at = datetime(2026, 2, 9, 9, 0, 0, tzinfo=UTC)
     proposal.updated_at = datetime(2026, 2, 9, 12, 0, 0, tzinfo=UTC)
+    # Review fields (Feature 28)
+    proposal.original_yaml = None
+    proposal.review_notes = None
+    proposal.review_session_id = None
+    proposal.parent_proposal_id = None
     proposal.to_ha_yaml_dict = MagicMock(
         return_value={
             "alias": "Deployed Automation",
@@ -370,6 +430,81 @@ class TestGetProposal:
 
             assert response.status_code == 404
             assert "not found" in response.json()["detail"].lower()
+
+    async def test_get_review_proposal_includes_original_yaml(
+        self, proposal_client, mock_proposal_repo, mock_review_proposal, mock_get_session
+    ):
+        """Review proposals should include original_yaml for diff rendering."""
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=mock_review_proposal)
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
+        ):
+            response = await proposal_client.get("/api/v1/proposals/prop-uuid-review")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["original_yaml"] is not None
+            assert "Sunset Lights" in data["original_yaml"]
+            assert data["yaml_content"] is not None  # suggested YAML also present
+
+    async def test_get_review_proposal_includes_review_notes(
+        self, proposal_client, mock_proposal_repo, mock_review_proposal, mock_get_session
+    ):
+        """Review proposals should include structured review_notes."""
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=mock_review_proposal)
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
+        ):
+            response = await proposal_client.get("/api/v1/proposals/prop-uuid-review")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["review_notes"] is not None
+            assert len(data["review_notes"]) == 2
+            assert data["review_notes"][0]["category"] == "behavioral"
+            assert data["review_session_id"] == "review-session-abc"
+
+    async def test_get_non_review_proposal_has_null_review_fields(
+        self, proposal_client, mock_proposal_repo, mock_proposal, mock_get_session
+    ):
+        """Non-review proposals should have null review fields."""
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=mock_proposal)
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
+        ):
+            response = await proposal_client.get("/api/v1/proposals/prop-uuid-1")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["original_yaml"] is None
+            assert data["review_notes"] is None
+            assert data["review_session_id"] is None
+
+    async def test_list_proposals_includes_review_fields(
+        self, proposal_client, mock_proposal_repo, mock_review_proposal, mock_get_session
+    ):
+        """List endpoint should include review fields on review proposals."""
+        mock_proposal_repo.list_by_status = AsyncMock(return_value=[mock_review_proposal])
+        mock_proposal_repo.count = AsyncMock(return_value=1)
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
+        ):
+            response = await proposal_client.get("/api/v1/proposals?status=proposed")
+
+            assert response.status_code == 200
+            data = response.json()
+            item = data["items"][0]
+            assert item["original_yaml"] is not None
+            assert item["review_notes"] is not None
+            assert item["review_session_id"] == "review-session-abc"
 
 
 @pytest.mark.asyncio
@@ -608,6 +743,10 @@ class TestRejectProposal:
         rejected_proposal.rejection_reason = "Not needed"
         rejected_proposal.created_at = mock_proposal.created_at
         rejected_proposal.updated_at = datetime(2026, 2, 9, 11, 30, 0, tzinfo=UTC)
+        rejected_proposal.original_yaml = None
+        rejected_proposal.review_notes = None
+        rejected_proposal.review_session_id = None
+        rejected_proposal.parent_proposal_id = None
         rejected_proposal.to_ha_yaml_dict = mock_proposal.to_ha_yaml_dict
         mock_proposal_repo.get_by_id = AsyncMock(side_effect=[mock_proposal, rejected_proposal])
         mock_proposal_repo.reject = AsyncMock(return_value=rejected_proposal)
@@ -657,6 +796,10 @@ class TestRejectProposal:
         rejected_proposal.rejection_reason = "Not needed"
         rejected_proposal.created_at = mock_proposal.created_at
         rejected_proposal.updated_at = datetime(2026, 2, 9, 11, 30, 0, tzinfo=UTC)
+        rejected_proposal.original_yaml = None
+        rejected_proposal.review_notes = None
+        rejected_proposal.review_session_id = None
+        rejected_proposal.parent_proposal_id = None
         rejected_proposal.to_ha_yaml_dict = mock_proposal.to_ha_yaml_dict
         mock_proposal_repo.get_by_id = AsyncMock(side_effect=[mock_proposal, rejected_proposal])
         mock_proposal_repo.reject = AsyncMock(return_value=rejected_proposal)
@@ -748,6 +891,10 @@ class TestRejectProposal:
         rejected_proposal.rejection_reason = "Changed mind"
         rejected_proposal.created_at = mock_proposal_approved.created_at
         rejected_proposal.updated_at = datetime(2026, 2, 9, 11, 30, 0, tzinfo=UTC)
+        rejected_proposal.original_yaml = None
+        rejected_proposal.review_notes = None
+        rejected_proposal.review_session_id = None
+        rejected_proposal.parent_proposal_id = None
         rejected_proposal.to_ha_yaml_dict = mock_proposal_approved.to_ha_yaml_dict
         mock_proposal_repo.get_by_id = AsyncMock(
             side_effect=[mock_proposal_approved, rejected_proposal]

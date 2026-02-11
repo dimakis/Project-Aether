@@ -1,14 +1,25 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, ChevronRight, Clock } from "lucide-react";
+import { FileText, ChevronRight, Clock, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataViewer } from "@/components/ui/data-viewer";
+import { YamlEditor } from "@/components/ui/yaml-editor";
+import { YamlDiffViewer } from "@/components/ui/yaml-diff-viewer";
 import { cn, formatRelativeTime } from "@/lib/utils";
+import {
+  useRegistryState,
+  setSubmittedEdit,
+  clearSubmittedEdit,
+} from "@/lib/registry-store";
+import yaml from "js-yaml";
 import type { Script } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
 import { StatPill } from "./StatPill";
+import { EntityActionMenu } from "./EntityActionMenu";
+import type { EntityAction, OnEntityAction } from "./EntityActionMenu";
 
 interface ScriptTabProps {
   scripts: Script[];
@@ -17,6 +28,129 @@ interface ScriptTabProps {
   runningCount?: number;
   onSync?: () => void;
   isSyncing?: boolean;
+  onEntityAction?: OnEntityAction;
+}
+
+function ScriptDetail({
+  script,
+  onEntityAction,
+}: {
+  script: Script;
+  onEntityAction?: OnEntityAction;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const { submittedEdits } = useRegistryState();
+  const submittedYaml = submittedEdits[script.entity_id] ?? null;
+
+  // Serialize script data to YAML for editing
+  const scriptYaml = useMemo(() => {
+    const data: Record<string, unknown> = {};
+    if (script.sequence) data.sequence = script.sequence;
+    if (script.fields && Object.keys(script.fields).length > 0) data.fields = script.fields;
+    if (script.description) data.description = script.description;
+    if (Object.keys(data).length === 0) return undefined;
+    try {
+      return yaml.dump(data, { indent: 2, lineWidth: 120, noRefs: true }).trimEnd();
+    } catch {
+      return undefined;
+    }
+  }, [script]);
+
+  const handleAction = (action: EntityAction) => {
+    if (action === "edit_yaml") {
+      setIsEditing(true);
+      return;
+    }
+    onEntityAction?.(script.entity_id, "script", script.alias, scriptYaml, action);
+  };
+
+  const handleSubmitEdit = (editedYaml: string) => {
+    setIsEditing(false);
+    setSubmittedEdit(script.entity_id, editedYaml);
+    onEntityAction?.(script.entity_id, "script", script.alias, scriptYaml, "edit_yaml", editedYaml);
+  };
+
+  return (
+    <div
+      className="mt-4 space-y-3 border-t border-border/50 pt-4"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Action menu + Description row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {script.description && (
+            <p className="text-xs text-muted-foreground">{script.description}</p>
+          )}
+        </div>
+        <EntityActionMenu
+          entityId={script.entity_id}
+          entityType="script"
+          entityLabel={script.alias}
+          onAction={handleAction}
+        />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {script.last_triggered && (
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Clock className="h-2.5 w-2.5" />
+            Last: {formatRelativeTime(script.last_triggered)}
+          </span>
+        )}
+      </div>
+      {/* Editable YAML, diff view, or read-only views */}
+      {isEditing && scriptYaml ? (
+        <div className="overflow-hidden rounded-lg border border-border/50">
+          <YamlEditor
+            originalYaml={scriptYaml}
+            isEditing={true}
+            onSubmitEdit={handleSubmitEdit}
+            onCancelEdit={() => setIsEditing(false)}
+            collapsible
+            maxHeight={400}
+          />
+        </div>
+      ) : submittedYaml && scriptYaml ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium text-violet-400">
+              Submitted edit — awaiting Architect review
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 gap-1 text-[10px]"
+              onClick={() => clearSubmittedEdit(script.entity_id)}
+            >
+              <X className="h-3 w-3" />
+              Dismiss
+            </Button>
+          </div>
+          <YamlDiffViewer
+            originalYaml={scriptYaml}
+            suggestedYaml={submittedYaml}
+            originalTitle="Original"
+            suggestedTitle="Your Edit"
+            maxHeight={400}
+          />
+        </div>
+      ) : (
+        <>
+          {script.sequence && script.sequence.length > 0 && (
+            <div>
+              <h4 className="mb-2 text-xs font-medium text-muted-foreground">Sequence</h4>
+              <DataViewer data={script.sequence} defaultMode="yaml" collapsible maxHeight={300} />
+            </div>
+          )}
+          {script.fields && Object.keys(script.fields).length > 0 && (
+            <div>
+              <h4 className="mb-2 text-xs font-medium text-muted-foreground">Fields</h4>
+              <DataViewer data={script.fields} defaultMode="yaml" collapsible maxHeight={200} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 type SortKey = "name" | "last_triggered";
@@ -28,6 +162,7 @@ export function ScriptTab({
   runningCount,
   onSync,
   isSyncing,
+  onEntityAction,
 }: ScriptTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -149,51 +284,7 @@ export function ScriptTab({
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div
-                    className="mt-4 space-y-3 border-t border-border/50 pt-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {script.description && (
-                      <p className="text-xs text-muted-foreground">
-                        {script.description}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      {script.last_triggered && (
-                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Clock className="h-2.5 w-2.5" />
-                          Last: {formatRelativeTime(script.last_triggered)}
-                        </span>
-                      )}
-                    </div>
-                    {script.sequence && script.sequence.length > 0 && (
-                      <div>
-                        <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                          Sequence
-                        </h4>
-                        <DataViewer
-                          data={script.sequence}
-                          defaultMode="yaml"
-                          collapsible
-                          maxHeight={300}
-                        />
-                      </div>
-                    )}
-                    {script.fields &&
-                      Object.keys(script.fields).length > 0 && (
-                        <div>
-                          <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                            Fields
-                          </h4>
-                          <DataViewer
-                            data={script.fields}
-                            defaultMode="yaml"
-                            collapsible
-                            maxHeight={200}
-                          />
-                        </div>
-                      )}
-                  </div>
+                  <ScriptDetail script={script} onEntityAction={onEntityAction} />
                 </motion.div>
               )}
             </AnimatePresence>

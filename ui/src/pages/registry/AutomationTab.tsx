@@ -1,15 +1,24 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ToggleLeft, ToggleRight, ChevronRight, Clock, Code } from "lucide-react";
+import { ToggleLeft, ToggleRight, ChevronRight, Clock, Code, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { YamlViewer } from "@/components/ui/data-viewer";
+import { YamlEditor } from "@/components/ui/yaml-editor";
+import { YamlDiffViewer } from "@/components/ui/yaml-diff-viewer";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useAutomationConfig } from "@/api/hooks";
+import {
+  useRegistryState,
+  setSubmittedEdit,
+  clearSubmittedEdit,
+} from "@/lib/registry-store";
 import type { Automation } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
 import { StatPill } from "./StatPill";
+import { EntityActionMenu } from "./EntityActionMenu";
+import type { EntityAction, OnEntityAction } from "./EntityActionMenu";
 
 interface AutomationTabProps {
   automations: Automation[];
@@ -19,24 +28,71 @@ interface AutomationTabProps {
   disabledCount?: number;
   onSync?: () => void;
   isSyncing?: boolean;
+  onEntityAction?: OnEntityAction;
 }
 
-function AutomationDetail({ automation }: { automation: Automation }) {
+function AutomationDetail({
+  automation,
+  onEntityAction,
+}: {
+  automation: Automation;
+  onEntityAction?: OnEntityAction;
+}) {
   const { data, isLoading } = useAutomationConfig(
     automation.ha_automation_id || automation.id,
   );
+  const [isEditing, setIsEditing] = useState(false);
+  const { submittedEdits } = useRegistryState();
+  const submittedYaml = submittedEdits[automation.entity_id] ?? null;
+
+  const handleAction = (action: EntityAction) => {
+    if (action === "edit_yaml") {
+      setIsEditing(true);
+      return;
+    }
+    onEntityAction?.(
+      automation.entity_id,
+      "automation",
+      automation.alias,
+      data?.yaml,
+      action,
+    );
+  };
+
+  const handleSubmitEdit = (editedYaml: string) => {
+    setIsEditing(false);
+    setSubmittedEdit(automation.entity_id, editedYaml);
+    onEntityAction?.(
+      automation.entity_id,
+      "automation",
+      automation.alias,
+      data?.yaml,
+      "edit_yaml",
+      editedYaml,
+    );
+  };
 
   return (
     <div
       className="mt-4 space-y-3 border-t border-border/50 pt-4"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Description */}
-      {automation.description && (
-        <p className="text-xs text-muted-foreground">
-          {automation.description}
-        </p>
-      )}
+      {/* Action menu + Description row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {automation.description && (
+            <p className="text-xs text-muted-foreground">
+              {automation.description}
+            </p>
+          )}
+        </div>
+        <EntityActionMenu
+          entityId={automation.entity_id}
+          entityType="automation"
+          entityLabel={automation.alias}
+          onAction={handleAction}
+        />
+      </div>
 
       {/* Metadata */}
       <div className="flex flex-wrap gap-2">
@@ -62,9 +118,42 @@ function AutomationDetail({ automation }: { automation: Automation }) {
         {isLoading ? (
           <Skeleton className="h-24" />
         ) : data?.yaml ? (
-          <div className="overflow-hidden rounded-lg border border-border/50">
-            <YamlViewer content={data.yaml} collapsible maxHeight={400} />
-          </div>
+          submittedYaml && !isEditing ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium text-violet-400">
+                  Submitted edit — awaiting Architect review
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 text-[10px]"
+                  onClick={() => clearSubmittedEdit(automation.entity_id)}
+                >
+                  <X className="h-3 w-3" />
+                  Dismiss
+                </Button>
+              </div>
+              <YamlDiffViewer
+                originalYaml={data.yaml}
+                suggestedYaml={submittedYaml}
+                originalTitle="Original"
+                suggestedTitle="Your Edit"
+                maxHeight={400}
+              />
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border/50">
+              <YamlEditor
+                originalYaml={data.yaml}
+                isEditing={isEditing}
+                onSubmitEdit={handleSubmitEdit}
+                onCancelEdit={() => setIsEditing(false)}
+                collapsible
+                maxHeight={400}
+              />
+            </div>
+          )
         ) : (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
             <p className="text-xs font-medium text-amber-400">
@@ -109,6 +198,7 @@ export function AutomationTab({
   disabledCount,
   onSync,
   isSyncing,
+  onEntityAction,
 }: AutomationTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -228,7 +318,7 @@ export function AutomationTab({
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <AutomationDetail automation={auto} />
+                    <AutomationDetail automation={auto} onEntityAction={onEntityAction} />
                   </motion.div>
                 )}
               </AnimatePresence>

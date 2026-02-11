@@ -544,6 +544,37 @@ class TestProposalRepositoryCreate:
         mock_session.add.assert_called_once()
         mock_session.flush.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_create_with_original_yaml(self, proposal_repo, mock_session):
+        """Test creating a review proposal with original_yaml for diff rendering."""
+        original = "alias: Old\ntrigger:\n  platform: sun\n"
+        notes = [{"change": "Added offset", "rationale": "Better timing", "category": "behavioral"}]
+
+        result = await proposal_repo.create(
+            name="Improved: Sunset",
+            trigger={"platform": "sun", "event": "sunset"},
+            actions=[{"service": "light.turn_on"}],
+            original_yaml=original,
+            review_notes=notes,
+        )
+
+        assert result is not None
+        assert result.original_yaml == original
+        assert result.review_notes == notes
+        mock_session.add.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_without_original_yaml_defaults_to_none(self, proposal_repo, mock_session):
+        """Non-review proposals should have null original_yaml."""
+        result = await proposal_repo.create(
+            name="Normal Automation",
+            trigger={"platform": "state"},
+            actions=[{"service": "light.turn_on"}],
+        )
+
+        assert result.original_yaml is None
+        assert result.review_notes is None
+
 
 class TestProposalRepositoryGetById:
     """Tests for ProposalRepository.get_by_id method."""

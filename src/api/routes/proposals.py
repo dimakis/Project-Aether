@@ -56,6 +56,11 @@ def _proposal_to_response(p: AutomationProposal) -> ProposalResponse:
         rejection_reason=p.rejection_reason,
         created_at=p.created_at,
         updated_at=p.updated_at,
+        # Review fields (Feature 28: Smart Config Review)
+        original_yaml=p.original_yaml,
+        review_notes=p.review_notes,
+        review_session_id=p.review_session_id,
+        parent_proposal_id=p.parent_proposal_id,
     )
 
 

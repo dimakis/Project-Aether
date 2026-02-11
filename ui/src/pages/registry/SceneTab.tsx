@@ -1,13 +1,24 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clapperboard, ChevronRight } from "lucide-react";
+import { Clapperboard, ChevronRight, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataViewer } from "@/components/ui/data-viewer";
+import { YamlEditor } from "@/components/ui/yaml-editor";
+import { YamlDiffViewer } from "@/components/ui/yaml-diff-viewer";
 import { cn } from "@/lib/utils";
+import {
+  useRegistryState,
+  setSubmittedEdit,
+  clearSubmittedEdit,
+} from "@/lib/registry-store";
+import yaml from "js-yaml";
 import type { Scene } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
 import { StatPill } from "./StatPill";
+import { EntityActionMenu } from "./EntityActionMenu";
+import type { EntityAction, OnEntityAction } from "./EntityActionMenu";
 
 interface SceneTabProps {
   scenes: Scene[];
@@ -15,6 +26,104 @@ interface SceneTabProps {
   searchQuery: string;
   onSync?: () => void;
   isSyncing?: boolean;
+  onEntityAction?: OnEntityAction;
+}
+
+function SceneDetail({
+  scene,
+  onEntityAction,
+}: {
+  scene: Scene;
+  onEntityAction?: OnEntityAction;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const { submittedEdits } = useRegistryState();
+  const submittedYaml = submittedEdits[scene.entity_id] ?? null;
+
+  const sceneYaml = useMemo(() => {
+    if (!scene.entity_states || Object.keys(scene.entity_states).length === 0) return undefined;
+    try {
+      return yaml.dump({ entities: scene.entity_states }, { indent: 2, lineWidth: 120, noRefs: true }).trimEnd();
+    } catch {
+      return undefined;
+    }
+  }, [scene]);
+
+  const handleAction = (action: EntityAction) => {
+    if (action === "edit_yaml") {
+      setIsEditing(true);
+      return;
+    }
+    onEntityAction?.(scene.entity_id, "scene", scene.name, sceneYaml, action);
+  };
+
+  const handleSubmitEdit = (editedYaml: string) => {
+    setIsEditing(false);
+    setSubmittedEdit(scene.entity_id, editedYaml);
+    onEntityAction?.(scene.entity_id, "scene", scene.name, sceneYaml, "edit_yaml", editedYaml);
+  };
+
+  return (
+    <div
+      className="mt-4 space-y-3 border-t border-border/50 pt-4"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Action menu row */}
+      <div className="flex items-start justify-end">
+        <EntityActionMenu
+          entityId={scene.entity_id}
+          entityType="scene"
+          entityLabel={scene.name}
+          onAction={handleAction}
+        />
+      </div>
+
+      {/* Editable YAML, diff view, or read-only view */}
+      {isEditing && sceneYaml ? (
+        <div className="overflow-hidden rounded-lg border border-border/50">
+          <YamlEditor
+            originalYaml={sceneYaml}
+            isEditing={true}
+            onSubmitEdit={handleSubmitEdit}
+            onCancelEdit={() => setIsEditing(false)}
+            collapsible
+            maxHeight={300}
+          />
+        </div>
+      ) : submittedYaml && sceneYaml ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium text-violet-400">
+              Submitted edit — awaiting Architect review
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 gap-1 text-[10px]"
+              onClick={() => clearSubmittedEdit(scene.entity_id)}
+            >
+              <X className="h-3 w-3" />
+              Dismiss
+            </Button>
+          </div>
+          <YamlDiffViewer
+            originalYaml={sceneYaml}
+            suggestedYaml={submittedYaml}
+            originalTitle="Original"
+            suggestedTitle="Your Edit"
+            maxHeight={300}
+          />
+        </div>
+      ) : scene.entity_states && Object.keys(scene.entity_states).length > 0 ? (
+        <div>
+          <h4 className="mb-2 text-xs font-medium text-muted-foreground">Entity States</h4>
+          <DataViewer data={scene.entity_states} defaultMode="yaml" collapsible maxHeight={300} />
+        </div>
+      ) : (
+        <p className="text-[10px] text-muted-foreground">Entity states not available (MCP gap)</p>
+      )}
+    </div>
+  );
 }
 
 export function SceneTab({
@@ -23,6 +132,7 @@ export function SceneTab({
   searchQuery,
   onSync,
   isSyncing,
+  onEntityAction,
 }: SceneTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -104,29 +214,7 @@ export function SceneTab({
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div
-                    className="mt-4 space-y-3 border-t border-border/50 pt-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {scene.entity_states &&
-                    Object.keys(scene.entity_states).length > 0 ? (
-                      <div>
-                        <h4 className="mb-2 text-xs font-medium text-muted-foreground">
-                          Entity States
-                        </h4>
-                        <DataViewer
-                          data={scene.entity_states}
-                          defaultMode="yaml"
-                          collapsible
-                          maxHeight={300}
-                        />
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-muted-foreground">
-                        Entity states not available (MCP gap)
-                      </p>
-                    )}
-                  </div>
+                  <SceneDetail scene={scene} onEntityAction={onEntityAction} />
                 </motion.div>
               )}
             </AnimatePresence>

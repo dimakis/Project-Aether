@@ -5,6 +5,7 @@ import remarkBreaks from "remark-breaks";
 import { isInlineCode } from "react-shiki";
 import { FileCheck } from "lucide-react";
 import { CodeBlock, InlineCode } from "@/components/ui/code-block";
+import { YamlDiffViewer } from "@/components/ui/yaml-diff-viewer";
 import { cn } from "@/lib/utils";
 
 // ─── JSON auto-detection ─────────────────────────────────────────────────────
@@ -148,10 +149,12 @@ interface MarkdownRendererProps {
   className?: string;
   /** When provided, YAML code blocks get a "Create Proposal" button */
   onCreateProposal?: (yamlContent: string) => void;
+  /** When provided, YAML code blocks render as a side-by-side diff */
+  originalYaml?: string;
 }
 
 /** Custom markdown renderer that routes code blocks to shiki CodeBlock component */
-export function MarkdownRenderer({ content, className, onCreateProposal }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className, onCreateProposal, originalYaml }: MarkdownRendererProps) {
   const components = useMemo(() => ({
     // Route fenced code blocks through our shiki CodeBlock
     // Uses react-shiki's isInlineCode helper to distinguish inline vs fenced
@@ -164,6 +167,21 @@ export function MarkdownRenderer({ content, className, onCreateProposal }: Markd
         const lang = match ? match[1] : "text";
         const codeStr = String(children).replace(/\n$/, "");
         const isYaml = lang === "yaml" || lang === "yml";
+
+        // When originalYaml is available, render YAML blocks as a diff
+        if (isYaml && originalYaml) {
+          return (
+            <div className="my-2">
+              <YamlDiffViewer
+                originalYaml={originalYaml}
+                suggestedYaml={codeStr}
+                originalTitle="Current"
+                suggestedTitle="Suggested"
+                maxHeight={400}
+              />
+            </div>
+          );
+        }
 
         return (
           <div>
@@ -284,7 +302,7 @@ export function MarkdownRenderer({ content, className, onCreateProposal }: Markd
     strong(props: ComponentPropsWithoutRef<"strong">) {
       return <strong className="font-semibold text-foreground" {...props} />;
     },
-  }), [onCreateProposal]);
+  }), [onCreateProposal, originalYaml]);
 
   const processed = useMemo(() => preprocessContent(content), [content]);
 

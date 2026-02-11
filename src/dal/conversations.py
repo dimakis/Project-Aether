@@ -424,6 +424,8 @@ class ProposalRepository:
         mlflow_run_id: str | None = None,
         proposal_type: str = "automation",
         service_call: dict | None = None,
+        original_yaml: str | None = None,
+        review_notes: list | None = None,
     ) -> AutomationProposal:
         """Create a new automation proposal.
 
@@ -438,6 +440,8 @@ class ProposalRepository:
             mlflow_run_id: Optional MLflow tracking ID
             proposal_type: Type of proposal (automation, entity_command, script, scene)
             service_call: Service call details for entity_command type
+            original_yaml: Original YAML before review (enables diff view)
+            review_notes: Structured review annotations
 
         Returns:
             Created AutomationProposal
@@ -466,6 +470,8 @@ class ProposalRepository:
             service_call=service_call,
             status=ProposalStatus.DRAFT,
             mlflow_run_id=mlflow_run_id,
+            original_yaml=original_yaml,
+            review_notes=review_notes,
         )
         self.session.add(proposal)
         await self.session.flush()
