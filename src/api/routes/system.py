@@ -239,7 +239,11 @@ async def _check_mlflow() -> ComponentHealth:
 
 
 async def _check_home_assistant() -> ComponentHealth:
-    """Check Home Assistant connectivity.
+    """Check Home Assistant connectivity using resolved config.
+
+    Uses the same config resolution as the rest of the app (DB config
+    from setup wizard first, then env var fallback) so the health check
+    reflects the actual HA connection in use.
 
     Returns:
         ComponentHealth for Home Assistant
@@ -249,59 +253,84 @@ async def _check_home_assistant() -> ComponentHealth:
     try:
         import httpx
 
-        from src.settings import get_settings
+        from src.ha import get_ha_client
 
-        settings = get_settings()
+        ha_client = get_ha_client()
+        config = ha_client.config
 
         # Skip check if no HA URL configured
-        if not settings.ha_url:
+        if not config.ha_url:
             return ComponentHealth(
                 name="home_assistant",
                 status=HealthStatus.DEGRADED,
                 message="Home Assistant URL not configured",
             )
 
-        # Check HA API endpoint
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(
-                f"{settings.ha_url}/api/",
-                headers={
-                    "Authorization": f"Bearer {settings.ha_token.get_secret_value()}",
-                },
+        # Build ordered list of URLs to try (local first, remote fallback)
+        urls_to_try = ha_client._build_urls_to_try()
+
+        errors: list[str] = []
+        for url in urls_to_try:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(
+                        f"{url}/api/",
+                        headers={
+                            "Authorization": f"Bearer {config.ha_token}",
+                        },
+                    )
+
+                    latency = (time.perf_counter() - start) * 1000
+
+                    if response.status_code == 200:
+                        return ComponentHealth(
+                            name="home_assistant",
+                            status=HealthStatus.HEALTHY,
+                            message="Home Assistant connected",
+                            latency_ms=latency,
+                        )
+                    elif response.status_code == 401:
+                        return ComponentHealth(
+                            name="home_assistant",
+                            status=HealthStatus.UNHEALTHY,
+                            message="Home Assistant authentication failed",
+                            latency_ms=latency,
+                        )
+                    else:
+                        errors.append(f"{url}: HTTP {response.status_code}")
+            except httpx.TimeoutException:
+                errors.append(f"{url}: timeout")
+            except Exception as e:
+                errors.append(f"{url}: {type(e).__name__}")
+
+        # All URLs failed — return last meaningful error
+        latency = (time.perf_counter() - start) * 1000
+        if any("timeout" in e for e in errors):
+            return ComponentHealth(
+                name="home_assistant",
+                status=HealthStatus.UNHEALTHY,
+                message="Home Assistant connection timed out",
+                latency_ms=latency,
             )
 
-            latency = (time.perf_counter() - start) * 1000
-
-            if response.status_code == 200:
-                return ComponentHealth(
-                    name="home_assistant",
-                    status=HealthStatus.HEALTHY,
-                    message="Home Assistant connected",
-                    latency_ms=latency,
-                )
-            elif response.status_code == 401:
-                return ComponentHealth(
-                    name="home_assistant",
-                    status=HealthStatus.UNHEALTHY,
-                    message="Home Assistant authentication failed",
-                    latency_ms=latency,
-                )
-            else:
+        # Extract HTTP status from errors like "http://...: HTTP 500"
+        for err in errors:
+            if "HTTP " in err:
+                code = err.split("HTTP ")[-1]
                 return ComponentHealth(
                     name="home_assistant",
                     status=HealthStatus.DEGRADED,
-                    message=f"Home Assistant returned status {response.status_code}",
+                    message=f"Home Assistant returned status {code}",
                     latency_ms=latency,
                 )
 
-    except httpx.TimeoutException:
-        latency = (time.perf_counter() - start) * 1000
         return ComponentHealth(
             name="home_assistant",
             status=HealthStatus.UNHEALTHY,
-            message="Home Assistant connection timed out",
+            message="Home Assistant unavailable",
             latency_ms=latency,
         )
+
     except Exception as e:
         latency = (time.perf_counter() - start) * 1000
         logger.warning("Home Assistant health check failed: %s", e)
