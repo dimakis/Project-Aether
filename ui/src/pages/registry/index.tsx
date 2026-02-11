@@ -12,11 +12,13 @@ import {
   useRegistryServices,
   useSyncRegistry,
 } from "@/api/hooks";
+import { InlineAssistant } from "@/components/InlineAssistant";
 import { AutomationTab } from "./AutomationTab";
 import { ScriptTab } from "./ScriptTab";
 import { SceneTab } from "./SceneTab";
 import { ServiceTab } from "./ServiceTab";
 import { OverviewTab } from "./OverviewTab";
+import { REGISTRY_SYSTEM_CONTEXT, REGISTRY_SUGGESTIONS } from "./constants";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: Activity },
@@ -80,6 +82,21 @@ export function RegistryPage() {
           />
           {syncMut.isPending ? "Syncing..." : "Sync Registry"}
         </Button>
+      </div>
+
+      {/* Inline Assistant */}
+      <div className="mb-6">
+        <InlineAssistant
+          systemContext={REGISTRY_SYSTEM_CONTEXT}
+          suggestions={REGISTRY_SUGGESTIONS}
+          invalidateKeys={[
+            ["registry", "automations"],
+            ["registryScripts"],
+            ["registryScenes"],
+            ["proposals"],
+          ]}
+          placeholder="Ask Architect to optimize, edit, or create automations..."
+        />
       </div>
 
       {/* Tabs */}
