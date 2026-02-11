@@ -8,11 +8,18 @@ the test never attempts a real Postgres connection (which would
 hang indefinitely in a unit-test environment).
 """
 
+import uuid
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+
+# Deterministic UUIDs for test fixtures
+_AUTO_UUID = str(uuid.UUID("00000000-0000-0000-0000-000000000001"))
+_SCRIPT_UUID = str(uuid.UUID("00000000-0000-0000-0000-000000000002"))
+_SCENE_UUID = str(uuid.UUID("00000000-0000-0000-0000-000000000003"))
+_SERVICE_UUID = str(uuid.UUID("00000000-0000-0000-0000-000000000004"))
 
 from src.api.routes.ha_registry import get_db
 
@@ -66,7 +73,7 @@ async def registry_client(registry_app):
 def mock_automation():
     """Create a mock Automation object."""
     automation = MagicMock()
-    automation.id = "uuid-auto-1"
+    automation.id = _AUTO_UUID
     automation.ha_automation_id = "auto_123"
     automation.entity_id = "automation.test_automation"
     automation.alias = "Test Automation"
@@ -87,7 +94,7 @@ def mock_automation():
 def mock_script():
     """Create a mock Script object."""
     script = MagicMock()
-    script.id = "uuid-script-1"
+    script.id = _SCRIPT_UUID
     script.entity_id = "script.test_script"
     script.alias = "Test Script"
     script.state = "off"
@@ -104,7 +111,7 @@ def mock_script():
 def mock_scene():
     """Create a mock Scene object."""
     scene = MagicMock()
-    scene.id = "uuid-scene-1"
+    scene.id = _SCENE_UUID
     scene.entity_id = "scene.test_scene"
     scene.name = "Test Scene"
     scene.icon = "mdi:palette"
@@ -117,7 +124,7 @@ def mock_scene():
 def mock_service():
     """Create a mock Service object."""
     service = MagicMock()
-    service.id = "uuid-service-1"
+    service.id = _SERVICE_UUID
     service.domain = "light"
     service.service = "turn_on"
     service.name = "Turn On"
@@ -263,13 +270,13 @@ class TestGetAutomation:
             "src.api.routes.ha_registry.AutomationRepository",
             return_value=mock_automation_repo,
         ):
-            response = await registry_client.get("/api/v1/registry/automations/uuid-auto-1")
+            response = await registry_client.get(f"/api/v1/registry/automations/{_AUTO_UUID}")
 
             assert response.status_code == 200
             data = response.json()
-            assert data["id"] == "uuid-auto-1"
+            assert data["id"] == _AUTO_UUID
             assert data["entity_id"] == "automation.test_automation"
-            mock_automation_repo.get_by_id.assert_called_once_with("uuid-auto-1")
+            mock_automation_repo.get_by_id.assert_called_once_with(_AUTO_UUID)
 
     async def test_get_automation_by_ha_id(
         self, registry_client, mock_automation_repo, mock_automation
@@ -339,13 +346,15 @@ class TestGetAutomationConfig:
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
-            response = await registry_client.get("/api/v1/registry/automations/uuid-auto-1/config")
+            response = await registry_client.get(
+                f"/api/v1/registry/automations/{_AUTO_UUID}/config"
+            )
 
             assert response.status_code == 200
             data = response.json()
             assert "config" in data
             assert "yaml" in data
-            assert data["automation_id"] == "uuid-auto-1"
+            assert data["automation_id"] == _AUTO_UUID
             assert data["ha_automation_id"] == "auto_123"
             assert data["entity_id"] == "automation.test_automation"
 
@@ -365,7 +374,9 @@ class TestGetAutomationConfig:
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
-            response = await registry_client.get("/api/v1/registry/automations/uuid-auto-1/config")
+            response = await registry_client.get(
+                f"/api/v1/registry/automations/{_AUTO_UUID}/config"
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -401,7 +412,9 @@ class TestGetAutomationConfig:
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
-            response = await registry_client.get("/api/v1/registry/automations/uuid-auto-1/config")
+            response = await registry_client.get(
+                f"/api/v1/registry/automations/{_AUTO_UUID}/config"
+            )
 
             assert response.status_code == 502
             assert "HA connection failed" in response.json()["detail"]
@@ -421,7 +434,9 @@ class TestGetAutomationConfig:
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
-            response = await registry_client.get("/api/v1/registry/automations/uuid-auto-1/config")
+            response = await registry_client.get(
+                f"/api/v1/registry/automations/{_AUTO_UUID}/config"
+            )
 
             assert response.status_code == 404
             assert "not available" in response.json()["detail"].lower()
@@ -487,13 +502,13 @@ class TestGetScript:
     async def test_get_script_by_internal_id(self, registry_client, mock_script_repo, mock_script):
         """Should find script by internal UUID."""
         with patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo):
-            response = await registry_client.get("/api/v1/registry/scripts/uuid-script-1")
+            response = await registry_client.get(f"/api/v1/registry/scripts/{_SCRIPT_UUID}")
 
             assert response.status_code == 200
             data = response.json()
-            assert data["id"] == "uuid-script-1"
+            assert data["id"] == _SCRIPT_UUID
             assert data["entity_id"] == "script.test_script"
-            mock_script_repo.get_by_id.assert_called_once_with("uuid-script-1")
+            mock_script_repo.get_by_id.assert_called_once_with(_SCRIPT_UUID)
 
     async def test_get_script_by_entity_id(self, registry_client, mock_script_repo, mock_script):
         """Should fall back to entity ID when internal ID not found."""
@@ -588,13 +603,13 @@ class TestGetScene:
     async def test_get_scene_by_internal_id(self, registry_client, mock_scene_repo, mock_scene):
         """Should find scene by internal UUID."""
         with patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo):
-            response = await registry_client.get("/api/v1/registry/scenes/uuid-scene-1")
+            response = await registry_client.get(f"/api/v1/registry/scenes/{_SCENE_UUID}")
 
             assert response.status_code == 200
             data = response.json()
-            assert data["id"] == "uuid-scene-1"
+            assert data["id"] == _SCENE_UUID
             assert data["entity_id"] == "scene.test_scene"
-            mock_scene_repo.get_by_id.assert_called_once_with("uuid-scene-1")
+            mock_scene_repo.get_by_id.assert_called_once_with(_SCENE_UUID)
 
     async def test_get_scene_by_entity_id(self, registry_client, mock_scene_repo, mock_scene):
         """Should fall back to entity ID when internal ID not found."""
@@ -706,14 +721,14 @@ class TestGetService:
     ):
         """Should find service by internal UUID."""
         with patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo):
-            response = await registry_client.get("/api/v1/registry/services/uuid-service-1")
+            response = await registry_client.get(f"/api/v1/registry/services/{_SERVICE_UUID}")
 
             assert response.status_code == 200
             data = response.json()
-            assert data["id"] == "uuid-service-1"
+            assert data["id"] == _SERVICE_UUID
             assert data["domain"] == "light"
             assert data["service"] == "turn_on"
-            mock_service_repo.get_by_id.assert_called_once_with("uuid-service-1")
+            mock_service_repo.get_by_id.assert_called_once_with(_SERVICE_UUID)
 
     async def test_get_service_by_full_name(self, registry_client, mock_service_repo, mock_service):
         """Should fall back to full service name when internal ID not found."""
