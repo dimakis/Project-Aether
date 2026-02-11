@@ -575,3 +575,136 @@ class TestSystemStatus:
             assert "uptime_seconds" in data
             assert isinstance(data["uptime_seconds"], (int, float))
             assert data["uptime_seconds"] >= 0
+
+    async def test_system_status_uses_resolved_ha_config(self, system_client):
+        """Should use HAClient's resolved config (DB URL) instead of raw settings.ha_url."""
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock()
+
+        @asynccontextmanager
+        async def _mock_get_session():
+            yield mock_session
+
+        mock_settings = MagicMock()
+        mock_settings.environment = "testing"
+        mock_settings.mlflow_tracking_uri = "http://localhost:5000"
+        mock_settings.debug = False
+        mock_settings.public_url = None
+        # Env var would point to localhost (the bug scenario)
+        mock_settings.ha_url = "http://localhost:8123"
+
+        # But HAClient resolves to the DB-stored remote URL
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = "http://remote-ha.example.com:8123"
+        mock_ha_config.ha_token = "db-resolved-token"
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+        mock_ha_client._build_urls_to_try = MagicMock(
+            return_value=["http://remote-ha.example.com:8123"]
+        )
+
+        mock_mlflow_client = MagicMock()
+        mock_mlflow_client.search_experiments = MagicMock(return_value=[])
+
+        with (
+            patch("src.storage.get_session", _mock_get_session),
+            patch("src.api.routes.system.get_settings", return_value=mock_settings),
+            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch("httpx.AsyncClient") as mock_httpx_client,
+        ):
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_httpx_context = AsyncMock()
+            mock_httpx_context.__aenter__ = AsyncMock(return_value=mock_httpx_context)
+            mock_httpx_context.__aexit__ = AsyncMock(return_value=None)
+            mock_httpx_context.get = AsyncMock(return_value=mock_response)
+            mock_httpx_client.return_value = mock_httpx_context
+
+            response = await system_client.get("/api/v1/status")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            ha_component = next(c for c in data["components"] if c["name"] == "home_assistant")
+            assert ha_component["status"] == "healthy"
+
+            # Verify the health check hit the DB-resolved URL, not localhost
+            call_args = mock_httpx_context.get.call_args
+            assert "remote-ha.example.com" in call_args[0][0]
+            assert "localhost" not in call_args[0][0]
+
+    async def test_system_status_includes_public_url(self, system_client):
+        """Should include public_url from settings in response."""
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock()
+
+        @asynccontextmanager
+        async def _mock_get_session():
+            yield mock_session
+
+        mock_settings = MagicMock()
+        mock_settings.environment = "testing"
+        mock_settings.mlflow_tracking_uri = "http://localhost:5000"
+        mock_settings.debug = False
+        mock_settings.public_url = "https://aether.example.com"
+
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = ""
+        mock_ha_config.ha_token = ""
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+
+        mock_mlflow_client = MagicMock()
+        mock_mlflow_client.search_experiments = MagicMock(return_value=[])
+
+        with (
+            patch("src.storage.get_session", _mock_get_session),
+            patch("src.api.routes.system.get_settings", return_value=mock_settings),
+            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+        ):
+            response = await system_client.get("/api/v1/status")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["public_url"] == "https://aether.example.com"
+
+    async def test_system_status_public_url_null_when_unset(self, system_client):
+        """Should return null public_url when not configured."""
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock()
+
+        @asynccontextmanager
+        async def _mock_get_session():
+            yield mock_session
+
+        mock_settings = MagicMock()
+        mock_settings.environment = "testing"
+        mock_settings.mlflow_tracking_uri = "http://localhost:5000"
+        mock_settings.debug = False
+        mock_settings.public_url = None
+
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = ""
+        mock_ha_config.ha_token = ""
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+
+        mock_mlflow_client = MagicMock()
+        mock_mlflow_client.search_experiments = MagicMock(return_value=[])
+
+        with (
+            patch("src.storage.get_session", _mock_get_session),
+            patch("src.api.routes.system.get_settings", return_value=mock_settings),
+            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+        ):
+            response = await system_client.get("/api/v1/status")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["public_url"] is None
