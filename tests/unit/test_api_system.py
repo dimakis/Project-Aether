@@ -155,11 +155,19 @@ class TestSystemStatus:
 
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
-        mock_settings.ha_url = "http://localhost:8123"
-        mock_settings.ha_token = MagicMock()
-        mock_settings.ha_token.get_secret_value = MagicMock(return_value="test-token")
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+
+        # Mock HA client with resolved config (simulates DB-resolved URL)
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = "http://remote-ha:8123"
+        mock_ha_config.ha_url_remote = None
+        mock_ha_config.ha_token = "resolved-token"
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+        mock_ha_client._build_urls_to_try = MagicMock(
+            return_value=["http://remote-ha:8123"]
+        )
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -169,6 +177,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response for Home Assistant check
@@ -216,6 +225,16 @@ class TestSystemStatus:
         mock_settings.environment = "testing"
         mock_settings.debug = False
 
+        # Mock HA client with resolved config
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = "http://localhost:8123"
+        mock_ha_config.ha_token = "test-token"
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+        mock_ha_client._build_urls_to_try = MagicMock(
+            return_value=["http://localhost:8123"]
+        )
+
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
 
@@ -224,6 +243,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response for Home Assistant check
@@ -257,11 +277,18 @@ class TestSystemStatus:
 
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
-        mock_settings.ha_url = "http://localhost:8123"
-        mock_settings.ha_token = MagicMock()
-        mock_settings.ha_token.get_secret_value = MagicMock(return_value="test-token")
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+
+        # Mock HA client with resolved config
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = "http://localhost:8123"
+        mock_ha_config.ha_token = "test-token"
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+        mock_ha_client._build_urls_to_try = MagicMock(
+            return_value=["http://localhost:8123"]
+        )
 
         mock_mlflow_client_instance = MagicMock()
         mock_mlflow_client_instance.search_experiments = MagicMock(
@@ -273,6 +300,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client_instance),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response for Home Assistant check
@@ -305,9 +333,15 @@ class TestSystemStatus:
 
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
-        mock_settings.ha_url = None  # Not configured
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+
+        # Mock HA client with empty URL (not configured)
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = ""
+        mock_ha_config.ha_token = ""
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -317,6 +351,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
             response = await system_client.get("/api/v1/status")
 
@@ -340,11 +375,18 @@ class TestSystemStatus:
 
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
-        mock_settings.ha_url = "http://localhost:8123"
-        mock_settings.ha_token = MagicMock()
-        mock_settings.ha_token.get_secret_value = MagicMock(return_value="test-token")
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+
+        # Mock HA client with resolved config
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = "http://localhost:8123"
+        mock_ha_config.ha_token = "test-token"
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+        mock_ha_client._build_urls_to_try = MagicMock(
+            return_value=["http://localhost:8123"]
+        )
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -354,6 +396,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx to raise TimeoutException
@@ -387,11 +430,18 @@ class TestSystemStatus:
 
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
-        mock_settings.ha_url = "http://localhost:8123"
-        mock_settings.ha_token = MagicMock()
-        mock_settings.ha_token.get_secret_value = MagicMock(return_value="invalid-token")
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+
+        # Mock HA client with resolved config
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = "http://localhost:8123"
+        mock_ha_config.ha_token = "invalid-token"
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+        mock_ha_client._build_urls_to_try = MagicMock(
+            return_value=["http://localhost:8123"]
+        )
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -401,6 +451,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response with 401 status
@@ -434,11 +485,18 @@ class TestSystemStatus:
 
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
-        mock_settings.ha_url = "http://localhost:8123"
-        mock_settings.ha_token = MagicMock()
-        mock_settings.ha_token.get_secret_value = MagicMock(return_value="test-token")
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+
+        # Mock HA client with resolved config
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = "http://localhost:8123"
+        mock_ha_config.ha_token = "test-token"
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
+        mock_ha_client._build_urls_to_try = MagicMock(
+            return_value=["http://localhost:8123"]
+        )
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -448,6 +506,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response with 500 status
@@ -481,9 +540,15 @@ class TestSystemStatus:
 
         mock_settings = MagicMock()
         mock_settings.environment = "testing"
-        mock_settings.ha_url = None
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
+
+        # Mock HA client with empty URL (not configured)
+        mock_ha_config = MagicMock()
+        mock_ha_config.ha_url = ""
+        mock_ha_config.ha_token = ""
+        mock_ha_client = MagicMock()
+        mock_ha_client.config = mock_ha_config
 
         mock_mlflow_client = MagicMock()
         mock_mlflow_client.search_experiments = MagicMock(return_value=[])
@@ -493,6 +558,7 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
+            patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
             response = await system_client.get("/api/v1/status")
 
