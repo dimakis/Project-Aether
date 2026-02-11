@@ -129,6 +129,12 @@ class Settings(BaseSettings):
     # API
     api_host: str = Field(default="127.0.0.1")
     api_port: int = Field(default=8000, ge=1, le=65535)
+    public_url: str | None = Field(
+        default=None,
+        description="Externally reachable base URL for this Aether instance "
+        "(used to generate webhook URLs that HA can reach). "
+        "Example: https://aether.example.com",
+    )
     api_workers: int = Field(default=1, ge=1, le=16)
     api_key: SecretStr = Field(
         default=SecretStr(""),

@@ -167,6 +167,10 @@ class SystemStatus(BaseModel):
         default=None,
         description="Application uptime in seconds",
     )
+    public_url: str | None = Field(
+        default=None,
+        description="Externally reachable base URL (for webhook URLs, etc.)",
+    )
 
 
 class PaginationMeta(BaseModel):

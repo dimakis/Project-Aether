@@ -9,12 +9,13 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
+  TriangleAlert,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useInsightSchedules } from "@/api/hooks";
+import { useInsightSchedules, useSystemStatus } from "@/api/hooks";
 import { request } from "@/api/client/core";
 
 // ─── Webhook Test ─────────────────────────────────────────────────────────────
@@ -121,11 +122,12 @@ function WebhookTester() {
 
 // ─── Setup Guide ──────────────────────────────────────────────────────────────
 
-function SetupGuide() {
-  const webhookUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/api/v1/webhooks/ha`
-      : "/api/v1/webhooks/ha";
+function SetupGuide({ publicUrl }: { publicUrl?: string | null }) {
+  const browserOrigin =
+    typeof window !== "undefined" ? window.location.origin : "";
+  const baseUrl = publicUrl || browserOrigin;
+  const webhookUrl = `${baseUrl}/api/v1/webhooks/ha`;
+  const usingFallback = !publicUrl;
   const [copied, setCopied] = useState(false);
 
   return (
@@ -161,6 +163,17 @@ function SetupGuide() {
               )}
             </Button>
           </div>
+          {usingFallback && (
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 p-2">
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+              <p className="text-[11px] text-amber-300/80">
+                Using your browser URL. If HA cannot reach this address, set{" "}
+                <code className="rounded bg-muted px-1 font-mono">PUBLIC_URL</code>{" "}
+                in your <code className="rounded bg-muted px-1 font-mono">.env</code>{" "}
+                to the externally reachable URL of this Aether instance.
+              </p>
+            </div>
+          )}
         </div>
 
         <div>
@@ -209,6 +222,7 @@ function SetupGuide() {
 
 export function WebhooksPage() {
   const { data: schedulesData } = useInsightSchedules();
+  const { data: status } = useSystemStatus();
 
   const webhookSchedules = (schedulesData?.items ?? []).filter(
     (s) => s.trigger_type === "webhook",
@@ -312,7 +326,7 @@ export function WebhooksPage() {
       )}
 
       {/* Setup guide */}
-      <SetupGuide />
+      <SetupGuide publicUrl={status?.public_url} />
     </div>
   );
 }
