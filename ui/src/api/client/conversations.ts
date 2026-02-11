@@ -77,6 +77,7 @@ export type StreamChunk =
 export async function* streamChat(
   model: string,
   messages: import("@/lib/types").ChatMessage[],
+  conversationId?: string,
 ): AsyncGenerator<StreamChunk> {
   const url = `${env.API_URL}/v1/chat/completions`;
   const response = await fetch(url, {
@@ -87,6 +88,7 @@ export async function* streamChat(
       model,
       messages,
       stream: true,
+      ...(conversationId && { conversation_id: conversationId }),
     }),
   });
 

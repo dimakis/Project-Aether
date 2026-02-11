@@ -424,6 +424,88 @@ class TestTraceWithUri:
             result = await my_async_func()
             assert result == 99
 
+    def test_sync_decorator_tags_session(self):
+        """trace_with_uri sets mlflow.trace.session tag when session is active."""
+        from src.tracing.context import clear_session, set_session_id
+        from src.tracing.mlflow import trace_with_uri
+
+        @trace_with_uri(name="test_session_tag")
+        def my_func():
+            return 42
+
+        mock_mlflow = MagicMock()
+        mock_traced = MagicMock(return_value=42)
+        mock_mlflow.trace.return_value = mock_traced
+
+        set_session_id("test-session-123")
+        try:
+            with (
+                patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
+                patch("src.tracing.mlflow._traces_available", True),
+                patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
+            ):
+                result = my_func()
+                assert result == 42
+                mock_mlflow.update_current_trace.assert_called_once_with(
+                    tags={"mlflow.trace.session": "test-session-123"}
+                )
+        finally:
+            clear_session()
+
+    def test_sync_decorator_skips_session_tag_when_no_session(self):
+        """trace_with_uri does not call update_current_trace when no session is active."""
+        from src.tracing.context import clear_session
+        from src.tracing.mlflow import trace_with_uri
+
+        @trace_with_uri(name="test_no_session")
+        def my_func():
+            return 42
+
+        mock_mlflow = MagicMock()
+        mock_traced = MagicMock(return_value=42)
+        mock_mlflow.trace.return_value = mock_traced
+
+        clear_session()
+        with (
+            patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
+            patch("src.tracing.mlflow._traces_available", True),
+            patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
+        ):
+            result = my_func()
+            assert result == 42
+            mock_mlflow.update_current_trace.assert_not_called()
+
+    async def test_async_decorator_tags_session(self):
+        """trace_with_uri sets mlflow.trace.session tag on async functions."""
+        from src.tracing.context import clear_session, set_session_id
+        from src.tracing.mlflow import trace_with_uri
+
+        @trace_with_uri(name="test_async_session")
+        async def my_async_func():
+            return 99
+
+        mock_mlflow = MagicMock()
+
+        async def mock_traced_coro(*args, **kwargs):
+            return 99
+
+        mock_mlflow.trace.return_value = mock_traced_coro
+
+        set_session_id("async-session-456")
+        try:
+            with (
+                patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
+                patch("src.tracing.mlflow._traces_available", True),
+                patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
+            ):
+                result = await my_async_func()
+                assert result == 99
+                mock_mlflow.update_current_trace.assert_called_once_with(
+                    tags={"mlflow.trace.session": "async-session-456"}
+                )
+        finally:
+            clear_session()
+
 
 class TestEnableAutolog:
     def test_skips_when_not_initialized(self):

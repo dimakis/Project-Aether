@@ -133,8 +133,10 @@ async def run_optimization_workflow(
     Returns:
         Final analysis state
     """
-    from src.tracing import log_metric, log_param
-    from src.tracing.context import session_context
+    import mlflow
+
+    from src.tracing import log_metric, log_param, start_experiment_run
+    from src.tracing.context import get_session_id, session_context
 
     # Map string to enum
     type_map = {
@@ -147,8 +149,13 @@ async def run_optimization_workflow(
     }
     analysis_enum = type_map.get(analysis_type, AnalysisType.BEHAVIOR_ANALYSIS)
 
-    with session_context():
-        log_param("workflow", "optimization")
+    # Run with tracing (inherit parent session if one exists)
+    with (
+        session_context(get_session_id()) as session_id,
+        start_experiment_run("optimization_workflow"),
+    ):
+        mlflow.set_tag("workflow", "optimization")
+        mlflow.set_tag("session.id", session_id)
         log_param("analysis_type", analysis_type)
         log_param("hours", hours)
 

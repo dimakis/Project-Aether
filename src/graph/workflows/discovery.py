@@ -136,8 +136,8 @@ async def run_discovery_workflow(
     Returns:
         Final discovery state
     """
-    # Start a trace session for this workflow
-    from src.tracing.context import session_context
+    # Start a trace session for this workflow (inherit parent session if one exists)
+    from src.tracing.context import get_session_id, session_context
 
     # Build the graph with injected dependencies
     graph = build_discovery_graph(ha_client=ha_client, session=session)
@@ -152,7 +152,10 @@ async def run_discovery_workflow(
     # Run with MLflow tracking and session context
     import mlflow
 
-    with session_context() as session_id, start_experiment_run("discovery_workflow"):
+    with (
+        session_context(get_session_id()) as session_id,
+        start_experiment_run("discovery_workflow"),
+    ):
         mlflow.set_tag("workflow", "discovery")
         mlflow.set_tag("session.id", session_id)
 
