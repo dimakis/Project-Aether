@@ -45,6 +45,14 @@ from src.api.schemas.ha_automations import (
     ServiceListResponse,
     ServiceResponse,
 )
+from src.api.schemas.helpers import (
+    HelperCreateRequest,
+    HelperCreateResponse,
+    HelperDeleteResponse,
+    HelperListResponse,
+    HelperResponse,
+    HelperType,
+)
 from src.api.schemas.insights import (
     ActionRequest,
     AnalysisJob,
@@ -244,6 +252,13 @@ __all__ = [
     "HealthResponse",
     # Health
     "HealthStatus",
+    # Helpers
+    "HelperCreateRequest",
+    "HelperCreateResponse",
+    "HelperDeleteResponse",
+    "HelperListResponse",
+    "HelperResponse",
+    "HelperType",
     "InsightCreate",
     "InsightListResponse",
     "InsightResponse",

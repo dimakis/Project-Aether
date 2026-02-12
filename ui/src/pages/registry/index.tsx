@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { BookOpen, Zap, FileText, Clapperboard, Wrench, Activity, Search, X, RefreshCw } from "lucide-react";
+import { BookOpen, Zap, FileText, Clapperboard, Wrench, Activity, Search, X, RefreshCw, ToggleLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ import { AutomationTab } from "./AutomationTab";
 import { ScriptTab } from "./ScriptTab";
 import { SceneTab } from "./SceneTab";
 import { ServiceTab } from "./ServiceTab";
+import { HelperTab } from "./HelperTab";
 import { OverviewTab } from "./OverviewTab";
 import { REGISTRY_SYSTEM_CONTEXT, REGISTRY_SUGGESTIONS } from "./constants";
 
@@ -40,6 +41,7 @@ const TABS = [
   { key: "scripts", label: "Scripts", icon: FileText },
   { key: "scenes", label: "Scenes", icon: Clapperboard },
   { key: "services", label: "Services", icon: Wrench },
+  { key: "helpers", label: "Helpers", icon: ToggleLeft },
 ] as const;
 
 export function RegistryPage() {
@@ -111,6 +113,7 @@ export function RegistryPage() {
     scripts: summary?.scripts_count ?? scripts?.total ?? 0,
     scenes: summary?.scenes_count ?? scenes?.total ?? 0,
     services: summary?.services_count ?? services?.total ?? 0,
+    helpers: summary?.helpers_count ?? 0,
     overview: 0,
   };
 
@@ -124,7 +127,7 @@ export function RegistryPage() {
             HA Registry
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Home Assistant automations, scripts, scenes, and services
+            Home Assistant automations, scripts, scenes, services, and helpers
           </p>
         </div>
         <Button
@@ -268,6 +271,9 @@ export function RegistryPage() {
           onSync={() => syncMut.mutate()}
           isSyncing={syncMut.isPending}
         />
+      )}
+      {activeTab === "helpers" && (
+        <HelperTab searchQuery={searchQuery} />
       )}
       {activeTab === "overview" && (
         <OverviewTab summary={summary ?? null} isLoading={summaryLoading} />

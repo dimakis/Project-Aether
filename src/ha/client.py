@@ -21,12 +21,13 @@ from src.ha.base import (
 )
 from src.ha.diagnostics import DiagnosticMixin
 from src.ha.entities import EntityMixin
+from src.ha.helpers import HelperMixin
 
 # Re-export for backward compatibility
 __all__ = ["HAClient", "HAClientConfig", "HAClientError", "get_ha_client", "reset_ha_client"]
 
 
-class HAClient(BaseHAClient, EntityMixin, AutomationMixin, DiagnosticMixin):
+class HAClient(BaseHAClient, EntityMixin, AutomationMixin, HelperMixin, DiagnosticMixin):
     """Client for invoking hass-ha tools.
 
     This class provides a typed interface to the HA tools.
