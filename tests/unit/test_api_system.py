@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
-
+from urllib.parse import urlparse
 
 def _make_test_app():
     """Create a minimal FastAPI app with the system router."""
@@ -621,10 +621,19 @@ class TestSystemStatus:
             # Verify the health check hit the DB-resolved URL, not localhost
             call_args = mock_httpx_context.get.call_args
             actual_url = call_args[0][0]
-            assert actual_url.startswith("http://remote-ha.example.com:8123"), (
-                f"Expected URL to start with DB-resolved host, got: {actual_url}"
+            parsed_url = urlparse(actual_url)
+            assert parsed_url.scheme == "http", (
+                f"Expected scheme 'http' for HA URL, got: {parsed_url.scheme!r} (full URL: {actual_url})"
             )
-            assert "localhost" not in actual_url
+            assert parsed_url.hostname == "remote-ha.example.com", (
+                f"Expected hostname to be 'remote-ha.example.com', got: {parsed_url.hostname!r} (full URL: {actual_url})"
+            )
+            assert parsed_url.port == 8123, (
+                f"Expected port 8123 for HA URL, got: {parsed_url.port!r} (full URL: {actual_url})"
+            )
+            assert parsed_url.hostname != "localhost", (
+                f"Expected HA URL not to use localhost, got: {actual_url}"
+            )
 
     async def test_system_status_includes_public_url(self, system_client):
         """Should include public_url from settings in response."""
