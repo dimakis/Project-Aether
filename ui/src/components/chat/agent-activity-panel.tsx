@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { AgentTopology } from "./agent-topology";
 import { TOPOLOGY_AGENT_IDS, agentColor } from "@/lib/agent-registry";
 import { TraceTimeline } from "./trace-timeline";
-import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { SectionErrorBoundary } from "@/components/ui/section-error-boundary";
 import {
   useAgentActivity,
   useActivityPanel,
@@ -364,7 +364,7 @@ export function AgentActivityPanel() {
           {/* Content */}
           <div className="flex-1 overflow-auto p-3 space-y-3">
             {/* ── Neural graph — ALWAYS rendered ─────────────────── */}
-            <ErrorBoundary fallback="Topology unavailable">
+            <SectionErrorBoundary fallback="Topology unavailable">
             <div>
               <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                 {isStreaming || hasLiveData ? "Neural Activity" : "Agent Network"}
@@ -387,21 +387,21 @@ export function AgentActivityPanel() {
                 }
               />
             </div>
-            </ErrorBoundary>
+            </SectionErrorBoundary>
 
             {/* ── Thinking box (below topology, above feed) ──────── */}
             {(hasThinking || isStreaming) && (
-              <ErrorBoundary fallback="Thinking stream unavailable">
+              <SectionErrorBoundary fallback="Thinking stream unavailable">
                 <ThinkingBox
                   content={activity.thinkingStream}
                   isActive={isStreaming}
                 />
-              </ErrorBoundary>
+              </SectionErrorBoundary>
             )}
 
             {/* ── Live feed (during streaming) ───────────────────── */}
             {(isStreaming || hasLiveData) && (
-              <ErrorBoundary fallback="Live feed unavailable">
+              <SectionErrorBoundary fallback="Live feed unavailable">
               <div>
                 <div className="my-2 border-t border-border/50" />
                 <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
@@ -414,7 +414,7 @@ export function AgentActivityPanel() {
                 </p>
                 <NarrativeFeed entries={narrativeFeed} />
               </div>
-              </ErrorBoundary>
+              </SectionErrorBoundary>
             )}
 
             {/* ── Post-stream: compact last session summary ──────── */}

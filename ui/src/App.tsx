@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ErrorBoundary } from "@/components/error-boundary";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { AppLayout } from "@/layouts/app-layout";
 import { Loader2 } from "lucide-react";
@@ -66,11 +66,11 @@ function PageLoader() {
 
 function RouteShell() {
   return (
-    <ErrorBoundary>
+    <AppErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Outlet />
       </Suspense>
-    </ErrorBoundary>
+    </AppErrorBoundary>
   );
 }
 
@@ -107,7 +107,7 @@ function RequireAuth() {
 
 export default function App() {
   return (
-    <ErrorBoundary>
+    <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BrowserRouter>
@@ -147,6 +147,6 @@ export default function App() {
           </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>
-    </ErrorBoundary>
+    </AppErrorBoundary>
   );
 }

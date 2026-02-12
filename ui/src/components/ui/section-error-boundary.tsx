@@ -16,7 +16,7 @@ interface State {
  * Catches rendering errors in children and shows a minimal fallback
  * instead of crashing the entire panel / page.
  */
-export class ErrorBoundary extends Component<Props, State> {
+export class SectionErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[ErrorBoundary]", error, info.componentStack);
+    console.error("[SectionErrorBoundary]", error, info.componentStack);
   }
 
   render() {

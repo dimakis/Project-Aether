@@ -31,6 +31,11 @@ vi.mock("@/api/hooks", () => ({
   useSyncRegistry: vi.fn(() => ({ mutate: mockSyncMutate, isPending: false })),
 }));
 
+// Mock InlineAssistant to avoid QueryClientProvider dependency in unit tests
+vi.mock("@/components/InlineAssistant", () => ({
+  InlineAssistant: () => <div data-testid="inline-assistant">InlineAssistant</div>,
+}));
+
 // Mock child tab components to isolate RegistryPage tests
 vi.mock("../AutomationTab", () => ({
   AutomationTab: () => <div data-testid="automation-tab-content">AutomationTab</div>,
@@ -66,11 +71,7 @@ describe("RegistryPage", () => {
 
   it("renders tabs in correct order with Overview first", () => {
     render(<RegistryPage />);
-    const tabButtons = screen.getAllByRole("button").filter((btn) =>
-      ["Overview", "Automations", "Scripts", "Scenes", "Services"].some((label) =>
-        btn.textContent?.includes(label),
-      ),
-    );
+    const tabButtons = screen.getAllByRole("tab");
     expect(tabButtons).toHaveLength(5);
     expect(tabButtons[0].textContent).toContain("Overview");
     expect(tabButtons[1].textContent).toContain("Automations");
@@ -83,7 +84,7 @@ describe("RegistryPage", () => {
     const user = userEvent.setup();
     render(<RegistryPage />);
     // Click automations tab
-    await user.click(screen.getByRole("button", { name: /automations/i }));
+    await user.click(screen.getByRole("tab", { name: /automations/i }));
     expect(screen.getByTestId("automation-tab-content")).toBeInTheDocument();
     expect(screen.queryByTestId("overview-tab-content")).not.toBeInTheDocument();
   });
@@ -97,18 +98,18 @@ describe("RegistryPage", () => {
   it("shows search bar on non-overview tabs", async () => {
     const user = userEvent.setup();
     render(<RegistryPage />);
-    await user.click(screen.getByRole("button", { name: /automations/i }));
+    await user.click(screen.getByRole("tab", { name: /automations/i }));
     expect(screen.getByPlaceholderText(/search automations/i)).toBeInTheDocument();
   });
 
   describe("tab count badges", () => {
     it("renders counts from summary data in tab badges", () => {
       render(<RegistryPage />);
-      // Find tab buttons with counts
-      const automationsTab = screen.getByRole("button", { name: /automations/i });
-      const scriptsTab = screen.getByRole("button", { name: /scripts/i });
-      const scenesTab = screen.getByRole("button", { name: /scenes/i });
-      const servicesTab = screen.getByRole("button", { name: /services/i });
+      // Find tab elements with counts
+      const automationsTab = screen.getByRole("tab", { name: /automations/i });
+      const scriptsTab = screen.getByRole("tab", { name: /scripts/i });
+      const scenesTab = screen.getByRole("tab", { name: /scenes/i });
+      const servicesTab = screen.getByRole("tab", { name: /services/i });
 
       expect(automationsTab.textContent).toContain("12");
       expect(scriptsTab.textContent).toContain("5");
@@ -118,7 +119,7 @@ describe("RegistryPage", () => {
 
     it("does not render a count badge on the overview tab", () => {
       render(<RegistryPage />);
-      const overviewTab = screen.getByRole("button", { name: /overview/i });
+      const overviewTab = screen.getByRole("tab", { name: /overview/i });
       // Overview should NOT contain any numeric badge
       expect(overviewTab.textContent).toBe("Overview");
     });
@@ -126,7 +127,7 @@ describe("RegistryPage", () => {
     it("renders tab counts using Badge component styling", () => {
       render(<RegistryPage />);
       // Badge component uses the class "rounded-full" from badgeVariants
-      const automationsTab = screen.getByRole("button", { name: /automations/i });
+      const automationsTab = screen.getByRole("tab", { name: /automations/i });
       const badge = automationsTab.querySelector(".rounded-full");
       expect(badge).toBeInTheDocument();
       expect(badge?.textContent).toBe("12");
@@ -160,7 +161,7 @@ describe("RegistryPage", () => {
     it("enables automations hook when automations tab is active", async () => {
       const user = userEvent.setup();
       render(<RegistryPage />);
-      await user.click(screen.getByRole("button", { name: /automations/i }));
+      await user.click(screen.getByRole("tab", { name: /automations/i }));
       expect(useRegistryAutomations).toHaveBeenLastCalledWith({ enabled: true });
       expect(useRegistryScripts).toHaveBeenLastCalledWith({ enabled: false });
       expect(useRegistryScenes).toHaveBeenLastCalledWith({ enabled: false });

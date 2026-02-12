@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { insightSchedules, traces } from "../client";
+import { queryKeys } from "./queryKeys";
 
 // ─── Insight Schedules (Feature 10) ──────────────────────────────────────────
 
 export function useInsightSchedules() {
   return useQuery({
-    queryKey: ["insightSchedules"],
+    queryKey: queryKeys.schedules.all,
     queryFn: () => insightSchedules.list(),
   });
 }
@@ -15,7 +16,7 @@ export function useCreateInsightSchedule() {
   return useMutation({
     mutationFn: (data: import("@/lib/types").InsightScheduleCreate) =>
       insightSchedules.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.schedules.all }),
   });
 }
 
@@ -29,7 +30,7 @@ export function useUpdateInsightSchedule() {
       id: string;
       data: Partial<import("@/lib/types").InsightScheduleCreate>;
     }) => insightSchedules.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.schedules.all }),
   });
 }
 
@@ -37,7 +38,7 @@ export function useDeleteInsightSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => insightSchedules.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.schedules.all }),
   });
 }
 
@@ -45,7 +46,7 @@ export function useRunInsightSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => insightSchedules.runNow(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["insightSchedules"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.schedules.all }),
   });
 }
 
@@ -53,7 +54,7 @@ export function useRunInsightSchedule() {
 
 export function useTraceSpans(traceId: string | null, isStreaming = false) {
   return useQuery({
-    queryKey: ["traces", traceId],
+    queryKey: queryKeys.traces.detail(traceId!),
     queryFn: () => traces.getSpans(traceId!),
     enabled: !!traceId,
     staleTime: 30_000, // 30s — traces are mostly immutable once complete

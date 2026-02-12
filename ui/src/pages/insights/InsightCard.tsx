@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ArrowRight, Lightbulb, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ interface InsightCardProps {
   onExpand: () => void;
 }
 
-export function InsightCard({
+export const InsightCard = memo(function InsightCard({
   insight,
   isExpanded,
   onExpand,
@@ -144,4 +145,4 @@ export function InsightCard({
       </div>
     </button>
   );
-}
+});

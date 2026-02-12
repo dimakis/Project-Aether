@@ -6,7 +6,7 @@ import { queryKeys } from "./queryKeys";
 
 export function useWorkflowPresets() {
   return useQuery({
-    queryKey: queryKeys.workflowPresets,
+    queryKey: queryKeys.workflows.presets,
     queryFn: () => workflows.listPresets(),
     staleTime: 5 * 60 * 1000, // Presets rarely change, cache 5 min
   });

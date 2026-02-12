@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { flowGrades } from "../client";
 import type { FlowGradePayload } from "../client";
+import { queryKeys } from "./queryKeys";
 
 export function useFlowGrades(conversationId: string | null) {
   return useQuery({
-    queryKey: ["flow-grades", conversationId],
+    queryKey: queryKeys.flowGrades.detail(conversationId!),
     queryFn: () => flowGrades.get(conversationId!),
     enabled: !!conversationId,
   });
@@ -16,7 +17,7 @@ export function useSubmitFlowGrade() {
     mutationFn: (data: FlowGradePayload) => flowGrades.submit(data),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({
-        queryKey: ["flow-grades", vars.conversation_id],
+        queryKey: queryKeys.flowGrades.detail(vars.conversation_id),
       });
     },
   });
@@ -27,7 +28,7 @@ export function useDeleteFlowGrade() {
   return useMutation({
     mutationFn: (gradeId: string) => flowGrades.delete(gradeId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["flow-grades"] });
+      qc.invalidateQueries({ queryKey: queryKeys.flowGrades.all });
     },
   });
 }

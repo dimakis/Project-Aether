@@ -104,73 +104,17 @@ export const diagnostics = {
     request<RecentTracesResponse>(`/diagnostics/traces/recent?limit=${limit}`),
 };
 
-// ─── Auth / Setup ────────────────────────────────────────────────────────────
-
-export const auth = {
-  setupStatus: () =>
-    request<{ setup_complete: boolean }>(`/auth/setup-status`),
-
-  setup: (data: { ha_url: string; ha_token: string; password?: string | null }) =>
-    request<{ token: string; message: string }>(`/auth/setup`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  loginWithHAToken: (ha_token: string) =>
-    request<{ token: string; username: string; message: string }>(
-      `/auth/login/ha-token`,
-      {
-        method: "POST",
-        body: JSON.stringify({ ha_token }),
-      },
-    ),
-};
-
 // ─── Usage ──────────────────────────────────────────────────────────────────
 
 export const usage = {
   summary: (days = 30) =>
-    request<{
-      period_days: number;
-      total_calls: number;
-      total_input_tokens: number;
-      total_output_tokens: number;
-      total_tokens: number;
-      total_cost_usd: number;
-      by_model: Array<{
-        model: string;
-        provider: string;
-        calls: number;
-        tokens: number;
-        cost_usd: number;
-      }>;
-    }>(`/usage/summary?days=${days}`),
+    request<import("@/lib/types").UsageSummary>(`/usage/summary?days=${days}`),
 
   daily: (days = 30) =>
-    request<{
-      days: number;
-      data: Array<{
-        date: string;
-        calls: number;
-        tokens: number;
-        cost_usd: number;
-      }>;
-    }>(`/usage/daily?days=${days}`),
+    request<import("@/lib/types").UsageDailyResponse>(`/usage/daily?days=${days}`),
 
   models: (days = 30) =>
-    request<{
-      days: number;
-      models: Array<{
-        model: string;
-        provider: string;
-        calls: number;
-        input_tokens: number;
-        output_tokens: number;
-        tokens: number;
-        cost_usd: number;
-        avg_latency_ms: number | null;
-      }>;
-    }>(`/usage/models?days=${days}`),
+    request<import("@/lib/types").UsageByModelResponse>(`/usage/models?days=${days}`),
 
   conversationCost: (conversationId: string) =>
     request<{

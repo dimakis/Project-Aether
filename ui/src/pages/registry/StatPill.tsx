@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 
 interface StatPillProps {
@@ -6,11 +7,11 @@ interface StatPillProps {
   color: string;
 }
 
-export function StatPill({ label, value, color }: StatPillProps) {
+export const StatPill = memo(function StatPill({ label, value, color }: StatPillProps) {
   return (
     <span className={cn("text-xs font-medium", color)}>
       {value}{" "}
       <span className="text-muted-foreground">{label}</span>
     </span>
   );
-}
+});

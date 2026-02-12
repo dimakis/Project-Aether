@@ -3,11 +3,25 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MarkdownRenderer } from "../markdown-renderer";
 
-// Mock react-shiki components
+// Mock react-shiki components — mirrors the real CodeBlock's action rendering
 vi.mock("@/components/ui/code-block", () => ({
-  CodeBlock: ({ code, language }: { code: string; language: string }) => (
+  CodeBlock: ({
+    code,
+    language,
+    action,
+  }: {
+    code: string;
+    language: string;
+    action?: { label: string; icon?: React.ReactNode; onClick: (code: string) => void };
+  }) => (
     <div data-testid="code-block" data-language={language}>
       {code}
+      {action && (
+        <button onClick={() => action.onClick(code)}>
+          {action.icon}
+          {action.label}
+        </button>
+      )}
     </div>
   ),
   InlineCode: ({ children }: { children: React.ReactNode }) => (

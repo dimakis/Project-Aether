@@ -7,7 +7,7 @@
  * the page it's embedded in.
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { streamChat } from "@/api/client";
+import { queryKeys } from "@/api/hooks/queryKeys";
 import type { ChatMessage } from "@/lib/types";
 import { handleTraceEvent } from "@/lib/trace-event-handler";
 import type { TraceEventChunk } from "@/lib/trace-event-handler";
@@ -43,7 +44,7 @@ export interface InlineAssistantProps {
   /** Suggestion chips shown when the chat is empty */
   suggestions: string[];
   /** React Query keys to invalidate when the assistant performs actions */
-  invalidateKeys?: string[][];
+  invalidateKeys?: readonly (readonly string[])[];
   /** Placeholder text for the input */
   placeholder?: string;
   /** Default collapsed state */
@@ -51,6 +52,26 @@ export interface InlineAssistantProps {
   /** Model to use (defaults to gpt-4o-mini) */
   model?: string;
 }
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+/**
+ * Maps tool names returned in stream metadata to the query keys that should be
+ * invalidated after the Architect calls them. Defined at module scope so it's
+ * created once rather than on every render.
+ */
+const TOOL_INVALIDATION_MAP: Record<string, readonly (readonly string[])[]> = {
+  create_insight_schedule: [queryKeys.schedules.all],
+  run_custom_analysis: [queryKeys.insights.all, queryKeys.insights.summary],
+  analyze_energy: [queryKeys.insights.all, queryKeys.insights.summary],
+  diagnose_issue: [queryKeys.insights.all, queryKeys.insights.summary],
+  seek_approval: [
+    queryKeys.proposals.all,
+    queryKeys.registry.automations,
+    queryKeys.registry.scripts,
+    queryKeys.registry.scenes,
+  ],
+};
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -70,6 +91,16 @@ export function InlineAssistant({
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Refs for values read inside sendMessage so the callback stays stable
+  // and doesn't recreate on every messages/isStreaming change.
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const isStreamingRef = useRef(isStreaming);
+  isStreamingRef.current = isStreaming;
+
+  // Memoize invalidateKeys identity to avoid unnecessary callback recreation
+  const stableInvalidateKeys = useMemo(() => invalidateKeys, [invalidateKeys]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -94,7 +125,7 @@ export function InlineAssistant({
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim() || isStreaming) return;
+      if (!content.trim() || isStreamingRef.current) return;
 
       const userMsg: InlineMessage = { role: "user", content: content.trim() };
       const assistantMsg: InlineMessage = {
@@ -107,10 +138,10 @@ export function InlineAssistant({
       setInput("");
       setIsStreaming(true);
 
-      // Build full message history with system context
+      // Build full message history from ref (avoids stale closure)
       const chatHistory: ChatMessage[] = [
         { role: "system", content: systemContext },
-        ...messages.map((m) => ({
+        ...messagesRef.current.map((m) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         })),
@@ -176,32 +207,18 @@ export function InlineAssistant({
           return updated;
         });
 
-        // Invalidate relevant queries so the page data refreshes.
-        // Always invalidate the provided keys, plus targeted invalidation
-        // based on which tools the Architect actually called.
-        for (const key of invalidateKeys) {
-          queryClient.invalidateQueries({ queryKey: key });
+        // Invalidate relevant queries so the page data refreshes
+        for (const key of stableInvalidateKeys) {
+          queryClient.invalidateQueries({ queryKey: [...key] });
         }
 
-        // Targeted invalidation based on tool calls
+        // Targeted invalidation based on which tools the Architect called
         if (toolCallsUsed.length > 0) {
-          const TOOL_INVALIDATION_MAP: Record<string, string[][]> = {
-            create_insight_schedule: [["insightSchedules"]],
-            run_custom_analysis: [["insights"], ["insightsSummary"]],
-            analyze_energy: [["insights"], ["insightsSummary"]],
-            diagnose_issue: [["insights"], ["insightsSummary"]],
-            seek_approval: [
-              ["proposals"],
-              ["registry", "automations"],
-              ["registryScripts"],
-              ["registryScenes"],
-            ],
-          };
           for (const toolName of toolCallsUsed) {
             const keys = TOOL_INVALIDATION_MAP[toolName];
             if (keys) {
               for (const key of keys) {
-                queryClient.invalidateQueries({ queryKey: key });
+                queryClient.invalidateQueries({ queryKey: [...key] });
               }
             }
           }
@@ -222,7 +239,7 @@ export function InlineAssistant({
         inputRef.current?.focus();
       }
     },
-    [isStreaming, messages, systemContext, model, invalidateKeys, queryClient],
+    [systemContext, model, stableInvalidateKeys, queryClient],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -242,6 +259,8 @@ export function InlineAssistant({
       {/* Header / Toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
+        aria-expanded={!collapsed}
+        aria-label="Toggle Architect assistant"
         className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="flex items-center gap-2">
@@ -371,7 +390,7 @@ export function InlineAssistant({
                         variant="ghost"
                         onClick={clearChat}
                         className="h-7 w-7"
-                        title="Clear chat"
+                        aria-label="Clear chat"
                       >
                         <X className="h-3.5 w-3.5" />
                       </Button>
@@ -381,6 +400,7 @@ export function InlineAssistant({
                       onClick={() => sendMessage(input)}
                       disabled={!input.trim() || isStreaming}
                       className="h-7 w-7"
+                      aria-label={isStreaming ? "Sending message" : "Send message"}
                     >
                       {isStreaming ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

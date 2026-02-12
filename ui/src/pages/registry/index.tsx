@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { queryKeys } from "@/api/hooks/queryKeys";
 import {
   useRegistryAutomations,
   useRegistrySummary,
@@ -90,22 +91,24 @@ export function RegistryPage() {
           systemContext={REGISTRY_SYSTEM_CONTEXT}
           suggestions={REGISTRY_SUGGESTIONS}
           invalidateKeys={[
-            ["registry", "automations"],
-            ["registryScripts"],
-            ["registryScenes"],
-            ["proposals"],
+            queryKeys.registry.automations,
+            queryKeys.registry.scripts,
+            queryKeys.registry.scenes,
+            queryKeys.proposals.all,
           ]}
           placeholder="Ask Architect to optimize, edit, or create automations..."
         />
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 flex gap-1 rounded-lg bg-muted p-1">
+      <div className="mb-4 flex gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Registry sections">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.key}
+              role="tab"
+              aria-selected={activeTab === tab.key}
               onClick={() => {
                 setActiveTab(tab.key);
                 setSearchQuery("");

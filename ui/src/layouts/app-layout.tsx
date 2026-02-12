@@ -18,6 +18,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { agentLabel } from "@/lib/agent-registry";
 import { useAuth } from "@/contexts/auth-context";
 import { useSystemStatus, usePendingProposals } from "@/api/hooks";
 import { useGlobalActivityStream } from "@/lib/useGlobalActivityStream";
@@ -45,18 +46,6 @@ const navItems = [
   { to: "/agents/registry", icon: Star, label: "Model Performance" },
   { to: "/settings/zones", icon: MapPin, label: "HA Zones" },
 ];
-
-const AGENT_LABELS: Record<string, string> = {
-  architect: "Architect",
-  data_scientist: "Data Scientist",
-  energy_analyst: "Energy Analyst",
-  behavioral_analyst: "Behavioral Analyst",
-  diagnostic_analyst: "Diagnostic Analyst",
-  dashboard_designer: "Dashboard Designer",
-  sandbox: "Sandbox",
-  librarian: "Librarian",
-  developer: "Developer",
-};
 
 export function AppLayout() {
   const { username, logout } = useAuth();
@@ -137,12 +126,12 @@ export function AppLayout() {
               </div>
               <span className="truncate">
                 {agentActivity.activeAgent
-                  ? AGENT_LABELS[agentActivity.activeAgent] ?? agentActivity.activeAgent
+                  ? agentLabel(agentActivity.activeAgent)
                   : "Processing"}
                 {agentActivity.delegatingTo && (
                   <span className="text-muted-foreground">
                     {" → "}
-                    {AGENT_LABELS[agentActivity.delegatingTo] ?? agentActivity.delegatingTo}
+                    {agentLabel(agentActivity.delegatingTo)}
                   </span>
                 )}
               </span>

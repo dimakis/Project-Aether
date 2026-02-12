@@ -11,7 +11,13 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+/**
+ * Top-level error boundary for the application.
+ *
+ * Renders a full-page fallback with a "Return to Dashboard" button.
+ * Used in App.tsx and RouteShell to catch crashes at the app/route level.
+ */
+export class AppErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
