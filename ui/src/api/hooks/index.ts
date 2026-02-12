@@ -28,6 +28,9 @@ export {
   useRegistryScripts,
   useRegistryScenes,
   useRegistryServices,
+  useRegistryHelpers,
+  useCreateHelper,
+  useDeleteHelper,
 } from "./registry";
 export {
   useInsightSchedules,

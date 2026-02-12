@@ -209,7 +209,7 @@ class ServiceCallResponse(BaseModel):
 
 
 class HARegistrySummary(BaseModel):
-    """Summary of HA registry (automations, scripts, scenes, services)."""
+    """Summary of HA registry (automations, scripts, scenes, services, helpers)."""
 
     automations_count: int = 0
     automations_enabled: int = 0
@@ -217,6 +217,7 @@ class HARegistrySummary(BaseModel):
     scenes_count: int = 0
     services_count: int = 0
     services_seeded: int = 0
+    helpers_count: int = 0
     last_synced_at: datetime | None = None
     mcp_gaps: list[str] = Field(
         default_factory=list,

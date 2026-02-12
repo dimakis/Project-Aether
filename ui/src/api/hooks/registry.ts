@@ -61,3 +61,35 @@ export function useRegistryServices(options?: { domain?: string; enabled?: boole
     enabled: options?.enabled ?? true,
   });
 }
+
+export function useRegistryHelpers(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.registry.helpers,
+    queryFn: () => registry.helpers(),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useCreateHelper() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: import("@/lib/types").HelperCreateRequest) =>
+      registry.createHelper(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.registry.helpers });
+      qc.invalidateQueries({ queryKey: queryKeys.registry.summary });
+    },
+  });
+}
+
+export function useDeleteHelper() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ domain, inputId }: { domain: string; inputId: string }) =>
+      registry.deleteHelper(domain, inputId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.registry.helpers });
+      qc.invalidateQueries({ queryKey: queryKeys.registry.summary });
+    },
+  });
+}
