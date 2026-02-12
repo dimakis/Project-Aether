@@ -158,11 +158,15 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
 
     try:
         settings = get_settings()
-        getattr(settings, "mlflow_experiment_name", "aether")
+        experiment_name = settings.mlflow_experiment_name
 
-        # Search for traces (MLflow 2.x API)
+        # Resolve experiment name to ID (MLflow 3.x API)
+        experiment = client.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            return {"traces": [], "total": 0}
+
         traces = client.search_traces(
-            experiment_ids=None,
+            experiment_ids=[experiment.experiment_id],
             max_results=limit,
             order_by=["timestamp_ms DESC"],
         )

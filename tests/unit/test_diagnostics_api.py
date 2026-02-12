@@ -274,7 +274,11 @@ class TestRecentTraces:
         mock_trace.info.timestamp_ms = 1707264000000
         mock_trace.info.execution_time_ms = 1500
 
+        mock_experiment = MagicMock()
+        mock_experiment.experiment_id = "42"
+
         mock_client = MagicMock()
+        mock_client.get_experiment_by_name.return_value = mock_experiment
         mock_client.search_traces.return_value = [mock_trace]
 
         with (
@@ -290,4 +294,41 @@ class TestRecentTraces:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] >= 0
+        assert data["total"] == 1
+        assert data["traces"][0]["trace_id"] == "trace-123"
+        assert data["traces"][0]["status"] == "OK"
+        assert data["traces"][0]["timestamp_ms"] == 1707264000000
+        assert data["traces"][0]["duration_ms"] == 1500
+
+        # Verify experiment was resolved by name and ID was passed to search_traces
+        mock_client.get_experiment_by_name.assert_called_once_with("aether")
+        mock_client.search_traces.assert_called_once_with(
+            experiment_ids=["42"],
+            max_results=50,
+            order_by=["timestamp_ms DESC"],
+        )
+
+    async def test_returns_empty_when_experiment_not_found(self, client: AsyncClient):
+        """When the MLflow experiment doesn't exist yet, return empty gracefully."""
+        token = _make_jwt()
+
+        mock_client = MagicMock()
+        mock_client.get_experiment_by_name.return_value = None
+
+        with (
+            patch("src.api.routes.diagnostics.MlflowClient", return_value=mock_client),
+            patch("src.api.routes.diagnostics.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.mlflow_tracking_uri = "http://localhost:5000"
+            mock_settings.return_value.mlflow_experiment_name = "aether"
+            response = await client.get(
+                "/api/v1/diagnostics/traces/recent",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert data["traces"] == []
+        # search_traces should NOT be called if the experiment doesn't exist
+        mock_client.search_traces.assert_not_called()
