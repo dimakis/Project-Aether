@@ -9,6 +9,8 @@ import {
   STORAGE_KEYS,
   generateSessionId,
   autoTitle,
+  storageGet,
+  storageSet,
   type DisplayMessage,
   type ChatSession,
 } from "@/lib/storage";
@@ -72,6 +74,14 @@ export function ChatPage() {
   });
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // ─── Stream lifecycle refs (survive across sendMessage calls) ──────
+  // These allow the unmount cleanup to abort the in-flight stream and
+  // persist whatever content has been accumulated so far.
+  const abortRef = useRef<AbortController | null>(null);
+  const streamContentRef = useRef("");
+  const streamThinkingRef = useRef("");
+  const streamSessionIdRef = useRef<string | null>(null);
+
   const { panelOpen: activityPanelOpen } = useActivityPanel();
 
   // Pre-fill input from navigation state (e.g. "Create Automation" from insights)
@@ -84,6 +94,44 @@ export function ChatPage() {
       inputRef.current?.focus();
     }
   }, [location.state, location.pathname, navigate]);
+
+  // Abort the active stream on unmount and persist accumulated content
+  // directly to localStorage (React state updates are no-ops after unmount).
+  useEffect(() => {
+    return () => {
+      const controller = abortRef.current;
+      if (!controller) return;
+
+      controller.abort();
+      abortRef.current = null;
+
+      const content = streamContentRef.current;
+      const sessionId = streamSessionIdRef.current;
+      if (!sessionId) return;
+
+      // Read sessions directly from localStorage (component state is stale)
+      const stored = storageGet<ChatSession[]>(STORAGE_KEYS.chatSessions, []);
+      const idx = stored.findIndex((s) => s.id === sessionId);
+      if (idx === -1) return;
+
+      const msgs = [...stored[idx].messages];
+      const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+      if (last?.role === "assistant") {
+        msgs[msgs.length - 1] = {
+          ...last,
+          content: content || last.content || "",
+          isStreaming: false,
+          thinkingContent: streamThinkingRef.current || undefined,
+        };
+        stored[idx] = {
+          ...stored[idx],
+          messages: msgs,
+          updatedAt: new Date().toISOString(),
+        };
+        storageSet(STORAGE_KEYS.chatSessions, stored);
+      }
+    };
+  }, []);
 
   const { data: modelsData } = useModels();
   const { data: conversationsData } = useConversations();
@@ -258,9 +306,17 @@ export function ChatPage() {
       { role: "user" as const, content: content.trim() },
     ];
 
-    // Use refs to accumulate content, avoiding stale closure issues
-    const fullContentRef = { current: "" };
-    const thinkingRef = { current: "" };
+    // Wire up stream lifecycle refs so the unmount cleanup can access
+    // accumulated content and abort the stream if needed.
+    const controller = new AbortController();
+    abortRef.current = controller;
+    streamContentRef.current = "";
+    streamThinkingRef.current = "";
+    streamSessionIdRef.current = sessionId;
+
+    // Alias component-level refs for readability within this function
+    const fullContentRef = streamContentRef;
+    const thinkingRef = streamThinkingRef;
     const rafPending = { current: false };
 
     /** Flush accumulated content to React state (batched via rAF). */
@@ -288,7 +344,7 @@ export function ChatPage() {
     try {
       let traceId: string | undefined;
 
-      for await (const chunk of streamChat(selectedModel, chatHistory, activeSessionId ?? undefined)) {
+      for await (const chunk of streamChat(selectedModel, chatHistory, activeSessionId ?? undefined, controller.signal)) {
         if (typeof chunk === "object" && "type" in chunk) {
           if (chunk.type === "metadata") {
             if (chunk.trace_id) {
@@ -361,6 +417,11 @@ export function ChatPage() {
       // arrives (inside the loop above) so the activity panel can poll during
       // streaming.  No need to set it again here.
     } catch (err) {
+      // AbortError is expected when the user navigates away mid-stream;
+      // the unmount cleanup already persisted partial content to localStorage.
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
       console.warn("[chat] Stream error:", err);
       updateSessionMessages((prev) => {
         const updated = [...prev];
@@ -376,6 +437,7 @@ export function ChatPage() {
         return updated;
       });
     } finally {
+      abortRef.current = null;
       setIsStreaming(false);
       setStreamStartTime(null);
       setStatusMessage("");

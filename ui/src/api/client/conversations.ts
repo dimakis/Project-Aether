@@ -78,11 +78,13 @@ export async function* streamChat(
   model: string,
   messages: import("@/lib/types").ChatMessage[],
   conversationId?: string,
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const url = `${env.API_URL}/v1/chat/completions`;
   const response = await fetch(url, {
     method: "POST",
     credentials: "include",
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
