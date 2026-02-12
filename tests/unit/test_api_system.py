@@ -620,8 +620,11 @@ class TestSystemStatus:
 
             # Verify the health check hit the DB-resolved URL, not localhost
             call_args = mock_httpx_context.get.call_args
-            assert "remote-ha.example.com" in call_args[0][0]
-            assert "localhost" not in call_args[0][0]
+            actual_url = call_args[0][0]
+            assert actual_url.startswith("http://remote-ha.example.com:8123"), (
+                f"Expected URL to start with DB-resolved host, got: {actual_url}"
+            )
+            assert "localhost" not in actual_url
 
     async def test_system_status_includes_public_url(self, system_client):
         """Should include public_url from settings in response."""
