@@ -54,6 +54,7 @@ export {
   useRollbackPrompt,
   useDeleteConfigVersion,
   useDeletePromptVersion,
+  usePromoteBoth,
   useGeneratePrompt,
 } from "./agents";
 export { useWorkflowPresets } from "./workflows";

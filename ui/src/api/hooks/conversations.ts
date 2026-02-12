@@ -6,14 +6,14 @@ import { queryKeys } from "./queryKeys";
 
 export function useConversations() {
   return useQuery({
-    queryKey: queryKeys.conversations,
+    queryKey: queryKeys.conversations.all,
     queryFn: () => conversations.list(),
   });
 }
 
 export function useConversation(id: string) {
   return useQuery({
-    queryKey: queryKeys.conversation(id),
+    queryKey: queryKeys.conversations.detail(id),
     queryFn: () => conversations.get(id),
     enabled: !!id,
   });

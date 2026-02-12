@@ -6,7 +6,7 @@ import { queryKeys } from "./queryKeys";
 
 export function useAreas() {
   return useQuery({
-    queryKey: ["areas"],
+    queryKey: queryKeys.areas.all,
     queryFn: () => areas.list(),
   });
 }
@@ -16,17 +16,17 @@ export function useAreas() {
 export function useEntities(domain?: string, areaId?: string) {
   return useQuery({
     queryKey: areaId
-      ? ["entities", "area", areaId, domain]
+      ? queryKeys.entities.byArea(areaId, domain)
       : domain
-        ? queryKeys.entitiesByDomain(domain)
-        : queryKeys.entities,
+        ? queryKeys.entities.byDomain(domain)
+        : queryKeys.entities.all,
     queryFn: () => entities.list(domain, areaId),
   });
 }
 
 export function useDomainsSummary() {
   return useQuery({
-    queryKey: queryKeys.domainsSummary,
+    queryKey: queryKeys.entities.domainsSummary,
     queryFn: () => entities.domainsSummary(),
   });
 }
@@ -36,8 +36,8 @@ export function useSyncEntities() {
   return useMutation({
     mutationFn: (force?: boolean) => entities.sync(force),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.entities });
-      qc.invalidateQueries({ queryKey: queryKeys.domainsSummary });
+      qc.invalidateQueries({ queryKey: queryKeys.entities.all });
+      qc.invalidateQueries({ queryKey: queryKeys.entities.domainsSummary });
     },
   });
 }

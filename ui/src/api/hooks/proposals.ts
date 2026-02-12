@@ -6,14 +6,14 @@ import { queryKeys } from "./queryKeys";
 
 export function useProposals(status?: string) {
   return useQuery({
-    queryKey: [...queryKeys.proposals, status],
+    queryKey: [...queryKeys.proposals.all, status],
     queryFn: () => proposals.list(status),
   });
 }
 
 export function usePendingProposals() {
   return useQuery({
-    queryKey: queryKeys.proposalsPending,
+    queryKey: queryKeys.proposals.pending,
     queryFn: () => proposals.pending(),
     refetchInterval: 30_000, // Poll every 30s for pending approvals
   });
@@ -21,7 +21,7 @@ export function usePendingProposals() {
 
 export function useProposal(id: string) {
   return useQuery({
-    queryKey: queryKeys.proposal(id),
+    queryKey: queryKeys.proposals.detail(id),
     queryFn: () => proposals.get(id),
     enabled: !!id,
   });
@@ -32,8 +32,8 @@ export function useApproveProposal() {
   return useMutation({
     mutationFn: (id: string) => proposals.approve(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.proposals });
-      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.pending });
     },
   });
 }
@@ -44,8 +44,8 @@ export function useRejectProposal() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       proposals.reject(id, reason),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.proposals });
-      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.pending });
     },
   });
 }
@@ -55,9 +55,9 @@ export function useDeployProposal() {
   return useMutation({
     mutationFn: (id: string) => proposals.deploy(id),
     onSuccess: (_data, id) => {
-      qc.invalidateQueries({ queryKey: queryKeys.proposals });
-      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
-      qc.invalidateQueries({ queryKey: queryKeys.proposal(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.pending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.detail(id) });
     },
   });
 }
@@ -67,9 +67,9 @@ export function useRollbackProposal() {
   return useMutation({
     mutationFn: (id: string) => proposals.rollback(id),
     onSuccess: (_data, id) => {
-      qc.invalidateQueries({ queryKey: queryKeys.proposals });
-      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
-      qc.invalidateQueries({ queryKey: queryKeys.proposal(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.pending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.detail(id) });
     },
   });
 }
@@ -79,8 +79,8 @@ export function useDeleteProposal() {
   return useMutation({
     mutationFn: (id: string) => proposals.delete(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.proposals });
-      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.pending });
     },
   });
 }
@@ -99,8 +99,8 @@ export function useCreateProposal() {
       service_call?: Record<string, unknown>;
     }) => proposals.create(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.proposals });
-      qc.invalidateQueries({ queryKey: queryKeys.proposalsPending });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
+      qc.invalidateQueries({ queryKey: queryKeys.proposals.pending });
     },
   });
 }
@@ -109,21 +109,21 @@ export function useCreateProposal() {
 
 export function useInsights(type?: string, status?: string) {
   return useQuery({
-    queryKey: [...queryKeys.insights, type, status],
+    queryKey: [...queryKeys.insights.all, type, status],
     queryFn: () => insights.list(type, status),
   });
 }
 
 export function useInsightsSummary() {
   return useQuery({
-    queryKey: queryKeys.insightsSummary,
+    queryKey: queryKeys.insights.summary,
     queryFn: () => insights.summary(),
   });
 }
 
 export function useInsight(id: string) {
   return useQuery({
-    queryKey: queryKeys.insight(id),
+    queryKey: queryKeys.insights.detail(id),
     queryFn: () => insights.get(id),
     enabled: !!id,
   });
@@ -134,8 +134,8 @@ export function useReviewInsight() {
   return useMutation({
     mutationFn: (id: string) => insights.review(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.insights });
-      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.all });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.summary });
     },
   });
 }
@@ -146,8 +146,8 @@ export function useDismissInsight() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       insights.dismiss(id, reason),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.insights });
-      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.all });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.summary });
     },
   });
 }
@@ -157,8 +157,8 @@ export function useDeleteInsight() {
   return useMutation({
     mutationFn: (id: string) => insights.delete(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.insights });
-      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.all });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.summary });
     },
   });
 }
@@ -174,8 +174,8 @@ export function useRunAnalysis() {
       hours?: number;
     } = {}) => insights.analyze(type, hours),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.insights });
-      qc.invalidateQueries({ queryKey: queryKeys.insightsSummary });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.all });
+      qc.invalidateQueries({ queryKey: queryKeys.insights.summary });
     },
   });
 }

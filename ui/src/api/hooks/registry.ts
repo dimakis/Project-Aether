@@ -9,18 +9,14 @@ export function useSyncRegistry() {
   return useMutation({
     mutationFn: () => registry.sync(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.registryAutomations });
-      qc.invalidateQueries({ queryKey: queryKeys.registrySummary });
-      qc.invalidateQueries({ queryKey: ["registryScripts"] });
-      qc.invalidateQueries({ queryKey: ["registryScenes"] });
-      qc.invalidateQueries({ queryKey: ["registryServices"] });
+      qc.invalidateQueries({ queryKey: queryKeys.registry.all });
     },
   });
 }
 
 export function useRegistryAutomations(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: queryKeys.registryAutomations,
+    queryKey: queryKeys.registry.automations,
     queryFn: () => registry.automations(),
     enabled: options?.enabled ?? true,
   });
@@ -28,7 +24,7 @@ export function useRegistryAutomations(options?: { enabled?: boolean }) {
 
 export function useRegistrySummary(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: queryKeys.registrySummary,
+    queryKey: queryKeys.registry.summary,
     queryFn: () => registry.summary(),
     enabled: options?.enabled ?? true,
   });
@@ -36,7 +32,7 @@ export function useRegistrySummary(options?: { enabled?: boolean }) {
 
 export function useAutomationConfig(automationId: string) {
   return useQuery({
-    queryKey: ["automationConfig", automationId],
+    queryKey: queryKeys.registry.automationConfig(automationId),
     queryFn: () => registry.automationConfig(automationId),
     enabled: !!automationId,
   });
@@ -44,7 +40,7 @@ export function useAutomationConfig(automationId: string) {
 
 export function useRegistryScripts(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: ["registryScripts"],
+    queryKey: queryKeys.registry.scripts,
     queryFn: () => registry.scripts(),
     enabled: options?.enabled ?? true,
   });
@@ -52,7 +48,7 @@ export function useRegistryScripts(options?: { enabled?: boolean }) {
 
 export function useRegistryScenes(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: ["registryScenes"],
+    queryKey: queryKeys.registry.scenes,
     queryFn: () => registry.scenes(),
     enabled: options?.enabled ?? true,
   });
@@ -60,7 +56,7 @@ export function useRegistryScenes(options?: { enabled?: boolean }) {
 
 export function useRegistryServices(options?: { domain?: string; enabled?: boolean }) {
   return useQuery({
-    queryKey: ["registryServices", options?.domain],
+    queryKey: queryKeys.registry.services(options?.domain),
     queryFn: () => registry.services(options?.domain),
     enabled: options?.enabled ?? true,
   });

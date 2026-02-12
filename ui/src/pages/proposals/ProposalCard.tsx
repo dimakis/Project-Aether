@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ArrowRight, Search, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatRelativeTime } from "@/lib/utils";
@@ -10,7 +11,7 @@ interface ProposalCardProps {
   onExpand: () => void;
 }
 
-export function ProposalCard({
+export const ProposalCard = memo(function ProposalCard({
   proposal,
   isExpanded,
   onExpand,
@@ -105,4 +106,4 @@ export function ProposalCard({
       </div>
     </button>
   );
-}
+});

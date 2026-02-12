@@ -3,6 +3,7 @@ import { Lightbulb, Play, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { queryKeys } from "@/api/hooks/queryKeys";
 import {
   useInsights,
   useInsightsSummary,
@@ -103,7 +104,7 @@ export function InsightsPage() {
         <InlineAssistant
           systemContext={INSIGHTS_SYSTEM_CONTEXT}
           suggestions={INSIGHTS_SUGGESTIONS}
-          invalidateKeys={[["insights"], ["insightsSummary"]]}
+          invalidateKeys={[queryKeys.insights.all, queryKeys.insights.summary]}
           placeholder="Ask about your insights or run a custom analysis..."
         />
       </div>

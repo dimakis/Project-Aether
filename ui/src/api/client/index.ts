@@ -11,10 +11,10 @@ export {
   models,
   system,
   diagnostics,
-  auth,
   usage,
   modelRatings,
 } from "./system";
+export { authApi } from "./auth";
 export { workflows } from "./workflows";
 export { flowGrades } from "./flow-grades";
 export type { FlowGradePayload, FlowGradeItem, FlowGradeSummary } from "./flow-grades";

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { MapPin, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -5,17 +6,19 @@ import type { Entity } from "@/lib/types";
 import { DomainIcon } from "./DomainIcon";
 import { StateIndicator } from "./StateIndicator";
 
-export function EntityListItem({
-  entity,
-  isSelected,
-  areaName,
-  onSelect,
-}: {
+interface EntityListItemProps {
   entity: Entity;
   isSelected: boolean;
   areaName: string;
   onSelect: () => void;
-}) {
+}
+
+export const EntityListItem = memo(function EntityListItem({
+  entity,
+  isSelected,
+  areaName,
+  onSelect,
+}: EntityListItemProps) {
   return (
     <motion.button
       layout
@@ -50,4 +53,4 @@ export function EntityListItem({
       </div>
     </motion.button>
   );
-}
+});

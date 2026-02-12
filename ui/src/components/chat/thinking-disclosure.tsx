@@ -45,6 +45,8 @@ export function ThinkingDisclosure({
     <div className={cn("mb-3", className)}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={showContent}
+        aria-label={isActive ? "Reasoning in progress" : `Thought for ${wordCount} words`}
         className={cn(
           "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors",
           isActive

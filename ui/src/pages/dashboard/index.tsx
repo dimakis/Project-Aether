@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import type { AgentDetail, InsightSchedule, ModelPerformanceItem, UsageModelBreakdown } from "@/lib/types";
 import {
   useSystemStatus,
   usePendingProposals,
@@ -70,18 +71,22 @@ export function DashboardPage() {
 
   // Derived data for new cards
   const totalAgents = agentsData?.total ?? 0;
-  const enabledAgents = agentsData?.agents?.filter((a: { status: string }) => a.status !== "disabled").length ?? 0;
-  const draftAgents = agentsData?.agents?.filter((a: { active_config: { status: string } | null }) =>
-    a.active_config?.status === "draft"
+  const enabledAgents = agentsData?.agents?.filter(
+    (a: AgentDetail) => a.status !== "disabled",
+  ).length ?? 0;
+  const draftAgents = agentsData?.agents?.filter(
+    (a: AgentDetail) => a.active_config?.status === "draft",
   ).length ?? 0;
 
   const webhookSchedules = (schedulesData?.items ?? []).filter(
-    (s: { trigger_type: string }) => s.trigger_type === "webhook"
+    (s: InsightSchedule) => s.trigger_type === "webhook",
   );
-  const activeWebhooks = webhookSchedules.filter((s: { enabled: boolean }) => s.enabled).length;
+  const activeWebhooks = webhookSchedules.filter(
+    (s: InsightSchedule) => s.enabled,
+  ).length;
 
   const topModels = (modelPerf ?? [])
-    .sort((a: { call_count: number }, b: { call_count: number }) => b.call_count - a.call_count)
+    .sort((a: ModelPerformanceItem, b: ModelPerformanceItem) => b.call_count - a.call_count)
     .slice(0, 3);
 
   const zonesCount = zonesData?.length ?? 0;
@@ -366,7 +371,7 @@ export function DashboardPage() {
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                         Top Models
                       </p>
-                      {usageSummary.by_model.slice(0, 3).map((m: { model: string; cost_usd: number; calls: number }) => (
+                      {usageSummary.by_model.slice(0, 3).map((m: UsageModelBreakdown) => (
                         <div key={m.model} className="flex justify-between text-[11px]">
                           <span className="truncate text-muted-foreground">{m.model}</span>
                           <span className="tabular-nums">${m.cost_usd.toFixed(2)}</span>
@@ -434,7 +439,7 @@ export function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {topModels.map((m: { model: string; call_count: number; avg_latency_ms: number | null; total_cost_usd: number | null }) => (
+                  {topModels.map((m: ModelPerformanceItem) => (
                     <div
                       key={m.model}
                       className="flex items-center justify-between rounded-lg border border-border/30 px-2.5 py-1.5"

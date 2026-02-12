@@ -8,6 +8,7 @@ import {
   Webhook,
   BarChart3,
 } from "lucide-react";
+import { queryKeys } from "@/api/hooks/queryKeys";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +68,7 @@ export function SchedulesPage() {
       <InlineAssistant
         systemContext={SCHEDULE_SYSTEM_CONTEXT}
         suggestions={SCHEDULE_SUGGESTIONS}
-        invalidateKeys={[["insightSchedules"]]}
+        invalidateKeys={[queryKeys.schedules.all]}
         placeholder="Describe a schedule in natural language..."
       />
 
