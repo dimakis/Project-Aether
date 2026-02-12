@@ -11,11 +11,12 @@ indefinitely in a unit-test environment).
 from contextlib import asynccontextmanager
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlparse
 
 import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
-from urllib.parse import urlparse
+
 
 def _make_test_app():
     """Create a minimal FastAPI app with the system router."""
