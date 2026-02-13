@@ -132,6 +132,33 @@ class TestListDashboards:
         assert "lovelace" in result.lower() or "dashboard" in result.lower()
 
 
+class TestGenerateDashboardYamlNoN1:
+    """Test that generate_dashboard_yaml does NOT call list_entities per area."""
+
+    @pytest.mark.asyncio
+    async def test_list_entities_called_once_for_multiple_areas(self):
+        """list_entities should be called at most once, not per area."""
+        mock_client = AsyncMock()
+        mock_client.list_entities = AsyncMock(
+            return_value=[
+                {"entity_id": "light.living", "attributes": {"area_id": "living_room"}},
+                {"entity_id": "light.kitchen", "attributes": {"area_id": "kitchen"}},
+                {"entity_id": "sensor.temp", "attributes": {"area_id": "living_room"}},
+            ]
+        )
+
+        with patch("src.tools.dashboard_tools.get_ha_client", return_value=mock_client):
+            from src.tools.dashboard_tools import generate_dashboard_yaml
+
+            result = await generate_dashboard_yaml.ainvoke(
+                {"title": "Test", "areas": ["living_room", "kitchen", "bedroom"]}
+            )
+
+        # list_entities should be called exactly once regardless of area count
+        assert mock_client.list_entities.call_count == 1
+        assert isinstance(result, str)
+
+
 class TestGetDashboardTools:
     """Tests for the get_dashboard_tools function."""
 

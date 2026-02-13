@@ -358,19 +358,21 @@ class ArchitectAgent(BaseAgent):
                 "status": ConversationStatus.WAITING_APPROVAL,
             }
 
-        # Execute read-only tools and continue the conversation
-        tool_messages: list[ToolMessage] = []
-        for call in tool_calls:
-            tool = tool_lookup.get(call["name"])
+        # Execute read-only tools in parallel and continue the conversation
+        async def _invoke_tool(
+            call: dict[str, object],
+        ) -> ToolMessage | None:
+            tool = tool_lookup.get(call["name"])  # type: ignore[arg-type]
             if not tool:
-                continue
+                return None
             result = await tool.ainvoke(call.get("args", {}))
-            tool_messages.append(
-                ToolMessage(
-                    content=str(result),
-                    tool_call_id=call.get("id", ""),
-                )
+            return ToolMessage(
+                content=str(result),
+                tool_call_id=call.get("id", ""),  # type: ignore[arg-type]
             )
+
+        raw_results = await asyncio.gather(*(_invoke_tool(call) for call in tool_calls))
+        tool_messages: list[ToolMessage] = [m for m in raw_results if m is not None]
 
         # Ask LLM to produce a final response with tool results
         follow_up = await self.llm.ainvoke([*messages, response, *tool_messages])
@@ -399,8 +401,14 @@ class ArchitectAgent(BaseAgent):
             area_repo = AreaRepository(session)
             service_repo = ServiceRepository(session)
 
-            # Get counts by domain
-            counts = await repo.get_domain_counts()
+            # Phase 1: fetch domain counts + independent summaries in parallel
+            counts_result, areas, devices, services = await asyncio.gather(
+                repo.get_domain_counts(),
+                area_repo.list_all(limit=20),
+                device_repo.list_all(limit=20),
+                service_repo.list_all(limit=30),
+            )
+            counts: dict[str, int] = counts_result or {}
             if not counts:
                 return None
 
@@ -438,15 +446,13 @@ class ArchitectAgent(BaseAgent):
                 else:
                     context_parts.append(f"- {domain}: {count} entities")
 
-            # Areas summary
-            areas = await area_repo.list_all(limit=20)
+            # Areas summary (already fetched in parallel)
             if areas:
                 context_parts.append("\nAreas (up to 20):")
                 for area in areas:
                     context_parts.append(f"- {area.name} (id: {area.ha_area_id})")
 
-            # Devices summary
-            devices = await device_repo.list_all(limit=20)
+            # Devices summary (already fetched in parallel)
             if devices:
                 context_parts.append("\nDevices (up to 20):")
                 for device in devices:
@@ -455,19 +461,21 @@ class ArchitectAgent(BaseAgent):
                         f"- {device.name} (area: {area_name}, id: {device.ha_device_id})"
                     )
 
-            # Services summary
-            services = await service_repo.list_all(limit=30)
+            # Services summary (already fetched in parallel)
             if services:
                 context_parts.append("\nServices (sample of 30):")
                 for svc in services:
                     context_parts.append(f"- {svc.domain}.{svc.service}")
 
-            # If specific entities mentioned, get their details
+            # Fetch mentioned entities in parallel
             if state.entities_mentioned:
-                context_parts.append("\nEntities mentioned by user:")
-                for entity_id in state.entities_mentioned[:10]:  # Limit to 10
-                    entity = await repo.get_by_entity_id(entity_id)
-                    if entity:
+                mentioned_results = await asyncio.gather(
+                    *(repo.get_by_entity_id(eid) for eid in state.entities_mentioned[:10])
+                )
+                found = [e for e in mentioned_results if e is not None]
+                if found:
+                    context_parts.append("\nEntities mentioned by user:")
+                    for entity in found:
                         context_parts.append(
                             f"- {entity.entity_id}: {entity.name or 'unnamed'} "
                             f"(state: {entity.state})"
@@ -686,7 +694,12 @@ class ArchitectAgent(BaseAgent):
             suggestions = json.loads(content.strip())
             if not isinstance(suggestions, list):
                 suggestions = []
-        except (json.JSONDecodeError, Exception):
+        except json.JSONDecodeError:
+            logger.warning(
+                "Architect: failed to parse synthesize_review response (JSON decode error)"
+            )
+            suggestions = []
+        except Exception:
             logger.warning("Architect: failed to parse synthesize_review response")
             suggestions = []
 

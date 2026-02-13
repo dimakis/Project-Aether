@@ -48,10 +48,12 @@ class TestDisableTraces:
 
 class TestLogParam:
     def test_log_param_no_mlflow(self):
+        """log_param is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import log_param
 
         with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
-            log_param("key", "value")  # should not raise
+            result = log_param("key", "value")
+            assert result is None  # no-op returns None
 
     def test_log_param_no_active_run(self):
         from src.tracing.mlflow import log_param
@@ -76,10 +78,12 @@ class TestLogParam:
 
 class TestLogParams:
     def test_log_params_no_mlflow(self):
+        """log_params is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import log_params
 
         with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
-            log_params({"a": "1"})
+            result = log_params({"a": "1"})
+            assert result is None  # no-op returns None
 
     def test_log_params_success(self):
         from src.tracing.mlflow import log_params
@@ -89,15 +93,17 @@ class TestLogParams:
 
         with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
             log_params({"a": "1"})
-            mock_mlflow.log_params.assert_called_once()
+            mock_mlflow.log_params.assert_called_once_with({"a": "1"})
 
 
 class TestLogMetric:
     def test_log_metric_no_mlflow(self):
+        """log_metric is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import log_metric
 
         with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
-            log_metric("key", 1.0)
+            result = log_metric("key", 1.0)
+            assert result is None  # no-op returns None
 
     def test_log_metric_success(self):
         from src.tracing.mlflow import log_metric
@@ -119,7 +125,7 @@ class TestLogMetrics:
 
         with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
             log_metrics({"a": 1.0, "b": 2.0})
-            mock_mlflow.log_metrics.assert_called_once()
+            mock_mlflow.log_metrics.assert_called_once_with({"a": 1.0, "b": 2.0}, step=None)
 
 
 class TestLogDict:
@@ -131,15 +137,17 @@ class TestLogDict:
 
         with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
             log_dict({"data": "test"}, "output.json")
-            mock_mlflow.log_dict.assert_called_once()
+            mock_mlflow.log_dict.assert_called_once_with({"data": "test"}, "output.json")
 
 
 class TestEndRun:
     def test_end_run_no_mlflow(self):
+        """end_run is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import end_run
 
         with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
-            end_run()
+            result = end_run()
+            assert result is None  # no-op returns None
 
     def test_end_run_success(self):
         from src.tracing.mlflow import end_run
@@ -178,22 +186,28 @@ class TestGetActiveSpan:
 
 class TestAddSpanEvent:
     def test_no_span(self):
+        """add_span_event is a no-op when span is None."""
         from src.tracing.mlflow import add_span_event
 
-        add_span_event(None, "test")  # should not raise
+        result = add_span_event(None, "test")
+        assert result is None  # no-op returns None
 
     def test_span_without_add_event(self):
+        """add_span_event is a no-op when span lacks add_event method."""
         from src.tracing.mlflow import add_span_event
 
         span = MagicMock(spec=[])  # no add_event
-        add_span_event(span, "test")  # should not raise
+        result = add_span_event(span, "test")
+        assert result is None  # no-op returns None
 
     def test_success(self):
         from src.tracing.mlflow import add_span_event
 
         span = MagicMock()
-        with patch.dict("sys.modules", {"mlflow.entities": MagicMock()}):
+        mock_entities = MagicMock()
+        with patch.dict("sys.modules", {"mlflow.entities": mock_entities}):
             add_span_event(span, "event_name", {"key": "val"})
+            span.add_event.assert_called_once()
 
 
 class TestStartExperimentRun:
@@ -281,26 +295,32 @@ class TestSearchTraces:
 
 class TestLogHumanFeedback:
     def test_skips_when_not_initialized(self):
+        """log_human_feedback is a no-op when MLflow is not initialized."""
         from src.tracing.mlflow import log_human_feedback
 
         with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
-            log_human_feedback("trace-1", "sentiment", "positive")  # no error
+            result = log_human_feedback("trace-1", "sentiment", "positive")
+            assert result is None  # no-op returns None
 
 
 class TestLogCodeFeedback:
     def test_skips_when_not_initialized(self):
+        """log_code_feedback is a no-op when MLflow is not initialized."""
         from src.tracing.mlflow import log_code_feedback
 
         with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
-            log_code_feedback("trace-1", "safety", True)
+            result = log_code_feedback("trace-1", "safety", True)
+            assert result is None  # no-op returns None
 
 
 class TestLogExpectation:
     def test_skips_when_not_initialized(self):
+        """log_expectation is a no-op when MLflow is not initialized."""
         from src.tracing.mlflow import log_expectation
 
         with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
-            log_expectation("trace-1", "expected_action", "turn_on")
+            result = log_expectation("trace-1", "expected_action", "turn_on")
+            assert result is None  # no-op returns None
 
 
 class TestIsAsync:
@@ -333,14 +353,16 @@ class TestAetherTracer:
         from src.tracing.mlflow import AetherTracer
 
         with (
-            patch("src.tracing.mlflow.start_run", return_value=MagicMock()),
-            patch("src.tracing.mlflow.end_run"),
+            patch("src.tracing.mlflow.start_run", return_value=MagicMock()) as mock_start,
+            patch("src.tracing.mlflow.end_run") as mock_end,
             patch("src.tracing.mlflow.log_metric"),
             patch("src.tracing.mlflow._safe_import_mlflow", return_value=MagicMock()),
         ):
             tracer = AetherTracer(name="test", session_id="sess-1")
             with tracer:
                 pass
+            mock_start.assert_called_once()
+            mock_end.assert_called_once()
 
     def test_run_id_property(self):
         from src.tracing.mlflow import AetherTracer
@@ -367,10 +389,10 @@ class TestAetherTracer:
             tracer.log_params({"k": "v"})
             tracer.log_metric("m", 1.0)
             tracer.log_metrics({"m": 1.0})
-            mock_lp.assert_called_once()
-            mock_lps.assert_called_once()
-            mock_lm.assert_called_once()
-            mock_lms.assert_called_once()
+            mock_lp.assert_called_once_with("k", "v")
+            mock_lps.assert_called_once_with({"k": "v"})
+            mock_lm.assert_called_once_with("m", 1.0, None)
+            mock_lms.assert_called_once_with({"m": 1.0}, None)
 
     def test_set_tag(self):
         from src.tracing.mlflow import AetherTracer
@@ -521,25 +543,33 @@ class TestEnableAutolog:
             mod._autolog_enabled = orig
 
     def test_idempotent(self):
+        """enable_autolog returns early when already enabled."""
         from src.tracing import mlflow as mod
 
         orig = mod._autolog_enabled
         mod._autolog_enabled = True
         try:
-            mod.enable_autolog()  # should return early
+            mod.enable_autolog()
+            # Flag stays True (early return, no re-initialization)
+            assert mod._autolog_enabled is True
         finally:
             mod._autolog_enabled = orig
 
 
 class TestCheckTraceBackend:
     def test_already_checked(self):
+        """_check_trace_backend short-circuits when already checked."""
         from src.tracing import mlflow as mod
 
         orig_checked = mod._traces_checked
         orig_available = mod._traces_available
         mod._traces_checked = True
+        mod._traces_available = True
         try:
             mod._check_trace_backend("http://localhost:5002")
+            # Should not re-check; _traces_available stays unchanged
+            assert mod._traces_checked is True
+            assert mod._traces_available is True
         finally:
             mod._traces_checked = orig_checked
             mod._traces_available = orig_available

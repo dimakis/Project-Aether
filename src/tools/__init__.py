@@ -75,6 +75,9 @@ def get_all_tools() -> list:
     )
 
 
+_cached_architect_tools: list | None = None
+
+
 def get_architect_tools() -> list:
     """Curated tool set for the Architect agent (lean router, 16 tools).
 
@@ -89,7 +92,15 @@ def get_architect_tools() -> list:
       for full YAML from the discovery DB
 
     This keeps the LLM tool surface small and focused.
+
+    The result is cached at module level — the tool list is static and
+    identical across requests, so building it once avoids repeated import
+    and list construction overhead.
     """
+    global _cached_architect_tools
+    if _cached_architect_tools is not None:
+        return _cached_architect_tools
+
     from src.tools.agent_tools import discover_entities as _discover_entities
     from src.tools.approval_tools import seek_approval as _seek_approval
     from src.tools.ha_tools import (
@@ -131,7 +142,7 @@ def get_architect_tools() -> list:
         consult_data_science_team as _consult_ds_team,
     )
 
-    return [
+    _cached_architect_tools = [
         # HA query — DB-backed (7)
         _get_entity_state,
         _list_entities_by_domain,
@@ -157,6 +168,7 @@ def get_architect_tools() -> list:
         # Config review (1)
         _review_config,
     ]
+    return _cached_architect_tools
 
 
 __all__ = [

@@ -152,9 +152,9 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
     """Get recent agent traces from MLflow."""
     try:
         client = _get_mlflow_client()
-    except Exception:
-        # MLflow not available -- return empty
-        return {"traces": [], "total": 0}
+    except Exception as e:
+        logger.warning("MLflow client unavailable: %s", e)
+        raise HTTPException(status_code=503, detail=f"MLflow client unavailable: {e}") from e
 
     try:
         settings = get_settings()
@@ -189,4 +189,4 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
 
     except Exception as e:
         logger.warning("Failed to fetch recent traces: %s", e)
-        return {"traces": [], "total": 0}
+        raise HTTPException(status_code=503, detail=f"Failed to fetch traces: {e}") from e

@@ -6,6 +6,7 @@ Wraps the base HA get_history with energy-specific filtering,
 aggregation, and statistical calculations.
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -218,6 +219,9 @@ class EnergyHistoryClient:
     ) -> dict[str, Any]:
         """Get aggregated energy data for multiple entities.
 
+        Uses batch history API to fetch all entity histories in a single
+        HA request, and parallelizes entity metadata lookups.
+
         Args:
             entity_ids: List of entity IDs to aggregate
             hours: Hours of history
@@ -225,14 +229,59 @@ class EnergyHistoryClient:
         Returns:
             Aggregated energy data with per-entity and total stats
         """
-        histories = []
-        for entity_id in entity_ids:
+        if not entity_ids:
+            return {
+                "entities": [],
+                "total_kwh": 0.0,
+                "average_kwh": 0.0,
+                "hours": hours,
+            }
+
+        # Batch-fetch all history in a single API call
+        batch_history = await self.ha.get_history_batch(entity_ids, hours=hours)
+
+        # Parallel-fetch entity metadata
+        entity_tasks = [self.ha.get_entity(eid, detailed=True) for eid in entity_ids]
+        entity_results = await asyncio.gather(*entity_tasks, return_exceptions=True)
+
+        histories: list[EnergyHistory] = []
+        end_time = datetime.now(UTC)
+        start_time = end_time - timedelta(hours=hours)
+
+        for eid, entity_info in zip(entity_ids, entity_results, strict=False):
             try:
-                history = await self.get_energy_history(entity_id, hours)
-                histories.append(history)
+                if isinstance(entity_info, BaseException):
+                    logger.warning(
+                        "Failed to get entity info for %s, skipping: %s", eid, entity_info
+                    )
+                    continue
+
+                history_data = batch_history.get(eid, {"states": [], "count": 0})
+                attrs = (entity_info or {}).get("attributes", {})
+
+                data_points = self._parse_history_to_datapoints(
+                    history_data.get("states", []),
+                    attrs.get("unit_of_measurement", "kWh"),
+                )
+                stats = self._calculate_stats(data_points)
+
+                histories.append(
+                    EnergyHistory(
+                        entity_id=eid,
+                        friendly_name=attrs.get("friendly_name"),
+                        device_class=attrs.get("device_class"),
+                        unit=attrs.get("unit_of_measurement", "kWh"),
+                        data_points=data_points,
+                        stats=stats,
+                        start_time=start_time,
+                        end_time=end_time,
+                    )
+                )
             except Exception:
-                logger.debug(
-                    "Failed to get energy history for entity %s, skipping", entity_id, exc_info=True
+                logger.warning(
+                    "Failed to process energy history for entity %s, skipping",
+                    eid,
+                    exc_info=True,
                 )
                 continue
 

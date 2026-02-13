@@ -3,7 +3,6 @@
 Tests retry logic, circuit breaker, and provider failover.
 """
 
-import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -54,8 +53,13 @@ class TestCircuitBreaker:
         assert not cb.can_attempt()
 
     def test_cooldown_expires(self):
-        """Test circuit breaker resets after cooldown period."""
-        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=0.1)  # Short cooldown for test
+        """Test circuit breaker resets after cooldown period (deterministic, no sleep)."""
+        current_time = 1000.0
+
+        def mock_clock() -> float:
+            return current_time
+
+        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=60, time_func=mock_clock)
 
         # Open circuit
         cb.record_failure()
@@ -63,8 +67,8 @@ class TestCircuitBreaker:
         assert cb.circuit_open
         assert not cb.can_attempt()
 
-        # Wait for cooldown
-        time.sleep(0.15)
+        # Advance clock past cooldown
+        current_time = 1061.0
         assert cb.can_attempt()
         assert not cb.circuit_open
         assert cb.failure_count == 0
@@ -202,6 +206,65 @@ class TestResilientLLM:
 
         assert resilient.some_attribute == "test_value"
         assert resilient.some_method() == "result"
+
+    @pytest.mark.asyncio
+    async def test_astream_retries_on_initial_failure(self, mock_llm):
+        """astream should retry on initial connection failure then stream."""
+
+        async def _fake_stream(*args, **kwargs):
+            yield MagicMock(content="chunk1")
+            yield MagicMock(content="chunk2")
+
+        # First call fails, second succeeds
+        mock_llm.astream = MagicMock(
+            side_effect=[
+                Exception("Connection refused"),
+                _fake_stream(),
+            ]
+        )
+
+        resilient = ResilientLLM(mock_llm, provider="test")
+        chunks = []
+        async for chunk in resilient.astream("test input"):
+            chunks.append(chunk)
+
+        assert len(chunks) == 2
+        assert mock_llm.astream.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_astream_fallback_on_primary_exhausted(self, mock_llm, mock_fallback_llm):
+        """astream should fall back to secondary provider when primary retries exhausted."""
+
+        async def _fake_stream(*args, **kwargs):
+            yield MagicMock(content="fallback_chunk")
+
+        mock_llm.astream = MagicMock(side_effect=Exception("Primary dead"))
+        mock_fallback_llm.astream = MagicMock(return_value=_fake_stream())
+
+        resilient = ResilientLLM(
+            primary_llm=mock_llm,
+            provider="primary",
+            fallback_llm=mock_fallback_llm,
+            fallback_provider="fallback",
+        )
+
+        chunks = []
+        async for chunk in resilient.astream("test input"):
+            chunks.append(chunk)
+
+        assert len(chunks) == 1
+        assert mock_fallback_llm.astream.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_astream_raises_when_all_fail(self, mock_llm):
+        """astream should raise when all retries exhausted and no fallback."""
+        mock_llm.astream = MagicMock(side_effect=Exception("Dead"))
+
+        resilient = ResilientLLM(mock_llm, provider="test")
+
+        with pytest.raises(Exception, match="Dead"):
+            async for _ in resilient.astream("test input"):
+                pass
 
 
 class TestGetLLMWithResilience:

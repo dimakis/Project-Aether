@@ -513,6 +513,116 @@ class TestGetHistory:
         assert "filter_entity_id" in call_args[1]["params"]
 
 
+class TestGetHistoryBatch:
+    """Tests for get_history_batch — batch multi-entity history in a single API call."""
+
+    @pytest.mark.asyncio
+    async def test_get_history_batch_multiple_entities(self, ha_client):
+        """Test batch fetching history for multiple entities in one API call."""
+        # HA returns list of lists — one inner list per entity, ordered by filter_entity_id
+        history_data = [
+            [
+                {
+                    "entity_id": "light.living_room",
+                    "state": "on",
+                    "last_changed": "2024-01-01T00:00:00",
+                },
+                {
+                    "entity_id": "light.living_room",
+                    "state": "off",
+                    "last_changed": "2024-01-01T01:00:00",
+                },
+            ],
+            [
+                {
+                    "entity_id": "sensor.temperature",
+                    "state": "22.5",
+                    "last_changed": "2024-01-01T00:00:00",
+                },
+            ],
+        ]
+        ha_client._request.return_value = history_data
+
+        result = await ha_client.get_history_batch(
+            ["light.living_room", "sensor.temperature"], hours=24
+        )
+
+        # Single API call with comma-separated entity IDs
+        ha_client._request.assert_called_once()
+        call_args = ha_client._request.call_args
+        assert call_args[1]["params"]["filter_entity_id"] == "light.living_room,sensor.temperature"
+
+        # Results keyed by entity_id
+        assert "light.living_room" in result
+        assert "sensor.temperature" in result
+        assert result["light.living_room"]["count"] == 2
+        assert result["sensor.temperature"]["count"] == 1
+        assert len(result["light.living_room"]["states"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_history_batch_single_entity(self, ha_client):
+        """Test batch with single entity is backward compatible."""
+        history_data = [
+            [
+                {
+                    "entity_id": "light.kitchen",
+                    "state": "on",
+                    "last_changed": "2024-01-01T00:00:00",
+                },
+            ],
+        ]
+        ha_client._request.return_value = history_data
+
+        result = await ha_client.get_history_batch(["light.kitchen"], hours=12)
+
+        assert "light.kitchen" in result
+        assert result["light.kitchen"]["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_get_history_batch_empty_list(self, ha_client):
+        """Test batch with empty entity list returns empty dict."""
+        result = await ha_client.get_history_batch([], hours=24)
+
+        assert result == {}
+        ha_client._request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_history_batch_no_data(self, ha_client):
+        """Test batch when HA returns no data."""
+        ha_client._request.return_value = None
+
+        result = await ha_client.get_history_batch(
+            ["light.living_room", "sensor.temperature"], hours=24
+        )
+
+        # All entities should have empty states
+        assert result["light.living_room"]["count"] == 0
+        assert result["sensor.temperature"]["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_get_history_batch_partial_data(self, ha_client):
+        """Test batch when HA returns data for fewer entities than requested."""
+        # HA may return fewer inner lists if some entities have no history
+        history_data = [
+            [
+                {
+                    "entity_id": "light.living_room",
+                    "state": "on",
+                    "last_changed": "2024-01-01T00:00:00",
+                },
+            ],
+        ]
+        ha_client._request.return_value = history_data
+
+        result = await ha_client.get_history_batch(
+            ["light.living_room", "sensor.temperature"], hours=24
+        )
+
+        # First entity has data, second gets empty result
+        assert result["light.living_room"]["count"] == 1
+        assert result["sensor.temperature"]["count"] == 0
+
+
 class TestGetLogbook:
     """Tests for get_logbook."""
 

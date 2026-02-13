@@ -243,7 +243,8 @@ class SandboxRunner:
                 stdout2, _ = await proc2.communicate()
                 self._gvisor_available = b"runsc" in stdout2
 
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to check gVisor availability: %s", e)
             self._gvisor_available = False
 
         return self._gvisor_available
@@ -345,7 +346,7 @@ class SandboxRunner:
                 return self.image
 
         except Exception:
-            logger.debug("Failed to verify container image availability", exc_info=True)
+            logger.warning("Failed to verify container image availability", exc_info=True)
 
         # Fall back to basic Python image
         logger.warning(

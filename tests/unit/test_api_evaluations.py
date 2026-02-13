@@ -168,9 +168,9 @@ class TestTriggerEvaluation:
         with patch("src.tracing.init_mlflow", return_value=None):
             response = await evaluations_client.post("/api/v1/evaluations/run")
 
-            assert response.status_code == 200
+            assert response.status_code == 503
             data = response.json()
-            assert data["status"] == "error"
+            assert "MLflow not available" in data["detail"]
 
     async def test_trigger_evaluation_no_scorers(self, evaluations_client):
         with (
@@ -179,17 +179,17 @@ class TestTriggerEvaluation:
         ):
             response = await evaluations_client.post("/api/v1/evaluations/run")
 
-            assert response.status_code == 200
+            assert response.status_code == 503
             data = response.json()
-            assert data["status"] == "error"
+            assert "No scorers available" in data["detail"]
 
     async def test_trigger_evaluation_exception(self, evaluations_client):
         with patch("src.tracing.init_mlflow", side_effect=Exception("Connection failed")):
             response = await evaluations_client.post("/api/v1/evaluations/run")
 
-            assert response.status_code == 200
+            assert response.status_code == 500
             data = response.json()
-            assert data["status"] == "error"
+            assert "detail" in data
 
 
 @pytest.mark.asyncio

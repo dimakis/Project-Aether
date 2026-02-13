@@ -136,18 +136,12 @@ async def trigger_evaluation(
 
         client = init_mlflow()
         if client is None:
-            return EvaluationTriggerResponse(
-                status="error",
-                message="MLflow not available",
-            )
+            raise HTTPException(status_code=503, detail="MLflow not available")
 
         settings = get_settings()
         scorers = get_all_scorers()
         if not scorers:
-            return EvaluationTriggerResponse(
-                status="error",
-                message="No scorers available",
-            )
+            raise HTTPException(status_code=503, detail="No scorers available")
 
         # Search for recent traces
         trace_df = mlflow.search_traces(
@@ -156,11 +150,7 @@ async def trigger_evaluation(
         )
 
         if trace_df is None or len(trace_df) == 0:
-            return EvaluationTriggerResponse(
-                status="error",
-                trace_count=0,
-                message="No traces found to evaluate",
-            )
+            raise HTTPException(status_code=404, detail="No traces found to evaluate")
 
         # Run evaluation
         mlflow.genai.evaluate(
@@ -174,13 +164,15 @@ async def trigger_evaluation(
             message=f"Evaluated {len(trace_df)} traces with {len(scorers)} scorers",
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         from src.api.utils import sanitize_error
 
-        return EvaluationTriggerResponse(
-            status="error",
-            message=sanitize_error(e, context="Trigger evaluation"),
-        )
+        raise HTTPException(
+            status_code=500,
+            detail=sanitize_error(e, context="Trigger evaluation"),
+        ) from e
 
 
 @router.get("/scorers")

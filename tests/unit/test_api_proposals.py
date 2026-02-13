@@ -1118,11 +1118,9 @@ class TestDeployProposal:
         ):
             response = await proposal_client.post("/api/v1/proposals/prop-uuid-2/deploy")
 
-            assert response.status_code == 200
+            assert response.status_code == 500
             data = response.json()
-            assert data["success"] is False
-            assert data["error"] is not None
-            assert "yaml_content" in data
+            assert "detail" in data
 
 
 @pytest.mark.asyncio

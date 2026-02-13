@@ -311,6 +311,37 @@ class TestEnergyHistoryClientAggregation:
         assert result["hours"] == 24
 
     @pytest.mark.asyncio
+    async def test_get_aggregated_energy_uses_batch(
+        self, energy_client, mock_ha_client, sample_history_states, sample_entity_info
+    ):
+        """Test that get_aggregated_energy uses batch history API (single call, not N calls)."""
+        entity_ids = ["sensor.grid_power", "sensor.solar_power", "sensor.heat_pump"]
+
+        # Setup get_history_batch to return results for all entities
+        mock_ha_client.get_history_batch = AsyncMock(
+            return_value={
+                eid: {
+                    "entity_id": eid,
+                    "states": sample_history_states,
+                    "count": len(sample_history_states),
+                }
+                for eid in entity_ids
+            }
+        )
+        mock_ha_client.get_entity.return_value = sample_entity_info
+
+        result = await energy_client.get_aggregated_energy(entity_ids, hours=24)
+
+        # Single batch call instead of N individual get_history calls
+        mock_ha_client.get_history_batch.assert_called_once_with(entity_ids, hours=24)
+        # get_history should NOT be called (batch replaces it)
+        mock_ha_client.get_history.assert_not_called()
+
+        assert result["entity_count"] == 3
+        assert result["hours"] == 24
+        assert len(result["entities"]) == 3
+
+    @pytest.mark.asyncio
     async def test_get_daily_breakdown(
         self, energy_client, mock_ha_client, sample_history_states, sample_entity_info
     ):

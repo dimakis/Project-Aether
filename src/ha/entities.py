@@ -3,6 +3,7 @@
 Provides methods for listing, getting, searching, and managing entities.
 """
 
+import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -86,12 +87,13 @@ class EntityMixin:
         if search_query:
             log_param("ha.list_entities.search_query", search_query)
 
-        states = await self._request("GET", "/api/states")
+        # Fetch states and entity registry in parallel
+        states, registry = await asyncio.gather(
+            self._request("GET", "/api/states"),
+            self._fetch_entity_registry(),
+        )
         if not states:
             raise HAClientError("Failed to list entities", "list_entities")
-
-        # Fetch entity registry for area_id and other metadata
-        registry = await self._fetch_entity_registry()
 
         entities = []
 
@@ -326,6 +328,69 @@ class EntityMixin:
             "first_changed": states[0].get("last_changed") if states else None,
             "last_changed": states[-1].get("last_changed") if states else None,
         }
+
+    @_trace_ha_call("ha.get_history_batch")
+    async def get_history_batch(
+        self,
+        entity_ids: list[str],
+        hours: int = 24,
+    ) -> dict[str, dict[str, Any]]:
+        """Get history for multiple entities in a single API call.
+
+        Uses HA's comma-separated ``filter_entity_id`` to batch-fetch
+        history instead of issuing N individual requests.
+
+        Args:
+            entity_ids: Entity IDs to fetch history for
+            hours: Hours of history
+
+        Returns:
+            Mapping of entity_id to history data (same format as get_history)
+        """
+        if not entity_ids:
+            return {}
+
+        log_param("ha.get_history_batch.entity_ids", ",".join(entity_ids))
+        log_param("ha.get_history_batch.count", len(entity_ids))
+
+        end_time = datetime.now(UTC)
+        start_time = end_time - timedelta(hours=hours)
+
+        history = await self._request(
+            "GET",
+            f"/api/history/period/{start_time.isoformat()}",
+            params={
+                "filter_entity_id": ",".join(entity_ids),
+                "end_time": end_time.isoformat(),
+            },
+        )
+
+        # Build result dict — HA returns list-of-lists, one per entity
+        results: dict[str, dict[str, Any]] = {}
+
+        if history:
+            for entity_states in history:
+                if not entity_states:
+                    continue
+                # Identify entity from the first state entry
+                eid = entity_states[0].get("entity_id", "")
+                results[eid] = {
+                    "entity_id": eid,
+                    "states": [
+                        {"state": s.get("state"), "last_changed": s.get("last_changed")}
+                        for s in entity_states
+                    ],
+                    "count": len(entity_states),
+                    "first_changed": entity_states[0].get("last_changed"),
+                    "last_changed": entity_states[-1].get("last_changed"),
+                }
+
+        # Fill in empty results for any entity IDs not returned by HA
+        for eid in entity_ids:
+            if eid not in results:
+                results[eid] = {"entity_id": eid, "states": [], "count": 0}
+
+        return results
 
     @_trace_ha_call("ha.get_logbook")
     async def get_logbook(

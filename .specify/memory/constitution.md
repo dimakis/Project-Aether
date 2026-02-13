@@ -1,15 +1,16 @@
 <!--
 Sync Impact Report:
-Version: 1.11.0 → 1.12.0 (MINOR: Added "Branching & PR Workflow" development standard)
+Version: 1.12.0 → 1.13.0 (MINOR: Added OpenAPI spec update requirement to Delivery Checklist and PR Workflow)
 Modified Principles: None
-Added Sections: "Branching & PR Workflow" under Development Standards; AI Directives updated
+Added Sections: None
+Modified Sections: "Feature Delivery Standards" — added OpenAPI spec update to Delivery Checklist item 5; "Branching & PR Workflow" — added OpenAPI spec regeneration to Required Workflow step 3; "Quality Gates" — added OpenAPI spec freshness check; AI Directives updated
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ CONTRIBUTING.md — add feature branch workflow section
-  ✅ .cursor/rules/feature-branch-workflow.mdc — new rule
-  ✅ .cursor/skills/feature-branch/SKILL.md — new skill
-  ✅ .github/PULL_REQUEST_TEMPLATE.md — add CI/squash checklist items
-Follow-up TODOs: None
+  ⬜ .github/PULL_REQUEST_TEMPLATE.md — add OpenAPI spec checklist item
+  ⬜ .cursor/rules/feature-branch-workflow.mdc — mention OpenAPI spec in CI step
+Follow-up TODOs:
+  - Update PR template with OpenAPI spec checkbox
+  - Consider adding `make generate-openapi` to `make ci-local`
 -->
 
 # Aether Home Architect Constitution
@@ -48,6 +49,7 @@ Follow-up TODOs: None
 - MUST use Conventional Commits: `<type>[scope]: <description>` with required types (feat, fix, docs, style, refactor, perf, test, build, ci, chore).
 - MUST create feature directory (`specs/<project>/features/NN-name/`) with spec.md, plan.md, tasks.md before implementation begins.
 - MUST update documentation (architecture.md, tasks.md, plan.md) alongside code — never batch docs as an afterthought.
+- MUST regenerate the OpenAPI spec (`specs/<project>/contracts/api.yaml`) when any API route, schema, or endpoint changes. Stale specs are bugs.
 - MUST NOT choose a simpler implementation that weakens security or creates tech debt degrading security posture later.
 - MUST develop new features on a dedicated branch, run CI locally (`make ci-local`), squash commits into one, then push and open a PR. PRs are rebase-merged for linear history.
 
@@ -192,6 +194,7 @@ When creating implementation plans or build plans, each deliverable/step MUST in
 **Quality Gates**:
 - Pre-commit hooks: `ruff` (lint), `ruff format` (format), `mypy` (type check)
 - CI pipeline: unit tests → integration tests → E2E tests → coverage report
+- OpenAPI spec freshness: PRs that modify API routes or schemas MUST include a regenerated OpenAPI spec. CI SHOULD verify the spec is not stale.
 - Coverage regression blocks merge
 - Type hints required for all public APIs
 
@@ -374,7 +377,8 @@ specs/<project>/features/NN-feature-name/
    - `docs/architecture.md` — if the feature changes system architecture, data flows, or agent capabilities
    - Project-level `plan.md` — if the feature changes project structure or capabilities
    - Feature `tasks.md` — mark tasks complete with commit hashes
-5. **Functional Commits**: Each commit self-contained and independently verifiable (per Incremental Commits above)
+5. **OpenAPI Spec Updated**: If the PR modifies any API route, request/response schema, or endpoint, the OpenAPI spec (`specs/<project>/contracts/api.yaml`) MUST be regenerated and included in the PR. A stale spec is a bug.
+6. **Functional Commits**: Each commit self-contained and independently verifiable (per Incremental Commits above)
 
 **Anti-patterns (Prohibited)**:
 - Writing all code first, then batching documentation updates
@@ -392,7 +396,7 @@ All new features and functional changes MUST be developed on a dedicated branch 
 
 1. **Create feature branch**: Branch from `develop` using the naming convention `feat/short-description`, `fix/short-description`, `docs/short-description`, `refactor/short-description`, or `ci/short-description`.
 2. **Develop incrementally**: Follow TDD and incremental commit discipline (see above). Commits on the feature branch are working checkpoints that aid local review, bisect, and rollback.
-3. **Run CI locally**: Run `make ci-local` to execute the same checks that run in GitHub Actions (lint, typecheck, unit tests). The branch MUST pass locally before proceeding.
+3. **Run CI locally**: Run `make ci-local` to execute the same checks that run in GitHub Actions (lint, typecheck, unit tests). If API routes or schemas changed, regenerate the OpenAPI spec (`python scripts/generate_openapi.py`) and include it in the commit. The branch MUST pass locally before proceeding.
 4. **Squash commits locally**: Once CI passes, squash all branch commits into a single conventional commit: `git rebase -i develop`. The squash commit message MUST follow the Conventional Commits format.
 5. **Push and open PR**: Push the squashed branch (`git push -u origin HEAD`) and create a pull request via `gh pr create`. The PR description MUST follow the PR template.
 6. **Rebase-merge**: PRs are rebase-merged onto the target branch. Since the branch is already a single commit, this lands one clean commit with linear history.
@@ -451,4 +455,4 @@ This constitution supersedes all other development practices and design decision
 
 **Compliance Review**: All pull requests and code reviews must verify compliance with constitution principles. Violations must be justified in the Complexity Tracking section of implementation plans, or the code must be refactored to comply.
 
-**Version**: 1.12.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-09
+**Version**: 1.13.0 | **Ratified**: 2026-02-02 | **Last Amended**: 2026-02-13

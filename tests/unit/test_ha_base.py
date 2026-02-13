@@ -1,6 +1,8 @@
 """Unit tests for src/ha/base.py (BaseHAClient, config, URL handling)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.ha.base import BaseHAClient, HAClientConfig, _try_get_db_config
 
@@ -138,3 +140,55 @@ class TestResolveConfig:
             cfg = BaseHAClient._resolve_config()
             assert cfg.ha_url == "http://db-url:8123"
             assert cfg.ha_token == "db-token"
+
+
+class TestConnectionPooling:
+    """Test that BaseHAClient reuses a shared httpx.AsyncClient."""
+
+    def test_client_has_http_client_attribute(self):
+        """BaseHAClient should expose an _http_client for connection reuse."""
+        cfg = HAClientConfig(ha_url="http://ha.local:8123", ha_token="tok")
+        client = BaseHAClient(config=cfg)
+        # Client should have an _http_client attribute (None initially or a client)
+        assert hasattr(client, "_http_client")
+
+    @pytest.mark.asyncio
+    async def test_request_reuses_http_client(self):
+        """Multiple _request calls should reuse the same httpx.AsyncClient."""
+        import httpx
+
+        cfg = HAClientConfig(ha_url="http://ha.local:8123", ha_token="tok")
+        client = BaseHAClient(config=cfg)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"result": "ok"}'
+        mock_response.json.return_value = {"result": "ok"}
+
+        mock_http = AsyncMock(spec=httpx.AsyncClient)
+        mock_http.request = AsyncMock(return_value=mock_response)
+
+        client._http_client = mock_http
+
+        with patch("src.tracing.log_metric", MagicMock()):
+            await client._request("GET", "/api/states")
+            await client._request("GET", "/api/config")
+
+        # The same client should have been used for both calls
+        assert mock_http.request.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_close_closes_http_client(self):
+        """close() should close the underlying httpx.AsyncClient."""
+        import httpx
+
+        cfg = HAClientConfig(ha_url="http://ha.local:8123", ha_token="tok")
+        client = BaseHAClient(config=cfg)
+
+        mock_http = AsyncMock(spec=httpx.AsyncClient)
+        client._http_client = mock_http
+
+        await client.close()
+
+        mock_http.aclose.assert_called_once()
+        assert client._http_client is None

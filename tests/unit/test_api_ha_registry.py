@@ -818,10 +818,9 @@ class TestCallService:
                 json={"domain": "homeassistant", "service": "restart"},
             )
 
-            assert response.status_code == 200
+            assert response.status_code == 403
             data = response.json()
-            assert data["success"] is False
-            assert "restricted" in data["message"].lower()
+            assert "restricted" in data["detail"].lower()
 
     async def test_call_service_ha_error(self, registry_client, mock_service_repo, mock_service):
         """Should return error response when HA client fails."""
@@ -837,10 +836,9 @@ class TestCallService:
                 json={"domain": "light", "service": "turn_on"},
             )
 
-            assert response.status_code == 200
+            assert response.status_code == 502
             data = response.json()
-            assert data["success"] is False
-            assert "HA error" in data["message"]
+            assert "HA error" in data["detail"]
 
 
 @pytest.mark.asyncio
