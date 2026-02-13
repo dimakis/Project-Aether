@@ -194,20 +194,18 @@ class DiscoverySyncService:
         Returns:
             Mapping of ha_area_id to internal id
         """
-        mapping = {}
+        data_list = [
+            {
+                "ha_area_id": ha_area_id,
+                "name": area_data["name"],
+                "floor_id": area_data.get("floor_id"),
+                "icon": area_data.get("icon"),
+            }
+            for ha_area_id, area_data in inferred_areas.items()
+        ]
 
-        for ha_area_id, area_data in inferred_areas.items():
-            area, _created = await self.area_repo.upsert(
-                {
-                    "ha_area_id": ha_area_id,
-                    "name": area_data["name"],
-                    "floor_id": area_data.get("floor_id"),
-                    "icon": area_data.get("icon"),
-                }
-            )
-            mapping[ha_area_id] = area.id
-
-        return mapping
+        areas, _stats = await self.area_repo.upsert_many(data_list)
+        return {area.ha_area_id: area.id for area in areas}
 
     async def _sync_devices(
         self,
@@ -223,15 +221,13 @@ class DiscoverySyncService:
         Returns:
             Mapping of ha_device_id to internal id
         """
-        mapping = {}
-
+        data_list = []
         for ha_device_id, device_data in inferred_devices.items():
-            # Map area_id
             internal_area_id = None
             if device_data.get("area_id"):
                 internal_area_id = area_id_mapping.get(device_data["area_id"])
 
-            device, _created = await self.device_repo.upsert(
+            data_list.append(
                 {
                     "ha_device_id": ha_device_id,
                     "name": device_data["name"],
@@ -241,9 +237,9 @@ class DiscoverySyncService:
                     "sw_version": device_data.get("sw_version"),
                 }
             )
-            mapping[ha_device_id] = device.id
 
-        return mapping
+        devices, _stats = await self.device_repo.upsert_many(data_list)
+        return {device.ha_device_id: device.id for device in devices}
 
     async def _sync_entities(
         self,
@@ -261,57 +257,54 @@ class DiscoverySyncService:
         Returns:
             Stats dict with added, updated, removed counts
         """
-        stats = {"added": 0, "updated": 0, "removed": 0}
-
         # Get existing entity IDs
         existing_ids = await self.entity_repo.get_all_entity_ids()
         seen_ids: set[str] = set()
 
+        # Build all entity data dicts
+        data_list = []
         for entity in entities:
             seen_ids.add(entity.entity_id)
-
-            # Extract metadata
             metadata = extract_entity_metadata(entity)
 
-            # Map foreign keys
             internal_area_id = None
             internal_device_id = None
-
             if entity.area_id:
                 internal_area_id = area_id_mapping.get(entity.area_id)
             if entity.device_id:
                 internal_device_id = device_id_mapping.get(entity.device_id)
 
-            entity_data = {
-                "entity_id": entity.entity_id,
-                "domain": entity.domain,
-                "name": entity.name,
-                "state": entity.state,
-                "attributes": entity.attributes,
-                "area_id": internal_area_id,
-                "device_id": internal_device_id,
-                "device_class": metadata.get("device_class"),
-                "unit_of_measurement": metadata.get("unit_of_measurement"),
-                "supported_features": metadata.get("supported_features", 0),
-                "state_class": metadata.get("state_class"),
-                "icon": metadata.get("icon"),
-                "entity_category": metadata.get("entity_category"),
-                "platform": metadata.get("platform"),
-            }
+            data_list.append(
+                {
+                    "entity_id": entity.entity_id,
+                    "domain": entity.domain,
+                    "name": entity.name,
+                    "state": entity.state,
+                    "attributes": entity.attributes,
+                    "area_id": internal_area_id,
+                    "device_id": internal_device_id,
+                    "device_class": metadata.get("device_class"),
+                    "unit_of_measurement": metadata.get("unit_of_measurement"),
+                    "supported_features": metadata.get("supported_features", 0),
+                    "state_class": metadata.get("state_class"),
+                    "icon": metadata.get("icon"),
+                    "entity_category": metadata.get("entity_category"),
+                    "platform": metadata.get("platform"),
+                }
+            )
 
-            _, created = await self.entity_repo.upsert(entity_data)
-            if created:
-                stats["added"] += 1
-            else:
-                stats["updated"] += 1
+        # Batch upsert all entities
+        _, upsert_stats = await self.entity_repo.upsert_many(data_list)
 
-        # Remove entities no longer in HA
+        # Batch delete removed entities
         removed_ids = existing_ids - seen_ids
-        for entity_id in removed_ids:
-            await self.entity_repo.delete(entity_id)
-            stats["removed"] += 1
+        removed_count = await self.entity_repo.delete_by_ha_ids(removed_ids)
 
-        return stats
+        return {
+            "added": upsert_stats["created"],
+            "updated": upsert_stats["updated"],
+            "removed": removed_count,
+        }
 
     async def _sync_automation_entities(self, entities: list[Any]) -> dict[str, int]:
         """Sync automation, script, and scene entities to registry tables.

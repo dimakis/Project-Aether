@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 from uuid import uuid4
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -159,6 +160,82 @@ class BaseRepository(Generic[T]):
             # Create
             entity = await self.create(data)
             return entity, True
+
+    async def upsert_many(self, data_list: list[dict[str, Any]]) -> tuple[list[T], dict[str, int]]:
+        """Batch create-or-update for multiple items in a single DB round-trip.
+
+        Loads all existing rows by HA ID in one SELECT, then creates new
+        rows with ``add_all`` and updates existing rows in-place, followed
+        by a single ``flush``.
+
+        Args:
+            data_list: List of entity data dicts (each must include ha_id_field)
+
+        Returns:
+            Tuple of (list of upserted entities, stats dict with created/updated counts)
+        """
+        if not data_list:
+            return [], {"created": 0, "updated": 0}
+
+        ha_id_attr = getattr(self.model, self.ha_id_field)
+        ha_ids = [d[self.ha_id_field] for d in data_list]
+
+        # Single SELECT for all existing rows
+        result = await self.session.execute(select(self.model).where(ha_id_attr.in_(ha_ids)))
+        existing_map: dict[str, T] = {
+            getattr(row, self.ha_id_field): row for row in result.scalars().all()
+        }
+
+        now = datetime.now(UTC)
+        new_entities: list[T] = []
+        all_entities: list[T] = []
+        created = 0
+        updated = 0
+
+        for data in data_list:
+            ha_id_value = data[self.ha_id_field]
+            existing = existing_map.get(ha_id_value)
+
+            if existing:
+                # Update in-place
+                for key, value in data.items():
+                    if hasattr(existing, key) and key != "id":
+                        setattr(existing, key, value)
+                if hasattr(existing, "last_synced_at"):
+                    existing.last_synced_at = now
+                all_entities.append(existing)
+                updated += 1
+            else:
+                # Prepare new row
+                create_data = {"id": str(uuid4()), **data}
+                if hasattr(self.model, "last_synced_at"):
+                    create_data["last_synced_at"] = now
+                entity = self.model(**create_data)
+                new_entities.append(entity)
+                all_entities.append(entity)
+                created += 1
+
+        if new_entities:
+            self.session.add_all(new_entities)
+
+        await self.session.flush()
+        return all_entities, {"created": created, "updated": updated}
+
+    async def delete_by_ha_ids(self, ha_ids: set[str]) -> int:
+        """Batch delete rows by HA IDs in a single query.
+
+        Args:
+            ha_ids: Set of HA ID values to delete
+
+        Returns:
+            Number of rows deleted
+        """
+        if not ha_ids:
+            return 0
+
+        ha_id_attr = getattr(self.model, self.ha_id_field)
+        result = await self.session.execute(sa_delete(self.model).where(ha_id_attr.in_(ha_ids)))
+        return result.rowcount
 
     async def get_all_ha_ids(self) -> set[str]:
         """Get all HA IDs in database.

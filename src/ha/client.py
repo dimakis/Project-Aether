@@ -21,12 +21,13 @@ from src.ha.base import (
 )
 from src.ha.diagnostics import DiagnosticMixin
 from src.ha.entities import EntityMixin
+from src.ha.helpers import HelperMixin
 
 # Re-export for backward compatibility
 __all__ = ["HAClient", "HAClientConfig", "HAClientError", "get_ha_client", "reset_ha_client"]
 
 
-class HAClient(BaseHAClient, EntityMixin, AutomationMixin, DiagnosticMixin):
+class HAClient(BaseHAClient, EntityMixin, AutomationMixin, HelperMixin, DiagnosticMixin):
     """Client for invoking hass-ha tools.
 
     This class provides a typed interface to the HA tools.
@@ -101,7 +102,7 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
             result = asyncio.run(_fetch())
             return result  # type: ignore[no-untyped-call]
     except Exception as exc:
-        logger.debug("zone_config_resolution_failed", zone_id=zone_id, reason=str(exc))
+        logger.warning("zone_config_resolution_failed", zone_id=zone_id, reason=str(exc))
         return None
 
 

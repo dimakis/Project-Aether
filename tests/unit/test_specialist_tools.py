@@ -4,11 +4,13 @@ TDD: Red phase — tests define the contract for tools that let the
 Architect delegate to DS team specialists and request synthesis.
 """
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.tools.specialist_tools import (
+    _select_specialists,
     consult_behavioral_analyst,
     consult_diagnostic_analyst,
     consult_energy_analyst,
@@ -291,6 +293,166 @@ class TestConsultDashboardDesigner:
             "dashboard_designer",
             "Dashboard Designer completed",
         )
+
+
+class TestConsultDataScienceTeamParallel:
+    """Test that consult_data_science_team runs specialists in parallel."""
+
+    @pytest.mark.asyncio
+    async def test_specialists_run_concurrently(self):
+        """Specialists should run in parallel via asyncio.gather, not sequentially."""
+        call_times: list[tuple[str, float, float]] = []
+
+        async def _slow_runner(name: str):
+            """Simulate a specialist that takes ~0.1s."""
+
+            async def _run(query: str, hours: int, entity_ids: list | None) -> str:
+                start = asyncio.get_event_loop().time()
+                await asyncio.sleep(0.1)
+                end = asyncio.get_event_loop().time()
+                call_times.append((name, start, end))
+                return f"{name} findings"
+
+            return _run
+
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
+            patch(
+                "src.tools.specialist_tools._run_energy",
+                await _slow_runner("energy"),
+            ),
+            patch(
+                "src.tools.specialist_tools._run_behavioral",
+                await _slow_runner("behavioral"),
+            ),
+            patch(
+                "src.tools.specialist_tools._run_diagnostic",
+                await _slow_runner("diagnostic"),
+            ),
+            patch("src.tools.specialist_tools.emit_delegation"),
+            patch("src.tools.specialist_tools.emit_progress"),
+            patch("src.tools.specialist_tools.reset_team_analysis"),
+            patch("src.tools.specialist_tools._get_or_create_team_analysis"),
+            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch(
+                "src.agents.execution_context.get_execution_context",
+                return_value=MagicMock(team_analysis=None),
+            ),
+        ):
+            from src.tools.specialist_tools import consult_data_science_team
+
+            await consult_data_science_team.ainvoke(
+                {"query": "energy patterns and health issues and automation gaps"}
+            )
+
+        # All 3 should have been called
+        assert len(call_times) == 3
+
+        # If parallel, total wall time should be ~0.1s (not ~0.3s)
+        # Check that their start times overlap (they started before others finished)
+        starts = [t[1] for t in call_times]
+        ends = [t[2] for t in call_times]
+        wall_time = max(ends) - min(starts)
+        # Parallel: wall_time ~ 0.1s. Sequential: wall_time ~ 0.3s.
+        assert wall_time < 0.25, (
+            f"Specialists ran sequentially (wall_time={wall_time:.3f}s). "
+            "Expected parallel execution with wall_time < 0.25s."
+        )
+
+    @pytest.mark.asyncio
+    async def test_partial_failure_does_not_block_others(self):
+        """If one specialist fails, others should still complete."""
+
+        async def _failing_runner(query: str, hours: int, entity_ids: list | None) -> str:
+            raise Exception("Energy analyst exploded")
+
+        async def _ok_runner(query: str, hours: int, entity_ids: list | None) -> str:
+            return "Found 1 insight(s):\n1. **Test**: OK"
+
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.specialist_tools._run_energy", _failing_runner),
+            patch("src.tools.specialist_tools._run_behavioral", _ok_runner),
+            patch("src.tools.specialist_tools._run_diagnostic", _ok_runner),
+            patch("src.tools.specialist_tools.emit_delegation"),
+            patch("src.tools.specialist_tools.emit_progress"),
+            patch("src.tools.specialist_tools.reset_team_analysis"),
+            patch("src.tools.specialist_tools._get_or_create_team_analysis"),
+            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch(
+                "src.agents.execution_context.get_execution_context",
+                return_value=MagicMock(team_analysis=None),
+            ),
+        ):
+            from src.tools.specialist_tools import consult_data_science_team
+
+            result = await consult_data_science_team.ainvoke(
+                {"query": "energy patterns and health issues and automation gaps"}
+            )
+
+        # Result should contain successful findings and the failure message
+        assert "Behavioral" in result or "Diagnostic" in result
+        assert "failed" in result.lower() or "Energy" in result
+
+    @pytest.mark.asyncio
+    async def test_report_includes_all_specialist_results(self):
+        """Report should include results from all selected specialists."""
+
+        async def _make_runner(name: str):
+            async def _run(query: str, hours: int, entity_ids: list | None) -> str:
+                return f"Found 1 insight(s):\n1. **{name} finding**: Details"
+
+            return _run
+
+        with (
+            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.specialist_tools._run_energy", await _make_runner("Energy")),
+            patch("src.tools.specialist_tools._run_behavioral", await _make_runner("Behavioral")),
+            patch("src.tools.specialist_tools.emit_delegation"),
+            patch("src.tools.specialist_tools.emit_progress"),
+            patch("src.tools.specialist_tools.reset_team_analysis"),
+            patch("src.tools.specialist_tools._get_or_create_team_analysis"),
+            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch(
+                "src.agents.execution_context.get_execution_context",
+                return_value=MagicMock(team_analysis=None),
+            ),
+        ):
+            from src.tools.specialist_tools import consult_data_science_team
+
+            result = await consult_data_science_team.ainvoke(
+                {
+                    "query": "energy costs and automation gaps",
+                    "specialists": ["energy", "behavioral"],
+                }
+            )
+
+        assert "Energy" in result
+        assert "Behavioral" in result
+
+
+class TestSelectSpecialists:
+    """Test keyword-based specialist routing."""
+
+    def test_energy_keywords(self):
+        selected = _select_specialists("Why is my energy consumption so high?")
+        assert "energy" in selected
+
+    def test_behavioral_keywords(self):
+        selected = _select_specialists("Find automation gaps in my routines")
+        assert "behavioral" in selected
+
+    def test_diagnostic_keywords(self):
+        selected = _select_specialists("My sensor is offline and showing errors")
+        assert "diagnostic" in selected
+
+    def test_explicit_override(self):
+        selected = _select_specialists("anything", specialists=["diagnostic"])
+        assert selected == ["diagnostic"]
+
+    def test_fallback_to_all(self):
+        selected = _select_specialists("tell me about my home")
+        assert sorted(selected) == ["behavioral", "diagnostic", "energy"]
 
 
 class TestGetSpecialistTools:

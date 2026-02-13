@@ -16,6 +16,7 @@ TeamAnalysis, and auto-synthesises a unified response.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -475,23 +476,35 @@ async def consult_data_science_team(
     # 2. Reset shared state for a fresh analysis session
     reset_team_analysis()
 
-    # 3. Run each selected specialist (sequentially — they share TeamAnalysis)
-    results: list[str] = []
+    # 3. Run selected specialists in parallel (each gets independent TeamAnalysis;
+    #    findings are merged in the synthesis step)
     specialist_runners = {
         "energy": _run_energy,
         "behavioral": _run_behavioral,
         "diagnostic": _run_diagnostic,
     }
+    tasks: list[tuple[str, asyncio.Task[str]]] = []
     for name in selected:
         runner = specialist_runners.get(name)
         if runner:
-            result = await runner(effective_query, hours, entity_ids)
-            results.append(f"**{name.title()} Analyst:** {result}")
-            # Emit delegation: analyst -> DS team with findings summary
-            analyst_agent = f"{name}_analyst"
-            # Truncate to first 200 chars to avoid bloating SSE events
-            summary = result[:200] + ("..." if len(result) > 200 else "")
-            emit_delegation(analyst_agent, "data_science_team", summary)
+            task = asyncio.create_task(runner(effective_query, hours, entity_ids))
+            tasks.append((name, task))
+
+    # Gather results, allowing partial failures
+    raw_results = await asyncio.gather(*(t for _, t in tasks), return_exceptions=True)
+
+    results: list[str] = []
+    for (name, _task), raw in zip(tasks, raw_results, strict=False):
+        if isinstance(raw, BaseException):
+            logger.error("Specialist %s failed: %s", name, raw, exc_info=raw)
+            result = f"{name.title()} analysis failed: {raw}"
+        else:
+            result = raw
+        results.append(f"**{name.title()} Analyst:** {result}")
+        # Emit delegation: analyst -> DS team with findings summary
+        analyst_agent = f"{name}_analyst"
+        summary = result[:200] + ("..." if len(result) > 200 else "")
+        emit_delegation(analyst_agent, "data_science_team", summary)
 
     # 4. Auto-synthesise if 2+ specialists contributed findings
     from src.agents.execution_context import get_execution_context as _get_ctx

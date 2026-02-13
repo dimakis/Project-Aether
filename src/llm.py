@@ -17,6 +17,7 @@ Environment variables:
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from functools import lru_cache
 from typing import Any
 
@@ -47,15 +48,23 @@ class CircuitBreaker:
     After N consecutive failures, stops trying the provider for a cooldown period.
     """
 
-    def __init__(self, failure_threshold: int = 5, cooldown_seconds: int = 60):
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: int = 60,
+        time_func: Callable[[], float] | None = None,
+    ):
         """Initialize circuit breaker.
 
         Args:
             failure_threshold: Number of consecutive failures before opening circuit
             cooldown_seconds: Seconds to wait before allowing retry after circuit opens
+            time_func: Callable returning current time in seconds (default: time.time).
+                       Inject a mock clock for deterministic testing.
         """
         self.failure_threshold = failure_threshold
         self.cooldown_seconds = cooldown_seconds
+        self._time_func = time_func or time.time
         self.failure_count = 0
         self.last_failure_time: float | None = None
         self.circuit_open = False
@@ -69,7 +78,7 @@ class CircuitBreaker:
     def record_failure(self) -> None:
         """Record a failed call."""
         self.failure_count += 1
-        self.last_failure_time = time.time()
+        self.last_failure_time = self._time_func()
 
         if self.failure_count >= self.failure_threshold:
             self.circuit_open = True
@@ -86,7 +95,7 @@ class CircuitBreaker:
         if self.last_failure_time is None:
             return True
 
-        elapsed = time.time() - self.last_failure_time
+        elapsed = self._time_func() - self.last_failure_time
         if elapsed >= self.cooldown_seconds:
             logger.info("Circuit breaker cooldown expired, attempting call")
             self.circuit_open = False
@@ -232,6 +241,75 @@ class ResilientLLM:
             asyncio.set_event_loop(loop)
 
         return loop.run_until_complete(self.ainvoke(input, config=config, **kwargs))
+
+    async def astream(
+        self,
+        input: list[BaseMessage] | str,
+        config: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Stream LLM output with retry on initial connection failure.
+
+        Retries apply to the initial stream acquisition (connection
+        errors, auth failures, etc.).  Once streaming has started,
+        mid-stream errors propagate to the caller.
+
+        Falls back to the secondary provider when primary retries are
+        exhausted, mirroring the ainvoke failover logic.
+        """
+        last_error: Exception | None = None
+
+        for attempt in range(MAX_RETRIES):
+            if not self._circuit_breaker.can_attempt():
+                logger.info("Circuit breaker open for %s, skipping stream attempt", self.provider)
+                break
+
+            try:
+                stream = self.primary_llm.astream(input, config=config, **kwargs)
+                # Yield from the stream — mid-stream errors propagate
+                async for chunk in stream:
+                    yield chunk
+                self._circuit_breaker.record_success()
+                return
+            except Exception as e:
+                last_error = e
+                self._circuit_breaker.record_failure()
+
+                if attempt < MAX_RETRIES - 1:
+                    delay = RETRY_DELAYS[attempt]
+                    logger.warning(
+                        "LLM stream failed (attempt %d/%d): %s. Retrying in %ds...",
+                        attempt + 1,
+                        MAX_RETRIES,
+                        e,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error("All stream retries exhausted for %s: %s", self.provider, e)
+
+        # Try fallback if available
+        if self.fallback_llm:
+            logger.info("Attempting stream fallback: %s", self.fallback_provider)
+            fallback_cb = _get_circuit_breaker(self.fallback_provider or "fallback")
+
+            if fallback_cb.can_attempt():
+                try:
+                    stream = self.fallback_llm.astream(input, config=config, **kwargs)
+                    async for chunk in stream:
+                        yield chunk
+                    fallback_cb.record_success()
+                    return
+                except Exception as e:
+                    fallback_cb.record_failure()
+                    logger.error("Fallback stream also failed: %s", e)
+                    if last_error:
+                        raise last_error from e
+                    raise
+
+        if last_error:
+            raise last_error
+        raise Exception(f"LLM stream provider {self.provider} failed after retries")
 
     def _get_model_name(self) -> str:
         """Get the model name from the primary LLM."""

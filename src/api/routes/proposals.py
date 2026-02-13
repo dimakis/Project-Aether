@@ -362,16 +362,10 @@ async def deploy_proposal(
         except Exception as e:
             from src.api.utils import sanitize_error
 
-            return DeploymentResponse(
-                success=False,
-                proposal_id=proposal_id,
-                ha_automation_id=None,
-                method="failed",
-                yaml_content=_generate_yaml(proposal),
-                instructions=None,
-                deployed_at=None,
-                error=sanitize_error(e, context="Deploy proposal"),
-            )
+            raise HTTPException(
+                status_code=500,
+                detail=sanitize_error(e, context="Deploy proposal"),
+            ) from e
 
 
 @router.post(

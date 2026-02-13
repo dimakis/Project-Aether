@@ -3,6 +3,7 @@
 T092: Tests for ArchitectAgent proposal generation.
 """
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -314,3 +315,141 @@ class TestArchitectWorkflow:
             # State should have at least the response
             assert len(state.messages) >= 1
             mock_agent.invoke.assert_called_once()
+
+
+class TestHandleToolCallsParallel:
+    """Test that _handle_tool_calls runs independent read-only tools in parallel."""
+
+    @pytest.mark.asyncio
+    async def test_read_only_tools_run_concurrently(self):
+        """Multiple read-only tool calls should execute concurrently."""
+        from src.agents.architect import ArchitectAgent
+        from src.graph.state import ConversationState
+
+        call_times: list[tuple[str, float, float]] = []
+
+        def _make_slow_ainvoke(name: str):
+            async def _ainvoke(args):
+                start = asyncio.get_event_loop().time()
+                await asyncio.sleep(0.1)
+                end = asyncio.get_event_loop().time()
+                call_times.append((name, start, end))
+                return f"{name} result"
+
+            return _ainvoke
+
+        tool_a = MagicMock()
+        tool_a.name = "get_entity_state"
+        tool_a.ainvoke = AsyncMock(side_effect=_make_slow_ainvoke("a"))
+
+        tool_b = MagicMock()
+        tool_b.name = "list_entities_by_domain"
+        tool_b.ainvoke = AsyncMock(side_effect=_make_slow_ainvoke("b"))
+
+        tool_c = MagicMock()
+        tool_c.name = "search_entities"
+        tool_c.ainvoke = AsyncMock(side_effect=_make_slow_ainvoke("c"))
+
+        response = AIMessage(
+            content="",
+            tool_calls=[
+                {"name": "get_entity_state", "args": {"entity_id": "light.a"}, "id": "call_1"},
+                {"name": "list_entities_by_domain", "args": {"domain": "light"}, "id": "call_2"},
+                {"name": "search_entities", "args": {"query": "temp"}, "id": "call_3"},
+            ],
+        )
+
+        mock_llm = MagicMock()
+        follow_up = AIMessage(content="Here are the results.")
+        mock_llm.ainvoke = AsyncMock(return_value=follow_up)
+
+        with patch("src.agents.architect.get_llm", return_value=mock_llm):
+            agent = ArchitectAgent.__new__(ArchitectAgent)
+            agent._llm = mock_llm
+
+            state = ConversationState(messages=[])
+
+            result = await agent._handle_tool_calls(
+                response=response,
+                messages=[HumanMessage(content="test")],
+                tools=[tool_a, tool_b, tool_c],
+                state=state,
+            )
+
+        assert len(call_times) == 3
+
+        # If parallel: wall_time ~ 0.1s. If sequential: wall_time ~ 0.3s.
+        starts = [t[1] for t in call_times]
+        ends = [t[2] for t in call_times]
+        wall_time = max(ends) - min(starts)
+        assert wall_time < 0.25, (
+            f"Tools ran sequentially (wall_time={wall_time:.3f}s). "
+            "Expected parallel execution with wall_time < 0.25s."
+        )
+
+        # Should still produce ToolMessages and a follow-up
+        assert result is not None
+        messages = result["messages"]
+        assert len(messages) >= 4  # response + 3 ToolMessages + follow-up
+
+
+class TestGetEntityContextParallel:
+    """Test that _get_entity_context runs DB queries in parallel."""
+
+    @pytest.mark.asyncio
+    async def test_independent_queries_run_concurrently(self):
+        """Domain counts, areas, devices, services should be fetched in parallel."""
+        from src.agents.architect import ArchitectAgent
+        from src.graph.state import ConversationState
+
+        call_log: list[tuple[str, float]] = []
+
+        def _make_tracked_coro(name: str, result):
+            """Create an async function that tracks when it's called."""
+
+            async def _fn(*args, **kwargs):
+                call_log.append((name, asyncio.get_event_loop().time()))
+                await asyncio.sleep(0.05)
+                return result
+
+            return _fn
+
+        mock_entity_repo = MagicMock()
+        mock_entity_repo.get_domain_counts = AsyncMock(
+            side_effect=_make_tracked_coro("counts", {"light": 5, "switch": 2})
+        )
+        mock_entity_repo.list_by_domains = AsyncMock(side_effect=_make_tracked_coro("entities", {}))
+
+        mock_area_repo = MagicMock()
+        mock_area_repo.list_all = AsyncMock(side_effect=_make_tracked_coro("areas", []))
+
+        mock_device_repo = MagicMock()
+        mock_device_repo.list_all = AsyncMock(side_effect=_make_tracked_coro("devices", []))
+
+        mock_service_repo = MagicMock()
+        mock_service_repo.list_all = AsyncMock(side_effect=_make_tracked_coro("services", []))
+
+        mock_session = MagicMock()
+
+        with (
+            patch("src.agents.architect.EntityRepository", return_value=mock_entity_repo),
+            patch("src.agents.architect.DeviceRepository", return_value=mock_device_repo),
+            patch("src.agents.architect.AreaRepository", return_value=mock_area_repo),
+            patch("src.agents.architect.ServiceRepository", return_value=mock_service_repo),
+        ):
+            agent = ArchitectAgent.__new__(ArchitectAgent)
+            state = ConversationState(messages=[])
+
+            await agent._get_entity_context(mock_session, state)
+
+        # All repos should have been called
+        assert len(call_log) >= 4
+        # Check that calls overlapped (started before others finished)
+        times = [t[1] for t in call_log]
+        spread = max(times) - min(times)
+        # If parallel: spread ~ 0 (all start nearly together)
+        # If sequential: spread ~ 0.15+ (each waits for previous)
+        assert spread < 0.1, (
+            f"Queries ran sequentially (time spread={spread:.3f}s). "
+            "Expected parallel execution with spread < 0.1s."
+        )

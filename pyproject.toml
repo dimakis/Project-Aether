@@ -233,6 +233,7 @@ module = [
     "src.ha.client",
     "src.ha.diagnostics",
     "src.ha.entities",
+    "src.ha.helpers",
     "src.ha.history",
     # Core
     "src.llm",

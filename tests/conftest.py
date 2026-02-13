@@ -311,11 +311,22 @@ def safe_test_app(mock_settings: Settings) -> Any:
     # Collect every ``get_db`` function registered as a dependency in any
     # included router so we can override them all with a mock session.
     from src.api.routes.areas import get_db as areas_get_db
+    from src.api.routes.devices import get_db as devices_get_db
+    from src.api.routes.entities import get_db as entities_get_db
+    from src.api.routes.ha_registry import get_db as ha_registry_get_db
+    from src.api.routes.usage import get_db as usage_get_db
 
     async def _mock_get_db():  # type: ignore[override]
         yield MagicMock()
 
-    app.dependency_overrides[areas_get_db] = _mock_get_db
+    for get_db_fn in [
+        areas_get_db,
+        devices_get_db,
+        entities_get_db,
+        ha_registry_get_db,
+        usage_get_db,
+    ]:
+        app.dependency_overrides[get_db_fn] = _mock_get_db
     return app
 
 

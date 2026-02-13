@@ -102,6 +102,7 @@ class BaseHAClient:
         self.config = config
         self._connected = False
         self._active_url: str | None = None  # Which URL is currently working
+        self._http_client: Any | None = None  # Shared httpx.AsyncClient
 
     @staticmethod
     def _resolve_config() -> HAClientConfig:
@@ -188,6 +189,30 @@ class BaseHAClient:
         """Get the active HA URL."""
         return self._active_url or self.config.ha_url
 
+    def _get_http_client(self) -> Any:
+        """Get or create a shared httpx.AsyncClient with connection pooling.
+
+        The client is created lazily on first use and reused across requests
+        to avoid TCP handshake overhead on every call.
+        """
+        if self._http_client is None:
+            import httpx
+
+            self._http_client = httpx.AsyncClient(
+                timeout=self.config.timeout,
+                limits=httpx.Limits(
+                    max_keepalive_connections=20,
+                    max_connections=100,
+                ),
+            )
+        return self._http_client
+
+    async def close(self) -> None:
+        """Close the shared HTTP client and release connections."""
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
+
     async def _request(
         self,
         method: str,
@@ -196,6 +221,8 @@ class BaseHAClient:
         params: dict | None = None,
     ) -> Any:
         """Make a request to HA, with automatic URL fallback.
+
+        Uses a shared httpx.AsyncClient for connection pooling.
 
         Args:
             method: HTTP method
@@ -211,6 +238,7 @@ class BaseHAClient:
         from src.tracing import log_metric
 
         start_time = time.perf_counter()
+        client = self._get_http_client()
 
         # Build list of URLs to try, prioritising the active URL
         base_urls = self._build_urls_to_try()
@@ -223,23 +251,22 @@ class BaseHAClient:
         errors = []
         for url in urls_to_try:
             try:
-                async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-                    response = await client.request(
-                        method,
-                        f"{url}{path}",
-                        headers={"Authorization": f"Bearer {self.config.ha_token}"},
-                        json=json,
-                        params=params,
-                    )
-                    duration_ms = (time.perf_counter() - start_time) * 1000
-                    log_metric(f"ha.request.{method.lower()}.duration_ms", duration_ms)
+                response = await client.request(
+                    method,
+                    f"{url}{path}",
+                    headers={"Authorization": f"Bearer {self.config.ha_token}"},
+                    json=json,
+                    params=params,
+                )
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                log_metric(f"ha.request.{method.lower()}.duration_ms", duration_ms)
 
-                    if response.status_code in (200, 201):
-                        self._active_url = url  # Remember working URL
-                        return response.json() if response.content else {}
-                    elif response.status_code == 404:
-                        return None
-                    errors.append(f"{url}: HTTP {response.status_code}")
+                if response.status_code in (200, 201):
+                    self._active_url = url  # Remember working URL
+                    return response.json() if response.content else {}
+                elif response.status_code == 404:
+                    return None
+                errors.append(f"{url}: HTTP {response.status_code}")
             except httpx.ConnectError:
                 errors.append(f"{url}: Connection failed")
             except httpx.TimeoutException:

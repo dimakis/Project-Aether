@@ -66,10 +66,12 @@ def _make_service(
         ]:
             instance = MockRepo.return_value
             instance.upsert = AsyncMock(return_value=(MagicMock(id="id-1"), True))
+            instance.upsert_many = AsyncMock(return_value=([], {"created": 0, "updated": 0}))
             instance.get_all_entity_ids = AsyncMock(return_value=set())
             instance.get_all_ha_ids = AsyncMock(return_value=set())
             instance.get_domain_counts = AsyncMock(return_value={"light": 1})
             instance.delete = AsyncMock()
+            instance.delete_by_ha_ids = AsyncMock(return_value=0)
 
         service = DiscoverySyncService(sess, ha)
 
@@ -130,7 +132,8 @@ class TestEntitySync:
         ]
 
         service.entity_repo.get_all_entity_ids = AsyncMock(return_value=set())
-        service.entity_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        service.entity_repo.upsert_many = AsyncMock(return_value=([], {"created": 2, "updated": 0}))
+        service.entity_repo.delete_by_ha_ids = AsyncMock(return_value=0)
 
         with patch("src.dal.sync.extract_entity_metadata", return_value={}):
             stats = await service._sync_entities(entities, {}, {})
@@ -147,8 +150,8 @@ class TestEntitySync:
         entities = [_make_entity("light.living_room", "light")]
 
         service.entity_repo.get_all_entity_ids = AsyncMock(return_value={"light.living_room"})
-        # created=False means update
-        service.entity_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        service.entity_repo.upsert_many = AsyncMock(return_value=([], {"created": 0, "updated": 1}))
+        service.entity_repo.delete_by_ha_ids = AsyncMock(return_value=0)
 
         with patch("src.dal.sync.extract_entity_metadata", return_value={}):
             stats = await service._sync_entities(entities, {}, {})
@@ -158,7 +161,7 @@ class TestEntitySync:
 
     @pytest.mark.asyncio
     async def test_stale_entities_removed(self):
-        """Entities in DB but not in HA should be deleted."""
+        """Entities in DB but not in HA should be batch-deleted."""
         service, _, _ = _make_service()
 
         entities = [_make_entity("light.living_room", "light")]
@@ -166,13 +169,14 @@ class TestEntitySync:
         service.entity_repo.get_all_entity_ids = AsyncMock(
             return_value={"light.living_room", "switch.old_device"}
         )
-        service.entity_repo.upsert = AsyncMock(return_value=(MagicMock(), False))
+        service.entity_repo.upsert_many = AsyncMock(return_value=([], {"created": 0, "updated": 1}))
+        service.entity_repo.delete_by_ha_ids = AsyncMock(return_value=1)
 
         with patch("src.dal.sync.extract_entity_metadata", return_value={}):
             stats = await service._sync_entities(entities, {}, {})
 
         assert stats["removed"] == 1
-        service.entity_repo.delete.assert_called_once_with("switch.old_device")
+        service.entity_repo.delete_by_ha_ids.assert_called_once_with({"switch.old_device"})
 
     @pytest.mark.asyncio
     async def test_area_and_device_ids_mapped(self):
@@ -189,7 +193,8 @@ class TestEntitySync:
         ]
 
         service.entity_repo.get_all_entity_ids = AsyncMock(return_value=set())
-        service.entity_repo.upsert = AsyncMock(return_value=(MagicMock(), True))
+        service.entity_repo.upsert_many = AsyncMock(return_value=([], {"created": 1, "updated": 0}))
+        service.entity_repo.delete_by_ha_ids = AsyncMock(return_value=0)
 
         area_mapping = {"living_room": "internal-area-uuid"}
         device_mapping = {"dev-1": "internal-device-uuid"}
@@ -197,9 +202,10 @@ class TestEntitySync:
         with patch("src.dal.sync.extract_entity_metadata", return_value={}):
             await service._sync_entities(entities, area_mapping, device_mapping)
 
-        call_data = service.entity_repo.upsert.call_args[0][0]
-        assert call_data["area_id"] == "internal-area-uuid"
-        assert call_data["device_id"] == "internal-device-uuid"
+        # Check that the data passed to upsert_many has correct mapped IDs
+        call_data_list = service.entity_repo.upsert_many.call_args[0][0]
+        assert call_data_list[0]["area_id"] == "internal-area-uuid"
+        assert call_data_list[0]["device_id"] == "internal-device-uuid"
 
 
 class TestAreaSync:
@@ -207,11 +213,13 @@ class TestAreaSync:
 
     @pytest.mark.asyncio
     async def test_sync_areas_upserts_and_returns_mapping(self):
-        """_sync_areas should upsert each area and return id mapping."""
+        """_sync_areas should batch upsert areas and return id mapping."""
         service, _, _ = _make_service()
 
-        mock_area = MagicMock(id="internal-uuid")
-        service.area_repo.upsert = AsyncMock(return_value=(mock_area, True))
+        mock_area = MagicMock(id="internal-uuid", ha_area_id="living_room")
+        service.area_repo.upsert_many = AsyncMock(
+            return_value=([mock_area], {"created": 1, "updated": 0})
+        )
 
         areas = {
             "living_room": {"name": "Living Room", "floor_id": "ground"},
@@ -220,7 +228,7 @@ class TestAreaSync:
         mapping = await service._sync_areas(areas)
 
         assert mapping == {"living_room": "internal-uuid"}
-        service.area_repo.upsert.assert_called_once()
+        service.area_repo.upsert_many.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_fetch_areas_prefers_ha_api(self):

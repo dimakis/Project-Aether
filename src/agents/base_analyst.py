@@ -164,7 +164,12 @@ class BaseAnalyst(BaseAgent, ABC):
             findings = json.loads(content.strip())
             if not isinstance(findings, list):
                 findings = []
-        except (json.JSONDecodeError, Exception):
+        except json.JSONDecodeError:
+            logger.warning(
+                "%s: failed to parse analyze_config LLM response (JSON decode error)", self.NAME
+            )
+            findings = []
+        except Exception:
             logger.warning("%s: failed to parse analyze_config LLM response", self.NAME)
             findings = []
 

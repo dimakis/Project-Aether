@@ -31,18 +31,21 @@ async def generate_dashboard_yaml(title: str, areas: list[str] | None = None) ->
     views: list[dict] = []
 
     if areas:
+        # Fetch all entities once, then filter by area in memory
+        try:
+            all_entities = await ha.list_entities()
+        except Exception:
+            all_entities = []
+
         for area_id in areas:
-            try:
-                # HAClient doesn't have get_entities_by_area; filter list_entities instead
-                all_entities = await ha.list_entities()
-                entities = [
-                    e for e in all_entities if e.get("attributes", {}).get("area_id") == area_id
-                ]  # type: ignore[attr-defined]
-            except Exception:
-                entities = []
+            entities = [
+                e
+                for e in all_entities
+                if e.get("area_id") == area_id or e.get("attributes", {}).get("area_id") == area_id
+            ]
 
             cards: list[dict] = []
-            entity_ids = [e["entity_id"] for e in (entities or [])]
+            entity_ids = [e["entity_id"] for e in entities]
 
             if entity_ids:
                 cards.append(
