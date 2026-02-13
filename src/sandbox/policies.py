@@ -128,6 +128,13 @@ class SandboxPolicy(BaseModel):
         description="gVisor platform (systrap, kvm, ptrace)",
     )
 
+    # Artifact output (Constitution: Isolation + Security)
+    artifacts_enabled: bool = Field(
+        default=False,
+        description="Allow artifact output for this execution. "
+        "Only honoured when global sandbox_artifacts_enabled=True.",
+    )
+
     # Security capabilities
     drop_all_caps: bool = Field(
         default=True,
@@ -324,6 +331,83 @@ def get_default_policy() -> SandboxPolicy:
     return get_policy("standard")
 
 
+def get_policy_for_depth(
+    depth: str,
+    settings: Any,
+    timeout_override: int | None = None,
+    artifacts_enabled: bool | None = None,
+) -> SandboxPolicy:
+    """Create a sandbox policy tuned for the given analysis depth.
+
+    Reads timeout and memory from settings for the depth level.  Optionally
+    applies a timeout override (clamped to ``[5, settings.sandbox_timeout_deep]``)
+    and an explicit artifacts_enabled flag.
+
+    Args:
+        depth: One of ``"quick"``, ``"standard"``, ``"deep"``.
+        settings: Application settings (must have ``sandbox_timeout_*``,
+            ``sandbox_memory_*``, and ``sandbox_artifacts_enabled`` attrs).
+        timeout_override: Optional timeout in seconds (clamped to safe range).
+        artifacts_enabled: Explicit per-policy artifact flag.  If ``None``,
+            defaults to ``True`` for deep when global is enabled, ``False`` otherwise.
+
+    Returns:
+        A ``SandboxPolicy`` configured for the requested depth.
+
+    Raises:
+        ValueError: If ``depth`` is not a recognised value.
+    """
+    # Resolve timeout and memory for the depth level
+    depth_config: dict[str, dict[str, str]] = {
+        "quick": {
+            "timeout_attr": "sandbox_timeout_quick",
+            "memory_attr": "sandbox_memory_quick",
+            "level": PolicyLevel.ANALYSIS,
+        },
+        "standard": {
+            "timeout_attr": "sandbox_timeout_standard",
+            "memory_attr": "sandbox_memory_standard",
+            "level": PolicyLevel.STANDARD,
+        },
+        "deep": {
+            "timeout_attr": "sandbox_timeout_deep",
+            "memory_attr": "sandbox_memory_deep",
+            "level": PolicyLevel.EXTENDED,
+        },
+    }
+
+    if depth not in depth_config:
+        available = ", ".join(depth_config.keys())
+        msg = f"Unknown depth '{depth}'. Available: {available}"
+        raise ValueError(msg)
+
+    config = depth_config[depth]
+    timeout = getattr(settings, config["timeout_attr"])
+    memory = getattr(settings, config["memory_attr"])
+
+    # Apply timeout override (clamped)
+    if timeout_override is not None:
+        ceiling = getattr(settings, "sandbox_timeout_deep", 600)
+        timeout = max(5, min(timeout_override, ceiling))
+
+    # Resolve artifacts flag
+    if artifacts_enabled is not None:
+        effective_artifacts = artifacts_enabled
+    elif depth == "deep":
+        effective_artifacts = getattr(settings, "sandbox_artifacts_enabled", False)
+    else:
+        effective_artifacts = False
+
+    return SandboxPolicy(
+        name=f"depth:{depth}",
+        level=config["level"],  # type: ignore[arg-type]
+        timeout_seconds=timeout,
+        network=NetworkPolicy.NONE,
+        resources=ResourceLimits(memory_mb=memory),
+        artifacts_enabled=effective_artifacts,
+    )
+
+
 __all__ = [
     "Mount",
     "MountMode",
@@ -333,4 +417,5 @@ __all__ = [
     "SandboxPolicy",
     "get_default_policy",
     "get_policy",
+    "get_policy_for_depth",
 ]

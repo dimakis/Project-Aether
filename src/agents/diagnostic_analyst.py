@@ -301,7 +301,7 @@ sensor drift detection, error log patterns, and corrective actions.
             for pf in prior:
                 prompt += f"- [{pf['specialist']}] {pf['title']}: {pf['description']}\n"
 
-        return prompt
+        return self._append_depth_fragment(prompt, state.depth)
 
     def _extract_code_from_response(self, content: str) -> str:
         """Extract Python code from LLM response."""

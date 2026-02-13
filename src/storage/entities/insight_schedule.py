@@ -105,6 +105,28 @@ class InsightSchedule(Base):
         default=0,
     )
 
+    # Analysis depth/strategy configuration (Feature 33: DS Deep Analysis)
+    depth: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="standard",
+        server_default="standard",
+        doc="Analysis depth: quick, standard, deep",
+    )
+    strategy: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="parallel",
+        server_default="parallel",
+        doc="Execution strategy: parallel, teamwork",
+    )
+    timeout_seconds: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None,
+        doc="Optional timeout override in seconds (null = use depth default)",
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

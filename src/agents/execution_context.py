@@ -81,6 +81,7 @@ class ExecutionContext:
     tool_timeout: float = 30.0
     analysis_timeout: float = 180.0
     team_analysis: Any = None
+    communication_log: list[dict[str, Any]] = field(default_factory=list)
 
 
 # Context variable holding the active execution context
@@ -195,10 +196,48 @@ def emit_delegation(from_agent: str, to_agent: str, content: str) -> None:
     emit_progress("delegation", from_agent, content, target=to_agent)
 
 
+def emit_communication(
+    from_agent: str,
+    to_agent: str,
+    message_type: str,
+    content: str,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Record an inter-agent communication in the execution context.
+
+    Appends a communication entry to the active context's ``communication_log``.
+    Silent no-op when no execution context is active.
+
+    Feature 33: DS Deep Analysis — communication log.
+
+    Args:
+        from_agent: Source agent role (e.g. ``"energy_analyst"``).
+        to_agent: Target agent role or ``"team"`` for broadcast.
+        message_type: Type of message (``"finding"``, ``"question"``,
+            ``"cross_reference"``, ``"synthesis"``, ``"status"``).
+        content: The message text.
+        metadata: Optional additional context (confidence, entities, etc.).
+    """
+    ctx = _exec_ctx.get()
+    if ctx is None:
+        return
+
+    entry: dict[str, Any] = {
+        "from_agent": from_agent,
+        "to_agent": to_agent,
+        "message_type": message_type,
+        "content": content,
+        "metadata": metadata or {},
+        "timestamp": time.time(),
+    }
+    ctx.communication_log.append(entry)
+
+
 __all__ = [
     "ExecutionContext",
     "ProgressEvent",
     "clear_execution_context",
+    "emit_communication",
     "emit_delegation",
     "emit_progress",
     "execution_context",

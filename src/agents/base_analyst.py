@@ -26,16 +26,20 @@ if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
 from src.agents import BaseAgent
+from src.agents.execution_context import emit_communication
 from src.agents.model_context import get_model_context, resolve_model
+from src.agents.prompts import load_depth_fragment
 from src.dal import InsightRepository
 from src.graph.state import (
     AgentRole,
     AnalysisState,
+    CommunicationEntry,
     SpecialistFinding,
     TeamAnalysis,
 )
 from src.ha import HAClient, get_ha_client
 from src.llm import get_llm
+from src.sandbox.policies import get_policy_for_depth
 from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
 from src.storage.entities.insight import InsightType
@@ -68,6 +72,29 @@ class BaseAnalyst(BaseAgent, ABC):
         self._ha_client = ha_client
         self._llm: BaseChatModel | None = None
         self._sandbox = SandboxRunner()
+
+    # ------------------------------------------------------------------
+    # Shared helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _append_depth_fragment(prompt: str, depth: str) -> str:
+        """Append the depth-specific EDA prompt fragment to *prompt*.
+
+        Feature 33: DS Deep Analysis — depth-aware prompt composition.
+
+        Args:
+            prompt: The base prompt text.
+            depth: One of ``"quick"``, ``"standard"``, ``"deep"``.
+
+        Returns:
+            The prompt with the depth fragment appended (or unchanged if no
+            fragment is found for *depth*).
+        """
+        fragment = load_depth_fragment(depth)
+        if fragment:
+            return prompt + "\n\n" + fragment
+        return prompt
 
     @property
     def ha(self) -> HAClient:
@@ -227,22 +254,49 @@ class BaseAnalyst(BaseAgent, ABC):
         self,
         script: str,
         data: dict[str, Any],
+        depth: str = "standard",
     ) -> SandboxResult:
         """Execute an analysis script in the gVisor sandbox.
 
         Injects data as a JSON preamble so the script can access it.
+        Uses ``get_policy_for_depth()`` to build a depth-appropriate policy.
+        Logs ``status`` communications at start and completion.
 
         Args:
             script: Python script to execute.
             data: Data dict to inject as context.
+            depth: Analysis depth (``"quick"``, ``"standard"``, ``"deep"``).
+                Controls sandbox timeout, memory, and artifact policy.
 
         Returns:
             SandboxResult with stdout, stderr, exit_code.
         """
+        emit_communication(
+            from_agent=self.NAME,
+            to_agent="team",
+            message_type="status",
+            content=f"Executing analysis script in sandbox ({len(script)} chars, depth={depth})",
+        )
+
+        # Build depth-aware sandbox policy
+        settings = get_settings()
+        policy = get_policy_for_depth(depth, settings)
+
         # Inject data as a JSON variable at the top of the script
         data_json = json.dumps(data, default=str)
         injected_script = f"import json\ndata = json.loads('''{data_json}''')\n\n{script}"
-        return await self._sandbox.run(injected_script)
+        result = await self._sandbox.run(injected_script, policy=policy)
+
+        status = "completed" if result.exit_code == 0 else "failed"
+        emit_communication(
+            from_agent=self.NAME,
+            to_agent="team",
+            message_type="status",
+            content=f"Script execution {status} (exit_code={result.exit_code})",
+            metadata={"exit_code": result.exit_code},
+        )
+
+        return result
 
     # -----------------------------------------------------------------
     # Shared: Cross-consultation
@@ -256,6 +310,7 @@ class BaseAnalyst(BaseAgent, ABC):
         """Get findings from other specialists.
 
         Filters out own findings so a specialist doesn't see its own prior output.
+        Logs a ``cross_reference`` communication when prior findings are found.
 
         Args:
             state: Current analysis state (may contain team_analysis).
@@ -273,6 +328,18 @@ class BaseAnalyst(BaseAgent, ABC):
         if entity_id:
             findings = [f for f in findings if entity_id in f.entities]
 
+        if findings:
+            sources = {f.specialist for f in findings}
+            emit_communication(
+                from_agent=self.NAME,
+                to_agent="team",
+                message_type="cross_reference",
+                content=(
+                    f"Reviewing {len(findings)} prior finding(s) from {', '.join(sorted(sources))}"
+                ),
+                metadata={"finding_count": len(findings), "sources": sorted(sources)},
+            )
+
         return findings
 
     # -----------------------------------------------------------------
@@ -287,6 +354,7 @@ class BaseAnalyst(BaseAgent, ABC):
         """Add a finding to the TeamAnalysis in state.
 
         Creates TeamAnalysis if it doesn't exist yet.
+        Logs a ``finding`` communication to the execution context.
 
         Args:
             state: Current analysis state.
@@ -305,6 +373,19 @@ class BaseAnalyst(BaseAgent, ABC):
             ta = state.team_analysis.model_copy(
                 update={"findings": [*state.team_analysis.findings, finding]}
             )
+
+        # Log the finding to the communication log
+        emit_communication(
+            from_agent=self.NAME,
+            to_agent="team",
+            message_type="finding",
+            content=f"[{finding.finding_type}] {finding.title}: {finding.description}",
+            metadata={
+                "finding_id": finding.id,
+                "confidence": finding.confidence,
+                "entities": finding.entities,
+            },
+        )
 
         # Return updated state
         state.team_analysis = ta
@@ -417,3 +498,115 @@ class BaseAnalyst(BaseAgent, ABC):
             "data_quality_flag": InsightType.ANOMALY_DETECTION,
         }
         return mapping.get(finding_type, InsightType.USAGE_PATTERN)
+
+    # -----------------------------------------------------------------
+    # Discussion round (Feature 33: Advanced Collaboration — B1)
+    # -----------------------------------------------------------------
+
+    async def discuss(
+        self,
+        all_findings_summary: str,
+    ) -> list[CommunicationEntry]:
+        """Participate in a discussion round after all specialists have run.
+
+        Receives a summary of *all* specialists' findings and returns
+        cross-references, agreements, and disagreements as a list of
+        ``CommunicationEntry`` objects.  Capped at one round to bound cost.
+
+        Args:
+            all_findings_summary: Textual summary of all specialist findings.
+
+        Returns:
+            List of discussion CommunicationEntry objects (may be empty on
+            error or if the LLM produces unparseable output).
+        """
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        system_prompt = (
+            f"You are {self.NAME}, a specialist on the Data Science team.\n"
+            "You have already completed your analysis.  Now review the combined "
+            "findings from ALL specialists and provide your discussion input.\n\n"
+            "Return a JSON object with:\n"
+            '  "cross_references": [list of cross-domain observations],\n'
+            '  "agreements": [findings you agree with],\n'
+            '  "disagreements": [findings you disagree with + reasoning]\n\n'
+            "Return ONLY the JSON object, no markdown fencing."
+        )
+
+        user_prompt = (
+            f"Combined findings from all specialists:\n\n{all_findings_summary}\n\n"
+            "Provide your cross-references, agreements, and disagreements."
+        )
+
+        try:
+            response = await self.llm.ainvoke(
+                [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_prompt),
+                ]
+            )
+            content = str(response.content).strip()
+
+            # Parse JSON response
+            import json as _json
+
+            # Strip markdown fencing if present
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1] if "\n" in content else content
+            if content.endswith("```"):
+                content = content.rsplit("```", 1)[0]
+
+            parsed = _json.loads(content.strip())
+
+            entries: list[CommunicationEntry] = []
+
+            for xref in parsed.get("cross_references", []):
+                entries.append(
+                    CommunicationEntry(
+                        from_agent=self.NAME,
+                        to_agent="team",
+                        message_type="discussion",
+                        content=f"Cross-reference: {xref}",
+                        metadata={"sub_type": "cross_reference"},
+                    )
+                )
+            for agreement in parsed.get("agreements", []):
+                entries.append(
+                    CommunicationEntry(
+                        from_agent=self.NAME,
+                        to_agent="team",
+                        message_type="discussion",
+                        content=f"Agreement: {agreement}",
+                        metadata={"sub_type": "agreement"},
+                    )
+                )
+            for disagreement in parsed.get("disagreements", []):
+                entries.append(
+                    CommunicationEntry(
+                        from_agent=self.NAME,
+                        to_agent="team",
+                        message_type="discussion",
+                        content=f"Disagreement: {disagreement}",
+                        metadata={"sub_type": "disagreement"},
+                    )
+                )
+
+            # Log each entry to execution context communication log
+            for entry in entries:
+                emit_communication(
+                    from_agent=entry.from_agent,
+                    to_agent=entry.to_agent,
+                    message_type=entry.message_type,
+                    content=entry.content,
+                    metadata=entry.metadata,
+                )
+
+            return entries
+
+        except Exception:
+            logger.warning(
+                "%s: discussion round failed",
+                self.NAME,
+                exc_info=True,
+            )
+            return []

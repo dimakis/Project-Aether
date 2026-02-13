@@ -57,6 +57,48 @@ def load_prompt(name: str, **kwargs: str) -> str:
     return template
 
 
+def load_depth_fragment(depth: str) -> str:
+    """Load the EDA depth prompt fragment for a given analysis depth.
+
+    Feature 33: DS Deep Analysis — depth-aware prompt composition.
+
+    Args:
+        depth: One of ``"quick"``, ``"standard"``, ``"deep"``.
+
+    Returns:
+        Prompt fragment string (empty string if not found, to allow graceful fallback).
+    """
+    name = f"eda_depth_{depth}"
+    try:
+        return _load_raw(name)
+    except FileNotFoundError:
+        return ""
+
+
+def load_strategy_fragment(strategy: str, **kwargs: str) -> str:
+    """Load the execution strategy prompt fragment.
+
+    Feature 33: DS Deep Analysis — strategy-aware prompt composition.
+
+    Args:
+        strategy: One of ``"parallel"``, ``"teamwork"``.
+        **kwargs: Formatting arguments (e.g. ``prior_findings``).
+
+    Returns:
+        Prompt fragment string (empty string for parallel or if not found).
+    """
+    if strategy == "parallel":
+        return ""  # No additional fragment needed for parallel
+    name = f"strategy_{strategy}"
+    try:
+        template = _load_raw(name)
+        if kwargs:
+            template = template.format(**kwargs)
+        return template
+    except FileNotFoundError:
+        return ""
+
+
 def load_prompt_for_agent(agent_name: str, db_prompt: str | None = None, **kwargs: str) -> str:
     """Load a prompt for an agent, checking DB-backed version first.
 

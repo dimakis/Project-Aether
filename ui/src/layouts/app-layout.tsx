@@ -16,6 +16,7 @@ import {
   LogOut,
   ChevronDown,
   MapPin,
+  FileBarChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { agentLabel } from "@/lib/agent-registry";
@@ -35,6 +36,7 @@ const navItems = [
   { to: "/chat", icon: MessageSquare, label: "Chat" },
   { to: "/proposals", icon: FileCheck, label: "Proposals" },
   { to: "/insights", icon: Lightbulb, label: "Insights" },
+  { to: "/reports", icon: FileBarChart, label: "Reports" },
   { to: "/entities", icon: Cpu, label: "Entities" },
   { to: "/registry", icon: BookOpen, label: "Registry" },
   { to: "/schedules", icon: Clock, label: "Schedules" },
