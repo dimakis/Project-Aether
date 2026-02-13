@@ -267,6 +267,52 @@ class Settings(BaseSettings):
         le=300,
         description="Maximum script execution time",
     )
+    sandbox_artifacts_enabled: bool = Field(
+        default=False,
+        description="Allow sandbox scripts to write artifacts (charts, CSVs) to /workspace/output/. "
+        "When False, no writable mount is created regardless of per-request settings. "
+        "Constitution: default-deny for artifact egress.",
+    )
+
+    # Per-depth analysis timeouts (Feature 33: DS Deep Analysis)
+    sandbox_timeout_quick: int = Field(
+        default=30,
+        ge=5,
+        le=120,
+        description="Sandbox timeout for quick analysis (seconds)",
+    )
+    sandbox_timeout_standard: int = Field(
+        default=60,
+        ge=10,
+        le=300,
+        description="Sandbox timeout for standard analysis (seconds)",
+    )
+    sandbox_timeout_deep: int = Field(
+        default=180,
+        ge=30,
+        le=600,
+        description="Sandbox timeout for deep analysis (seconds)",
+    )
+
+    # Per-depth analysis memory limits (Feature 33: DS Deep Analysis)
+    sandbox_memory_quick: int = Field(
+        default=512,
+        ge=128,
+        le=2048,
+        description="Memory limit for quick analysis (MB)",
+    )
+    sandbox_memory_standard: int = Field(
+        default=1024,
+        ge=256,
+        le=4096,
+        description="Memory limit for standard analysis (MB)",
+    )
+    sandbox_memory_deep: int = Field(
+        default=2048,
+        ge=512,
+        le=4096,
+        description="Memory limit for deep analysis (MB)",
+    )
 
 
 # Tools that get the longer analysis_tool_timeout_seconds timeout.

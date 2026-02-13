@@ -49,6 +49,12 @@ const WebhooksPage = lazy(() =>
 const ZonesPage = lazy(() =>
   import("@/pages/settings/zones").then((m) => ({ default: m.ZonesPage })),
 );
+const ReportsPage = lazy(() =>
+  import("@/pages/reports").then((m) => ({ default: m.ReportsPage })),
+);
+const ReportDetailPage = lazy(() =>
+  import("@/pages/reports/ReportDetail").then((m) => ({ default: m.ReportDetail })),
+);
 
 // ── Shared loading fallback ────────────────────────────────────────────────
 
@@ -140,6 +146,8 @@ export default function App() {
                     <Route path="agents/registry" element={<ModelRegistryPage />} />
                     <Route path="webhooks" element={<WebhooksPage />} />
                     <Route path="settings/zones" element={<ZonesPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="reports/:id" element={<ReportDetailPage />} />
                   </Route>
                 </Route>
               </Route>

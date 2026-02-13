@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from src.api.routes.activity_stream import router as activity_router
 from src.api.routes.agents import router as agents_router
 from src.api.routes.areas import router as areas_router
+from src.api.routes.artifacts import router as artifacts_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.devices import router as devices_router
@@ -75,5 +76,11 @@ api_router.include_router(flow_grades_router)
 api_router.include_router(evaluations_router)
 # HA Zones (multi-server)
 api_router.include_router(ha_zones_router)
+# Feature 33: DS Deep Analysis — Artifact serving
+api_router.include_router(artifacts_router)
+# Feature 33: DS Deep Analysis — Analysis Reports
+from src.api.routes.reports import router as reports_router
+
+api_router.include_router(reports_router)
 
 __all__ = ["api_router"]

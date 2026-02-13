@@ -296,6 +296,29 @@ class DashboardState(ConversationState):
 # =============================================================================
 
 
+class AnalysisDepth(StrEnum):
+    """Depth of analysis to perform.
+
+    Controls sandbox resource limits, prompt detail, and chart generation.
+    Feature 33: DS Deep Analysis.
+    """
+
+    QUICK = "quick"  # Summary stats only, fast
+    STANDARD = "standard"  # Current default behavior
+    DEEP = "deep"  # Full EDA, correlations, charts, statistical tests
+
+
+class ExecutionStrategy(StrEnum):
+    """How DS team specialists execute.
+
+    Controls whether specialists run in parallel or sequentially with
+    cross-consultation.  Feature 33: DS Deep Analysis.
+    """
+
+    PARALLEL = "parallel"  # Fast: all specialists run simultaneously (default)
+    TEAMWORK = "teamwork"  # Sequential with cross-consultation and discussion rounds
+
+
 class AnalysisType(StrEnum):
     """Types of analysis the Data Scientist can perform."""
 
@@ -403,6 +426,31 @@ class SpecialistFinding(BaseModel):
     )
 
 
+class CommunicationEntry(BaseModel):
+    """A single inter-agent communication event.
+
+    Captures delegation, findings, cross-references, questions, and synthesis
+    messages exchanged between specialist agents during an analysis session.
+
+    Feature 33: DS Deep Analysis — communication log.
+    """
+
+    from_agent: str = Field(description="Source agent role (e.g. 'energy_analyst')")
+    to_agent: str = Field(description="Target agent role or 'team' for broadcast")
+    message_type: str = Field(
+        description="Type of communication: finding, question, cross_reference, synthesis, status",
+    )
+    content: str = Field(description="The message text")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional context: confidence, entities, finding_id, etc.",
+    )
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC),
+        description="When this communication occurred",
+    )
+
+
 class TeamAnalysis(BaseModel):
     """Shared analysis state for the DS team.
 
@@ -435,6 +483,19 @@ class TeamAnalysis(BaseModel):
         default=None,
         description="Which synthesizer produced the consensus: 'programmatic' or 'llm'",
     )
+    communication_log: list[CommunicationEntry] = Field(
+        default_factory=list,
+        description="Chronological log of inter-agent communications. "
+        "Feature 33: DS Deep Analysis.",
+    )
+    shared_data: dict[str, Any] = Field(
+        default_factory=dict,
+        description="In-memory working data shared between specialists within "
+        "a single analysis session. Specialists can write intermediate "
+        "results (e.g. computed statistics, DataFrame-as-JSON) that later "
+        "specialists can read in teamwork mode. Not persisted to DB. "
+        "Feature 33: DS Deep Analysis — B3.",
+    )
 
 
 # =============================================================================
@@ -464,6 +525,16 @@ class AnalysisState(MessageState):
 
     analysis_type: AnalysisType = AnalysisType.CUSTOM
     mlflow_run_id: str | None = None
+
+    # Feature 33: DS Deep Analysis — configurable depth and strategy
+    depth: AnalysisDepth = Field(
+        default=AnalysisDepth.STANDARD,
+        description="Analysis depth: quick (fast), standard (default), or deep (full EDA).",
+    )
+    strategy: ExecutionStrategy = Field(
+        default=ExecutionStrategy.PARALLEL,
+        description="Execution strategy: parallel (fast) or teamwork (sequential + cross-consultation).",
+    )
 
     # Input data
     entity_ids: list[str] = Field(

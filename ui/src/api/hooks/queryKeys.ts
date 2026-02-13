@@ -130,6 +130,13 @@ export const queryKeys = {
     all: ["zones"] as const,
   },
 
+  // ── Analysis Reports (Feature 33) ──────────────────────────────────────
+  reports: {
+    all: ["reports"] as const,
+    detail: (id: string) => ["reports", id] as const,
+    communication: (id: string) => ["reports", id, "communication"] as const,
+  },
+
   // ── System ──────────────────────────────────────────────────────────────
   system: {
     status: ["system", "status"] as const,

@@ -3,10 +3,12 @@
 All SQLAlchemy ORM models for Project Aether.
 """
 
+# Analysis Reports (Feature 33: DS Deep Analysis)
 # Core models
 from src.storage.entities.agent import Agent
 from src.storage.entities.agent_config_version import AgentConfigVersion, VersionStatus
 from src.storage.entities.agent_prompt_version import AgentPromptVersion
+from src.storage.entities.analysis_report import AnalysisReport, ReportStatus
 
 # HA Registry models (User Story 1)
 from src.storage.entities.area import Area
@@ -51,13 +53,11 @@ from src.storage.entities.user_profile import UserProfile
 
 __all__ = [
     "VALID_TRANSITIONS",
-    # Core
     "Agent",
     "AgentConfigVersion",
     "AgentPromptVersion",
-    # HA Registry
+    "AnalysisReport",
     "Area",
-    # Automation Proposals
     "AutomationProposal",
     "Conversation",
     "ConversationStatus",
@@ -66,30 +66,23 @@ __all__ = [
     "DiscoveryStatus",
     "HAAutomation",
     "HAEntity",
-    # HA Zones
     "HAZone",
-    # Insights
     "Insight",
-    # Insight Schedules (Feature 10)
     "InsightSchedule",
     "InsightStatus",
     "InsightType",
-    # LLM Usage
     "LLMUsage",
     "Message",
-    # Model Ratings
     "ModelRating",
-    # Authentication
     "PasskeyCredential",
     "ProposalStatus",
     "ProposalType",
+    "ReportStatus",
     "Scene",
     "Script",
     "Service",
-    # System Configuration
     "SystemConfig",
     "TriggerType",
-    # User Profiles
     "UserProfile",
     "VersionStatus",
 ]

@@ -306,7 +306,9 @@ class TestConsultDataScienceTeamParallel:
         async def _slow_runner(name: str):
             """Simulate a specialist that takes ~0.1s."""
 
-            async def _run(query: str, hours: int, entity_ids: list | None) -> str:
+            async def _run(
+                query: str, hours: int, entity_ids: list | None, **kwargs: object
+            ) -> str:
                 start = asyncio.get_event_loop().time()
                 await asyncio.sleep(0.1)
                 end = asyncio.get_event_loop().time()
@@ -363,10 +365,14 @@ class TestConsultDataScienceTeamParallel:
     async def test_partial_failure_does_not_block_others(self):
         """If one specialist fails, others should still complete."""
 
-        async def _failing_runner(query: str, hours: int, entity_ids: list | None) -> str:
+        async def _failing_runner(
+            query: str, hours: int, entity_ids: list | None, **kwargs: object
+        ) -> str:
             raise Exception("Energy analyst exploded")
 
-        async def _ok_runner(query: str, hours: int, entity_ids: list | None) -> str:
+        async def _ok_runner(
+            query: str, hours: int, entity_ids: list | None, **kwargs: object
+        ) -> str:
             return "Found 1 insight(s):\n1. **Test**: OK"
 
         with (
@@ -399,7 +405,9 @@ class TestConsultDataScienceTeamParallel:
         """Report should include results from all selected specialists."""
 
         async def _make_runner(name: str):
-            async def _run(query: str, hours: int, entity_ids: list | None) -> str:
+            async def _run(
+                query: str, hours: int, entity_ids: list | None, **kwargs: object
+            ) -> str:
                 return f"Found 1 insight(s):\n1. **{name} finding**: Details"
 
             return _run

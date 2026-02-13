@@ -28,7 +28,7 @@ import contextlib
 
 from src.agents import BaseAgent
 from src.agents.model_context import get_model_context, resolve_model
-from src.agents.prompts import load_prompt
+from src.agents.prompts import load_depth_fragment, load_prompt
 from src.dal import EntityRepository, InsightRepository
 from src.graph.state import AgentRole, AnalysisState, AnalysisType, AutomationSuggestion
 from src.ha import EnergyHistoryClient, HAClient, get_ha_client
@@ -493,7 +493,7 @@ Data structure (available in /workspace/data.json):
 """
 
         if state.analysis_type == AnalysisType.ENERGY_OPTIMIZATION:
-            return load_prompt(
+            prompt = load_prompt(
                 "data_scientist_energy",
                 entity_count=str(entity_count),
                 hours=str(hours),
@@ -506,7 +506,7 @@ Data structure (available in /workspace/data.json):
                 state.diagnostic_context or "No additional diagnostic context provided."
             )
 
-            return load_prompt(
+            prompt = load_prompt(
                 "data_scientist_diagnostic",
                 entity_count=str(entity_count),
                 hours=str(hours),
@@ -516,7 +516,7 @@ Data structure (available in /workspace/data.json):
             )
 
         elif state.analysis_type == AnalysisType.ANOMALY_DETECTION:
-            base_context = f"""
+            prompt = f"""
 I have energy data from {entity_count} sensors over the past {hours} hours.
 Total energy consumption: {total_kwh:.2f} kWh
 
@@ -533,10 +533,9 @@ Please analyze this energy data and generate a Python script that:
 
 Output insights as JSON to stdout with type="anomaly_detection".
 """
-            return base_context
 
         elif state.analysis_type == AnalysisType.USAGE_PATTERNS:
-            base_context = f"""
+            prompt = f"""
 I have energy data from {entity_count} sensors over the past {hours} hours.
 Total energy consumption: {total_kwh:.2f} kWh
 
@@ -553,10 +552,9 @@ Please analyze this energy data and generate a Python script that:
 
 Output insights as JSON to stdout with type="usage_pattern".
 """
-            return base_context
 
         elif state.analysis_type == AnalysisType.BEHAVIOR_ANALYSIS:
-            return (
+            prompt = (
                 base_context
                 + """
 Please analyze this behavioral data and generate a Python script that:
@@ -570,7 +568,7 @@ Output insights as JSON to stdout with type="behavioral_pattern".
             )
 
         elif state.analysis_type == AnalysisType.AUTOMATION_ANALYSIS:
-            return (
+            prompt = (
                 base_context
                 + """
 Please analyze this automation effectiveness data and generate a Python script that:
@@ -585,7 +583,7 @@ and type="behavioral_pattern" for positive findings.
             )
 
         elif state.analysis_type == AnalysisType.AUTOMATION_GAP_DETECTION:
-            return (
+            prompt = (
                 base_context
                 + """
 Please analyze this automation gap data and generate a Python script that:
@@ -600,7 +598,7 @@ Include proposed_trigger and proposed_action in the evidence for each insight.
             )
 
         elif state.analysis_type == AnalysisType.CORRELATION_DISCOVERY:
-            return (
+            prompt = (
                 base_context
                 + """
 Please analyze this entity correlation data and generate a Python script that:
@@ -614,7 +612,7 @@ Output insights as JSON to stdout with type="correlation".
             )
 
         elif state.analysis_type == AnalysisType.DEVICE_HEALTH:
-            return (
+            prompt = (
                 base_context
                 + """
 Please analyze this device health data and generate a Python script that:
@@ -628,7 +626,7 @@ Output insights as JSON to stdout with type="device_health".
             )
 
         elif state.analysis_type == AnalysisType.COST_OPTIMIZATION:
-            return (
+            prompt = (
                 base_context
                 + """
 Please analyze this data and generate a Python script that:
@@ -644,7 +642,7 @@ Include estimated_monthly_savings in the evidence for each insight.
 
         else:  # CUSTOM or other
             custom_query = state.custom_query or "Perform a general energy analysis"
-            return (
+            prompt = (
                 base_context
                 + f"""
 Custom analysis request: {custom_query}
@@ -653,6 +651,12 @@ Generate a Python script that addresses this request.
 Output insights as JSON to stdout.
 """
             )
+
+        # Feature 33: append depth-specific EDA fragment
+        fragment = load_depth_fragment(state.depth)
+        if fragment:
+            prompt = prompt + "\n\n" + fragment
+        return prompt
 
     def _extract_code_from_response(self, content: str) -> str:
         """Extract Python code from LLM response.

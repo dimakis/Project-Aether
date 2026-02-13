@@ -233,15 +233,15 @@ class EnergyAnalyst(BaseAnalyst):
         hours = state.time_range_hours
 
         if state.analysis_type == AnalysisType.ENERGY_OPTIMIZATION:
-            return load_prompt(
+            prompt = load_prompt(
                 "data_scientist_energy",
                 entity_count=str(entity_count),
                 hours=str(hours),
                 total_kwh=f"{total_kwh:.2f}",
             )
-
-        # Default energy analysis prompt
-        return f"""
+        else:
+            # Default energy analysis prompt
+            prompt = f"""
 Analyze energy data from {entity_count} sensors over {hours} hours.
 Total consumption: {total_kwh:.2f} kWh.
 
@@ -255,6 +255,8 @@ Produce a JSON object with an "insights" array. Each insight must have:
 Focus on: peak usage times, baseline vs peak ratios, anomalous consumption,
 and opportunities for automation.
 """
+
+        return self._append_depth_fragment(prompt, state.depth)
 
     def _extract_code_from_response(self, content: str) -> str:
         """Extract Python code from LLM response."""

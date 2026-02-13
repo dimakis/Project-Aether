@@ -31,6 +31,11 @@ from src.agents.execution_context import emit_delegation, emit_progress
 from src.agents.model_context import get_model_context, model_context
 from src.agents.synthesis import LLMSynthesizer, ProgrammaticSynthesizer
 from src.graph.state import AnalysisState, AnalysisType, TeamAnalysis
+from src.tools.report_lifecycle import (
+    complete_analysis_report,
+    create_analysis_report,
+    fail_analysis_report,
+)
 from src.tracing import get_active_span, trace_with_uri
 
 logger = logging.getLogger(__name__)
@@ -432,6 +437,8 @@ async def consult_data_science_team(
     entity_ids: list[str] | None = None,
     specialists: list[str] | None = None,
     custom_query: str | None = None,
+    depth: str = "standard",
+    strategy: str = "parallel",
 ) -> str:
     """Consult the Data Science team for analysis, insights, and diagnostics.
 
@@ -452,6 +459,11 @@ async def consult_data_science_team(
         custom_query: Free-form analysis prompt for ad-hoc investigations
             (e.g., "Check if HVAC is short-cycling").  When provided,
             the most relevant specialist will run a custom script.
+        depth: Analysis depth — "quick" (fast summary), "standard" (default),
+            or "deep" (comprehensive EDA with charts and statistical tests).
+        strategy: Execution strategy — "parallel" (fast, all specialists
+            run simultaneously) or "teamwork" (sequential with
+            cross-consultation between specialists for deeper analysis).
 
     Returns:
         A unified, synthesised summary of all specialist findings
@@ -462,35 +474,189 @@ async def consult_data_science_team(
 
     # Emit delegation: architect -> DS team
     emit_delegation("architect", "data_science_team", effective_query)
-    emit_progress("agent_start", "data_science_team", "Data Science Team started")
+    emit_progress(
+        "agent_start",
+        "data_science_team",
+        f"Data Science Team started (depth={depth}, strategy={strategy})",
+    )
 
     # 1. Smart routing
     selected = _select_specialists(effective_query, specialists)
     logger.info(
-        "DS team routing: query=%r  selected=%s  explicit=%s",
+        "DS team routing: query=%r  selected=%s  explicit=%s  depth=%s  strategy=%s",
         effective_query[:80],
         selected,
         specialists is not None,
+        depth,
+        strategy,
     )
 
     # 2. Reset shared state for a fresh analysis session
     reset_team_analysis()
 
-    # 3. Run selected specialists in parallel (each gets independent TeamAnalysis;
-    #    findings are merged in the synthesis step)
+    # --- Report lifecycle: create a RUNNING report if DB session available ---
+    from src.agents.execution_context import get_execution_context as _get_ctx
+
+    _ctx = _get_ctx()
+    report_obj = None
+    session_factory = _ctx.session_factory if _ctx else None
+    if session_factory:
+        try:
+            async with session_factory() as _session:
+                report_obj = await create_analysis_report(
+                    session=_session,
+                    title=effective_query[:200],
+                    analysis_type="team_analysis",
+                    depth=depth,
+                    strategy=strategy,
+                    conversation_id=_ctx.conversation_id if _ctx else None,
+                )
+        except Exception as e:
+            logger.warning("Failed to create analysis report: %s", e)
+
+    # 3. Run selected specialists using the chosen strategy
     specialist_runners = {
         "energy": _run_energy,
         "behavioral": _run_behavioral,
         "diagnostic": _run_diagnostic,
     }
+
+    try:
+        if strategy == "teamwork":
+            # Teamwork: run specialists sequentially, sharing findings
+            results = await _run_teamwork(
+                selected, specialist_runners, effective_query, hours, entity_ids, depth
+            )
+        else:
+            # Parallel: run all specialists simultaneously (current behavior)
+            results = await _run_parallel(
+                selected, specialist_runners, effective_query, hours, entity_ids, depth
+            )
+
+        # 4. Auto-synthesise if 2+ specialists contributed findings
+        _ctx = _get_ctx()
+        ta = _ctx.team_analysis if _ctx else None
+        if ta and len(ta.findings) > 0 and len(selected) >= 2:
+            try:
+                synth = ProgrammaticSynthesizer()
+                ta = synth.synthesize(ta)
+                _set_team_analysis(ta)
+            except Exception as e:
+                logger.warning("Programmatic synthesis failed: %s", e)
+
+        # 4b. Adaptive escalation: if conflicts detected in parallel mode,
+        #     run a discussion round to resolve them (cap: 1 escalation).
+        #     Feature 33: B2 — adaptive strategy escalation.
+        _ctx = _get_ctx()
+        ta = _ctx.team_analysis if _ctx else None
+        if strategy == "parallel" and depth != "quick" and ta and ta.conflicts:
+            from src.agents.execution_context import emit_communication as _emit_comm
+
+            _emit_comm(
+                from_agent="data_science_team",
+                to_agent="team",
+                message_type="status",
+                content=(
+                    f"Conflicts detected ({len(ta.conflicts)}), "
+                    "escalating to teamwork discussion for resolution"
+                ),
+                metadata={"conflicts": ta.conflicts},
+            )
+            emit_progress(
+                "status",
+                "data_science_team",
+                "Escalating to discussion round due to conflicts",
+            )
+            try:
+                disc_entries = await _run_discussion_round(selected, ta)
+                if disc_entries:
+                    results.append(
+                        f"\n**Escalation Discussion:** {len(disc_entries)} "
+                        f"discussion message(s) to resolve conflicts"
+                    )
+            except Exception as e:
+                logger.warning("Escalation discussion failed: %s", e)
+
+        # 5. Format unified response
+        parts = [
+            f"**Data Science Team Report** "
+            f"({len(selected)} specialist(s), {hours}h window, "
+            f"depth={depth}, strategy={strategy})\n"
+        ]
+        parts.extend(results)
+
+        if ta and ta.consensus:
+            parts.append(f"\n**Team Consensus:** {ta.consensus}")
+        if ta and ta.conflicts:
+            parts.append("\n**Conflicts:**")
+            for c in ta.conflicts:
+                parts.append(f"- {c}")
+        if ta and ta.holistic_recommendations:
+            parts.append("\n**Recommendations:**")
+            for i, r in enumerate(ta.holistic_recommendations, 1):
+                parts.append(f"{i}. {r}")
+
+        report = "\n".join(parts)
+
+        # --- Report lifecycle: complete the report ---
+        if report_obj and session_factory:
+            try:
+                _ctx = _get_ctx()
+                comm_log = _ctx.communication_log if _ctx else []
+                async with session_factory() as _session:
+                    await complete_analysis_report(
+                        session=_session,
+                        report_id=str(report_obj.id),
+                        summary=report[:2000],
+                        communication_log=comm_log,
+                    )
+            except Exception as e:
+                logger.warning("Failed to complete analysis report: %s", e)
+
+        # Emit delegation: DS team -> architect with the synthesized report
+        report_summary = report[:300] + ("..." if len(report) > 300 else "")
+        emit_delegation("data_science_team", "architect", report_summary)
+        emit_progress("agent_end", "data_science_team", "Data Science Team completed")
+
+        return report
+
+    except Exception as exc:
+        # --- Report lifecycle: fail the report ---
+        if report_obj and session_factory:
+            try:
+                async with session_factory() as _session:
+                    await fail_analysis_report(
+                        session=_session,
+                        report_id=str(report_obj.id),
+                        summary=str(exc)[:500],
+                    )
+            except Exception as e:
+                logger.warning("Failed to mark analysis report as failed: %s", e)
+
+        emit_progress("agent_end", "data_science_team", "Data Science Team failed")
+        logger.error("DS team analysis failed: %s", exc, exc_info=True)
+        return f"Data Science Team analysis failed: {exc}"
+
+
+async def _run_parallel(
+    selected: list[str],
+    runners: dict[str, Any],
+    query: str,
+    hours: int,
+    entity_ids: list[str] | None,
+    depth: str,
+) -> list[str]:
+    """Run specialists in parallel (current behavior).
+
+    All selected specialists start simultaneously via asyncio.gather.
+    """
     tasks: list[tuple[str, asyncio.Task[str]]] = []
     for name in selected:
-        runner = specialist_runners.get(name)
+        runner = runners.get(name)
         if runner:
-            task = asyncio.create_task(runner(effective_query, hours, entity_ids))
+            task = asyncio.create_task(runner(query, hours, entity_ids, depth=depth))
             tasks.append((name, task))
 
-    # Gather results, allowing partial failures
     raw_results = await asyncio.gather(*(t for _, t in tasks), return_exceptions=True)
 
     results: list[str] = []
@@ -501,47 +667,148 @@ async def consult_data_science_team(
         else:
             result = raw
         results.append(f"**{name.title()} Analyst:** {result}")
-        # Emit delegation: analyst -> DS team with findings summary
         analyst_agent = f"{name}_analyst"
         summary = result[:200] + ("..." if len(result) > 200 else "")
         emit_delegation(analyst_agent, "data_science_team", summary)
 
-    # 4. Auto-synthesise if 2+ specialists contributed findings
+    return results
+
+
+async def _run_teamwork(
+    selected: list[str],
+    runners: dict[str, Any],
+    query: str,
+    hours: int,
+    entity_ids: list[str] | None,
+    depth: str,
+) -> list[str]:
+    """Run specialists sequentially with cross-consultation (teamwork mode).
+
+    Each specialist completes before the next starts.  Shared TeamAnalysis
+    is updated between runs so later specialists can see earlier findings.
+    After all specialists complete, a discussion round is run if there are
+    findings to discuss.
+
+    Feature 33: DS Deep Analysis — teamwork execution strategy.
+    """
+    results: list[str] = []
+
+    # Priority order for sequential execution
+    priority_order = ["energy", "behavioral", "diagnostic"]
+    ordered = [name for name in priority_order if name in selected]
+    # Add any remaining specialists not in priority list
+    ordered.extend(name for name in selected if name not in ordered)
+
+    for name in ordered:
+        runner = runners.get(name)
+        if not runner:
+            continue
+
+        emit_progress(
+            "status",
+            "data_science_team",
+            f"Teamwork: running {name} analyst (sequential)",
+        )
+
+        try:
+            result = await runner(query, hours, entity_ids, depth=depth)
+        except Exception as e:
+            logger.error("Specialist %s failed: %s", name, e, exc_info=e)
+            result = f"{name.title()} analysis failed: {e}"
+
+        results.append(f"**{name.title()} Analyst:** {result}")
+
+        # Emit delegation after each specialist completes
+        analyst_agent = f"{name}_analyst"
+        summary = result[:200] + ("..." if len(result) > 200 else "")
+        emit_delegation(analyst_agent, "data_science_team", summary)
+
+    # Discussion round: let specialists review each other's findings
     from src.agents.execution_context import get_execution_context as _get_ctx
 
     _ctx = _get_ctx()
     ta = _ctx.team_analysis if _ctx else None
-    if ta and len(ta.findings) > 0 and len(selected) >= 2:
+    if ta and ta.findings:
+        discussion_entries = await _run_discussion_round(selected, ta)
+        if discussion_entries:
+            results.append(
+                f"\n**Discussion Round:** {len(discussion_entries)} discussion message(s) exchanged"
+            )
+
+    return results
+
+
+async def _run_discussion_round(
+    selected: list[str],
+    ta: TeamAnalysis,
+) -> list:
+    """Run a single discussion round after all specialists have completed.
+
+    Each specialist reviews the combined findings and provides cross-references,
+    agreements, and disagreements.  Capped at 1 round to bound cost.
+
+    Feature 33: DS Deep Analysis — B1 discussion round.
+
+    Args:
+        selected: List of specialist names that participated.
+        ta: TeamAnalysis with accumulated findings.
+
+    Returns:
+        List of CommunicationEntry objects from the discussion.
+    """
+    # Build a textual summary of all findings
+    findings_parts = []
+    for finding in ta.findings:
+        findings_parts.append(
+            f"[{finding.specialist}] ({finding.finding_type}) "
+            f"{finding.title}: {finding.description}"
+        )
+    findings_summary = "\n".join(findings_parts)
+
+    if not findings_summary.strip():
+        return []
+
+    emit_progress(
+        "status",
+        "data_science_team",
+        f"Discussion round: {len(selected)} specialist(s) reviewing findings",
+    )
+
+    # Instantiate analysts for discussion
+    analyst_classes: dict[str, type] = {}
+    try:
+        from src.agents.energy_analyst import EnergyAnalyst
+
+        analyst_classes["energy"] = EnergyAnalyst
+    except ImportError:
+        pass
+    try:
+        from src.agents.behavioral_analyst import BehavioralAnalyst
+
+        analyst_classes["behavioral"] = BehavioralAnalyst
+    except ImportError:
+        pass
+    try:
+        from src.agents.diagnostic_analyst import DiagnosticAnalyst
+
+        analyst_classes["diagnostic"] = DiagnosticAnalyst
+    except ImportError:
+        pass
+
+    all_entries: list = []
+    for name in selected:
+        cls = analyst_classes.get(name)
+        if cls is None:
+            continue
+
         try:
-            synth = ProgrammaticSynthesizer()
-            ta = synth.synthesize(ta)
-            _set_team_analysis(ta)
+            analyst = cls()
+            entries = await analyst.discuss(findings_summary)
+            all_entries.extend(entries)
         except Exception as e:
-            logger.warning("Programmatic synthesis failed: %s", e)
+            logger.warning("Discussion round failed for %s: %s", name, e)
 
-    # 5. Format unified response
-    parts = [f"**Data Science Team Report** ({len(selected)} specialist(s), {hours}h window)\n"]
-    parts.extend(results)
-
-    if ta and ta.consensus:
-        parts.append(f"\n**Team Consensus:** {ta.consensus}")
-    if ta and ta.conflicts:
-        parts.append("\n**Conflicts:**")
-        for c in ta.conflicts:
-            parts.append(f"- {c}")
-    if ta and ta.holistic_recommendations:
-        parts.append("\n**Recommendations:**")
-        for i, r in enumerate(ta.holistic_recommendations, 1):
-            parts.append(f"{i}. {r}")
-
-    report = "\n".join(parts)
-
-    # Emit delegation: DS team -> architect with the synthesized report
-    report_summary = report[:300] + ("..." if len(report) > 300 else "")
-    emit_delegation("data_science_team", "architect", report_summary)
-    emit_progress("agent_end", "data_science_team", "Data Science Team completed")
-
-    return report
+    return all_entries
 
 
 # ---------------------------------------------------------------------------
@@ -568,13 +835,17 @@ def _capture_parent_span_context() -> tuple[str | None, float | None, str | None
     return model_name, temperature, parent_span_id
 
 
-async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> str:
+async def _run_energy(
+    query: str, hours: int, entity_ids: list[str] | None, *, depth: str = "standard"
+) -> str:
     """Run the Energy Analyst and return formatted findings."""
     if not await is_agent_enabled("energy_analyst"):
         return "Energy Analyst is currently disabled."
     emit_progress("agent_start", "energy_analyst", "Energy Analyst started")
     try:
-        emit_progress("status", "energy_analyst", f"Running energy analysis ({hours}h)...")
+        emit_progress(
+            "status", "energy_analyst", f"Running energy analysis ({hours}h, depth={depth})..."
+        )
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = EnergyAnalyst()
         ta = _get_or_create_team_analysis(query)
@@ -584,6 +855,7 @@ async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> s
             time_range_hours=hours,
             custom_query=query,
             team_analysis=ta,
+            depth=depth,
         )
         with model_context(
             model_name=model_name,
@@ -601,13 +873,19 @@ async def _run_energy(query: str, hours: int, entity_ids: list[str] | None) -> s
         emit_progress("agent_end", "energy_analyst", "Energy Analyst completed")
 
 
-async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) -> str:
+async def _run_behavioral(
+    query: str, hours: int, entity_ids: list[str] | None, *, depth: str = "standard"
+) -> str:
     """Run the Behavioral Analyst and return formatted findings."""
     if not await is_agent_enabled("behavioral_analyst"):
         return "Behavioral Analyst is currently disabled."
     emit_progress("agent_start", "behavioral_analyst", "Behavioral Analyst started")
     try:
-        emit_progress("status", "behavioral_analyst", f"Running behavioral analysis ({hours}h)...")
+        emit_progress(
+            "status",
+            "behavioral_analyst",
+            f"Running behavioral analysis ({hours}h, depth={depth})...",
+        )
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = BehavioralAnalyst()
         ta = _get_or_create_team_analysis(query)
@@ -617,6 +895,7 @@ async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) 
             time_range_hours=hours,
             custom_query=query,
             team_analysis=ta,
+            depth=depth,
         )
         with model_context(
             model_name=model_name,
@@ -634,13 +913,19 @@ async def _run_behavioral(query: str, hours: int, entity_ids: list[str] | None) 
         emit_progress("agent_end", "behavioral_analyst", "Behavioral Analyst completed")
 
 
-async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) -> str:
+async def _run_diagnostic(
+    query: str, hours: int, entity_ids: list[str] | None, *, depth: str = "standard"
+) -> str:
     """Run the Diagnostic Analyst and return formatted findings."""
     if not await is_agent_enabled("diagnostic_analyst"):
         return "Diagnostic Analyst is currently disabled."
     emit_progress("agent_start", "diagnostic_analyst", "Diagnostic Analyst started")
     try:
-        emit_progress("status", "diagnostic_analyst", f"Running diagnostic analysis ({hours}h)...")
+        emit_progress(
+            "status",
+            "diagnostic_analyst",
+            f"Running diagnostic analysis ({hours}h, depth={depth})...",
+        )
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = DiagnosticAnalyst()
         ta = _get_or_create_team_analysis(query)
@@ -650,6 +935,7 @@ async def _run_diagnostic(query: str, hours: int, entity_ids: list[str] | None) 
             time_range_hours=hours,
             custom_query=query,
             team_analysis=ta,
+            depth=depth,
         )
         with model_context(
             model_name=model_name,

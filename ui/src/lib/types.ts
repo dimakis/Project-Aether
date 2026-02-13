@@ -619,6 +619,49 @@ export interface ModelPerformanceItem {
   avg_cost_per_call: number | null;
 }
 
+// ─── Analysis Reports (Feature 33: DS Deep Analysis) ────────────────────────
+
+export type AnalysisDepth = "quick" | "standard" | "deep";
+export type ExecutionStrategy = "parallel" | "teamwork";
+export type ReportStatus = "running" | "completed" | "failed";
+
+export interface CommunicationEntry {
+  from_agent: string;
+  to_agent: string;
+  message_type: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  timestamp: number | string;
+}
+
+export interface AnalysisReport {
+  id: string;
+  title: string;
+  analysis_type: string;
+  depth: AnalysisDepth;
+  strategy: ExecutionStrategy;
+  status: ReportStatus;
+  summary: string | null;
+  insight_ids: string[];
+  artifact_paths: string[];
+  communication_log: CommunicationEntry[];
+  communication_count: number;
+  conversation_id: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+}
+
+export interface AnalysisReportList {
+  reports: AnalysisReport[];
+  total: number;
+}
+
+export interface ReportCommunicationLog {
+  report_id: string;
+  communication_log: CommunicationEntry[];
+  count: number;
+}
+
 // ─── Registry entity context ─────────────────────────────────────────────────
 
 /** Context about a specific entity, passed to InlineAssistant for focused chat. */

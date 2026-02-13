@@ -408,7 +408,7 @@ effectiveness, script/scene usage efficiency, and behavioral anomalies.
                 prompt += f"- [{pf['specialist']}] {pf['title']}: {pf['description']}\n"
             prompt += "\nConsider these when analyzing behavioral patterns.\n"
 
-        return prompt
+        return self._append_depth_fragment(prompt, state.depth)
 
     def _extract_code_from_response(self, content: str) -> str:
         """Extract Python code from LLM response."""

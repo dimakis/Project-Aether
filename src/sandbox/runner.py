@@ -40,6 +40,16 @@ class SandboxResult(BaseModel):
     memory_peak_mb: float | None = None
     cpu_time_seconds: float | None = None
 
+    # Artifact output (Constitution: Isolation + Security)
+    artifacts: list[Any] = Field(
+        default_factory=list,
+        description="Validated artifact metadata from sandbox output",
+    )
+    artifacts_rejected: int = Field(
+        default=0,
+        description="Number of artifact files rejected by egress policy",
+    )
+
 
 class SandboxRunner:
     """Runs scripts in isolated Podman containers with gVisor.
@@ -121,6 +131,17 @@ class SandboxRunner:
         started_at = datetime.now(UTC)
         start_time = asyncio.get_event_loop().time()
 
+        # Determine if artifact output is active (defense-in-depth gate)
+        artifacts_active = resolve_artifacts_enabled(
+            global_enabled=settings.sandbox_artifacts_enabled,
+            policy_enabled=policy.artifacts_enabled,
+        )
+
+        # Create temp output dir for artifacts (only when both gates are True)
+        output_dir: Path | None = None
+        if artifacts_active:
+            output_dir = Path(tempfile.mkdtemp(prefix="aether-artifacts-"))
+
         # Create temp file for the script
         with tempfile.NamedTemporaryFile(
             mode="w",
@@ -137,6 +158,7 @@ class SandboxRunner:
                 policy=policy,
                 data_path=data_path,
                 environment=environment,
+                output_dir=output_dir,
             )
 
             # Execute with timeout
@@ -191,6 +213,14 @@ class SandboxRunner:
             duration = asyncio.get_event_loop().time() - start_time
             completed_at = datetime.now(UTC)
 
+            # Collect and validate artifacts from the output directory
+            artifacts_list: list[Any] = []
+            artifacts_rejected = 0
+            if output_dir is not None and output_dir.exists():
+                from src.sandbox.artifact_validator import validate_artifacts
+
+                artifacts_list, artifacts_rejected = validate_artifacts(output_dir)
+
             return SandboxResult(
                 success=exit_code == 0 and not timed_out,
                 exit_code=exit_code,
@@ -201,6 +231,8 @@ class SandboxRunner:
                 policy_name=policy.name,
                 started_at=started_at,
                 completed_at=completed_at,
+                artifacts=artifacts_list,
+                artifacts_rejected=artifacts_rejected,
             )
 
         finally:
@@ -255,6 +287,7 @@ class SandboxRunner:
         policy: SandboxPolicy,
         data_path: Path | None,
         environment: dict[str, str] | None,
+        output_dir: Path | None = None,
     ) -> list[str]:
         """Build the Podman command.
 
@@ -263,6 +296,7 @@ class SandboxRunner:
             policy: Security policy
             data_path: Optional data mount path
             environment: Optional environment variables
+            output_dir: Optional writable output directory for artifacts
 
         Returns:
             Complete command as list of strings
@@ -303,6 +337,17 @@ class SandboxRunner:
                 [
                     "--volume",
                     f"{data_path}:/workspace/data.json:ro",
+                ]
+            )
+
+        # Mount writable output directory for artifacts (charts, CSVs).
+        # Only mounted when both global and per-policy gates are True.
+        # Constitution: Isolation — this is the only writable mount.
+        if output_dir is not None:
+            cmd.extend(
+                [
+                    "--volume",
+                    f"{output_dir}:/workspace/output:rw",
                 ]
             )
 
@@ -529,8 +574,31 @@ async def run_script(
     return await runner.run(script, policy=policy, data_path=data_path)
 
 
+def resolve_artifacts_enabled(
+    *,
+    global_enabled: bool,
+    policy_enabled: bool,
+) -> bool:
+    """Determine if artifact output is effective for this execution.
+
+    Both the global setting (``sandbox_artifacts_enabled``) and the
+    per-policy flag (``policy.artifacts_enabled``) must be ``True``
+    for artifact output to be active.  This is a defense-in-depth
+    gate: the global switch is the master kill switch.
+
+    Args:
+        global_enabled: Value of ``settings.sandbox_artifacts_enabled``.
+        policy_enabled: Value of ``policy.artifacts_enabled``.
+
+    Returns:
+        ``True`` only when both gates are ``True``.
+    """
+    return global_enabled and policy_enabled
+
+
 __all__ = [
     "SandboxResult",
     "SandboxRunner",
+    "resolve_artifacts_enabled",
     "run_script",
 ]
