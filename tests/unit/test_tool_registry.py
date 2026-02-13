@@ -62,12 +62,6 @@ EXCLUDED_FROM_ARCHITECT = {
     "create_scene",
     "create_input_boolean",
     "create_input_number",
-    "create_input_text",
-    "create_input_select",
-    "create_input_datetime",
-    "create_input_button",
-    "create_counter",
-    "create_timer",
     "fire_event",
     # Diagnostic tools (DiagnosticAnalyst owns)
     "analyze_error_log",

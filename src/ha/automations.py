@@ -1,7 +1,7 @@
-"""Automation, script, and scene management.
+"""Automation, script, scene, and input helper management.
 
 Provides methods for creating, managing, and deleting automations,
-scripts, and scenes.
+scripts, scenes, and input helpers.
 """
 
 from typing import Any, cast
@@ -11,7 +11,7 @@ from src.tracing import log_param
 
 
 class AutomationMixin:
-    """Mixin providing automation, script, and scene operations."""
+    """Mixin providing automation, script, scene, and input helper operations."""
 
     @_trace_ha_call("ha.list_automations")
     async def list_automations(self) -> list[dict[str, Any]]:
@@ -294,3 +294,101 @@ class AutomationMixin:
             return {"success": True, "scene_id": scene_id}
         except HAClientError as e:
             return {"success": False, "scene_id": scene_id, "error": str(e)}
+
+    @_trace_ha_call("ha.create_input_boolean")
+    async def create_input_boolean(
+        self,
+        input_id: str,
+        name: str,
+        initial: bool = False,
+        icon: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an input_boolean helper.
+
+        Useful for creating virtual switches the agent can toggle.
+
+        Args:
+            input_id: Unique ID
+            name: Display name
+            initial: Initial state
+            icon: Optional MDI icon
+
+        Returns:
+            Result dict
+        """
+        config: dict[str, Any] = {"name": name, "initial": initial}
+        if icon:
+            config["icon"] = icon
+
+        try:
+            await self._request(
+                "POST",
+                f"/api/config/input_boolean/config/{input_id}",
+                json=config,
+            )
+            return {
+                "success": True,
+                "input_id": input_id,
+                "entity_id": f"input_boolean.{input_id}",
+            }
+        except HAClientError as e:
+            return {"success": False, "input_id": input_id, "error": str(e)}
+
+    @_trace_ha_call("ha.create_input_number")
+    async def create_input_number(
+        self,
+        input_id: str,
+        name: str,
+        min_value: float,
+        max_value: float,
+        initial: float | None = None,
+        step: float = 1.0,
+        unit_of_measurement: str | None = None,
+        mode: str = "slider",
+        icon: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an input_number helper.
+
+        Useful for creating configurable thresholds the agent can adjust.
+
+        Args:
+            input_id: Unique ID
+            name: Display name
+            min_value: Minimum value
+            max_value: Maximum value
+            initial: Initial value
+            step: Step increment
+            unit_of_measurement: Unit label
+            mode: "slider" or "box"
+            icon: Optional MDI icon
+
+        Returns:
+            Result dict
+        """
+        config: dict[str, Any] = {
+            "name": name,
+            "min": min_value,
+            "max": max_value,
+            "step": step,
+            "mode": mode,
+        }
+        if initial is not None:
+            config["initial"] = initial
+        if unit_of_measurement:
+            config["unit_of_measurement"] = unit_of_measurement
+        if icon:
+            config["icon"] = icon
+
+        try:
+            await self._request(
+                "POST",
+                f"/api/config/input_number/config/{input_id}",
+                json=config,
+            )
+            return {
+                "success": True,
+                "input_id": input_id,
+                "entity_id": f"input_number.{input_id}",
+            }
+        except HAClientError as e:
+            return {"success": False, "input_id": input_id, "error": str(e)}

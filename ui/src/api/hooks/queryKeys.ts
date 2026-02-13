@@ -60,7 +60,6 @@ export const queryKeys = {
     scripts: ["registry", "scripts"] as const,
     scenes: ["registry", "scenes"] as const,
     services: (domain?: string) => ["registry", "services", domain] as const,
-    helpers: ["registry", "helpers"] as const,
   },
 
   // ── Agents ──────────────────────────────────────────────────────────────
