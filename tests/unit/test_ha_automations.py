@@ -511,3 +511,142 @@ class TestDeleteScene:
         assert result["success"] is False
         assert result["scene_id"] == "nonexistent"
         assert "error" in result
+
+
+class TestCreateInputBoolean:
+    """Tests for create_input_boolean."""
+
+    @pytest.mark.asyncio
+    async def test_create_input_boolean_success(self, ha_client):
+        """Test successful input_boolean creation."""
+        ha_client._request.return_value = {}
+
+        result = await ha_client.create_input_boolean(
+            input_id="test_switch",
+            name="Test Switch",
+            initial=True,
+        )
+
+        assert result["success"] is True
+        assert result["input_id"] == "test_switch"
+        assert result["entity_id"] == "input_boolean.test_switch"
+        ha_client._request.assert_called_once()
+        call_args = ha_client._request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/api/config/input_boolean/config/test_switch" in call_args[0][1]
+        assert call_args[1]["json"]["name"] == "Test Switch"
+        assert call_args[1]["json"]["initial"] is True
+
+    @pytest.mark.asyncio
+    async def test_create_input_boolean_with_icon(self, ha_client):
+        """Test input_boolean creation with icon."""
+        ha_client._request.return_value = {}
+
+        result = await ha_client.create_input_boolean(
+            input_id="test_switch",
+            name="Test",
+            icon="mdi:toggle-switch",
+        )
+
+        assert result["success"] is True
+        call_args = ha_client._request.call_args
+        assert call_args[1]["json"]["icon"] == "mdi:toggle-switch"
+
+    @pytest.mark.asyncio
+    async def test_create_input_boolean_error(self, ha_client):
+        """Test input_boolean creation error handling."""
+        ha_client._request.side_effect = HAClientError("API error", "create_input_boolean")
+
+        result = await ha_client.create_input_boolean(
+            input_id="test_switch",
+            name="Test",
+        )
+
+        assert result["success"] is False
+        assert result["input_id"] == "test_switch"
+        assert "error" in result
+
+
+class TestCreateInputNumber:
+    """Tests for create_input_number."""
+
+    @pytest.mark.asyncio
+    async def test_create_input_number_success(self, ha_client):
+        """Test successful input_number creation."""
+        ha_client._request.return_value = {}
+
+        result = await ha_client.create_input_number(
+            input_id="test_number",
+            name="Test Number",
+            min_value=0.0,
+            max_value=100.0,
+            initial=50.0,
+        )
+
+        assert result["success"] is True
+        assert result["input_id"] == "test_number"
+        assert result["entity_id"] == "input_number.test_number"
+        ha_client._request.assert_called_once()
+        call_args = ha_client._request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/api/config/input_number/config/test_number" in call_args[0][1]
+        assert call_args[1]["json"]["name"] == "Test Number"
+        assert call_args[1]["json"]["min"] == 0.0
+        assert call_args[1]["json"]["max"] == 100.0
+        assert call_args[1]["json"]["initial"] == 50.0
+
+    @pytest.mark.asyncio
+    async def test_create_input_number_with_all_options(self, ha_client):
+        """Test input_number creation with all options."""
+        ha_client._request.return_value = {}
+
+        result = await ha_client.create_input_number(
+            input_id="test_number",
+            name="Test",
+            min_value=0.0,
+            max_value=100.0,
+            initial=25.0,
+            step=5.0,
+            unit_of_measurement="%",
+            mode="box",
+            icon="mdi:percent",
+        )
+
+        assert result["success"] is True
+        call_args = ha_client._request.call_args
+        assert call_args[1]["json"]["step"] == 5.0
+        assert call_args[1]["json"]["unit_of_measurement"] == "%"
+        assert call_args[1]["json"]["mode"] == "box"
+        assert call_args[1]["json"]["icon"] == "mdi:percent"
+
+    @pytest.mark.asyncio
+    async def test_create_input_number_without_initial(self, ha_client):
+        """Test input_number creation without initial value."""
+        ha_client._request.return_value = {}
+
+        result = await ha_client.create_input_number(
+            input_id="test_number",
+            name="Test",
+            min_value=0.0,
+            max_value=100.0,
+        )
+
+        assert result["success"] is True
+        call_args = ha_client._request.call_args
+        assert "initial" not in call_args[1]["json"]
+
+    @pytest.mark.asyncio
+    async def test_create_input_number_error(self, ha_client):
+        """Test input_number creation error handling."""
+        ha_client._request.side_effect = HAClientError("API error", "create_input_number")
+
+        result = await ha_client.create_input_number(
+            input_id="test_number",
+            name="Test",
+            min_value=0.0,
+            max_value=100.0,
+        )
+
+        assert result["success"] is False
+        assert result["input_id"] == "test_number"
+        assert "error" in result

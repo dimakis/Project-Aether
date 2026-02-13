@@ -59,23 +59,6 @@ export const registry = {
       { method: "POST" },
     ),
 
-  helpers: () =>
-    request<import("@/lib/types").HelperList>(
-      `/registry/helpers`,
-    ),
-
-  createHelper: (data: import("@/lib/types").HelperCreateRequest) =>
-    request<import("@/lib/types").HelperCreateResponse>(
-      `/registry/helpers`,
-      { method: "POST", body: JSON.stringify(data), headers: { "Content-Type": "application/json" } },
-    ),
-
-  deleteHelper: (domain: string, inputId: string) =>
-    request<import("@/lib/types").HelperDeleteResponse>(
-      `/registry/helpers/${domain}/${inputId}`,
-      { method: "DELETE" },
-    ),
-
   sync: () =>
     request<{
       automations_synced: number;

@@ -1,4 +1,4 @@
-import { Zap, FileText, Clapperboard, Wrench, ToggleLeft, Clock, AlertCircle, Activity } from "lucide-react";
+import { Zap, FileText, Clapperboard, Wrench, Clock, AlertCircle, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRelativeTime } from "@/lib/utils";
@@ -62,7 +62,7 @@ export function OverviewTab({ summary, isLoading }: OverviewTabProps) {
 
   return (
     <div>
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           icon={Zap}
           label="Automations"
@@ -92,13 +92,6 @@ export function OverviewTab({ summary, isLoading }: OverviewTabProps) {
           detail={`${summary.services_seeded} seeded`}
           color="text-emerald-400"
           bgColor="bg-emerald-500/10"
-        />
-        <SummaryCard
-          icon={ToggleLeft}
-          label="Helpers"
-          value={summary.helpers_count ?? 0}
-          color="text-green-400"
-          bgColor="bg-green-500/10"
         />
       </div>
 
