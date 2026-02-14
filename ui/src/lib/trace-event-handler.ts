@@ -46,6 +46,17 @@ function addEdge(
 }
 
 /**
+ * Helper: remove all edges targeting a specific agent.
+ * Used when an agent finishes so its incoming edges deactivate.
+ */
+function removeEdgesTo(
+  edges: [string, string][],
+  agent: string,
+): [string, string][] {
+  return edges.filter(([, b]) => b !== agent);
+}
+
+/**
  * Process a single trace event and return the partial AgentActivity update.
  *
  * Pure function — all state changes are expressed as a Partial<AgentActivity>
@@ -79,11 +90,9 @@ export function handleTraceEvent(
 
       let newEdges = current.activeEdges;
 
-      // Ensure Aether is always visible and has an edge to the architect
+      // Aether is always visible and firing during an active workflow
       newSeen = addAgentSeen(newSeen, "aether");
-      if (!newStates["aether"]) {
-        newStates["aether"] = "firing";
-      }
+      newStates["aether"] = "firing";
 
       if (agent === "architect") {
         // Architect starting — draw edge from Aether hub
@@ -123,11 +132,16 @@ export function handleTraceEvent(
       // Aether stays firing while the workflow is active
       newStates["aether"] = "firing";
 
+      // Deactivate edges targeting the finished agent so they
+      // fade back to the dim "dormant pathway" state.
+      const newEdges = removeEdgesTo(current.activeEdges, agent);
+
       setActivity({
         isActive: true,
         activeAgent: "architect",
         delegatingTo: null,
         agentStates: newStates,
+        activeEdges: newEdges,
         liveTimeline: [...current.liveTimeline, entry],
       });
       break;
@@ -148,6 +162,7 @@ export function handleTraceEvent(
         agents: event.agents,
         agentsSeen: allSeen,
         agentStates: doneStates,
+        activeEdges: [],  // Clear all edges on completion
         liveTimeline: [...current.liveTimeline, entry],
       });
       break;

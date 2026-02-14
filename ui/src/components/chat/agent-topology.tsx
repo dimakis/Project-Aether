@@ -162,10 +162,11 @@ export function AgentTopology({
   // ── Node state resolution ────────────────────────────────────────
 
   function getNodeState(agent: string): AgentNodeState {
+    // Use agentStates as the single source of truth — avoids
+    // inconsistencies from the activeAgent fallback that could
+    // cause nodes to fail to light up.
     if (agentStates?.[agent]) return agentStates[agent];
-    if (!isLive) return "done";
-    if (activeAgent === agent) return "firing";
-    return "idle";
+    return isLive ? "dormant" : "idle";
   }
 
   // ── Spring configs for Framer Motion visual effects ──────────────
@@ -383,7 +384,7 @@ export function AgentTopology({
             <motion.g
               key={agent}
               // Framer Motion for visual state (opacity, scale) — NOT position
-              initial={{ opacity: 0, scale: 0.5 }}
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={
                 isFiring
                   ? { opacity: 1, scale: 1.18 }

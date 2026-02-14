@@ -73,6 +73,9 @@ const DEFAULT_ACTIVITY: AgentActivity = {
 let currentActivity: AgentActivity = DEFAULT_ACTIVITY;
 const activityListeners = new Set<() => void>();
 
+/** Session that currently owns the activity panel. */
+let activeSessionId: string | null = null;
+
 // ─── Array Caps (prevent unbounded growth) ────────────────────────────────
 
 const MAX_LIVE_TIMELINE = 200;
@@ -142,6 +145,7 @@ export function completeAgentActivity() {
     activeAgent: null,
     delegatingTo: null,
     agentStates: doneStates,
+    activeEdges: [],
     completedAt: Date.now(),
   };
   notifyActivity();
@@ -160,6 +164,21 @@ export function clearAgentActivity() {
 function subscribeActivity(listener: () => void) {
   activityListeners.add(listener);
   return () => activityListeners.delete(listener);
+}
+
+/**
+ * Set which session currently owns the activity panel.
+ * Resets activity state so the panel shows a clean slate for the new session.
+ */
+export function setActivitySession(sessionId: string | null) {
+  activeSessionId = sessionId;
+  currentActivity = { ...DEFAULT_ACTIVITY };
+  notifyActivity();
+}
+
+/** Get the session ID that currently owns the activity panel. */
+export function getActivitySessionId(): string | null {
+  return activeSessionId;
 }
 
 /** Get the current activity snapshot (for use outside React components). */

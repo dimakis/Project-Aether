@@ -6,6 +6,8 @@ import {
   setLastTraceId,
   useActivityPanel,
   getActivitySnapshot,
+  setActivitySession,
+  getActivitySessionId,
 } from "@/lib/agent-activity-store";
 import { handleTraceEvent } from "@/lib/trace-event-handler";
 import type { TraceEventChunk } from "@/lib/trace-event-handler";
@@ -95,7 +97,16 @@ export function useChatMessages(): UseChatMessagesReturn {
     deleteSession,
   } = useChatSessions({
     onSessionSwitch: () => {
+      // Abort any running stream so orphaned SSE connections don't
+      // leak or write stale events to the activity panel.
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
       setInput("");
+      setIsStreaming(false);
+      setStreamStartTime(null);
+      setStatusMessage("");
       inputRef.current?.focus();
     },
   });
@@ -222,6 +233,9 @@ export function useChatMessages(): UseChatMessagesReturn {
       setInput("");
       setIsStreaming(true);
       setStreamStartTime(Date.now());
+
+      // Claim the activity panel for this session
+      setActivitySession(sessionId);
       setLastTraceId(null);
       setAgentActivity({
         isActive: true,
@@ -276,6 +290,11 @@ export function useChatMessages(): UseChatMessagesReturn {
       try {
         let traceId: string | undefined;
 
+        // Only update the activity panel if this session owns it.
+        // Background sessions still stream data (messages accumulate)
+        // but their trace/thinking events are dropped from the panel.
+        const ownsPanel = () => getActivitySessionId() === sessionId;
+
         for await (const chunk of streamChat(
           selectedModel,
           chatHistory,
@@ -286,16 +305,18 @@ export function useChatMessages(): UseChatMessagesReturn {
             if (chunk.type === "metadata") {
               if (chunk.trace_id) {
                 traceId = chunk.trace_id;
-                setLastTraceId(traceId);
+                if (ownsPanel()) setLastTraceId(traceId);
               }
               continue;
             }
             if (chunk.type === "trace") {
-              handleTraceEvent(
-                chunk as TraceEventChunk,
-                setAgentActivity,
-                getActivitySnapshot(),
-              );
+              if (ownsPanel()) {
+                handleTraceEvent(
+                  chunk as TraceEventChunk,
+                  setAgentActivity,
+                  getActivitySnapshot(),
+                );
+              }
               continue;
             }
             if (chunk.type === "status") {
@@ -305,26 +326,30 @@ export function useChatMessages(): UseChatMessagesReturn {
             if (chunk.type === "thinking") {
               const delta = chunk.content ?? "";
               thinkingRef.current += delta;
-              const current = getActivitySnapshot();
-              setAgentActivity({
-                thinkingStream: (current.thinkingStream ?? "") + delta,
-              });
+              if (ownsPanel()) {
+                const current = getActivitySnapshot();
+                setAgentActivity({
+                  thinkingStream: (current.thinkingStream ?? "") + delta,
+                });
+              }
               scheduleFlush();
               continue;
             }
             if (chunk.type === "delegation") {
-              const current = getActivitySnapshot();
-              setAgentActivity({
-                delegationMessages: [
-                  ...current.delegationMessages,
-                  {
-                    from: chunk.from,
-                    to: chunk.to,
-                    content: chunk.content,
-                    ts: chunk.ts ?? Date.now() / 1000,
-                  },
-                ],
-              });
+              if (ownsPanel()) {
+                const current = getActivitySnapshot();
+                setAgentActivity({
+                  delegationMessages: [
+                    ...current.delegationMessages,
+                    {
+                      from: chunk.from,
+                      to: chunk.to,
+                      content: chunk.content,
+                      ts: chunk.ts ?? Date.now() / 1000,
+                    },
+                  ],
+                });
+              }
               continue;
             }
           }

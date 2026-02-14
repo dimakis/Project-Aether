@@ -285,6 +285,11 @@ class TestGetLLMWithResilience:
 
     def test_returns_resilient_llm_with_fallback(self, mock_settings_with_fallback):
         """Test get_llm returns ResilientLLM when fallback configured."""
+        # Clear the LLM cache so mock settings are used
+        import src.llm.factory as factory_mod
+
+        factory_mod._llm_cache.clear()
+
         with patch("src.llm.factory.get_settings", return_value=mock_settings_with_fallback):
             with patch("src.llm.factory._create_llm_instance") as mock_create:
                 from src.llm import get_llm

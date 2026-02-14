@@ -7,8 +7,23 @@ and post-execution artifact collection.  All process execution is mocked.
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from src.sandbox.artifact_validator import ArtifactMeta
 from src.sandbox.runner import SandboxResult, SandboxRunner
+
+
+@pytest.fixture(autouse=True)
+def _skip_sandbox_auto_build():
+    """Prevent sandbox tests from triggering real podman auto-build."""
+    with patch.object(
+        SandboxRunner,
+        "_get_available_image",
+        new_callable=AsyncMock,
+        return_value=SandboxRunner.FALLBACK_IMAGE,
+    ):
+        yield
+
 
 # =============================================================================
 # T3311: ArtifactMeta on SandboxResult
