@@ -16,31 +16,11 @@ from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
+from tests.helpers.auth import JWT_SECRET, make_test_settings
 
 # =============================================================================
 # Fixtures
 # =============================================================================
-
-
-def _make_settings(**overrides) -> Settings:
-    """Create test settings with auth defaults."""
-    defaults = {
-        "environment": "testing",
-        "debug": True,
-        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        "ha_url": "http://localhost:8123",
-        "ha_token": SecretStr("test-token"),
-        "openai_api_key": SecretStr("test-api-key"),
-        "mlflow_tracking_uri": "http://localhost:5000",
-        "sandbox_enabled": False,
-        "auth_username": "admin",
-        "auth_password": SecretStr(""),
-        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        "jwt_expiry_hours": 72,
-        "api_key": SecretStr(""),
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
 
 
 def _patch_settings(monkeypatch, settings: Settings) -> None:
@@ -75,16 +55,15 @@ class TestHATokenLogin:
     async def test_valid_ha_token_returns_jwt(self, monkeypatch):
         """A valid HA token against stored HA URL returns JWT."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         # Mock DB with stored HA config
         from src.dal.system_config import encrypt_token
 
-        jwt_secret = "test-jwt-secret-key-for-testing-minimum-32bytes"
         mock_config = MagicMock()
         mock_config.ha_url = "http://ha.local:8123"
-        mock_config.ha_token_encrypted = encrypt_token("stored-token", jwt_secret)
+        mock_config.ha_token_encrypted = encrypt_token("stored-token", JWT_SECRET)
         mock_config.password_hash = None
 
         with (
@@ -118,7 +97,7 @@ class TestHATokenLogin:
         from fastapi import HTTPException
 
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         with (
@@ -147,7 +126,7 @@ class TestHATokenLogin:
         from fastapi import HTTPException
 
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         with (
@@ -174,7 +153,7 @@ class TestHATokenLogin:
     async def test_falls_back_to_env_var_ha_url(self, monkeypatch):
         """When no DB config exists, uses env var HA_URL."""
         get_settings.cache_clear()
-        settings = _make_settings(ha_url="http://env-ha:8123")
+        settings = make_test_settings(auth_password=SecretStr(""), ha_url="http://env-ha:8123")
         _patch_settings(monkeypatch, settings)
 
         with (
@@ -204,7 +183,7 @@ class TestHATokenLogin:
         """The HA token login endpoint doesn't require prior authentication."""
         get_settings.cache_clear()
         # Enable API key auth to verify this endpoint is exempt
-        settings = _make_settings(api_key=SecretStr("required-key"))
+        settings = make_test_settings(auth_password=SecretStr(""), api_key=SecretStr("required-key"))
         _patch_settings(monkeypatch, settings)
 
         with (

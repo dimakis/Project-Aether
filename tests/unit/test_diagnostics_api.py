@@ -3,53 +3,20 @@
 Tests the /api/v1/diagnostics/* endpoints.
 """
 
-import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import jwt as pyjwt
 import pytest
 from httpx import ASGITransport, AsyncClient
-from pydantic import SecretStr
 
 from src.api.main import create_app
-from src.settings import Settings, get_settings
-
-JWT_SECRET = "test-jwt-secret-key-for-testing-minimum-32bytes"
-
-
-def _make_settings(**overrides) -> Settings:
-    defaults = {
-        "environment": "testing",
-        "debug": True,
-        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        "ha_url": "http://localhost:8123",
-        "ha_token": SecretStr("test-token"),
-        "openai_api_key": SecretStr("test-api-key"),
-        "mlflow_tracking_uri": "http://localhost:5000",
-        "sandbox_enabled": False,
-        "auth_username": "admin",
-        "auth_password": SecretStr("test-password"),
-        "jwt_secret": SecretStr(JWT_SECRET),
-        "api_key": SecretStr(""),
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
-
-
-def _make_jwt() -> str:
-    payload = {
-        "sub": "admin",
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 72 * 3600,
-    }
-    return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
-
+from src.settings import get_settings
+from tests.helpers.auth import make_test_jwt, make_test_settings
 
 @pytest.fixture
 async def client(monkeypatch):
     """Test client with auth configured."""
     get_settings.cache_clear()
-    settings = _make_settings()
+    settings = make_test_settings()
     from src import settings as settings_module
 
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
@@ -71,7 +38,7 @@ class TestHAHealth:
         assert response.status_code == 401
 
     async def test_returns_health_data(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
 
         from src.diagnostics.entity_health import EntityDiagnostic
         from src.diagnostics.integration_health import IntegrationHealth
@@ -144,7 +111,7 @@ class TestErrorLog:
         assert response.status_code == 401
 
     async def test_returns_parsed_log(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
 
         from src.diagnostics.log_parser import ErrorLogEntry
 
@@ -224,7 +191,7 @@ class TestConfigCheck:
         assert response.status_code == 401
 
     async def test_returns_config_result(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
 
         from src.diagnostics.config_validator import ConfigCheckResult
 
@@ -266,7 +233,7 @@ class TestRecentTraces:
         assert response.status_code == 401
 
     async def test_returns_traces(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
 
         mock_trace = MagicMock()
         mock_trace.info.request_id = "trace-123"
@@ -310,7 +277,7 @@ class TestRecentTraces:
 
     async def test_returns_empty_when_experiment_not_found(self, client: AsyncClient):
         """When the MLflow experiment doesn't exist yet, return empty gracefully."""
-        token = _make_jwt()
+        token = make_test_jwt()
 
         mock_client = MagicMock()
         mock_client.get_experiment_by_name.return_value = None

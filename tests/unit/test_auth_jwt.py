@@ -9,42 +9,20 @@ Tests the JWT-based session authentication including:
 - Auth bypass when AUTH_PASSWORD is not set
 """
 
-import time
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
-import jwt
 import pytest
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
+from tests.helpers.auth import make_test_jwt, make_test_settings
 
 # =============================================================================
 # Fixtures
 # =============================================================================
-
-
-def _make_settings(**overrides) -> Settings:
-    """Create test settings with auth defaults."""
-    defaults = {
-        "environment": "testing",
-        "debug": True,
-        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        "ha_url": "http://localhost:8123",
-        "ha_token": SecretStr("test-token"),
-        "openai_api_key": SecretStr("test-api-key"),
-        "mlflow_tracking_uri": "http://localhost:5000",
-        "sandbox_enabled": False,
-        "auth_username": "admin",
-        "auth_password": SecretStr("test-password-123"),
-        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        "jwt_expiry_hours": 72,
-        "api_key": SecretStr(""),  # API key auth disabled by default
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
 
 
 def _patch_settings(monkeypatch, settings: Settings) -> None:
@@ -81,7 +59,7 @@ def _patch_db_session(monkeypatch) -> None:
 async def auth_client(monkeypatch):
     """Create a test client with JWT auth enabled."""
     get_settings.cache_clear()
-    settings = _make_settings()
+    settings = make_test_settings(auth_password=SecretStr("test-password-123"))
     _patch_settings(monkeypatch, settings)
     _patch_db_session(monkeypatch)
     app = create_app(settings)
@@ -97,7 +75,7 @@ async def auth_client(monkeypatch):
 async def auth_and_apikey_client(monkeypatch):
     """Create a test client with both JWT and API key auth enabled."""
     get_settings.cache_clear()
-    settings = _make_settings(api_key=SecretStr("test-api-key-123"))
+    settings = make_test_settings(api_key=SecretStr("test-api-key-123"))
     _patch_settings(monkeypatch, settings)
     _patch_db_session(monkeypatch)
     app = create_app(settings)
@@ -113,7 +91,7 @@ async def auth_and_apikey_client(monkeypatch):
 async def no_password_client(monkeypatch):
     """Create a test client with no auth password set (auth disabled)."""
     get_settings.cache_clear()
-    settings = _make_settings(auth_password=SecretStr(""))
+    settings = make_test_settings(auth_password=SecretStr(""))
     _patch_settings(monkeypatch, settings)
     _patch_db_session(monkeypatch)
     app = create_app(settings)
@@ -123,20 +101,6 @@ async def no_password_client(monkeypatch):
     ) as client:
         yield client
     get_settings.cache_clear()
-
-
-def _make_jwt(
-    secret: str = "test-jwt-secret-key-for-testing-minimum-32bytes",
-    exp_hours: int = 72,
-    sub: str = "admin",
-) -> str:
-    """Create a valid JWT token for testing."""
-    payload = {
-        "sub": sub,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + exp_hours * 3600,
-    }
-    return jwt.encode(payload, secret, algorithm="HS256")
 
 
 # =============================================================================
@@ -254,7 +218,7 @@ class TestAuthMe:
 
     async def test_me_with_valid_bearer_token(self, auth_client: AsyncClient):
         """GET /auth/me with valid Bearer token returns user info."""
-        token = _make_jwt()
+        token = make_test_jwt()
         response = await auth_client.get(
             "/api/v1/auth/me",
             headers={"Authorization": f"Bearer {token}"},
@@ -270,7 +234,7 @@ class TestAuthMe:
 
     async def test_me_with_expired_jwt(self, auth_client: AsyncClient):
         """GET /auth/me with expired JWT returns 401."""
-        token = _make_jwt(exp_hours=-1)  # Already expired
+        token = make_test_jwt(exp_hours=-1)  # Already expired
         response = await auth_client.get(
             "/api/v1/auth/me",
             headers={"Authorization": f"Bearer {token}"},
@@ -287,7 +251,7 @@ class TestAuthMe:
 
     async def test_me_with_wrong_secret(self, auth_client: AsyncClient):
         """GET /auth/me with JWT signed by wrong secret returns 401."""
-        token = _make_jwt(secret="wrong-secret-but-long-enough-32bytes!!")
+        token = make_test_jwt(secret="wrong-secret-but-long-enough-32bytes!!")
         response = await auth_client.get(
             "/api/v1/auth/me",
             headers={"Authorization": f"Bearer {token}"},
@@ -310,7 +274,7 @@ class TestJWTProtectedRoutes:
 
     async def test_protected_route_with_jwt_cookie(self, auth_client: AsyncClient):
         """Protected route accessible with JWT cookie."""
-        token = _make_jwt()
+        token = make_test_jwt()
         response = await auth_client.get(
             "/api/v1/models",
             cookies={"aether_session": token},
@@ -320,7 +284,7 @@ class TestJWTProtectedRoutes:
 
     async def test_protected_route_with_bearer_token(self, auth_client: AsyncClient):
         """Protected route accessible with Bearer token."""
-        token = _make_jwt()
+        token = make_test_jwt()
         response = await auth_client.get(
             "/api/v1/models",
             headers={"Authorization": f"Bearer {token}"},
@@ -334,7 +298,7 @@ class TestJWTProtectedRoutes:
 
     async def test_protected_route_with_expired_jwt(self, auth_client: AsyncClient):
         """Protected route returns 401 with expired JWT."""
-        token = _make_jwt(exp_hours=-1)
+        token = make_test_jwt(exp_hours=-1)
         response = await auth_client.get(
             "/api/v1/models",
             cookies={"aether_session": token},
@@ -361,7 +325,7 @@ class TestJWTAndAPIKeyCoexistence:
 
     async def test_jwt_works_when_api_key_configured(self, auth_and_apikey_client: AsyncClient):
         """JWT auth works even when API key is also configured."""
-        token = _make_jwt()
+        token = make_test_jwt()
         response = await auth_and_apikey_client.get(
             "/api/v1/models",
             headers={"Authorization": f"Bearer {token}"},

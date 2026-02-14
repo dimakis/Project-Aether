@@ -16,31 +16,11 @@ from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
+from tests.helpers.auth import make_test_settings
 
 # =============================================================================
 # Fixtures
 # =============================================================================
-
-
-def _make_settings(**overrides) -> Settings:
-    """Create test settings with auth defaults."""
-    defaults = {
-        "environment": "testing",
-        "debug": True,
-        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        "ha_url": "http://localhost:8123",
-        "ha_token": SecretStr("test-token"),
-        "openai_api_key": SecretStr("test-api-key"),
-        "mlflow_tracking_uri": "http://localhost:5000",
-        "sandbox_enabled": False,
-        "auth_username": "admin",
-        "auth_password": SecretStr(""),
-        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        "jwt_expiry_hours": 72,
-        "api_key": SecretStr(""),
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
 
 
 def _patch_settings(monkeypatch, settings: Settings) -> None:
@@ -84,7 +64,7 @@ class TestSetupStatus:
     async def test_setup_not_complete(self, monkeypatch, mock_get_session):
         """Returns setup_complete=false when no config exists."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         with (
@@ -110,7 +90,7 @@ class TestSetupStatus:
     async def test_setup_complete(self, monkeypatch, mock_get_session):
         """Returns setup_complete=true when config exists."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         with (
@@ -147,7 +127,7 @@ class TestSetupEndpoint:
     ):
         """Valid HA token + optional password stores config and returns JWT."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         mock_config = MagicMock()
@@ -192,7 +172,7 @@ class TestSetupEndpoint:
     async def test_setup_already_complete_returns_409(self, monkeypatch, mock_get_session):
         """POST /auth/setup returns 409 if already configured."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         with (
@@ -224,7 +204,7 @@ class TestSetupEndpoint:
         from fastapi import HTTPException
 
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         with (
@@ -256,7 +236,7 @@ class TestSetupEndpoint:
     async def test_password_optional_in_setup(self, monkeypatch, mock_session, mock_get_session):
         """Setup works without a password (password field absent or null)."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         mock_config = MagicMock()
@@ -299,7 +279,7 @@ class TestSetupEndpoint:
     async def test_setup_stores_encrypted_token(self, monkeypatch, mock_session, mock_get_session):
         """Setup encrypts the HA token before storing."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         mock_config = MagicMock()
