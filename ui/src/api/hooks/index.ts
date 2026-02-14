@@ -95,3 +95,4 @@ export {
   useReport,
   useReportCommunication,
 } from "./reports";
+export { useDashboards, useDashboardConfig } from "./dashboards";

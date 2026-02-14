@@ -17,6 +17,7 @@ import {
   ChevronDown,
   MapPin,
   FileBarChart,
+  PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { agentLabel } from "@/lib/agent-registry";
@@ -46,6 +47,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/architecture", icon: Network, label: "Architecture" },
   { to: "/agents/registry", icon: Star, label: "Model Performance" },
+  { to: "/dashboard-editor", icon: PanelLeft, label: "Dashboard Editor" },
   { to: "/settings/zones", icon: MapPin, label: "HA Zones" },
 ];
 

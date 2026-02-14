@@ -112,7 +112,7 @@ class TestListDashboards:
     @pytest.fixture(autouse=True)
     def _patch_ha_client(self):
         mock_client = AsyncMock()
-        mock_client._request = AsyncMock(
+        mock_client.list_dashboards = AsyncMock(
             return_value=[
                 {"id": "lovelace", "title": "Home", "mode": "storage"},
                 {"id": "lovelace-energy", "title": "Energy", "mode": "yaml"},

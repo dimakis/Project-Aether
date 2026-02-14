@@ -12,6 +12,7 @@ from src.api.routes.areas import router as areas_router
 from src.api.routes.artifacts import router as artifacts_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.chat import router as chat_router
+from src.api.routes.dashboards import router as dashboards_router
 from src.api.routes.devices import router as devices_router
 from src.api.routes.diagnostics import router as diagnostics_router
 from src.api.routes.entities import router as entities_router
@@ -82,5 +83,7 @@ api_router.include_router(artifacts_router)
 from src.api.routes.reports import router as reports_router
 
 api_router.include_router(reports_router)
+# Dashboard editor (Lovelace config)
+api_router.include_router(dashboards_router)
 
 __all__ = ["api_router"]

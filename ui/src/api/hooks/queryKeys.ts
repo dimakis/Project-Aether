@@ -125,6 +125,12 @@ export const queryKeys = {
     presets: ["workflows", "presets"] as const,
   },
 
+  // ── Dashboards (Lovelace) ────────────────────────────────────────────────
+  dashboards: {
+    all: ["dashboards"] as const,
+    config: (urlPath: string) => ["dashboards", urlPath, "config"] as const,
+  },
+
   // ── Zones ───────────────────────────────────────────────────────────────
   zones: {
     all: ["zones"] as const,

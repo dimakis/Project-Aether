@@ -119,12 +119,9 @@ async def list_dashboards() -> str:
         A formatted string with dashboard IDs, titles, and modes.
     """
     ha = get_ha_client()
-    try:
-        dashboards = await ha._request("GET", "/api/lovelace/dashboards")
-    except Exception as exc:
-        return f"Failed to list dashboards: {exc}"
+    dashboards = await ha.list_dashboards()
 
-    if not dashboards or not isinstance(dashboards, list):
+    if not dashboards:
         return "No dashboards found or API not available."
 
     lines: list[str] = ["Dashboards in Home Assistant:", ""]
