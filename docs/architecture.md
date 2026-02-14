@@ -1,14 +1,14 @@
-# Project Aether - Architecture
+# Architecture
 
-## Overview
+System design, agent roles, data flows, observability, and security model for Project Aether.
 
-Project Aether is an agentic home automation system that provides conversational interaction with Home Assistant through specialized AI agents.
+---
 
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              User Interfaces                                 │
+│                              User Interfaces                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────────┐  │
 │  │   CLI       │    │  REST API   │    │      Chat UI (React)            │  │
@@ -33,23 +33,20 @@ Project Aether is an agentic home automation system that provides conversational
 │              │   (Smart Router + Chat)     │                                │
 │              └──────────────┬──────────────┘                                │
 │                             │                                                │
-│         ┌───────────────────┼───────────────────┐                           │
-│         │                   │                   │                           │
-│         ▼                   ▼                   ▼                           │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │   Data      │    │  Librarian  │    │  Developer  │                     │
-│  │  Science    │    │   Agent     │    │   Agent     │                     │
-│  │   Team      │    │             │    │             │                     │
-│  │ (Energy,    │    │             │    │             │                     │
-│  │ Behavioral, │    │             │    │             │                     │
-│  │ Diagnostic) │    │             │    │             │                     │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                     │
-│         │                  │                  │                             │
-│         ▼                  ▼                  ▼                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │  Sandbox    │    │  HA Client  │    │  Automation │                     │
-│  │  (gVisor)   │    │  (REST API) │    │   Deploy    │                     │
-│  └─────────────┘    └─────────────┘    └─────────────┘                     │
+│     ┌───────────┬───────────┼───────────┬───────────┐                       │
+│     │           │           │           │           │                       │
+│     ▼           ▼           ▼           ▼           ▼                       │
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌──────────┐              │
+│ │  Data   │ │Librarian│ │Developer│ │Dashboard│ │ Schema   │              │
+│ │ Science │ │  Agent  │ │  Agent  │ │Designer │ │Validator │              │
+│ │  Team   │ │         │ │         │ │         │ │          │              │
+│ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └─────┬────┘              │
+│      │           │           │           │            │                     │
+│      ▼           ▼           ▼           ▼            ▼                     │
+│ ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌────────┐ ┌──────────┐              │
+│ │ Sandbox │ │HA Client│ │Automation│ │Lovelace│ │ YAML     │              │
+│ │ (gVisor)│ │  (MCP)  │ │  Deploy  │ │ YAML   │ │ Schemas  │              │
+│ └─────────┘ └─────────┘ └──────────┘ └────────┘ └──────────┘              │
 └─────────────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────┼───────────────────────────────────────────────┐
@@ -57,11 +54,11 @@ Project Aether is an agentic home automation system that provides conversational
 ├─────────────────────────────┼───────────────────────────────────────────────┤
 │         ┌───────────────────┼───────────────────┐                           │
 │         │                   │                   │                           │
-│         ▼                   ▼                                                   │
-│  ┌─────────────┐    ┌─────────────┐                                           │
-│  │ PostgreSQL  │    │   MLflow    │                                           │
-│  │  (State)    │    │  (Traces)   │                                           │
-│  └─────────────┘    └─────────────┘                                           │
+│         ▼                   ▼                                               │
+│  ┌─────────────┐    ┌─────────────┐                                        │
+│  │ PostgreSQL  │    │   MLflow    │                                        │
+│  │  (State)    │    │  (Traces)   │                                        │
+│  └─────────────┘    └─────────────┘                                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────┼───────────────────────────────────────────────┐
@@ -71,24 +68,47 @@ Project Aether is an agentic home automation system that provides conversational
 │         ▼                                       ▼                           │
 │  ┌─────────────────┐                    ┌─────────────────┐                 │
 │  │ Home Assistant  │                    │  LLM Provider   │                 │
-│  │  (REST API)     │                    │   (LLM)         │                 │
+│  │   (via MCP)     │                    │   (LLM)         │                 │
 │  └─────────────────┘                    └─────────────────┘                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## Agent Responsibilities
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| **Architect** | Unified chat entry point, routes to specialists, system diagnostics, config review | consult_data_science_team (auto-routes to Energy/Behavioral/Diagnostic Analysts), discover_entities, review_config, get_entity_history, get_ha_logs, check_ha_config, analyze_error_log, find_unavailable_entities, diagnose_entity, check_integration_health, validate_config, seek_approval, HA tools |
-| **Data Science Team** | Energy analysis, pattern detection, insights, diagnostic analysis | Sandbox execution, history aggregation, diagnostic mode, dual synthesis (programmatic + LLM) |
-| **Librarian** | Entity discovery, catalog maintenance | HA list_entities, domain_summary |
-| **Developer** | Automation creation, YAML generation | deploy_automation (with HITL) |
-| **Dashboard Designer** | Lovelace dashboard generation | generate_dashboard_yaml, validate_dashboard_yaml, list_dashboards |
+| **Architect** | Unified chat entry point, routes to specialists, system diagnostics, config review | 16 tools: `consult_data_science_team`, `consult_dashboard_designer`, `discover_entities`, `review_config`, `seek_approval`, `create_insight_schedule`, `get_entity_state`, `list_entities_by_domain`, `search_entities`, `get_domain_summary`, `list_automations`, `get_automation_config`, `get_script_config`, `render_template`, `get_ha_logs`, `check_ha_config` |
+| **Data Science Team** | Energy analysis, behavioral patterns, diagnostics, insights | Sandbox execution, history aggregation, diagnostic mode, dual synthesis (programmatic + LLM) |
+| **Librarian** | Entity discovery, catalog maintenance | HA `list_entities`, `domain_summary` |
+| **Developer** | Automation deployment (HITL) | `deploy_automation` (with approval) |
+| **Dashboard Designer** | Lovelace dashboard generation | `generate_dashboard_yaml`, `validate_dashboard_yaml`, `list_dashboards` |
 
-### Diagnostic Collaboration Flow
+### Architect Tool Categories
 
-The Architect and Data Science team collaborate to diagnose Home Assistant issues (missing data, sensor failures, integration problems):
+**Delegation tools:**
+- `consult_data_science_team` — DS team (auto-routes to Energy, Behavioral, or Diagnostic Analyst)
+- `consult_dashboard_designer` — Dashboard Designer agent
+- `discover_entities` — Librarian agent
+- `seek_approval` — HITL approval workflow
+- `review_config` — config review workflow (DS Team + Architect)
+- `create_insight_schedule` — scheduled/event-driven analysis
+
+**HA query tools (DB-backed):**
+- `get_entity_state`, `list_entities_by_domain`, `search_entities`, `get_domain_summary`
+- `list_automations`, `get_automation_config`, `get_script_config`
+
+**HA query tools (live):**
+- `render_template`, `get_ha_logs`, `check_ha_config`
+
+All 16 tools are read-only; mutating actions route through `seek_approval` for HITL enforcement.
+
+---
+
+## Diagnostic Collaboration Flow
+
+The Architect and Data Science team collaborate to diagnose HA issues (missing data, sensor failures, integration problems):
 
 ```
 User → Architect: "My car charger energy data disappeared"
@@ -134,7 +154,45 @@ Provides structured analysis of HA system health, used by agent diagnostic tools
 | `integration_health.py` | Check all integration config entry health, find unhealthy integrations, deep-dive diagnosis |
 | `config_validator.py` | Structured config check with parsed errors/warnings, local automation YAML validation |
 
-### YAML Schema Validation (`src/schema/`)
+---
+
+## DS Team Collaboration
+
+The Architect delegates to the Data Science team via `consult_data_science_team`. The team has two execution paths:
+
+### Specialist-Based Team (Primary)
+
+Used by `consult_data_science_team`:
+- **Keyword routing** (`SPECIALIST_TRIGGERS`) selects specialists based on query content
+- **Strategies**: `parallel` (default — specialists run concurrently) or `teamwork` (sequential with cross-consultation)
+- Shared `TeamAnalysis` collects findings from all specialists
+- `ProgrammaticSynthesizer` merges findings into consensus, conflicts, and recommendations
+- Optional discussion round when conflicts are detected
+
+### Monolithic DataScientistAgent (Scheduled Analysis)
+
+Used by scheduled insights and CLI analysis commands:
+- Single agent handles energy and behavioral analysis
+- Pipeline: collect data → generate script → sandbox execution → extract insights → persist
+- Can produce `AutomationSuggestion` for high-confidence findings
+
+### Specialist Roles
+
+| Specialist | Focus Areas |
+|-----------|-------------|
+| **Energy Analyst** | Energy sensors, cost analysis, usage patterns, anomaly detection |
+| **Behavioral Analyst** | Button/switch usage, automation effectiveness, gaps, correlations, device health, script/scene usage |
+| **Diagnostic Analyst** | Unavailable entities, unhealthy integrations, config checks, error logs, sensor drift |
+
+### Synthesis
+
+`synthesis.py` provides two synthesizers:
+- **ProgrammaticSynthesizer** (default) — rule-based merging of specialist findings
+- **LLMSynthesizer** — LLM-based, used for conflict resolution when programmatic synthesis detects disagreements
+
+---
+
+## YAML Schema Validation (`src/schema/`)
 
 Validates HA configuration YAML in two phases:
 
@@ -146,12 +204,15 @@ Validates HA configuration YAML in two phases:
 | `ha/script.py` | Schema for HA scripts (sequences). |
 | `ha/scene.py` | Schema for HA scenes (entity states). |
 | `ha/dashboard.py` | Schema for Lovelace dashboards (views, cards). |
+| `ha/registry_cache.py` | Cached registry data for semantic validation. |
 
 Used during: automation design, Smart Config Review, dashboard generation.
 
-### Smart Config Review Workflow
+---
 
-The Architect's `review_config` tool triggers a dedicated LangGraph workflow that reviews existing HA configurations:
+## Smart Config Review Workflow
+
+The Architect's `review_config` tool triggers a dedicated LangGraph workflow:
 
 ```
 review_config(target, focus)
@@ -185,7 +246,9 @@ review_config(target, focus)
 
 Proposals from config review follow the same approval/deploy/rollback flow as new automations.
 
-### MLflow 3.x Trace Evaluation
+---
+
+## MLflow Trace Evaluation
 
 Custom scorers evaluate agent trace quality:
 
@@ -201,220 +264,47 @@ Run evaluations via:
 - **CLI**: `aether evaluate --traces 50` — evaluate recent traces
 - **Scheduler**: Nightly evaluation job via APScheduler
 
-### Agent Configuration (`src/agents/config_cache.py`)
+---
+
+## Agent Configuration (`src/agents/config_cache.py`)
 
 Runtime agent configuration is stored in PostgreSQL and cached in-memory with 60-second TTL:
 
 - **`AgentRuntimeConfig`** — Resolved config (model, temperature, fallback model, tools, prompt template)
 - **`get_agent_runtime_config(agent_name)`** — Returns cached config; falls back to DB on cache miss
 - **`invalidate_agent_config(agent_name)`** — Invalidates cache on config/prompt promotion or rollback
+- **`is_agent_enabled(agent_name)`** — Checks agent status (Dashboard Designer can be disabled)
 
 API: Full CRUD at `/api/v1/agents/{name}/config/versions` with version promotion, rollback, and cloning.
 
-## Deployment Modes
+### Model Context Propagation
 
-### Development Mode
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Host Machine                                 │
-│  ┌─────────────┐    ┌─────────────┐                             │
-│  │ aether CLI  │───▶│ FastAPI     │  (hot-reload enabled)       │
-│  └─────────────┘    │ :8000       │                             │
-│                     └──────┬──────┘                             │
-└────────────────────────────┼────────────────────────────────────┘
-                             │
-┌────────────────────────────┼────────────────────────────────────┐
-│               Podman Containers                                  │
-│  ┌─────────────┐  ┌─────────────┐                              │
-│  │ PostgreSQL  │  │   MLflow    │                              │
-│  │   :5432     │  │   :5002     │                              │
-│  └─────────────┘  └─────────────┘                              │
-└─────────────────────────────────────────────────────────────────┘
-
-Command: make run
-```
-
-### Development + UI Mode
+When a user selects a model in the UI, that choice propagates through all agent delegations via `model_context.py`:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Host Machine                                 │
-│  ┌─────────────┐    ┌─────────────┐                             │
-│  │ aether CLI  │───▶│ FastAPI     │  (hot-reload enabled)       │
-│  └─────────────┘    │ :8000       │◀─────────┐                  │
-└────────────────────────────┼─────────────────┼──────────────────┘
-                             │                 │
-┌────────────────────────────┼─────────────────┼──────────────────┐
-│               Podman Containers              │                   │
-│  ┌─────────────┐  ┌─────────────┐  ┌────────┴────┐              │
-│  │ PostgreSQL  │  │   MLflow    │  │ Chat UI     │              │
-│  │   :5432     │  │   :5002     │  │ (React)      │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-└─────────────────────────────────────────────────────────────────┘
-
-Command: make run-ui
+Resolution order:  UI selection  >  DB-backed active config  >  per-agent .env setting  >  global default
 ```
 
-### Production Mode (Fully Containerized)
+---
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                   Podman Containers                              │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              Chat UI (React) :3000                      │    │
-│  └────────────────────────────┬────────────────────────────┘    │
-│                               │                                  │
-│  ┌────────────────────────────▼────────────────────────────┐    │
-│  │                   Aether API :8000                       │    │
-│  └────────────────────────────┬────────────────────────────┘    │
-│                               │                                  │
-│  ┌─────────────┐  ┌───────────┴─┐                              │
-│  │ PostgreSQL  │  │   MLflow    │                              │
-│  │   :5432     │  │   :5002     │                              │
-│  └─────────────┘  └─────────────┘                              │
-└─────────────────────────────────────────────────────────────────┘
+## LangGraph Workflows
 
-Command: make run-prod
-```
+All workflows are defined as LangGraph graphs in `src/graph/workflows/`:
 
-### Stop All Services
+| Workflow | Builder | Purpose |
+|---------|---------|---------|
+| `conversation` | `build_conversation_graph` | Main chat interaction |
+| `discovery` | `build_discovery_graph` | Full entity discovery |
+| `discovery_simple` | `build_simple_discovery_graph` | Lightweight discovery |
+| `analysis` | `build_analysis_graph` | DS team analysis pipeline |
+| `team_analysis` | `build_team_analysis_graph` | Multi-specialist team analysis |
+| `optimization` | `build_optimization_graph` | Behavioral optimization |
+| `dashboard` | `build_dashboard_graph` | Dashboard generation |
+| `review` | `build_review_graph` | Config review workflow |
 
-```bash
-make down
-```
+State types are in `src/graph/state/` (ConversationState, AnalysisState, DiscoveryState, DashboardState, ReviewState, OrchestratorState, WorkflowState).
 
-### Kubernetes Migration Path
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                            │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ Ingress Controller (nginx/traefik)                       │    │
-│  │   ├─ /         → chat-ui-service                         │    │
-│  │   ├─ /api      → aether-api-service                      │    │
-│  │   └─ /mlflow   → mlflow-service                          │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  chat-ui    │  │ aether-api  │  │  mlflow     │              │
-│  │ Deployment  │  │ Deployment  │  │ Deployment  │              │
-│  │ (replicas:2)│  │ (replicas:3)│  │ (replicas:1)│              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ StatefulSets                                             │    │
-│  │  └─ PostgreSQL (1 replica + PVC)                        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ Optional: AI Gateway (Kong + AI Plugin)                  │    │
-│  │   ├─ Rate limiting                                       │    │
-│  │   ├─ Token counting                                      │    │
-│  │   └─ Request/response logging                            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-
-Migration:
-  1. kompose convert -f infrastructure/podman/compose.yaml
-  2. Adjust resource limits, replicas, PVCs
-  3. Add Ingress rules
-  4. Configure secrets via K8s Secrets/Vault
-```
-
-## API Endpoints
-
-All endpoints require authentication via JWT token (cookie or Bearer header), API key (`X-API-Key` header or `api_key` query param), or passkey. Health, ready, status, and login endpoints are exempt.
-
-### OpenAI-Compatible
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/models` | GET | List available agents as "models" |
-| `/api/v1/chat/completions` | POST | Chat with agents (supports streaming) |
-| `/api/v1/feedback` | POST | Submit response feedback |
-
-### Native API
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/health` | GET | Liveness probe |
-| `/api/v1/ready` | GET | Readiness probe (Kubernetes) |
-| `/api/v1/status` | GET | System status with component health |
-| `/api/v1/metrics` | GET | Operational metrics (requests, latency, errors) |
-| `/api/v1/conversations` | GET/POST | List/create conversations |
-| `/api/v1/conversations/{id}` | GET/DELETE | Get/delete conversation |
-| `/api/v1/conversations/{id}/messages` | POST | Send message |
-| `/api/v1/conversations/{id}/stream` | WS | WebSocket streaming |
-| `/api/v1/entities` | GET | List entities |
-| `/api/v1/entities/{id}` | GET | Get entity details |
-| `/api/v1/entities/query` | POST | Natural language query |
-| `/api/v1/entities/sync` | POST | Trigger entity sync from HA |
-| `/api/v1/entities/domains/summary` | GET | Entity count per domain |
-| `/api/v1/devices` | GET | List devices |
-| `/api/v1/areas` | GET | List areas |
-| `/api/v1/insights` | GET/POST | List/create insights |
-| `/api/v1/insights/pending` | GET | Pending insights |
-| `/api/v1/insights/summary` | GET | Insights summary |
-| `/api/v1/insights/{id}/review` | POST | Mark reviewed |
-| `/api/v1/insights/{id}/action` | POST | Mark actioned |
-| `/api/v1/insights/{id}/dismiss` | POST | Dismiss insight |
-| `/api/v1/insights/analyze` | POST | Trigger analysis |
-| `/api/v1/insight-schedules` | GET/POST | Manage insight schedules |
-| `/api/v1/insight-schedules/{id}` | GET/PUT/DELETE | CRUD schedule |
-| `/api/v1/insight-schedules/{id}/run` | POST | Manual trigger |
-| `/api/v1/proposals` | GET/POST | List/create automation proposals |
-| `/api/v1/proposals/pending` | GET | Pending proposals |
-| `/api/v1/proposals/{id}/approve` | POST | Approve automation (HITL) |
-| `/api/v1/proposals/{id}/reject` | POST | Reject proposal |
-| `/api/v1/proposals/{id}/deploy` | POST | Deploy to Home Assistant |
-| `/api/v1/proposals/{id}/rollback` | POST | Rollback deployment |
-| `/api/v1/optimize` | POST | Run optimization analysis |
-| `/api/v1/optimize/suggestions/list` | GET | List automation suggestions |
-| `/api/v1/registry/sync` | POST | Sync automations/scripts/scenes from HA |
-| `/api/v1/registry/automations` | GET | List HA automations |
-| `/api/v1/registry/automations/{id}/config` | GET | Get automation YAML |
-| `/api/v1/registry/scripts` | GET | List HA scripts |
-| `/api/v1/registry/scenes` | GET | List HA scenes |
-| `/api/v1/registry/services` | GET | List HA services |
-| `/api/v1/registry/services/call` | POST | Call an HA service |
-| `/api/v1/registry/summary` | GET | Registry summary |
-| `/api/v1/diagnostics/ha-health` | GET | HA health (unavailable entities, integrations) |
-| `/api/v1/diagnostics/error-log` | GET | Parsed HA error log with pattern matching |
-| `/api/v1/diagnostics/config-check` | GET | HA config validation |
-| `/api/v1/diagnostics/traces/recent` | GET | Recent agent traces from MLflow |
-| `/api/v1/evaluations/summary` | GET | Latest trace evaluation summary |
-| `/api/v1/evaluations/run` | POST | Trigger on-demand trace evaluation |
-| `/api/v1/evaluations/scorers` | GET | List available scorers |
-| `/api/v1/agents` | GET | List agents with active config |
-| `/api/v1/agents/{name}` | GET/PATCH | Get/update agent |
-| `/api/v1/agents/{name}/config/versions` | GET/POST | Config versioning |
-| `/api/v1/agents/{name}/prompt/versions` | GET/POST | Prompt versioning |
-| `/api/v1/agents/seed` | POST | Seed default agents |
-| `/api/v1/activity/stream` | GET | SSE real-time agent activity |
-| `/api/v1/flow-grades` | POST | Submit flow grade |
-| `/api/v1/flow-grades/{conversation_id}` | GET | Get conversation grades |
-| `/api/v1/zones` | GET/POST | List/create HA zones |
-| `/api/v1/zones/{id}` | PATCH/DELETE | Update/delete zone |
-| `/api/v1/zones/{id}/test` | POST | Test zone connectivity |
-| `/api/v1/models/ratings` | GET/POST | Model ratings |
-| `/api/v1/models/summary` | GET | Model summaries |
-| `/api/v1/models/performance` | GET | Model performance metrics |
-| `/api/v1/webhooks/ha` | POST | Receive HA webhook events |
-| `/api/v1/traces/{trace_id}/spans` | GET | Get trace span tree |
-| `/api/v1/workflows/presets` | GET | Workflow presets for chat UI |
-| `/api/v1/usage/summary` | GET | LLM usage summary |
-| `/api/v1/usage/daily` | GET | Daily usage breakdown |
-| `/api/v1/usage/models` | GET | Per-model usage |
-| `/api/v1/usage/conversation/{id}` | GET | Conversation cost |
-| `/api/v1/auth/setup-status` | GET | Setup status (public) |
-| `/api/v1/auth/setup` | POST | First-time setup (public) |
-| `/api/v1/auth/login` | POST | Password login |
-| `/api/v1/auth/login/ha-token` | POST | HA token login |
-| `/api/v1/auth/google/url` | GET | Google OAuth URL |
-| `/api/v1/auth/passkey/*` | POST | WebAuthn passkey auth |
+---
 
 ## Data Flow
 
@@ -498,6 +388,71 @@ User Message
 └─────────────────┘
 ```
 
+---
+
+## Sandbox Isolation
+
+All DS Team analysis scripts run in a gVisor sandbox via Podman:
+
+- **No network access** (default)
+- **Read-only filesystem** (except `/tmp`)
+- **Memory/CPU limits** enforced (tiered: quick 256MB, standard 512MB, deep 1GB)
+- **Timeout enforcement** (tiered: quick 15s, standard 30s, deep 60s)
+- **Pre-installed**: pandas, numpy, matplotlib, scipy, scikit-learn, seaborn
+- **Artifact collection**: charts and data files can be extracted from sandbox runs
+- **Security policies** defined in `src/sandbox/policies.py`
+- **Artifact validation** in `src/sandbox/artifact_validator.py`
+
+---
+
+## Scheduled & Event-Driven Insights
+
+Two trigger mechanisms feed into the same analysis pipeline:
+
+```
+  ┌──── Cron (APScheduler) ────►┐
+  │   "0 2 * * *"               │   Existing analysis pipeline
+  │                              │   (DS Team + sandbox)
+  └──── Webhook (HA event) ────►│   → Insight persisted to DB
+        POST /webhooks/ha        │
+                                 └──────────────────────────────
+```
+
+---
+
+## Data Layer
+
+| Store | Purpose |
+|-------|---------|
+| **PostgreSQL** | Conversations, messages, entities, devices, areas, automation proposals, insights, insight schedules, discovery sessions, agents (config + prompt versions), analysis reports, flow grades, LLM usage, model ratings, HA zones, passkey credentials, system config, user profiles, LangGraph checkpoints |
+| **MLflow** | Agent traces with parent-child spans, token usage, latency metrics, evaluation scores |
+
+### Database Models (21+)
+
+All models are in `src/storage/entities/`:
+
+| Model | Purpose |
+|-------|---------|
+| `Agent`, `AgentConfigVersion`, `AgentPromptVersion` | Agent configuration and versioning |
+| `AnalysisReport` | DS team analysis reports with artifacts |
+| `Area` | HA areas |
+| `AutomationProposal` | Automation proposals (HITL workflow) |
+| `Conversation`, `Message` | Chat state |
+| `Device` | HA devices |
+| `DiscoverySession` | Entity discovery sessions |
+| `FlowGrade` | Conversation quality grades |
+| `HAAutomation`, `Scene`, `Script`, `Service` | HA registry items |
+| `HAEntity` | Discovered HA entities |
+| `HAZone` | Multi-server HA zones |
+| `Insight`, `InsightSchedule` | Analysis insights and schedules |
+| `LLMUsage` | Token counts, costs, latency per LLM call |
+| `ModelRating` | Model quality ratings |
+| `PasskeyCredential` | WebAuthn credentials |
+| `SystemConfig` | System-wide config (HA URL, setup status) |
+| `UserProfile` | User profiles |
+
+---
+
 ## Security Model
 
 ### HITL (Human-in-the-Loop)
@@ -544,6 +499,8 @@ DS Team scripts run in gVisor with:
 - Memory/CPU limits
 - Timeout enforcement
 
+---
+
 ## Observability
 
 ### MLflow Tracing
@@ -567,63 +524,59 @@ Session: conv-12345
 
 View traces: `make mlflow` → http://localhost:5002
 
+---
+
 ## Middleware & Cross-Cutting Concerns
 
 ### Request Pipeline
 
 ```
-Request → CORS → Security Headers → Correlation ID → Rate Limiting → Auth → Route Handler
+Request → CORS → Body Size Limit → Security Headers → Correlation ID → Auth → Route Handler
                                                                                 │
-Response ← Tracing Middleware ← Exception Handler ← ────────────────────────────
+Response ← Request Tracing Middleware ← Exception Handler ← ────────────────────
 ```
 
 | Layer | Description |
 |-------|-------------|
-| **Security Headers** | HSTS, CSP, Permissions-Policy headers added in production/staging |
+| **Security Headers** | HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Permissions-Policy |
 | **Correlation ID** | UUID generated per request, propagated through context vars to all logs and error responses |
 | **Auth** | JWT token (cookie/Bearer), WebAuthn passkey, API key (`X-API-Key` header or `api_key` param), or HA token; bypasses for health/ready/status/login endpoints |
 | **Rate Limiting** | SlowAPI-based limits on LLM-backed and resource-intensive endpoints |
 | **Request Tracing** | Logs method, path, status, duration, correlation ID for every request |
 | **Metrics Collection** | In-memory counters for request rates, latency percentiles, error rates, active connections |
-| **Exception Hierarchy** | `AetherError` → `AgentError`, `DALError`, `HAClientError`, `SandboxError`, `LLMError`, `ConfigurationError`, `ValidationError` -- all include correlation IDs |
+| **Exception Hierarchy** | `AetherError` → `AgentError`, `DALError`, `HAClientError`, `SandboxError`, `LLMError`, `ConfigurationError`, `ValidationError` — all include correlation IDs |
 
-## Configuration
+---
 
-### Environment Variables
+## LLM Provider Abstraction (`src/llm/`)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | - | PostgreSQL connection string |
-| `MLFLOW_TRACKING_URI` | `http://localhost:5002` | MLflow server URL |
-| `HA_URL` | - | Home Assistant URL |
-| `HA_TOKEN` | - | Home Assistant long-lived access token |
-| `LLM_PROVIDER` | `openrouter` | LLM provider (openrouter, openai, google, ollama, together, groq) |
-| `LLM_API_KEY` | - | LLM API key |
-| `LLM_MODEL` | `anthropic/claude-sonnet-4` | Default LLM model |
-| `LLM_FALLBACK_PROVIDER` | - | Fallback LLM provider |
-| `LLM_FALLBACK_MODEL` | - | Fallback LLM model |
-| `API_KEY` | - | API authentication key (empty = auth disabled) |
-| `ENVIRONMENT` | `development` | Environment (development, staging, production, testing) |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `API_PORT` | `8000` | API server port |
+The LLM subsystem is in `src/llm/`:
 
-### Deployment Commands
+| Module | Purpose |
+|--------|---------|
+| `factory.py` | Multi-provider LLM factory (OpenAI, OpenRouter, Google, Ollama, Together, Groq) |
+| `circuit_breaker.py` | Circuit breaker pattern — opens after 5 failures, retries after 60s cooldown |
+| `resilient.py` | Resilient LLM wrapper with automatic failover to secondary provider |
+| `usage.py` | Token counting, cost estimation, pricing tables |
 
-| Command | Description |
-|---------|-------------|
-| `make run` | Development mode (API on host with hot-reload) |
-| `make run-ui` | Development + Chat UI (React) interface |
-| `make run-prod` | Production mode (everything containerized) |
-| `make down` | Stop all services |
+---
 
-### Compose Profiles (advanced)
+## MCP Client (`src/mcp/`)
 
-| Profile | Services Added | Use Case |
-|---------|----------------|----------|
-| (none) | postgres, mlflow | Infrastructure only |
-| `ui` | + chat-ui | Add React UI |
-| `full` | + aether-app | Containerized API |
-| `full` + `ui` | All services | Production stack |
+The MCP (Model Context Protocol) client abstracts communication with Home Assistant:
+
+| Module | Purpose |
+|--------|---------|
+| `client.py` | MCP client connection and tool invocation |
+| `entities.py` | Entity operations (list, get state, search) |
+| `automations.py` | Automation CRUD |
+| `automation_deploy.py` | Deploy automations to HA |
+| `behavioral.py` | Logbook and behavioral data |
+| `diagnostics.py` | Diagnostic data collection |
+| `history.py` | Historical state data |
+| `logbook.py` | HA logbook entries |
+| `parsers.py` | Response parsing |
+| `workarounds.py` | HA API workarounds |
 
 ---
 
@@ -632,64 +585,6 @@ Response ← Tracing Middleware ← Exception Handler ← ───────�
 > **Status**: Planned (Features 29/30). See `docs/architecture-review.md` for the full readiness assessment.
 
 The current Architect-centric architecture will evolve into a domain-agnostic Orchestrator pattern. The Architect becomes one of several domain agents, and a new Orchestrator handles intent classification and routing.
-
-### Target System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              User Interfaces                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────────┐  │
-│  │   CLI       │    │  REST API   │    │      Chat UI (React)            │  │
-│  │  (aether)   │    │  (FastAPI)  │    │  (Agent Picker + Model Picker)  │  │
-│  └──────┬──────┘    └──────┬──────┘    └───────────────┬─────────────────┘  │
-│         │                  │                           │                     │
-│         └──────────────────┼───────────────────────────┘                     │
-│                            │                                                 │
-│                            ▼                                                 │
-│              ┌─────────────────────────────┐                                │
-│              │   /v1/chat/completions      │  (OpenAI-compatible)           │
-│              │   agent: auto | <name>      │  (agent field for routing)     │
-│              └──────────────┬──────────────┘                                │
-└─────────────────────────────┼───────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────┼───────────────────────────────────────────────┐
-│                      Agent Layer                                             │
-├─────────────────────────────┼───────────────────────────────────────────────┤
-│                             ▼                                                │
-│              ┌─────────────────────────────┐                                │
-│              │    Orchestrator (Jarvis)    │  ◄── Intent Classification     │
-│              │   (Routes by intent or      │      + Personality             │
-│              │    explicit agent selection) │                                │
-│              └──────────────┬──────────────┘                                │
-│                             │                                                │
-│     ┌───────────┬───────────┼───────────┬───────────┐                       │
-│     │           │           │           │           │                       │
-│     ▼           ▼           ▼           ▼           ▼                       │
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
-│ │  Home   │ │Knowledge│ │Research │ │  Food   │ │Dynamic  │              │
-│ │  Agent  │ │  Agent  │ │  Agent  │ │  Agent  │ │ Agents  │              │
-│ │(Archit.)│ │(no tools│ │(web     │ │(recipes │ │(user-   │              │
-│ │         │ │ pure LLM│ │ search) │ │+ HA     │ │ created)│              │
-│ │         │ │         │ │         │ │ deleg.) │ │         │              │
-│ └────┬────┘ └─────────┘ └─────────┘ └────┬────┘ └─────────┘              │
-│      │                                    │                                │
-│      ▼                                    ▼                                │
-│ ┌──────────────┐                    ┌──────────┐                           │
-│ │ DS Team      │                    │ Cross-   │                           │
-│ │ Librarian    │                    │ Domain   │                           │
-│ │ Developer    │                    │ Delegat. │                           │
-│ └──────────────┘                    └──────────┘                           │
-│                                                                             │
-│ ┌──────────────────────────────────────────────────────────────┐           │
-│ │  Shared Infrastructure                                       │           │
-│ │  ├─ MutatingToolRegistry (centralized HITL enforcement)     │           │
-│ │  ├─ AgentRegistry (name → class, DB-driven config)          │           │
-│ │  ├─ ToolRegistry (per-agent tool resolution)                │           │
-│ │  └─ WorkflowCompiler (dynamic graph composition)            │           │
-│ └──────────────────────────────────────────────────────────────┘           │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
 
 ### Key Changes from Current Architecture
 
@@ -702,8 +597,6 @@ The current Architect-centric architecture will evolve into a domain-agnostic Or
 | Tool assignment | Hardcoded (`get_architect_tools()`) | DB-driven via `tools_enabled` + agent config |
 | Agent configuration | Code-defined | DB-driven (Feature 23 wired to runtime) |
 | Workflows | Static (Python-defined) | Static + dynamic (declarative composition) |
-| Voice support | Not supported | HA Voice Pipeline (Wyoming + Whisper + Piper) |
-| Personality | None | Consistent "Jarvis" personality, channel-aware |
 
 ### Implementation Phases
 
@@ -713,3 +606,12 @@ The current Architect-centric architecture will evolve into a domain-agnostic Or
 4. **Phase 3**: Dynamic workflow composition + dynamic agent creation + persistence
 
 See `docs/architecture-review.md` for the full assessment, gap analysis, and risk register.
+
+---
+
+## See Also
+
+- [API Reference](api-reference.md) — all ~120 REST API endpoints
+- [Development](development.md) — project structure and code organization
+- [Configuration](configuration.md) — environment variables and LLM setup
+- [User Flows](user-flows.md) — step-by-step interaction sequences

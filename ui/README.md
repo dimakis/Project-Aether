@@ -11,10 +11,16 @@ React frontend for Project Aether — the conversational interface for your smar
 | **Proposals** | `/proposals` | View, approve, deploy, or rollback automation proposals |
 | **Insights** | `/insights` | Browse analysis results — energy, behavioral, diagnostic |
 | **Entities** | `/entities` | Browse and search discovered HA entities |
-| **Registry** | `/registry` | HA registry — automations, scripts, scenes, services |
+| **Registry** | `/registry` | HA registry — automations, scripts, scenes, services, helpers |
 | **Agents** | `/agents` | Agent configuration — model, temperature, prompt versioning |
+| **Architecture** | `/architecture` | Agent topology visualization (force-directed graph) |
+| **Dashboard Editor** | `/dashboard-editor` | Visual Lovelace dashboard editor |
+| **Reports** | `/reports` | Analysis reports with artifacts from DS team sessions |
+| **Model Registry** | `/model-registry` | Model ratings, performance metrics, summaries |
 | **Schedules** | `/schedules` | Manage cron schedules and webhook triggers |
 | **LLM Usage** | `/usage` | Token tracking, cost by model, daily trends |
+| **Settings** | `/settings` | Application settings |
+| **Webhooks** | `/webhooks` | Webhook management and testing |
 | **Diagnostics** | `/diagnostics` | HA health, error log, integration status, recent traces |
 | **Login** | `/login` | Passkey (Face ID / Touch ID), HA token, or password login |
 
