@@ -82,10 +82,10 @@ class TestListAgents:
         from src.api.routes.agents import list_agents
 
         with (
-            patch("src.api.routes.agents.get_session") as mock_get_session,
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch("src.api.routes.agents.core.get_session") as mock_get_session,
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.AgentConfigVersionRepository") as MockConfigRepo,
+            patch("src.api.routes.agents.core.AgentPromptVersionRepository") as MockPromptRepo,
         ):
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -112,10 +112,10 @@ class TestGetAgent:
         from src.api.routes.agents import get_agent
 
         with (
-            patch("src.api.routes.agents.get_session") as mock_get_session,
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch("src.api.routes.agents.core.get_session") as mock_get_session,
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.AgentConfigVersionRepository") as MockConfigRepo,
+            patch("src.api.routes.agents.core.AgentPromptVersionRepository") as MockPromptRepo,
         ):
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -138,10 +138,10 @@ class TestGetAgent:
         from src.api.routes.agents import get_agent
 
         with (
-            patch("src.api.routes.agents.get_session") as mock_get_session,
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository"),
-            patch("src.api.routes.agents.AgentPromptVersionRepository"),
+            patch("src.api.routes.agents.core.get_session") as mock_get_session,
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.AgentConfigVersionRepository"),
+            patch("src.api.routes.agents.core.AgentPromptVersionRepository"),
         ):
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -166,10 +166,10 @@ class TestUpdateAgentStatus:
         sample_agent.status = AgentStatus.DISABLED.value
 
         with (
-            patch("src.api.routes.agents.get_session") as mock_get_session,
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch("src.api.routes.agents.core.get_session") as mock_get_session,
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.AgentConfigVersionRepository") as MockConfigRepo,
+            patch("src.api.routes.agents.core.AgentPromptVersionRepository") as MockPromptRepo,
         ):
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -194,10 +194,10 @@ class TestUpdateAgentStatus:
         from src.api.routes.agents import AgentStatusUpdate, update_agent_status
 
         with (
-            patch("src.api.routes.agents.get_session") as mock_get_session,
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository"),
-            patch("src.api.routes.agents.AgentPromptVersionRepository"),
+            patch("src.api.routes.agents.core.get_session") as mock_get_session,
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.AgentConfigVersionRepository"),
+            patch("src.api.routes.agents.core.AgentPromptVersionRepository"),
         ):
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -230,8 +230,10 @@ class TestConfigVersionPromote:
         sample_config.promoted_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session") as mock_get_session,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch("src.api.routes.agents.config_versions.get_session") as mock_get_session,
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
         ):
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -265,9 +267,11 @@ class TestPromptVersionCreate:
         sample_prompt.version_number = 2
 
         with (
-            patch("src.api.routes.agents.get_session") as mock_get_session,
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch("src.api.routes.agents.prompt_versions.get_session") as mock_get_session,
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)

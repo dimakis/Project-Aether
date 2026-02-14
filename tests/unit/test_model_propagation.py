@@ -20,8 +20,8 @@ class TestDataScientistModelResolution:
 
         return DataScientistAgent(ha_client=ha_client or MagicMock())
 
-    @patch("src.agents.data_scientist.get_llm")
-    @patch("src.agents.data_scientist.get_settings")
+    @patch("src.agents.data_scientist.agent.get_llm")
+    @patch("src.agents.data_scientist.agent.get_settings")
     def test_no_context_no_agent_setting_uses_default(
         self,
         mock_settings,
@@ -45,8 +45,8 @@ class TestDataScientistModelResolution:
         mock_get_llm.assert_called_once_with(model=None, temperature=None)
         assert llm == mock_llm
 
-    @patch("src.agents.data_scientist.get_llm")
-    @patch("src.agents.data_scientist.get_settings")
+    @patch("src.agents.data_scientist.agent.get_llm")
+    @patch("src.agents.data_scientist.agent.get_settings")
     def test_agent_setting_used_without_context(
         self,
         mock_settings,
@@ -68,8 +68,8 @@ class TestDataScientistModelResolution:
 
         mock_get_llm.assert_called_once_with(model="gpt-4o-mini", temperature=0.3)
 
-    @patch("src.agents.data_scientist.get_llm")
-    @patch("src.agents.data_scientist.get_settings")
+    @patch("src.agents.data_scientist.agent.get_llm")
+    @patch("src.agents.data_scientist.agent.get_settings")
     def test_context_overrides_agent_setting(
         self,
         mock_settings,
@@ -98,8 +98,8 @@ class TestDataScientistModelResolution:
             temperature=0.8,
         )
 
-    @patch("src.agents.data_scientist.get_llm")
-    @patch("src.agents.data_scientist.get_settings")
+    @patch("src.agents.data_scientist.agent.get_llm")
+    @patch("src.agents.data_scientist.agent.get_settings")
     def test_cached_llm_without_context(
         self,
         mock_settings,
@@ -126,8 +126,8 @@ class TestDataScientistModelResolution:
         assert mock_get_llm.call_count == 1
         assert llm1 is llm2
 
-    @patch("src.agents.data_scientist.get_llm")
-    @patch("src.agents.data_scientist.get_settings")
+    @patch("src.agents.data_scientist.agent.get_llm")
+    @patch("src.agents.data_scientist.agent.get_settings")
     def test_not_cached_with_context(
         self,
         mock_settings,
@@ -152,8 +152,8 @@ class TestDataScientistModelResolution:
         # get_llm should be called twice (not cached)
         assert mock_get_llm.call_count == 2
 
-    @patch("src.agents.data_scientist.get_llm")
-    @patch("src.agents.data_scientist.get_settings")
+    @patch("src.agents.data_scientist.agent.get_llm")
+    @patch("src.agents.data_scientist.agent.get_settings")
     def test_different_contexts_get_different_models(
         self,
         mock_settings,

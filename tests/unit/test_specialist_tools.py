@@ -36,7 +36,7 @@ class TestConsultEnergyAnalyst:
         )
 
         with patch(
-            "src.tools.specialist_tools.EnergyAnalyst",
+            "src.tools.specialist_consult_tools.EnergyAnalyst",
             return_value=mock_analyst,
         ):
             result = await consult_energy_analyst.ainvoke(
@@ -56,7 +56,7 @@ class TestConsultEnergyAnalyst:
         mock_analyst.invoke = AsyncMock(side_effect=Exception("HA unavailable"))
 
         with patch(
-            "src.tools.specialist_tools.EnergyAnalyst",
+            "src.tools.specialist_consult_tools.EnergyAnalyst",
             return_value=mock_analyst,
         ):
             result = await consult_energy_analyst.ainvoke(
@@ -84,7 +84,7 @@ class TestConsultBehavioralAnalyst:
         )
 
         with patch(
-            "src.tools.specialist_tools.BehavioralAnalyst",
+            "src.tools.specialist_consult_tools.BehavioralAnalyst",
             return_value=mock_analyst,
         ):
             result = await consult_behavioral_analyst.ainvoke(
@@ -114,7 +114,7 @@ class TestConsultDiagnosticAnalyst:
         )
 
         with patch(
-            "src.tools.specialist_tools.DiagnosticAnalyst",
+            "src.tools.specialist_consult_tools.DiagnosticAnalyst",
             return_value=mock_analyst,
         ):
             result = await consult_diagnostic_analyst.ainvoke(
@@ -161,7 +161,7 @@ class TestRequestSynthesisReview:
         )
 
         with patch(
-            "src.tools.specialist_tools.LLMSynthesizer",
+            "src.tools.specialist_consult_tools.LLMSynthesizer",
             return_value=mock_synth,
         ):
             result = await request_synthesis_review.ainvoke(
@@ -193,9 +193,11 @@ class TestConsultDashboardDesigner:
                 "src.agents.dashboard_designer.DashboardDesignerAgent",
                 return_value=mock_agent,
             ),
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled", AsyncMock(return_value=True)
+            ),
+            patch("src.tools.specialist_consult_tools.emit_delegation"),
+            patch("src.tools.specialist_consult_tools.emit_progress"),
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
@@ -219,9 +221,11 @@ class TestConsultDashboardDesigner:
                 "src.agents.dashboard_designer.DashboardDesignerAgent",
                 return_value=mock_agent,
             ),
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled", AsyncMock(return_value=True)
+            ),
+            patch("src.tools.specialist_consult_tools.emit_delegation"),
+            patch("src.tools.specialist_consult_tools.emit_progress"),
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
@@ -237,7 +241,9 @@ class TestConsultDashboardDesigner:
     async def test_returns_disabled_message_when_agent_disabled(self):
         """Tool should return disabled message when agent is not enabled."""
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=False)),
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled", AsyncMock(return_value=False)
+            ),
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
@@ -264,9 +270,11 @@ class TestConsultDashboardDesigner:
                 "src.agents.dashboard_designer.DashboardDesignerAgent",
                 return_value=mock_agent,
             ),
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
-            patch("src.tools.specialist_tools.emit_delegation") as mock_deleg,
-            patch("src.tools.specialist_tools.emit_progress") as mock_prog,
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled", AsyncMock(return_value=True)
+            ),
+            patch("src.tools.specialist_consult_tools.emit_delegation") as mock_deleg,
+            patch("src.tools.specialist_consult_tools.emit_progress") as mock_prog,
         ):
             from src.tools.specialist_tools import consult_dashboard_designer
 
@@ -318,24 +326,24 @@ class TestConsultDataScienceTeamParallel:
             return _run
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.ds_team_runners.is_agent_enabled", AsyncMock(return_value=True)),
             patch(
-                "src.tools.specialist_tools._run_energy",
+                "src.tools.ds_team_tool._run_energy",
                 await _slow_runner("energy"),
             ),
             patch(
-                "src.tools.specialist_tools._run_behavioral",
+                "src.tools.ds_team_tool._run_behavioral",
                 await _slow_runner("behavioral"),
             ),
             patch(
-                "src.tools.specialist_tools._run_diagnostic",
+                "src.tools.ds_team_tool._run_diagnostic",
                 await _slow_runner("diagnostic"),
             ),
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
-            patch("src.tools.specialist_tools.reset_team_analysis"),
-            patch("src.tools.specialist_tools._get_or_create_team_analysis"),
-            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch("src.tools.ds_team_tool.emit_delegation"),
+            patch("src.tools.ds_team_tool.emit_progress"),
+            patch("src.tools.ds_team_tool.reset_team_analysis"),
+            patch("src.tools.ds_team_runners._get_or_create_team_analysis"),
+            patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
                 return_value=MagicMock(team_analysis=None),
@@ -376,15 +384,15 @@ class TestConsultDataScienceTeamParallel:
             return "Found 1 insight(s):\n1. **Test**: OK"
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
-            patch("src.tools.specialist_tools._run_energy", _failing_runner),
-            patch("src.tools.specialist_tools._run_behavioral", _ok_runner),
-            patch("src.tools.specialist_tools._run_diagnostic", _ok_runner),
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
-            patch("src.tools.specialist_tools.reset_team_analysis"),
-            patch("src.tools.specialist_tools._get_or_create_team_analysis"),
-            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch("src.tools.ds_team_runners.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.ds_team_tool._run_energy", _failing_runner),
+            patch("src.tools.ds_team_tool._run_behavioral", _ok_runner),
+            patch("src.tools.ds_team_tool._run_diagnostic", _ok_runner),
+            patch("src.tools.ds_team_tool.emit_delegation"),
+            patch("src.tools.ds_team_tool.emit_progress"),
+            patch("src.tools.ds_team_tool.reset_team_analysis"),
+            patch("src.tools.ds_team_runners._get_or_create_team_analysis"),
+            patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
                 return_value=MagicMock(team_analysis=None),
@@ -413,14 +421,14 @@ class TestConsultDataScienceTeamParallel:
             return _run
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
-            patch("src.tools.specialist_tools._run_energy", await _make_runner("Energy")),
-            patch("src.tools.specialist_tools._run_behavioral", await _make_runner("Behavioral")),
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
-            patch("src.tools.specialist_tools.reset_team_analysis"),
-            patch("src.tools.specialist_tools._get_or_create_team_analysis"),
-            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch("src.tools.ds_team_runners.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.ds_team_tool._run_energy", await _make_runner("Energy")),
+            patch("src.tools.ds_team_tool._run_behavioral", await _make_runner("Behavioral")),
+            patch("src.tools.ds_team_tool.emit_delegation"),
+            patch("src.tools.ds_team_tool.emit_progress"),
+            patch("src.tools.ds_team_tool.reset_team_analysis"),
+            patch("src.tools.ds_team_runners._get_or_create_team_analysis"),
+            patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
                 return_value=MagicMock(team_analysis=None),

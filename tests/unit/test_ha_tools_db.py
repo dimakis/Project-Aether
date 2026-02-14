@@ -43,7 +43,7 @@ class TestListEntitiesByDomainDB:
     """list_entities_by_domain should read from EntityRepository."""
 
     async def test_returns_entity_ids(self):
-        from src.tools.ha_tools import list_entities_by_domain
+        from src.tools.ha_entity_tools import list_entities_by_domain
 
         mock_repo = AsyncMock()
         mock_repo.list_by_domain = AsyncMock(
@@ -54,8 +54,8 @@ class TestListEntitiesByDomainDB:
         )
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.EntityRepository", return_value=mock_repo),
+            patch("src.tools.ha_entity_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_entity_tools.EntityRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -67,7 +67,7 @@ class TestListEntitiesByDomainDB:
         mock_repo.list_by_domain.assert_called_once_with("light")
 
     async def test_state_filter(self):
-        from src.tools.ha_tools import list_entities_by_domain
+        from src.tools.ha_entity_tools import list_entities_by_domain
 
         mock_repo = AsyncMock()
         mock_repo.list_by_domain = AsyncMock(
@@ -78,8 +78,8 @@ class TestListEntitiesByDomainDB:
         )
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.EntityRepository", return_value=mock_repo),
+            patch("src.tools.ha_entity_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_entity_tools.EntityRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -97,7 +97,7 @@ class TestSearchEntitiesDB:
     """search_entities should read from EntityRepository."""
 
     async def test_returns_matches(self):
-        from src.tools.ha_tools import search_entities
+        from src.tools.ha_entity_tools import search_entities
 
         mock_repo = AsyncMock()
         mock_repo.search = AsyncMock(
@@ -107,8 +107,8 @@ class TestSearchEntitiesDB:
         )
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.EntityRepository", return_value=mock_repo),
+            patch("src.tools.ha_entity_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_entity_tools.EntityRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -124,7 +124,7 @@ class TestGetDomainSummaryDB:
     """get_domain_summary should read from EntityRepository."""
 
     async def test_returns_counts(self):
-        from src.tools.ha_tools import get_domain_summary
+        from src.tools.ha_entity_tools import get_domain_summary
 
         mock_repo = AsyncMock()
         mock_repo.count = AsyncMock(return_value=5)
@@ -139,8 +139,8 @@ class TestGetDomainSummaryDB:
         )
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.EntityRepository", return_value=mock_repo),
+            patch("src.tools.ha_entity_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_entity_tools.EntityRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -156,7 +156,7 @@ class TestListAutomationsDB:
     """list_automations should read from AutomationRepository."""
 
     async def test_returns_automations(self):
-        from src.tools.ha_tools import list_automations
+        from src.tools.ha_automation_tools import list_automations
 
         mock_repo = AsyncMock()
         mock_repo.list_all = AsyncMock(
@@ -167,8 +167,8 @@ class TestListAutomationsDB:
         )
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.AutomationRepository", return_value=mock_repo),
+            patch("src.tools.ha_automation_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_automation_tools.AutomationRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -196,7 +196,7 @@ class TestGetAutomationConfigDB:
     """get_automation_config should return YAML from the DB."""
 
     async def test_returns_yaml_when_config_exists(self):
-        from src.tools.ha_tools import get_automation_config
+        from src.tools.ha_automation_tools import get_automation_config
 
         config = {
             "id": "sunset_lights",
@@ -212,8 +212,8 @@ class TestGetAutomationConfigDB:
         mock_repo.get_by_entity_id = AsyncMock(return_value=auto)
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.AutomationRepository", return_value=mock_repo),
+            patch("src.tools.ha_automation_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_automation_tools.AutomationRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -225,7 +225,7 @@ class TestGetAutomationConfigDB:
         mock_repo.get_by_entity_id.assert_called_once_with("automation.sunset_lights")
 
     async def test_returns_message_when_config_is_null(self):
-        from src.tools.ha_tools import get_automation_config
+        from src.tools.ha_automation_tools import get_automation_config
 
         auto = _mock_automation("automation.broken", "Broken", "on", False)
         auto.config = None
@@ -234,8 +234,8 @@ class TestGetAutomationConfigDB:
         mock_repo.get_by_entity_id = AsyncMock(return_value=auto)
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.AutomationRepository", return_value=mock_repo),
+            patch("src.tools.ha_automation_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_automation_tools.AutomationRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -245,14 +245,14 @@ class TestGetAutomationConfigDB:
         assert "discovery" in result.lower() or "sync" in result.lower()
 
     async def test_returns_not_found_when_missing(self):
-        from src.tools.ha_tools import get_automation_config
+        from src.tools.ha_automation_tools import get_automation_config
 
         mock_repo = AsyncMock()
         mock_repo.get_by_entity_id = AsyncMock(return_value=None)
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.AutomationRepository", return_value=mock_repo),
+            patch("src.tools.ha_automation_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_automation_tools.AutomationRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -267,7 +267,7 @@ class TestGetScriptConfigDB:
     """get_script_config should return YAML from the DB."""
 
     async def test_returns_yaml_when_sequence_exists(self):
-        from src.tools.ha_tools import get_script_config
+        from src.tools.ha_script_scene_tools import get_script_config
 
         sequence = [
             {"service": "light.turn_on", "data": {"brightness": 255}},
@@ -279,8 +279,8 @@ class TestGetScriptConfigDB:
         mock_repo.get_by_entity_id = AsyncMock(return_value=script)
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.ScriptRepository", return_value=mock_repo),
+            patch("src.tools.ha_script_scene_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_script_scene_tools.ScriptRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -292,7 +292,7 @@ class TestGetScriptConfigDB:
         mock_repo.get_by_entity_id.assert_called_once_with("script.movie_mode")
 
     async def test_returns_message_when_sequence_is_null(self):
-        from src.tools.ha_tools import get_script_config
+        from src.tools.ha_script_scene_tools import get_script_config
 
         script = _mock_script("script.broken", "Broken", sequence=None)
 
@@ -300,8 +300,8 @@ class TestGetScriptConfigDB:
         mock_repo.get_by_entity_id = AsyncMock(return_value=script)
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.ScriptRepository", return_value=mock_repo),
+            patch("src.tools.ha_script_scene_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_script_scene_tools.ScriptRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -311,14 +311,14 @@ class TestGetScriptConfigDB:
         assert "discovery" in result.lower() or "sync" in result.lower()
 
     async def test_returns_not_found_when_missing(self):
-        from src.tools.ha_tools import get_script_config
+        from src.tools.ha_script_scene_tools import get_script_config
 
         mock_repo = AsyncMock()
         mock_repo.get_by_entity_id = AsyncMock(return_value=None)
 
         with (
-            patch("src.tools.ha_tools.get_session") as mock_get_session,
-            patch("src.tools.ha_tools.ScriptRepository", return_value=mock_repo),
+            patch("src.tools.ha_script_scene_tools.get_session") as mock_get_session,
+            patch("src.tools.ha_script_scene_tools.ScriptRepository", return_value=mock_repo),
         ):
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)

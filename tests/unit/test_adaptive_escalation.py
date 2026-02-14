@@ -64,18 +64,18 @@ class TestAdaptiveEscalation:
 
         with (
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy", "behavioral"],
             ),
             patch(
-                "src.tools.specialist_tools._run_parallel",
+                "src.tools.ds_team_tool._run_parallel",
                 side_effect=mock_run_parallel,
             ),
             patch(
-                "src.tools.specialist_tools.ProgrammaticSynthesizer",
+                "src.tools.ds_team_tool.ProgrammaticSynthesizer",
             ) as mock_synth_cls,
             patch(
-                "src.tools.specialist_tools._run_discussion_round",
+                "src.tools.ds_team_tool._run_discussion_round",
                 new_callable=AsyncMock,
                 return_value=[],
             ) as mock_discussion,
@@ -126,18 +126,18 @@ class TestAdaptiveEscalation:
 
         with (
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy"],
             ),
             patch(
-                "src.tools.specialist_tools._run_parallel",
+                "src.tools.ds_team_tool._run_parallel",
                 side_effect=mock_run_parallel,
             ),
             patch(
-                "src.tools.specialist_tools.ProgrammaticSynthesizer",
+                "src.tools.ds_team_tool.ProgrammaticSynthesizer",
             ) as mock_synth_cls,
             patch(
-                "src.tools.specialist_tools._run_discussion_round",
+                "src.tools.ds_team_tool._run_discussion_round",
                 new_callable=AsyncMock,
             ) as mock_discussion,
         ):
@@ -181,15 +181,15 @@ class TestAdaptiveEscalation:
 
         with (
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy"],
             ),
             patch(
-                "src.tools.specialist_tools._run_parallel",
+                "src.tools.ds_team_tool._run_parallel",
                 side_effect=mock_run_parallel,
             ),
             patch(
-                "src.tools.specialist_tools._run_discussion_round",
+                "src.tools.ds_team_tool._run_discussion_round",
                 new_callable=AsyncMock,
             ) as mock_discussion,
         ):

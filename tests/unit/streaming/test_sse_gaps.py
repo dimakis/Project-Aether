@@ -52,12 +52,14 @@ async def _collect_sse_lines(
 
     lines = []
     with (
-        patch("src.api.routes.openai_compat.get_session") as mock_get_session,
-        patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
-        patch("src.api.routes.openai_compat.session_context"),
-        patch("src.api.routes.openai_compat.model_context"),
-        patch("src.api.routes.openai_compat.ArchitectWorkflow", return_value=mock_workflow),
-        patch("src.api.routes.openai_compat.log_param"),
+        patch("src.api.routes.openai_compat.handlers.get_session") as mock_get_session,
+        patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
+        patch("src.api.routes.openai_compat.handlers.session_context"),
+        patch("src.api.routes.openai_compat.handlers.model_context"),
+        patch(
+            "src.api.routes.openai_compat.handlers.ArchitectWorkflow", return_value=mock_workflow
+        ),
+        patch("src.api.routes.openai_compat.handlers.log_param"),
         patch.dict("sys.modules", {"mlflow": mock_mlflow}),
     ):
         mock_run.return_value.__enter__ = MagicMock()
@@ -157,7 +159,7 @@ class TestThinkingFilter:
     """Verify _StreamingTagFilter separates thinking from visible content."""
 
     def test_thinking_tags_separated(self):
-        from src.api.routes.openai_compat import _StreamingTagFilter
+        from src.api.routes.openai_compat.streaming_filter import _StreamingTagFilter
 
         f = _StreamingTagFilter()
 
@@ -179,7 +181,7 @@ class TestThinkingFilter:
         assert "answer" in visible_text.lower()
 
     def test_no_thinking_tags_passthrough(self):
-        from src.api.routes.openai_compat import _StreamingTagFilter
+        from src.api.routes.openai_compat.streaming_filter import _StreamingTagFilter
 
         f = _StreamingTagFilter()
         results = []
@@ -287,12 +289,15 @@ class TestMidStreamError:
 
         lines = []
         with (
-            patch("src.api.routes.openai_compat.get_session") as mock_get_session,
-            patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
-            patch("src.api.routes.openai_compat.session_context"),
-            patch("src.api.routes.openai_compat.model_context"),
-            patch("src.api.routes.openai_compat.ArchitectWorkflow", return_value=mock_workflow),
-            patch("src.api.routes.openai_compat.log_param"),
+            patch("src.api.routes.openai_compat.handlers.get_session") as mock_get_session,
+            patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
+            patch("src.api.routes.openai_compat.handlers.session_context"),
+            patch("src.api.routes.openai_compat.handlers.model_context"),
+            patch(
+                "src.api.routes.openai_compat.handlers.ArchitectWorkflow",
+                return_value=mock_workflow,
+            ),
+            patch("src.api.routes.openai_compat.handlers.log_param"),
             patch.dict("sys.modules", {"mlflow": mock_mlflow}),
         ):
             mock_run.return_value.__enter__ = MagicMock()

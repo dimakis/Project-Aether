@@ -46,7 +46,7 @@ class TestRegistrySyncEndpoint:
         mock_session = AsyncMock()
 
         with patch(
-            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+            "src.api.routes.ha_registry.sync.run_registry_sync", new_callable=AsyncMock
         ) as mock_sync:
             mock_sync.return_value = mock_result
 
@@ -67,7 +67,7 @@ class TestRegistrySyncEndpoint:
         mock_session = AsyncMock()
 
         with patch(
-            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+            "src.api.routes.ha_registry.sync.run_registry_sync", new_callable=AsyncMock
         ) as mock_sync:
             mock_sync.side_effect = Exception("MCP connection failed")
 
@@ -91,7 +91,7 @@ class TestRegistrySyncEndpoint:
         mock_session = AsyncMock()
 
         with patch(
-            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+            "src.api.routes.ha_registry.sync.run_registry_sync", new_callable=AsyncMock
         ) as mock_sync:
             mock_sync.return_value = mock_result
 
@@ -110,7 +110,7 @@ class TestRegistrySyncEndpoint:
         mock_session = AsyncMock()
 
         with patch(
-            "src.api.routes.ha_registry.run_registry_sync", new_callable=AsyncMock
+            "src.api.routes.ha_registry.sync.run_registry_sync", new_callable=AsyncMock
         ) as mock_sync:
             mock_sync.return_value = {
                 "automations_synced": 0,

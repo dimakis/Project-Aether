@@ -162,12 +162,15 @@ class TestChatCompletion:
         mock_state.last_trace_id = "trace-123"
 
         with (
-            patch("src.api.routes.openai_compat.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.openai_compat.session_context") as mock_context,
-            patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
+            patch(
+                "src.api.routes.openai_compat.handlers.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.openai_compat.handlers.session_context") as mock_context,
+            patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
             patch.dict("sys.modules", {"mlflow": MagicMock()}),
-            patch("src.api.routes.openai_compat.ArchitectWorkflow") as MockWorkflow,
-            patch("src.api.routes.openai_compat.model_context") as mock_model_ctx,
+            patch("src.api.routes.openai_compat.handlers.ArchitectWorkflow") as MockWorkflow,
+            patch("src.api.routes.openai_compat.handlers.model_context") as mock_model_ctx,
         ):
             mock_context.return_value.__enter__ = MagicMock()
             mock_context.return_value.__exit__ = MagicMock(return_value=False)
@@ -208,9 +211,12 @@ class TestChatCompletion:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.openai_compat.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.openai_compat.session_context") as mock_context,
-            patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
+            patch(
+                "src.api.routes.openai_compat.handlers.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.openai_compat.handlers.session_context") as mock_context,
+            patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
         ):
             mock_context.return_value.__enter__ = MagicMock()
             mock_context.return_value.__exit__ = MagicMock(return_value=False)
@@ -250,12 +256,15 @@ class TestChatCompletion:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.openai_compat.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.openai_compat.session_context") as mock_context,
-            patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
+            patch(
+                "src.api.routes.openai_compat.handlers.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.openai_compat.handlers.session_context") as mock_context,
+            patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
             patch.dict("sys.modules", {"mlflow": MagicMock()}),
-            patch("src.api.routes.openai_compat.ArchitectWorkflow") as MockWorkflow,
-            patch("src.api.routes.openai_compat.model_context") as mock_model_ctx,
+            patch("src.api.routes.openai_compat.handlers.ArchitectWorkflow") as MockWorkflow,
+            patch("src.api.routes.openai_compat.handlers.model_context") as mock_model_ctx,
         ):
             mock_context.return_value.__enter__ = MagicMock()
             mock_context.return_value.__exit__ = MagicMock(return_value=False)
@@ -298,12 +307,15 @@ class TestChatCompletion:
         )
 
         with (
-            patch("src.api.routes.openai_compat.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.openai_compat.session_context") as mock_context,
-            patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
+            patch(
+                "src.api.routes.openai_compat.handlers.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.openai_compat.handlers.session_context") as mock_context,
+            patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
             patch.dict("sys.modules", {"mlflow": MagicMock()}),
-            patch("src.api.routes.openai_compat.ArchitectWorkflow") as MockWorkflow,
-            patch("src.api.routes.openai_compat.model_context") as mock_model_ctx,
+            patch("src.api.routes.openai_compat.handlers.ArchitectWorkflow") as MockWorkflow,
+            patch("src.api.routes.openai_compat.handlers.model_context") as mock_model_ctx,
         ):
             mock_context.return_value.__enter__ = MagicMock()
             mock_context.return_value.__exit__ = MagicMock(return_value=False)

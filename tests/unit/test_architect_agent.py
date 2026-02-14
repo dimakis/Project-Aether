@@ -363,7 +363,7 @@ class TestHandleToolCallsParallel:
         follow_up = AIMessage(content="Here are the results.")
         mock_llm.ainvoke = AsyncMock(return_value=follow_up)
 
-        with patch("src.agents.architect.get_llm", return_value=mock_llm):
+        with patch("src.agents.architect.agent.get_llm", return_value=mock_llm):
             agent = ArchitectAgent.__new__(ArchitectAgent)
             agent._llm = mock_llm
 
@@ -432,10 +432,21 @@ class TestGetEntityContextParallel:
         mock_session = MagicMock()
 
         with (
-            patch("src.agents.architect.EntityRepository", return_value=mock_entity_repo),
-            patch("src.agents.architect.DeviceRepository", return_value=mock_device_repo),
-            patch("src.agents.architect.AreaRepository", return_value=mock_area_repo),
-            patch("src.agents.architect.ServiceRepository", return_value=mock_service_repo),
+            patch(
+                "src.agents.architect.entity_context.EntityRepository",
+                return_value=mock_entity_repo,
+            ),
+            patch(
+                "src.agents.architect.entity_context.DeviceRepository",
+                return_value=mock_device_repo,
+            ),
+            patch(
+                "src.agents.architect.entity_context.AreaRepository", return_value=mock_area_repo
+            ),
+            patch(
+                "src.agents.architect.entity_context.ServiceRepository",
+                return_value=mock_service_repo,
+            ),
         ):
             agent = ArchitectAgent.__new__(ArchitectAgent)
             state = ConversationState(messages=[])

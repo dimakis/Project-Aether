@@ -258,7 +258,9 @@ class TestBaseAnalystPersistInsights:
         mock_repo = MagicMock()
         mock_repo.create = AsyncMock(return_value=MagicMock(id=str(uuid4())))
 
-        with patch("src.agents.base_analyst.InsightRepository", return_value=mock_repo):
+        with patch(
+            "src.agents.analyst_persistence_mixin.InsightRepository", return_value=mock_repo
+        ):
             await analyst.persist_findings(findings, mock_session)
 
         mock_repo.create.assert_called_once()
@@ -292,7 +294,9 @@ class TestBaseAnalystPersistInsights:
         mock_repo = MagicMock()
         mock_repo.create = AsyncMock(return_value=MagicMock(id="fake-id"))
 
-        with patch("src.agents.base_analyst.InsightRepository", return_value=mock_repo):
+        with patch(
+            "src.agents.analyst_persistence_mixin.InsightRepository", return_value=mock_repo
+        ):
             ids = await analyst.persist_findings(findings, mock_session)
 
         assert ids == ["fake-id"]
@@ -347,7 +351,9 @@ class TestBaseAnalystPersistInsights:
                 confidence=confidence,
             )
 
-            with patch("src.agents.base_analyst.InsightRepository", return_value=mock_repo):
+            with patch(
+                "src.agents.analyst_persistence_mixin.InsightRepository", return_value=mock_repo
+            ):
                 await analyst.persist_findings([finding], mock_session)
 
             kwargs = mock_repo.create.call_args.kwargs

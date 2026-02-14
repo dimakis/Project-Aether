@@ -27,8 +27,8 @@ class TestSpecialistProgress:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.EnergyAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -63,8 +63,8 @@ class TestSpecialistLifecycleEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.EnergyAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -97,8 +97,8 @@ class TestSpecialistLifecycleEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.EnergyAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.side_effect = RuntimeError("boom")
@@ -123,8 +123,8 @@ class TestSpecialistLifecycleEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.BehavioralAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.BehavioralAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -149,8 +149,8 @@ class TestSpecialistLifecycleEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.DiagnosticAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.DiagnosticAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -175,8 +175,8 @@ class TestSpecialistLifecycleEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.BehavioralAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.BehavioralAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -201,8 +201,8 @@ class TestSpecialistLifecycleEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.DiagnosticAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.DiagnosticAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -231,8 +231,8 @@ class TestDelegationEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.EnergyAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}
@@ -270,9 +270,9 @@ class TestDelegationEvents:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.EnergyAnalyst") as MockEnergy,
-            patch("src.tools.specialist_tools.BehavioralAnalyst") as MockBehavioral,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.EnergyAnalyst") as MockEnergy,
+            patch("src.tools.ds_team_runners.BehavioralAnalyst") as MockBehavioral,
         ):
             for MockAnalyst in [MockEnergy, MockBehavioral]:
                 mock_instance = AsyncMock()
@@ -311,8 +311,8 @@ class TestTeamAnalysisIsolation:
         queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
 
         with (
-            patch("src.tools.specialist_tools.is_agent_enabled", return_value=True),
-            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.is_agent_enabled", return_value=True),
+            patch("src.tools.ds_team_runners.EnergyAnalyst") as MockAnalyst,
         ):
             mock_instance = AsyncMock()
             mock_instance.invoke.return_value = {"insights": [], "team_analysis": None}

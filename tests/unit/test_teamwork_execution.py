@@ -96,21 +96,21 @@ class TestParallelMode:
             return "Behavioral: ok"
 
         with (
-            patch("src.tools.specialist_tools._run_energy", side_effect=mock_energy),
-            patch("src.tools.specialist_tools._run_behavioral", side_effect=mock_behavioral),
-            patch("src.tools.specialist_tools._run_diagnostic", AsyncMock(return_value="Diag: ok")),
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.ds_team_tool._run_energy", side_effect=mock_energy),
+            patch("src.tools.ds_team_tool._run_behavioral", side_effect=mock_behavioral),
+            patch("src.tools.ds_team_tool._run_diagnostic", AsyncMock(return_value="Diag: ok")),
+            patch("src.tools.ds_team_tool.emit_delegation"),
+            patch("src.tools.ds_team_tool.emit_progress"),
+            patch("src.tools.ds_team_runners.is_agent_enabled", AsyncMock(return_value=True)),
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy", "behavioral"],
             ),
-            patch("src.tools.specialist_tools.reset_team_analysis"),
+            patch("src.tools.ds_team_tool.reset_team_analysis"),
             patch(
-                "src.tools.specialist_tools._get_or_create_team_analysis", return_value=MagicMock()
+                "src.tools.ds_team_runners._get_or_create_team_analysis", return_value=MagicMock()
             ),
-            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
                 return_value=_make_mock_ctx(),
@@ -158,21 +158,21 @@ class TestTeamworkMode:
             return "Behavioral: ok"
 
         with (
-            patch("src.tools.specialist_tools._run_energy", side_effect=mock_energy),
-            patch("src.tools.specialist_tools._run_behavioral", side_effect=mock_behavioral),
-            patch("src.tools.specialist_tools._run_diagnostic", AsyncMock(return_value="Diag: ok")),
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.ds_team_tool._run_energy", side_effect=mock_energy),
+            patch("src.tools.ds_team_tool._run_behavioral", side_effect=mock_behavioral),
+            patch("src.tools.ds_team_tool._run_diagnostic", AsyncMock(return_value="Diag: ok")),
+            patch("src.tools.ds_team_tool.emit_delegation"),
+            patch("src.tools.ds_team_tool.emit_progress"),
+            patch("src.tools.ds_team_runners.is_agent_enabled", AsyncMock(return_value=True)),
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy", "behavioral"],
             ),
-            patch("src.tools.specialist_tools.reset_team_analysis"),
+            patch("src.tools.ds_team_tool.reset_team_analysis"),
             patch(
-                "src.tools.specialist_tools._get_or_create_team_analysis", return_value=MagicMock()
+                "src.tools.ds_team_runners._get_or_create_team_analysis", return_value=MagicMock()
             ),
-            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
                 return_value=_make_mock_ctx(),
@@ -203,19 +203,19 @@ class TestDepthPropagation:
         ta = TeamAnalysis(request_id="test-req", request_summary="test")
 
         with (
-            patch("src.tools.specialist_tools.emit_delegation"),
-            patch("src.tools.specialist_tools.emit_progress"),
-            patch("src.tools.specialist_tools.is_agent_enabled", AsyncMock(return_value=True)),
-            patch("src.tools.specialist_tools._select_specialists", return_value=["energy"]),
-            patch("src.tools.specialist_tools.reset_team_analysis"),
-            patch("src.tools.specialist_tools._get_or_create_team_analysis", return_value=ta),
-            patch("src.tools.specialist_tools._set_team_analysis"),
+            patch("src.tools.ds_team_tool.emit_delegation"),
+            patch("src.tools.ds_team_tool.emit_progress"),
+            patch("src.tools.ds_team_runners.is_agent_enabled", AsyncMock(return_value=True)),
+            patch("src.tools.ds_team_tool._select_specialists", return_value=["energy"]),
+            patch("src.tools.ds_team_tool.reset_team_analysis"),
+            patch("src.tools.ds_team_runners._get_or_create_team_analysis", return_value=ta),
+            patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
-                "src.tools.specialist_tools._capture_parent_span_context",
+                "src.tools.ds_team_runners._capture_parent_span_context",
                 return_value=(None, None, None),
             ),
-            patch("src.tools.specialist_tools.model_context"),
-            patch("src.tools.specialist_tools.EnergyAnalyst") as MockAnalyst,
+            patch("src.tools.ds_team_runners.model_context"),
+            patch("src.tools.ds_team_runners.EnergyAnalyst") as MockAnalyst,
             patch(
                 "src.agents.execution_context.get_execution_context",
                 return_value=_make_mock_ctx(),

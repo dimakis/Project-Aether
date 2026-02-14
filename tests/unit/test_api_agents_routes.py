@@ -141,8 +141,8 @@ class TestListAgents:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.list_all = AsyncMock(return_value=[sample_agent])
 
@@ -166,8 +166,8 @@ class TestListAgents:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.list_all = AsyncMock(return_value=[])
 
@@ -196,8 +196,8 @@ class TestGetAgent:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
 
@@ -219,8 +219,8 @@ class TestGetAgent:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=None)
 
@@ -247,8 +247,8 @@ class TestUpdateAgentStatus:
         sample_agent.status = AgentStatus.DISABLED.value
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.update_status = AsyncMock(return_value=sample_agent)
 
@@ -273,8 +273,8 @@ class TestUpdateAgentStatus:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository"),
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository"),
         ):
             response = await agents_client.patch(
                 "/api/v1/agents/architect",
@@ -294,8 +294,8 @@ class TestUpdateAgentStatus:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.update_status = AsyncMock(
                 side_effect=ValueError("Invalid transition")
@@ -319,8 +319,8 @@ class TestUpdateAgentStatus:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.update_status = AsyncMock(return_value=None)
 
@@ -361,10 +361,10 @@ class TestCloneAgent:
         cloned_agent.active_prompt_version = sample_prompt
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.AgentConfigVersionRepository") as MockConfigRepo,
+            patch("src.api.routes.agents.core.AgentPromptVersionRepository") as MockPromptRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(
                 side_effect=[sample_agent, None, cloned_agent]
@@ -416,8 +416,8 @@ class TestCloneAgent:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=None)
 
@@ -455,9 +455,9 @@ class TestQuickModelSwitch:
         new_config.promoted_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.AgentConfigVersionRepository") as MockConfigRepo,
             patch("src.agents.config_cache.invalidate_agent_config") as mock_invalidate,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
@@ -483,8 +483,8 @@ class TestQuickModelSwitch:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.core.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.core.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=None)
 
@@ -513,9 +513,14 @@ class TestConfigVersions:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.config_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.config_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockConfigRepo.return_value.list_versions = AsyncMock(return_value=[sample_config])
@@ -551,9 +556,14 @@ class TestConfigVersions:
         draft_config.updated_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.config_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.config_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockConfigRepo.return_value.create_draft = AsyncMock(return_value=draft_config)
@@ -594,8 +604,13 @@ class TestConfigVersions:
         updated_config.updated_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.config_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
         ):
             MockConfigRepo.return_value.update_draft = AsyncMock(return_value=updated_config)
 
@@ -630,8 +645,13 @@ class TestConfigVersions:
         promoted_config.promoted_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.config_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
             patch("src.agents.config_cache.invalidate_agent_config") as mock_invalidate,
         ):
             MockConfigRepo.return_value.promote = AsyncMock(return_value=promoted_config)
@@ -668,9 +688,14 @@ class TestConfigVersions:
         rollback_config.updated_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.config_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.config_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockConfigRepo.return_value.rollback = AsyncMock(return_value=rollback_config)
@@ -692,8 +717,13 @@ class TestConfigVersions:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.config_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
         ):
             MockConfigRepo.return_value.delete_draft = AsyncMock(return_value=True)
 
@@ -714,8 +744,13 @@ class TestConfigVersions:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.config_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch(
+                "src.api.routes.agents.config_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
         ):
             MockConfigRepo.return_value.delete_draft = AsyncMock(return_value=False)
 
@@ -743,9 +778,14 @@ class TestPromptVersions:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockPromptRepo.return_value.list_versions = AsyncMock(return_value=[sample_prompt])
@@ -780,9 +820,14 @@ class TestPromptVersions:
         draft_prompt.updated_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockPromptRepo.return_value.create_draft = AsyncMock(return_value=draft_prompt)
@@ -821,8 +866,13 @@ class TestPromptVersions:
         updated_prompt.updated_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             MockPromptRepo.return_value.update_draft = AsyncMock(return_value=updated_prompt)
 
@@ -857,8 +907,13 @@ class TestPromptVersions:
         promoted_prompt.promoted_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
             patch("src.agents.config_cache.invalidate_agent_config") as mock_invalidate,
         ):
             MockPromptRepo.return_value.promote = AsyncMock(return_value=promoted_prompt)
@@ -895,9 +950,14 @@ class TestPromptVersions:
         rollback_prompt.updated_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockPromptRepo.return_value.rollback = AsyncMock(return_value=rollback_prompt)
@@ -919,8 +979,13 @@ class TestPromptVersions:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             MockPromptRepo.return_value.delete_draft = AsyncMock(return_value=True)
 
@@ -972,10 +1037,17 @@ class TestPromoteBoth:
         promoted_prompt.promoted_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockConfigRepo.return_value.get_draft = AsyncMock(return_value=sample_config)
@@ -1004,10 +1076,17 @@ class TestPromoteBoth:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentConfigVersionRepository"
+            ) as MockConfigRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.AgentPromptVersionRepository"
+            ) as MockPromptRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
             MockConfigRepo.return_value.get_draft = AsyncMock(return_value=None)
@@ -1038,8 +1117,11 @@ class TestGeneratePrompt:
         mock_llm_response.content = "Generated system prompt"
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
             patch("src.llm.get_llm") as mock_get_llm,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=sample_agent)
@@ -1068,8 +1150,11 @@ class TestGeneratePrompt:
             return _mock_get_session()
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
+            patch(
+                "src.api.routes.agents.prompt_versions.get_session",
+                side_effect=_get_session_factory,
+            ),
+            patch("src.api.routes.agents.prompt_versions.AgentRepository") as MockAgentRepo,
         ):
             MockAgentRepo.return_value.get_by_name = AsyncMock(return_value=None)
 
@@ -1106,10 +1191,10 @@ class TestSeedAgents:
         mock_agent.updated_at = datetime.now(UTC)
 
         with (
-            patch("src.api.routes.agents.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.agents.AgentRepository") as MockAgentRepo,
-            patch("src.api.routes.agents.AgentConfigVersionRepository") as MockConfigRepo,
-            patch("src.api.routes.agents.AgentPromptVersionRepository") as MockPromptRepo,
+            patch("src.api.routes.agents.seed.get_session", side_effect=_get_session_factory),
+            patch("src.api.routes.agents.seed.AgentRepository") as MockAgentRepo,
+            patch("src.api.routes.agents.seed.AgentConfigVersionRepository") as MockConfigRepo,
+            patch("src.api.routes.agents.seed.AgentPromptVersionRepository") as MockPromptRepo,
             patch("src.settings.get_settings") as mock_get_settings,
             patch("src.agents.prompts.load_prompt") as mock_load_prompt,
         ):

@@ -23,7 +23,7 @@ class TestDisableTraces:
     def test_disable_traces(self):
         import os
 
-        from src.tracing import mlflow as mod
+        from src.tracing import mlflow_init as mod
 
         orig = mod._traces_available
         mod._traces_available = True
@@ -35,7 +35,7 @@ class TestDisableTraces:
             mod._traces_available = orig
 
     def test_disable_idempotent(self):
-        from src.tracing import mlflow as mod
+        from src.tracing import mlflow_init as mod
 
         orig = mod._traces_available
         mod._traces_available = False
@@ -51,7 +51,7 @@ class TestLogParam:
         """log_param is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import log_param
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=None):
             result = log_param("key", "value")
             assert result is None  # no-op returns None
 
@@ -61,7 +61,7 @@ class TestLogParam:
         mock_mlflow = MagicMock()
         mock_mlflow.active_run.return_value = None
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=mock_mlflow):
             log_param("key", "value")
             mock_mlflow.log_param.assert_not_called()
 
@@ -71,7 +71,7 @@ class TestLogParam:
         mock_mlflow = MagicMock()
         mock_mlflow.active_run.return_value = MagicMock()
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=mock_mlflow):
             log_param("key", "value")
             mock_mlflow.log_param.assert_called_once_with("key", "value")
 
@@ -81,7 +81,7 @@ class TestLogParams:
         """log_params is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import log_params
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=None):
             result = log_params({"a": "1"})
             assert result is None  # no-op returns None
 
@@ -91,7 +91,7 @@ class TestLogParams:
         mock_mlflow = MagicMock()
         mock_mlflow.active_run.return_value = MagicMock()
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=mock_mlflow):
             log_params({"a": "1"})
             mock_mlflow.log_params.assert_called_once_with({"a": "1"})
 
@@ -101,7 +101,7 @@ class TestLogMetric:
         """log_metric is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import log_metric
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=None):
             result = log_metric("key", 1.0)
             assert result is None  # no-op returns None
 
@@ -111,7 +111,7 @@ class TestLogMetric:
         mock_mlflow = MagicMock()
         mock_mlflow.active_run.return_value = MagicMock()
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=mock_mlflow):
             log_metric("latency", 0.5, step=1)
             mock_mlflow.log_metric.assert_called_once_with("latency", 0.5, step=1)
 
@@ -123,7 +123,7 @@ class TestLogMetrics:
         mock_mlflow = MagicMock()
         mock_mlflow.active_run.return_value = MagicMock()
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=mock_mlflow):
             log_metrics({"a": 1.0, "b": 2.0})
             mock_mlflow.log_metrics.assert_called_once_with({"a": 1.0, "b": 2.0}, step=None)
 
@@ -135,7 +135,7 @@ class TestLogDict:
         mock_mlflow = MagicMock()
         mock_mlflow.active_run.return_value = MagicMock()
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_logging._safe_import_mlflow", return_value=mock_mlflow):
             log_dict({"data": "test"}, "output.json")
             mock_mlflow.log_dict.assert_called_once_with({"data": "test"}, "output.json")
 
@@ -145,7 +145,7 @@ class TestEndRun:
         """end_run is a no-op when MLflow is unavailable."""
         from src.tracing.mlflow import end_run
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
+        with patch("src.tracing.mlflow_runs._safe_import_mlflow", return_value=None):
             result = end_run()
             assert result is None  # no-op returns None
 
@@ -153,7 +153,7 @@ class TestEndRun:
         from src.tracing.mlflow import end_run
 
         mock_mlflow = MagicMock()
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_runs._safe_import_mlflow", return_value=mock_mlflow):
             end_run(status="FINISHED")
             mock_mlflow.end_run.assert_called_once_with(status="FINISHED")
 
@@ -162,7 +162,7 @@ class TestGetActiveRun:
     def test_no_mlflow(self):
         from src.tracing.mlflow import get_active_run
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
+        with patch("src.tracing.mlflow_runs._safe_import_mlflow", return_value=None):
             assert get_active_run() is None
 
     def test_with_active_run(self):
@@ -172,7 +172,7 @@ class TestGetActiveRun:
         mock_run = MagicMock()
         mock_mlflow.active_run.return_value = mock_run
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_runs._safe_import_mlflow", return_value=mock_mlflow):
             assert get_active_run() is mock_run
 
 
@@ -180,7 +180,7 @@ class TestGetActiveSpan:
     def test_no_mlflow(self):
         from src.tracing.mlflow import get_active_span
 
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=None):
+        with patch("src.tracing.mlflow_spans._safe_import_mlflow", return_value=None):
             assert get_active_span() is None
 
 
@@ -215,8 +215,8 @@ class TestStartExperimentRun:
         from src.tracing.mlflow import start_experiment_run
 
         with (
-            patch("src.tracing.mlflow.start_run", return_value=MagicMock()),
-            patch("src.tracing.mlflow.end_run") as mock_end,
+            patch("src.tracing.mlflow_runs.start_run", return_value=MagicMock()),
+            patch("src.tracing.mlflow_runs.end_run") as mock_end,
         ):
             with start_experiment_run(run_name="test"):
                 pass
@@ -226,8 +226,8 @@ class TestStartExperimentRun:
         from src.tracing.mlflow import start_experiment_run
 
         with (
-            patch("src.tracing.mlflow.start_run", return_value=MagicMock()),
-            patch("src.tracing.mlflow.end_run") as mock_end,
+            patch("src.tracing.mlflow_runs.start_run", return_value=MagicMock()),
+            patch("src.tracing.mlflow_runs.end_run") as mock_end,
         ):
             with suppress(ValueError), start_experiment_run():
                 raise ValueError("test")
@@ -238,7 +238,7 @@ class TestGetOrCreateExperiment:
     def test_returns_none_when_not_initialized(self):
         from src.tracing.mlflow import get_or_create_experiment
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_init._ensure_mlflow_initialized", return_value=False):
             assert get_or_create_experiment() is None
 
     def test_creates_new_experiment(self):
@@ -251,9 +251,9 @@ class TestGetOrCreateExperiment:
         mock_settings.mlflow_experiment_name = "test"
 
         with (
-            patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
-            patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
-            patch("src.tracing.mlflow.get_settings", return_value=mock_settings),
+            patch("src.tracing.mlflow_init._ensure_mlflow_initialized", return_value=True),
+            patch("src.tracing.mlflow_init._safe_import_mlflow", return_value=mock_mlflow),
+            patch("src.tracing.mlflow_init.get_settings", return_value=mock_settings),
         ):
             result = get_or_create_experiment()
             assert result == "exp-123"
@@ -269,9 +269,9 @@ class TestGetOrCreateExperiment:
         mock_settings.mlflow_experiment_name = "test"
 
         with (
-            patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
-            patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
-            patch("src.tracing.mlflow.get_settings", return_value=mock_settings),
+            patch("src.tracing.mlflow_init._ensure_mlflow_initialized", return_value=True),
+            patch("src.tracing.mlflow_init._safe_import_mlflow", return_value=mock_mlflow),
+            patch("src.tracing.mlflow_init.get_settings", return_value=mock_settings),
         ):
             result = get_or_create_experiment()
             assert result == "existing-123"
@@ -281,7 +281,7 @@ class TestStartRun:
     def test_returns_none_when_not_initialized(self):
         from src.tracing.mlflow import start_run
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_runs._ensure_mlflow_initialized", return_value=False):
             assert start_run() is None
 
 
@@ -289,7 +289,7 @@ class TestSearchTraces:
     def test_returns_none_when_not_initialized(self):
         from src.tracing.mlflow import search_traces
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_feedback._ensure_mlflow_initialized", return_value=False):
             assert search_traces() is None
 
 
@@ -298,7 +298,7 @@ class TestLogHumanFeedback:
         """log_human_feedback is a no-op when MLflow is not initialized."""
         from src.tracing.mlflow import log_human_feedback
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_feedback._ensure_mlflow_initialized", return_value=False):
             result = log_human_feedback("trace-1", "sentiment", "positive")
             assert result is None  # no-op returns None
 
@@ -308,7 +308,7 @@ class TestLogCodeFeedback:
         """log_code_feedback is a no-op when MLflow is not initialized."""
         from src.tracing.mlflow import log_code_feedback
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_feedback._ensure_mlflow_initialized", return_value=False):
             result = log_code_feedback("trace-1", "safety", True)
             assert result is None  # no-op returns None
 
@@ -318,7 +318,7 @@ class TestLogExpectation:
         """log_expectation is a no-op when MLflow is not initialized."""
         from src.tracing.mlflow import log_expectation
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_feedback._ensure_mlflow_initialized", return_value=False):
             result = log_expectation("trace-1", "expected_action", "turn_on")
             assert result is None  # no-op returns None
 
@@ -353,10 +353,10 @@ class TestAetherTracer:
         from src.tracing.mlflow import AetherTracer
 
         with (
-            patch("src.tracing.mlflow.start_run", return_value=MagicMock()) as mock_start,
-            patch("src.tracing.mlflow.end_run") as mock_end,
-            patch("src.tracing.mlflow.log_metric"),
-            patch("src.tracing.mlflow._safe_import_mlflow", return_value=MagicMock()),
+            patch("src.tracing.mlflow_tracer.start_run", return_value=MagicMock()) as mock_start,
+            patch("src.tracing.mlflow_tracer.end_run") as mock_end,
+            patch("src.tracing.mlflow_tracer._log_metric"),
+            patch("src.tracing.mlflow_tracer._safe_import_mlflow", return_value=MagicMock()),
         ):
             tracer = AetherTracer(name="test", session_id="sess-1")
             with tracer:
@@ -380,10 +380,10 @@ class TestAetherTracer:
 
         tracer = AetherTracer(name="test")
         with (
-            patch("src.tracing.mlflow.log_param") as mock_lp,
-            patch("src.tracing.mlflow.log_params") as mock_lps,
-            patch("src.tracing.mlflow.log_metric") as mock_lm,
-            patch("src.tracing.mlflow.log_metrics") as mock_lms,
+            patch("src.tracing.mlflow_tracer._log_param") as mock_lp,
+            patch("src.tracing.mlflow_tracer._log_params") as mock_lps,
+            patch("src.tracing.mlflow_tracer._log_metric") as mock_lm,
+            patch("src.tracing.mlflow_tracer._log_metrics") as mock_lms,
         ):
             tracer.log_param("k", "v")
             tracer.log_params({"k": "v"})
@@ -401,7 +401,7 @@ class TestAetherTracer:
         mock_mlflow.active_run.return_value = MagicMock()
 
         tracer = AetherTracer(name="test")
-        with patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow):
+        with patch("src.tracing.mlflow_tracer._safe_import_mlflow", return_value=mock_mlflow):
             tracer.set_tag("key", "val")
             mock_mlflow.set_tag.assert_called_once_with("key", "val")
 
@@ -418,7 +418,7 @@ class TestGetTracingStatus:
     def test_returns_dict(self):
         from src.tracing.mlflow import get_tracing_status
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_tracer._ensure_mlflow_initialized", return_value=False):
             status = get_tracing_status()
             assert "mlflow_initialized" in status
             assert "traces_enabled" in status
@@ -432,7 +432,7 @@ class TestTraceWithUri:
         def my_func():
             return 42
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=False):
             assert my_func() == 42
 
     async def test_async_decorator_no_mlflow(self):
@@ -442,7 +442,7 @@ class TestTraceWithUri:
         async def my_async_func():
             return 99
 
-        with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+        with patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=False):
             result = await my_async_func()
             assert result == 99
 
@@ -462,9 +462,9 @@ class TestTraceWithUri:
         set_session_id("test-session-123")
         try:
             with (
-                patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
-                patch("src.tracing.mlflow._traces_available", True),
-                patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
+                patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=True),
+                patch("src.tracing.mlflow_spans._traces_available", True),
+                patch("src.tracing.mlflow_spans._safe_import_mlflow", return_value=mock_mlflow),
             ):
                 result = my_func()
                 assert result == 42
@@ -489,9 +489,9 @@ class TestTraceWithUri:
 
         clear_session()
         with (
-            patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
-            patch("src.tracing.mlflow._traces_available", True),
-            patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
+            patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=True),
+            patch("src.tracing.mlflow_spans._traces_available", True),
+            patch("src.tracing.mlflow_spans._safe_import_mlflow", return_value=mock_mlflow),
         ):
             result = my_func()
             assert result == 42
@@ -516,9 +516,9 @@ class TestTraceWithUri:
         set_session_id("async-session-456")
         try:
             with (
-                patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=True),
-                patch("src.tracing.mlflow._traces_available", True),
-                patch("src.tracing.mlflow._safe_import_mlflow", return_value=mock_mlflow),
+                patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=True),
+                patch("src.tracing.mlflow_spans._traces_available", True),
+                patch("src.tracing.mlflow_spans._safe_import_mlflow", return_value=mock_mlflow),
             ):
                 result = await my_async_func()
                 assert result == 99
@@ -531,12 +531,12 @@ class TestTraceWithUri:
 
 class TestEnableAutolog:
     def test_skips_when_not_initialized(self):
-        from src.tracing import mlflow as mod
+        from src.tracing import mlflow_init as mod
 
         orig = mod._autolog_enabled
         mod._autolog_enabled = False
         try:
-            with patch("src.tracing.mlflow._ensure_mlflow_initialized", return_value=False):
+            with patch("src.tracing.mlflow_init._ensure_mlflow_initialized", return_value=False):
                 mod.enable_autolog()
                 assert mod._autolog_enabled is False
         finally:
@@ -544,7 +544,7 @@ class TestEnableAutolog:
 
     def test_idempotent(self):
         """enable_autolog returns early when already enabled."""
-        from src.tracing import mlflow as mod
+        from src.tracing import mlflow_init as mod
 
         orig = mod._autolog_enabled
         mod._autolog_enabled = True
@@ -559,7 +559,7 @@ class TestEnableAutolog:
 class TestCheckTraceBackend:
     def test_already_checked(self):
         """_check_trace_backend short-circuits when already checked."""
-        from src.tracing import mlflow as mod
+        from src.tracing import mlflow_init as mod
 
         orig_checked = mod._traces_checked
         orig_available = mod._traces_available
@@ -575,7 +575,7 @@ class TestCheckTraceBackend:
             mod._traces_available = orig_available
 
     def test_local_backend(self):
-        from src.tracing import mlflow as mod
+        from src.tracing import mlflow_init as mod
 
         orig_checked = mod._traces_checked
         orig_available = mod._traces_available

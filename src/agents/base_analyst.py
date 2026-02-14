@@ -26,14 +26,15 @@ if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
 from src.agents import BaseAgent
+from src.agents.analyst_config_mixin import AnalystConfigMixin
+from src.agents.analyst_discussion_mixin import AnalystDiscussionMixin
+from src.agents.analyst_persistence_mixin import AnalystPersistenceMixin
 from src.agents.execution_context import emit_communication
 from src.agents.model_context import get_model_context, resolve_model
 from src.agents.prompts import load_depth_fragment
-from src.dal import InsightRepository
 from src.graph.state import (
     AgentRole,
     AnalysisState,
-    CommunicationEntry,
     SpecialistFinding,
     TeamAnalysis,
 )
@@ -42,12 +43,17 @@ from src.llm import get_llm
 from src.sandbox.policies import get_policy_for_depth
 from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
-from src.storage.entities.insight import InsightType
 
 logger = logging.getLogger(__name__)
 
 
-class BaseAnalyst(BaseAgent, ABC):
+class BaseAnalyst(
+    AnalystConfigMixin,
+    AnalystPersistenceMixin,
+    AnalystDiscussionMixin,
+    BaseAgent,
+    ABC,
+):
     """Abstract base for DS team specialist agents.
 
     Provides shared infrastructure so specialists only need to implement
@@ -103,8 +109,13 @@ class BaseAnalyst(BaseAgent, ABC):
             self._ha_client = get_ha_client()
         return self._ha_client
 
+    @ha.setter
+    def ha(self, value: HAClient) -> None:
+        """Set HA client (for testing or injection)."""
+        self._ha_client = value
+
     @property
-    def llm(self) -> BaseChatModel:
+    def llm(self) -> BaseChatModel:  # type: ignore[override]  # writeable in parent
         """Get LLM using model context resolution chain.
 
         Resolution order:
@@ -112,7 +123,6 @@ class BaseAnalyst(BaseAgent, ABC):
             2. Per-agent settings from .env
             3. Global default
         """
-
         settings = get_settings()
         # Use DATA_SCIENTIST_MODEL as fallback for all analysts
         model_name, temperature = resolve_model(
@@ -126,81 +136,6 @@ class BaseAnalyst(BaseAgent, ABC):
         if self._llm is None:
             self._llm = get_llm(model=model_name, temperature=temperature)
         return self._llm
-
-    # -----------------------------------------------------------------
-    # Config review (used by review workflow)
-    # -----------------------------------------------------------------
-
-    async def analyze_config(
-        self,
-        configs: dict[str, str],
-        entity_context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Analyze HA configs through this specialist's lens.
-
-        Uses the LLM to review YAML configurations and produce findings
-        from this specialist's domain perspective (energy, behavioral,
-        diagnostic). Called by the config review workflow.
-
-        Args:
-            configs: Mapping of entity_id -> YAML config string.
-            entity_context: Optional context (areas, entities, registry).
-
-        Returns:
-            Dict with ``findings`` key containing a list of finding dicts.
-        """
-        from langchain_core.messages import HumanMessage, SystemMessage
-
-        # Build a specialist-appropriate prompt
-        role_name = self.NAME
-        configs_block = "\n---\n".join(f"# {eid}\n{yaml_str}" for eid, yaml_str in configs.items())
-        context_block = json.dumps(entity_context or {}, default=str)[:2000]
-
-        system_prompt = (
-            f"You are {role_name}, a specialist on the Data Science team.\n"
-            f"Analyze the following Home Assistant configuration(s) from your "
-            f"domain perspective. Focus on issues, improvements, and best "
-            f"practices relevant to your specialty.\n\n"
-            f"Return your findings as a JSON array. Each element must have:\n"
-            f'  "title": short finding title,\n'
-            f'  "description": detailed explanation,\n'
-            f'  "specialist": "{self.ROLE.value}",\n'
-            f'  "confidence": float 0-1,\n'
-            f'  "entities": [list of entity_ids this applies to]\n\n'
-            f"Return ONLY the JSON array, no markdown fencing."
-        )
-
-        user_prompt = (
-            f"Configurations to review:\n```yaml\n{configs_block}\n```\n\n"
-            f"Entity context:\n{context_block}"
-        )
-
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-
-        try:
-            response = await self.llm.ainvoke(messages)
-            content = str(response.content).strip()
-            # Strip markdown fencing if present
-            if content.startswith("```"):
-                content = content.split("\n", 1)[1] if "\n" in content else content
-            if content.endswith("```"):
-                content = content.rsplit("```", 1)[0]
-            findings = json.loads(content.strip())
-            if not isinstance(findings, list):
-                findings = []
-        except json.JSONDecodeError:
-            logger.warning(
-                "%s: failed to parse analyze_config LLM response (JSON decode error)", self.NAME
-            )
-            findings = []
-        except Exception:
-            logger.warning("%s: failed to parse analyze_config LLM response", self.NAME)
-            findings = []
-
-        return {"findings": findings}
 
     # -----------------------------------------------------------------
     # Abstract methods (subclass responsibility)
@@ -390,223 +325,3 @@ class BaseAnalyst(BaseAgent, ABC):
         # Return updated state
         state.team_analysis = ta
         return state
-
-    # -----------------------------------------------------------------
-    # Shared: Insight persistence
-    # -----------------------------------------------------------------
-
-    async def persist_findings(
-        self,
-        findings: list[SpecialistFinding],
-        session: Any,
-    ) -> list[str]:
-        """Persist findings as Insights in the database.
-
-        Reads conversation_id and task_label from the active execution
-        context (if present) to tag insights with their originating task.
-
-        Args:
-            findings: Specialist findings to persist.
-            session: Database session.
-
-        Returns:
-            List of persisted insight IDs.
-        """
-        from src.agents.execution_context import get_execution_context
-
-        ctx = get_execution_context()
-        conversation_id = ctx.conversation_id if ctx else None
-        task_label = ctx.task_label if ctx else None
-
-        repo = InsightRepository(session)
-        ids = []
-
-        for finding in findings:
-            # Map finding_type to InsightType
-            mapped_type = self._map_finding_type(finding.finding_type)
-
-            # Derive impact from confidence
-            if finding.confidence >= 0.8:
-                impact = "high"
-            elif finding.confidence >= 0.5:
-                impact = "medium"
-            else:
-                impact = "low"
-
-            insight = await repo.create(
-                title=finding.title,
-                description=finding.description,
-                type=mapped_type,
-                confidence=finding.confidence,
-                entities=finding.entities,
-                evidence=finding.evidence or {},
-                impact=impact,
-                conversation_id=conversation_id,
-                task_label=task_label,
-            )
-            ids.append(str(insight.id))
-
-        return ids
-
-    async def _persist_with_fallback(
-        self,
-        findings: list[SpecialistFinding],
-        session: Any | None = None,
-    ) -> list[str]:
-        """Persist findings using explicit session or execution context fallback.
-
-        Resolution order:
-            1. Explicit session (passed as argument)
-            2. Session from active execution context's session_factory
-            3. Skip persistence (no session available)
-
-        Args:
-            findings: Specialist findings to persist.
-            session: Optional explicit database session.
-
-        Returns:
-            List of persisted insight IDs, or empty list if no session.
-        """
-        if not findings:
-            return []
-
-        # Priority 1: Explicit session
-        if session is not None:
-            return await self.persist_findings(findings, session)
-
-        # Priority 2: Execution context session factory
-        from src.agents.execution_context import get_execution_context
-
-        ctx = get_execution_context()
-        if ctx and ctx.session_factory:
-            async with ctx.session_factory() as ctx_session:
-                return await self.persist_findings(findings, ctx_session)
-
-        # No session available — skip persistence
-        logger.debug(
-            "%s: skipping insight persistence (no session or execution context)",
-            self.NAME,
-        )
-        return []
-
-    def _map_finding_type(self, finding_type: str) -> InsightType:
-        """Map specialist finding_type to InsightType enum."""
-        mapping = {
-            "insight": InsightType.USAGE_PATTERN,
-            "concern": InsightType.ANOMALY_DETECTION,
-            "recommendation": InsightType.ENERGY_OPTIMIZATION,
-            "data_quality_flag": InsightType.ANOMALY_DETECTION,
-        }
-        return mapping.get(finding_type, InsightType.USAGE_PATTERN)
-
-    # -----------------------------------------------------------------
-    # Discussion round (Feature 33: Advanced Collaboration — B1)
-    # -----------------------------------------------------------------
-
-    async def discuss(
-        self,
-        all_findings_summary: str,
-    ) -> list[CommunicationEntry]:
-        """Participate in a discussion round after all specialists have run.
-
-        Receives a summary of *all* specialists' findings and returns
-        cross-references, agreements, and disagreements as a list of
-        ``CommunicationEntry`` objects.  Capped at one round to bound cost.
-
-        Args:
-            all_findings_summary: Textual summary of all specialist findings.
-
-        Returns:
-            List of discussion CommunicationEntry objects (may be empty on
-            error or if the LLM produces unparseable output).
-        """
-        from langchain_core.messages import HumanMessage, SystemMessage
-
-        system_prompt = (
-            f"You are {self.NAME}, a specialist on the Data Science team.\n"
-            "You have already completed your analysis.  Now review the combined "
-            "findings from ALL specialists and provide your discussion input.\n\n"
-            "Return a JSON object with:\n"
-            '  "cross_references": [list of cross-domain observations],\n'
-            '  "agreements": [findings you agree with],\n'
-            '  "disagreements": [findings you disagree with + reasoning]\n\n'
-            "Return ONLY the JSON object, no markdown fencing."
-        )
-
-        user_prompt = (
-            f"Combined findings from all specialists:\n\n{all_findings_summary}\n\n"
-            "Provide your cross-references, agreements, and disagreements."
-        )
-
-        try:
-            response = await self.llm.ainvoke(
-                [
-                    SystemMessage(content=system_prompt),
-                    HumanMessage(content=user_prompt),
-                ]
-            )
-            content = str(response.content).strip()
-
-            # Parse JSON response
-            import json as _json
-
-            # Strip markdown fencing if present
-            if content.startswith("```"):
-                content = content.split("\n", 1)[1] if "\n" in content else content
-            if content.endswith("```"):
-                content = content.rsplit("```", 1)[0]
-
-            parsed = _json.loads(content.strip())
-
-            entries: list[CommunicationEntry] = []
-
-            for xref in parsed.get("cross_references", []):
-                entries.append(
-                    CommunicationEntry(
-                        from_agent=self.NAME,
-                        to_agent="team",
-                        message_type="discussion",
-                        content=f"Cross-reference: {xref}",
-                        metadata={"sub_type": "cross_reference"},
-                    )
-                )
-            for agreement in parsed.get("agreements", []):
-                entries.append(
-                    CommunicationEntry(
-                        from_agent=self.NAME,
-                        to_agent="team",
-                        message_type="discussion",
-                        content=f"Agreement: {agreement}",
-                        metadata={"sub_type": "agreement"},
-                    )
-                )
-            for disagreement in parsed.get("disagreements", []):
-                entries.append(
-                    CommunicationEntry(
-                        from_agent=self.NAME,
-                        to_agent="team",
-                        message_type="discussion",
-                        content=f"Disagreement: {disagreement}",
-                        metadata={"sub_type": "disagreement"},
-                    )
-                )
-
-            # Log each entry to execution context communication log
-            for entry in entries:
-                emit_communication(
-                    from_agent=entry.from_agent,
-                    to_agent=entry.to_agent,
-                    message_type=entry.message_type,
-                    content=entry.content,
-                    metadata=entry.metadata,
-                )
-
-            return entries
-
-        except Exception:
-            logger.warning(
-                "%s: discussion round failed",
-                self.NAME,
-                exc_info=True,
-            )
-            return []

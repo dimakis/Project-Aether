@@ -200,7 +200,7 @@ class TestListAutomations:
     ):
         """Should return automations with total and enabled/disabled counts."""
         with patch(
-            "src.api.routes.ha_registry.AutomationRepository",
+            "src.api.routes.ha_registry.automations.AutomationRepository",
             return_value=mock_automation_repo,
         ):
             response = await registry_client.get("/api/v1/registry/automations")
@@ -218,7 +218,7 @@ class TestListAutomations:
     async def test_list_automations_with_state_filter(self, registry_client, mock_automation_repo):
         """Should pass state filter to repository."""
         with patch(
-            "src.api.routes.ha_registry.AutomationRepository",
+            "src.api.routes.ha_registry.automations.AutomationRepository",
             return_value=mock_automation_repo,
         ):
             response = await registry_client.get("/api/v1/registry/automations?state=on")
@@ -231,7 +231,7 @@ class TestListAutomations:
     async def test_list_automations_with_pagination(self, registry_client, mock_automation_repo):
         """Should pass limit and offset to repository."""
         with patch(
-            "src.api.routes.ha_registry.AutomationRepository",
+            "src.api.routes.ha_registry.automations.AutomationRepository",
             return_value=mock_automation_repo,
         ):
             response = await registry_client.get("/api/v1/registry/automations?limit=10&offset=5")
@@ -247,7 +247,9 @@ class TestListAutomations:
         repo.list_all = AsyncMock(return_value=[])
         repo.count = AsyncMock(return_value=0)
 
-        with patch("src.api.routes.ha_registry.AutomationRepository", return_value=repo):
+        with patch(
+            "src.api.routes.ha_registry.automations.AutomationRepository", return_value=repo
+        ):
             response = await registry_client.get("/api/v1/registry/automations")
 
             assert response.status_code == 200
@@ -267,7 +269,7 @@ class TestGetAutomation:
     ):
         """Should find automation by internal UUID."""
         with patch(
-            "src.api.routes.ha_registry.AutomationRepository",
+            "src.api.routes.ha_registry.automations.AutomationRepository",
             return_value=mock_automation_repo,
         ):
             response = await registry_client.get(f"/api/v1/registry/automations/{_AUTO_UUID}")
@@ -286,7 +288,7 @@ class TestGetAutomation:
         mock_automation_repo.get_by_ha_automation_id = AsyncMock(return_value=mock_automation)
 
         with patch(
-            "src.api.routes.ha_registry.AutomationRepository",
+            "src.api.routes.ha_registry.automations.AutomationRepository",
             return_value=mock_automation_repo,
         ):
             response = await registry_client.get("/api/v1/registry/automations/auto_123")
@@ -303,7 +305,7 @@ class TestGetAutomation:
         mock_automation_repo.get_by_entity_id = AsyncMock(return_value=mock_automation)
 
         with patch(
-            "src.api.routes.ha_registry.AutomationRepository",
+            "src.api.routes.ha_registry.automations.AutomationRepository",
             return_value=mock_automation_repo,
         ):
             response = await registry_client.get("/api/v1/registry/automations/test_automation")
@@ -320,7 +322,9 @@ class TestGetAutomation:
         repo.get_by_ha_automation_id = AsyncMock(return_value=None)
         repo.get_by_entity_id = AsyncMock(return_value=None)
 
-        with patch("src.api.routes.ha_registry.AutomationRepository", return_value=repo):
+        with patch(
+            "src.api.routes.ha_registry.automations.AutomationRepository", return_value=repo
+        ):
             response = await registry_client.get("/api/v1/registry/automations/nonexistent")
 
             assert response.status_code == 404
@@ -341,7 +345,7 @@ class TestGetAutomationConfig:
 
         with (
             patch(
-                "src.api.routes.ha_registry.AutomationRepository",
+                "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
@@ -369,7 +373,7 @@ class TestGetAutomationConfig:
 
         with (
             patch(
-                "src.api.routes.ha_registry.AutomationRepository",
+                "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
@@ -391,7 +395,9 @@ class TestGetAutomationConfig:
         repo.get_by_ha_automation_id = AsyncMock(return_value=None)
         repo.get_by_entity_id = AsyncMock(return_value=None)
 
-        with patch("src.api.routes.ha_registry.AutomationRepository", return_value=repo):
+        with patch(
+            "src.api.routes.ha_registry.automations.AutomationRepository", return_value=repo
+        ):
             response = await registry_client.get("/api/v1/registry/automations/nonexistent/config")
 
             assert response.status_code == 404
@@ -407,7 +413,7 @@ class TestGetAutomationConfig:
 
         with (
             patch(
-                "src.api.routes.ha_registry.AutomationRepository",
+                "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
@@ -429,7 +435,7 @@ class TestGetAutomationConfig:
 
         with (
             patch(
-                "src.api.routes.ha_registry.AutomationRepository",
+                "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
@@ -455,7 +461,9 @@ class TestListScripts:
         self, registry_client, mock_script_repo, mock_script
     ):
         """Should return scripts with total and running count."""
-        with patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo):
+        with patch(
+            "src.api.routes.ha_registry.scripts.ScriptRepository", return_value=mock_script_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scripts")
 
             assert response.status_code == 200
@@ -469,7 +477,9 @@ class TestListScripts:
 
     async def test_list_scripts_with_state_filter(self, registry_client, mock_script_repo):
         """Should pass state filter to repository."""
-        with patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo):
+        with patch(
+            "src.api.routes.ha_registry.scripts.ScriptRepository", return_value=mock_script_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scripts?state=on")
 
             assert response.status_code == 200
@@ -485,7 +495,7 @@ class TestListScripts:
         repo.list_all = AsyncMock(return_value=[])
         repo.count = AsyncMock(return_value=0)
 
-        with patch("src.api.routes.ha_registry.ScriptRepository", return_value=repo):
+        with patch("src.api.routes.ha_registry.scripts.ScriptRepository", return_value=repo):
             response = await registry_client.get("/api/v1/registry/scripts")
 
             assert response.status_code == 200
@@ -501,7 +511,9 @@ class TestGetScript:
 
     async def test_get_script_by_internal_id(self, registry_client, mock_script_repo, mock_script):
         """Should find script by internal UUID."""
-        with patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo):
+        with patch(
+            "src.api.routes.ha_registry.scripts.ScriptRepository", return_value=mock_script_repo
+        ):
             response = await registry_client.get(f"/api/v1/registry/scripts/{_SCRIPT_UUID}")
 
             assert response.status_code == 200
@@ -515,7 +527,9 @@ class TestGetScript:
         mock_script_repo.get_by_id = AsyncMock(return_value=None)
         mock_script_repo.get_by_entity_id = AsyncMock(return_value=mock_script)
 
-        with patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo):
+        with patch(
+            "src.api.routes.ha_registry.scripts.ScriptRepository", return_value=mock_script_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scripts/test_script")
 
             assert response.status_code == 200
@@ -528,7 +542,9 @@ class TestGetScript:
         mock_script_repo.get_by_id = AsyncMock(return_value=None)
         mock_script_repo.get_by_entity_id = AsyncMock(return_value=mock_script)
 
-        with patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo):
+        with patch(
+            "src.api.routes.ha_registry.scripts.ScriptRepository", return_value=mock_script_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scripts/script.test_script")
 
             assert response.status_code == 200
@@ -540,7 +556,7 @@ class TestGetScript:
         repo.get_by_id = AsyncMock(return_value=None)
         repo.get_by_entity_id = AsyncMock(return_value=None)
 
-        with patch("src.api.routes.ha_registry.ScriptRepository", return_value=repo):
+        with patch("src.api.routes.ha_registry.scripts.ScriptRepository", return_value=repo):
             response = await registry_client.get("/api/v1/registry/scripts/nonexistent")
 
             assert response.status_code == 404
@@ -560,7 +576,9 @@ class TestListScenes:
         self, registry_client, mock_scene_repo, mock_scene
     ):
         """Should return scenes with total count."""
-        with patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo):
+        with patch(
+            "src.api.routes.ha_registry.scenes.SceneRepository", return_value=mock_scene_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scenes")
 
             assert response.status_code == 200
@@ -573,7 +591,9 @@ class TestListScenes:
 
     async def test_list_scenes_with_pagination(self, registry_client, mock_scene_repo):
         """Should pass limit and offset to repository."""
-        with patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo):
+        with patch(
+            "src.api.routes.ha_registry.scenes.SceneRepository", return_value=mock_scene_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scenes?limit=10&offset=5")
 
             assert response.status_code == 200
@@ -587,7 +607,7 @@ class TestListScenes:
         repo.list_all = AsyncMock(return_value=[])
         repo.count = AsyncMock(return_value=0)
 
-        with patch("src.api.routes.ha_registry.SceneRepository", return_value=repo):
+        with patch("src.api.routes.ha_registry.scenes.SceneRepository", return_value=repo):
             response = await registry_client.get("/api/v1/registry/scenes")
 
             assert response.status_code == 200
@@ -602,7 +622,9 @@ class TestGetScene:
 
     async def test_get_scene_by_internal_id(self, registry_client, mock_scene_repo, mock_scene):
         """Should find scene by internal UUID."""
-        with patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo):
+        with patch(
+            "src.api.routes.ha_registry.scenes.SceneRepository", return_value=mock_scene_repo
+        ):
             response = await registry_client.get(f"/api/v1/registry/scenes/{_SCENE_UUID}")
 
             assert response.status_code == 200
@@ -616,7 +638,9 @@ class TestGetScene:
         mock_scene_repo.get_by_id = AsyncMock(return_value=None)
         mock_scene_repo.get_by_entity_id = AsyncMock(return_value=mock_scene)
 
-        with patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo):
+        with patch(
+            "src.api.routes.ha_registry.scenes.SceneRepository", return_value=mock_scene_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scenes/test_scene")
 
             assert response.status_code == 200
@@ -627,7 +651,9 @@ class TestGetScene:
         mock_scene_repo.get_by_id = AsyncMock(return_value=None)
         mock_scene_repo.get_by_entity_id = AsyncMock(return_value=mock_scene)
 
-        with patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo):
+        with patch(
+            "src.api.routes.ha_registry.scenes.SceneRepository", return_value=mock_scene_repo
+        ):
             response = await registry_client.get("/api/v1/registry/scenes/scene.test_scene")
 
             assert response.status_code == 200
@@ -639,7 +665,7 @@ class TestGetScene:
         repo.get_by_id = AsyncMock(return_value=None)
         repo.get_by_entity_id = AsyncMock(return_value=None)
 
-        with patch("src.api.routes.ha_registry.SceneRepository", return_value=repo):
+        with patch("src.api.routes.ha_registry.scenes.SceneRepository", return_value=repo):
             response = await registry_client.get("/api/v1/registry/scenes/nonexistent")
 
             assert response.status_code == 404
@@ -659,7 +685,9 @@ class TestListServices:
         self, registry_client, mock_service_repo, mock_service
     ):
         """Should return services with total, domains, and seeded/discovered counts."""
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo):
+        with patch(
+            "src.api.routes.ha_registry.services.ServiceRepository", return_value=mock_service_repo
+        ):
             response = await registry_client.get("/api/v1/registry/services")
 
             assert response.status_code == 200
@@ -675,7 +703,9 @@ class TestListServices:
 
     async def test_list_services_with_domain_filter(self, registry_client, mock_service_repo):
         """Should pass domain filter to repository."""
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo):
+        with patch(
+            "src.api.routes.ha_registry.services.ServiceRepository", return_value=mock_service_repo
+        ):
             response = await registry_client.get("/api/v1/registry/services?domain=light")
 
             assert response.status_code == 200
@@ -685,7 +715,9 @@ class TestListServices:
 
     async def test_list_services_with_pagination(self, registry_client, mock_service_repo):
         """Should pass limit and offset to repository."""
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo):
+        with patch(
+            "src.api.routes.ha_registry.services.ServiceRepository", return_value=mock_service_repo
+        ):
             response = await registry_client.get("/api/v1/registry/services?limit=50&offset=10")
 
             assert response.status_code == 200
@@ -700,7 +732,7 @@ class TestListServices:
         repo.count = AsyncMock(return_value=0)
         repo.get_domains = AsyncMock(return_value=[])
 
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=repo):
+        with patch("src.api.routes.ha_registry.services.ServiceRepository", return_value=repo):
             response = await registry_client.get("/api/v1/registry/services")
 
             assert response.status_code == 200
@@ -720,7 +752,9 @@ class TestGetService:
         self, registry_client, mock_service_repo, mock_service
     ):
         """Should find service by internal UUID."""
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo):
+        with patch(
+            "src.api.routes.ha_registry.services.ServiceRepository", return_value=mock_service_repo
+        ):
             response = await registry_client.get(f"/api/v1/registry/services/{_SERVICE_UUID}")
 
             assert response.status_code == 200
@@ -735,7 +769,9 @@ class TestGetService:
         mock_service_repo.get_by_id = AsyncMock(return_value=None)
         mock_service_repo.get_service_info = AsyncMock(return_value=mock_service)
 
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo):
+        with patch(
+            "src.api.routes.ha_registry.services.ServiceRepository", return_value=mock_service_repo
+        ):
             response = await registry_client.get("/api/v1/registry/services/light.turn_on")
 
             assert response.status_code == 200
@@ -747,7 +783,7 @@ class TestGetService:
         repo.get_by_id = AsyncMock(return_value=None)
         repo.get_service_info = AsyncMock(return_value=None)
 
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=repo):
+        with patch("src.api.routes.ha_registry.services.ServiceRepository", return_value=repo):
             response = await registry_client.get("/api/v1/registry/services/nonexistent")
 
             assert response.status_code == 404
@@ -764,7 +800,10 @@ class TestCallService:
         mock_ha_client.call_service = AsyncMock()
 
         with (
-            patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo),
+            patch(
+                "src.api.routes.ha_registry.services.ServiceRepository",
+                return_value=mock_service_repo,
+            ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
             response = await registry_client.post(
@@ -795,7 +834,10 @@ class TestCallService:
         mock_ha_client.call_service = AsyncMock()
 
         with (
-            patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo),
+            patch(
+                "src.api.routes.ha_registry.services.ServiceRepository",
+                return_value=mock_service_repo,
+            ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
             response = await registry_client.post(
@@ -812,7 +854,9 @@ class TestCallService:
         self, registry_client, mock_service_repo, mock_service
     ):
         """Should block calls to dangerous domains."""
-        with patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo):
+        with patch(
+            "src.api.routes.ha_registry.services.ServiceRepository", return_value=mock_service_repo
+        ):
             response = await registry_client.post(
                 "/api/v1/registry/services/call",
                 json={"domain": "homeassistant", "service": "restart"},
@@ -828,7 +872,10 @@ class TestCallService:
         mock_ha_client.call_service = AsyncMock(side_effect=Exception("HA error"))
 
         with (
-            patch("src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo),
+            patch(
+                "src.api.routes.ha_registry.services.ServiceRepository",
+                return_value=mock_service_repo,
+            ),
             patch("src.ha.get_ha_client", return_value=mock_ha_client),
         ):
             response = await registry_client.post(
@@ -939,13 +986,20 @@ class TestGetRegistrySummary:
         ) as client:
             with (
                 patch(
-                    "src.api.routes.ha_registry.AutomationRepository",
+                    "src.api.routes.ha_registry.summary.AutomationRepository",
                     return_value=mock_automation_repo,
                 ),
-                patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo),
-                patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo),
                 patch(
-                    "src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo
+                    "src.api.routes.ha_registry.summary.ScriptRepository",
+                    return_value=mock_script_repo,
+                ),
+                patch(
+                    "src.api.routes.ha_registry.summary.SceneRepository",
+                    return_value=mock_scene_repo,
+                ),
+                patch(
+                    "src.api.routes.ha_registry.summary.ServiceRepository",
+                    return_value=mock_service_repo,
                 ),
             ):
                 response = await client.get("/api/v1/registry/summary")
@@ -997,13 +1051,20 @@ class TestGetRegistrySummary:
         ) as client:
             with (
                 patch(
-                    "src.api.routes.ha_registry.AutomationRepository",
+                    "src.api.routes.ha_registry.summary.AutomationRepository",
                     return_value=mock_automation_repo,
                 ),
-                patch("src.api.routes.ha_registry.ScriptRepository", return_value=mock_script_repo),
-                patch("src.api.routes.ha_registry.SceneRepository", return_value=mock_scene_repo),
                 patch(
-                    "src.api.routes.ha_registry.ServiceRepository", return_value=mock_service_repo
+                    "src.api.routes.ha_registry.summary.ScriptRepository",
+                    return_value=mock_script_repo,
+                ),
+                patch(
+                    "src.api.routes.ha_registry.summary.SceneRepository",
+                    return_value=mock_scene_repo,
+                ),
+                patch(
+                    "src.api.routes.ha_registry.summary.ServiceRepository",
+                    return_value=mock_service_repo,
                 ),
             ):
                 response = await client.get("/api/v1/registry/summary")

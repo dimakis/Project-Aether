@@ -44,7 +44,7 @@ class TestArchitectReceiveSuggestion:
 }
 ```"""
 
-        with patch("src.agents.architect.get_llm") as mock_get_llm:
+        with patch("src.agents.architect.agent.get_llm") as mock_get_llm:
             mock_llm = AsyncMock()
             mock_llm.ainvoke = AsyncMock(return_value=mock_response)
             mock_get_llm.return_value = mock_llm

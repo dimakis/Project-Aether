@@ -3,17 +3,12 @@ import {
   FileCheck,
   Lightbulb,
   Cpu,
-  Activity,
   AlertTriangle,
-  CheckCircle2,
-  Clock,
   ArrowRight,
   Zap,
   Play,
   MessageSquare,
   Search,
-  Wifi,
-  WifiOff,
   DollarSign,
   Bot,
   MapPin,
@@ -24,7 +19,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import type { AgentDetail, InsightSchedule, ModelPerformanceItem, UsageModelBreakdown } from "@/lib/types";
 import {
   useSystemStatus,
@@ -40,10 +34,12 @@ import {
   useInsightSchedules,
   useHAZones,
 } from "@/api/hooks";
-import { COMPONENT_ICONS, STATUS_COLORS } from "./constants";
-import { formatUptime } from "./helpers";
 import { StatCard } from "./StatCard";
-import { RecentActivityFeed } from "./RecentActivityFeed";
+import {
+  SystemOverviewCard,
+  RecentActivityCard,
+  EntityStatusCard,
+} from "./cards";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -106,99 +102,7 @@ export function DashboardPage() {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           System Health
         </h2>
-        {statusLoading ? (
-          <div className="grid gap-3 sm:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-20" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-4">
-            {/* Overall status */}
-            <Card
-              className={cn(
-                "cursor-pointer border transition-all hover:shadow-md",
-                status?.status === "healthy"
-                  ? "border-emerald-500/20"
-                  : "border-amber-500/20",
-              )}
-              onClick={() => navigate("/diagnostics")}
-            >
-              <CardContent className="flex items-center gap-3 p-4">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg",
-                    STATUS_COLORS[status?.status ?? "healthy"]?.bg,
-                  )}
-                >
-                  <Activity
-                    className={cn(
-                      "h-5 w-5",
-                      STATUS_COLORS[status?.status ?? "healthy"]?.text,
-                    )}
-                  />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    System
-                  </p>
-                  <p className="text-sm font-semibold capitalize">
-                    {status?.status ?? "Unknown"}
-                  </p>
-                  {status?.uptime_seconds != null && (
-                    <p className="text-[10px] text-muted-foreground">
-                      Up {formatUptime(status.uptime_seconds)}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Individual components */}
-            {status?.components?.map((comp) => {
-              const colors = STATUS_COLORS[comp.status] ?? STATUS_COLORS.healthy;
-              const Icon = COMPONENT_ICONS[comp.name] ?? Wifi;
-              return (
-                <Card
-                  key={comp.name}
-                  className="cursor-pointer transition-all hover:shadow-md"
-                  onClick={() => navigate("/diagnostics")}
-                >
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-lg",
-                        colors.bg,
-                      )}
-                    >
-                      {comp.status === "unhealthy" ? (
-                        <WifiOff className={cn("h-5 w-5", colors.text)} />
-                      ) : (
-                        <Icon className={cn("h-5 w-5", colors.text)} />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        {comp.name.replace(/_/g, " ")}
-                      </p>
-                      <p className="text-sm font-semibold capitalize">
-                        {comp.status}
-                      </p>
-                      {comp.latency_ms != null && (
-                        <p className="text-[10px] text-muted-foreground">
-                          {comp.latency_ms.toFixed(0)}ms
-                        </p>
-                      )}
-                    </div>
-                    <div
-                      className={cn("h-2 w-2 rounded-full", colors.dot)}
-                    />
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        <SystemOverviewCard status={status} isLoading={statusLoading} />
       </div>
 
       {/* Clickable Stats */}
@@ -261,72 +165,12 @@ export function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Activity - spans 2 cols */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Pending Proposals */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-amber-400" />
-                Awaiting Approval
-              </CardTitle>
-              <Link to="/proposals">
-                <Button variant="ghost" size="sm" className="h-7 text-xs">
-                  View All
-                  <ArrowRight className="ml-1 h-3 w-3" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {proposalsLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-14" />
-                  <Skeleton className="h-14" />
-                </div>
-              ) : (pendingProposals?.length ?? 0) > 0 ? (
-                <div className="space-y-2">
-                  {pendingProposals?.slice(0, 4).map((p) => (
-                    <Link
-                      key={p.id}
-                      to={`/proposals?id=${p.id}`}
-                      className="flex items-center justify-between rounded-lg border border-border/50 p-3 transition-all hover:border-border hover:bg-accent/50"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{p.name}</p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {p.description || "No description"}
-                        </p>
-                      </div>
-                      <Badge className="ml-3 shrink-0 bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20 text-[10px]">
-                        Pending
-                      </Badge>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 py-6 text-center">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-400/50" />
-                  <p className="text-sm text-muted-foreground">
-                    No proposals awaiting approval
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity Feed */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Activity className="h-4 w-4 text-primary" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <RecentActivityFeed
-                proposals={recentProposals?.items ?? []}
-                insights={recentInsights?.items ?? []}
-              />
-            </CardContent>
-          </Card>
+          <RecentActivityCard
+            pendingProposals={pendingProposals}
+            proposalsLoading={proposalsLoading}
+            recentProposals={recentProposals?.items ?? []}
+            recentInsights={recentInsights?.items ?? []}
+          />
         </div>
 
         {/* Right column */}
@@ -569,51 +413,10 @@ export function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Entity Domains */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Cpu className="h-4 w-4 text-purple-400" />
-                Entity Domains
-              </CardTitle>
-              <Link to="/entities">
-                <Button variant="ghost" size="sm" className="h-7 text-xs">
-                  Browse
-                  <ArrowRight className="ml-1 h-3 w-3" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {domainsLoading ? (
-                <Skeleton className="h-16" />
-              ) : (domainsSummary?.length ?? 0) > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {domainsSummary?.slice(0, 15).map((d) => (
-                    <Link key={d.domain} to={`/entities?domain=${d.domain}`}>
-                      <Badge
-                        variant="secondary"
-                        className="cursor-pointer text-[10px] transition-colors hover:bg-accent"
-                      >
-                        {d.domain}
-                        <span className="ml-1 text-muted-foreground">
-                          {d.count}
-                        </span>
-                      </Badge>
-                    </Link>
-                  ))}
-                  {(domainsSummary?.length ?? 0) > 15 && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      +{(domainsSummary?.length ?? 0) - 15} more
-                    </Badge>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  No entities discovered yet
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <EntityStatusCard
+            domainsSummary={domainsSummary}
+            isLoading={domainsLoading}
+          />
         </div>
       </div>
     </div>

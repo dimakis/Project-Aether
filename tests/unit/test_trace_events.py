@@ -267,12 +267,15 @@ class TestStreamEmitsTraceEvents:
         mock_workflow.stream_conversation = _fake_stream_conversation
 
         with (
-            patch("src.api.routes.openai_compat.get_session") as mock_gs,
-            patch("src.api.routes.openai_compat.start_experiment_run") as mock_run,
-            patch("src.api.routes.openai_compat.session_context"),
-            patch("src.api.routes.openai_compat.model_context"),
-            patch("src.api.routes.openai_compat.ArchitectWorkflow", return_value=mock_workflow),
-            patch("src.api.routes.openai_compat.log_param"),
+            patch("src.api.routes.openai_compat.handlers.get_session") as mock_gs,
+            patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
+            patch("src.api.routes.openai_compat.handlers.session_context"),
+            patch("src.api.routes.openai_compat.handlers.model_context"),
+            patch(
+                "src.api.routes.openai_compat.handlers.ArchitectWorkflow",
+                return_value=mock_workflow,
+            ),
+            patch("src.api.routes.openai_compat.handlers.log_param"),
         ):
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)

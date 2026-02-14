@@ -115,17 +115,17 @@ class TestConsultDataScienceTeam:
         """Patch the internal runners so no real analysts are created."""
         with (
             patch(
-                "src.tools.specialist_tools._run_energy",
+                "src.tools.ds_team_tool._run_energy",
                 new_callable=AsyncMock,
                 return_value="Energy OK",
             ) as self.mock_energy,
             patch(
-                "src.tools.specialist_tools._run_behavioral",
+                "src.tools.ds_team_tool._run_behavioral",
                 new_callable=AsyncMock,
                 return_value="Behavioral OK",
             ) as self.mock_behavioral,
             patch(
-                "src.tools.specialist_tools._run_diagnostic",
+                "src.tools.ds_team_tool._run_diagnostic",
                 new_callable=AsyncMock,
                 return_value="Diagnostic OK",
             ) as self.mock_diagnostic,
