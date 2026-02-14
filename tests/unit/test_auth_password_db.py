@@ -18,31 +18,11 @@ from pydantic import SecretStr
 
 from src.api.main import create_app
 from src.settings import Settings, get_settings
+from tests.helpers.auth import make_test_settings
 
 # =============================================================================
 # Fixtures
 # =============================================================================
-
-
-def _make_settings(**overrides) -> Settings:
-    """Create test settings with auth defaults."""
-    defaults = {
-        "environment": "testing",
-        "debug": True,
-        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        "ha_url": "http://localhost:8123",
-        "ha_token": SecretStr("test-token"),
-        "openai_api_key": SecretStr("test-api-key"),
-        "mlflow_tracking_uri": "http://localhost:5000",
-        "sandbox_enabled": False,
-        "auth_username": "admin",
-        "auth_password": SecretStr("env-password-123"),
-        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-        "jwt_expiry_hours": 72,
-        "api_key": SecretStr(""),
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
 
 
 def _patch_settings(monkeypatch, settings: Settings) -> None:
@@ -82,7 +62,7 @@ class TestPasswordDBLogin:
     async def test_correct_db_password_returns_jwt(self, monkeypatch):
         """Correct DB password hash match returns JWT."""
         get_settings.cache_clear()
-        settings = _make_settings()
+        settings = make_test_settings(auth_password=SecretStr("env-password-123"))
         _patch_settings(monkeypatch, settings)
 
         db_password = "db-secret-password"
@@ -113,7 +93,7 @@ class TestPasswordDBLogin:
     async def test_wrong_db_password_falls_through_to_env(self, monkeypatch):
         """Wrong DB password falls through to env var and succeeds if matched."""
         get_settings.cache_clear()
-        settings = _make_settings(auth_password=SecretStr("env-password-123"))
+        settings = make_test_settings(auth_password=SecretStr("env-password-123"))
         _patch_settings(monkeypatch, settings)
 
         mock_config = MagicMock()
@@ -141,7 +121,7 @@ class TestPasswordDBLogin:
     async def test_no_db_config_uses_env_var(self, monkeypatch):
         """When no DB config exists, env var password works."""
         get_settings.cache_clear()
-        settings = _make_settings(auth_password=SecretStr("env-only-pass"))
+        settings = make_test_settings(auth_password=SecretStr("env-only-pass"))
         _patch_settings(monkeypatch, settings)
 
         with patch("src.api.routes.auth.get_session", _make_mock_session(None)):
@@ -164,7 +144,7 @@ class TestPasswordDBLogin:
     async def test_wrong_password_everywhere_returns_401(self, monkeypatch):
         """Wrong password for both DB and env returns 401."""
         get_settings.cache_clear()
-        settings = _make_settings(auth_password=SecretStr("env-pass"))
+        settings = make_test_settings(auth_password=SecretStr("env-pass"))
         _patch_settings(monkeypatch, settings)
 
         mock_config = MagicMock()
@@ -190,7 +170,7 @@ class TestPasswordDBLogin:
     async def test_no_password_configured_returns_501(self, monkeypatch):
         """No password configured (no DB, no env) returns 501."""
         get_settings.cache_clear()
-        settings = _make_settings(auth_password=SecretStr(""))
+        settings = make_test_settings(auth_password=SecretStr(""))
         _patch_settings(monkeypatch, settings)
 
         with patch("src.api.routes.auth.get_session", _make_mock_session(None)):
@@ -213,7 +193,7 @@ class TestPasswordDBLogin:
     async def test_db_password_without_hash_uses_env_fallback(self, monkeypatch):
         """DB config exists but password_hash is None -> falls to env var."""
         get_settings.cache_clear()
-        settings = _make_settings(auth_password=SecretStr("env-fallback"))
+        settings = make_test_settings(auth_password=SecretStr("env-fallback"))
         _patch_settings(monkeypatch, settings)
 
         mock_config = MagicMock()

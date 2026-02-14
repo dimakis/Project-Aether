@@ -160,8 +160,10 @@ class TestToolDispatcher:
         """A tool exceeding its timeout should produce an error tool_end."""
         from src.agents.streaming.dispatcher import dispatch_tool_calls
 
+        never_done = asyncio.Event()
+
         async def slow_tool(args):
-            await asyncio.sleep(10)
+            await never_done.wait()  # Block until cancelled by timeout
             return "should not reach"  # pragma: no cover
 
         mock_tool = MagicMock()

@@ -170,10 +170,12 @@ ignore_missing_imports = true
 
 # Modules with pre-existing type errors — strict checks relaxed until cleanup.
 # New modules MUST pass strict mypy. Burn this list down module-by-module.
-# Tracked: 356 errors across 71 modules as of 2026-02-09.
+# Reduced from 75 (2026-02-09) to 70 (2026-02-14) after decomposition.
+# Removed: settings, llm, tracing.mlflow (now pass strict mypy).
+# Remaining modules need targeted type annotation work (dict -> dict[str, Any], etc.).
 [[tool.mypy.overrides]]
 module = [
-    # Agents layer
+    # Agents layer — complex LLM kwargs and dynamic dispatch
     "src.agents.architect",
     "src.agents.behavioral_analyst",
     "src.agents.dashboard_designer",
@@ -190,12 +192,10 @@ module = [
     "src.api.routes.auth",
     "src.api.routes.chat",
     "src.api.routes.flow_grades",
-    "src.api.routes.ha_registry",
     "src.api.routes.ha_zones",
     "src.api.routes.insight_schedules",
     "src.api.routes.insights",
     "src.api.routes.model_ratings",
-    "src.api.routes.openai_compat",
     "src.api.routes.optimization",
     "src.api.routes.passkey",
     "src.api.routes.proposals",
@@ -225,7 +225,7 @@ module = [
     "src.graph",
     "src.graph.workflows",
     "src.graph.workflows.*",
-    # HA client
+    # HA client — httpx dynamic response handling
     "src.ha.automation_deploy",
     "src.ha.automations",
     "src.ha.base",
@@ -236,10 +236,8 @@ module = [
     "src.ha.helpers",
     "src.ha.history",
     # Core
-    "src.llm",
     "src.llm_call_context",
     "src.scheduler.service",
-    "src.settings",
     # Storage
     "src.storage.checkpoints",
     "src.storage.entities.automation_proposal",
@@ -257,7 +255,6 @@ module = [
     "src.tools.specialist_tools",
     # Tracing
     "src.tracing",
-    "src.tracing.mlflow",
     "src.tracing.scorers",
 ]
 disallow_untyped_defs = false

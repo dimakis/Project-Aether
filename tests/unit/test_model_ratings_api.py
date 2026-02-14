@@ -3,54 +3,23 @@
 Tests the /api/v1/models/* endpoints.
 """
 
-import time
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import jwt as pyjwt
 import pytest
 from httpx import ASGITransport, AsyncClient
-from pydantic import SecretStr, ValidationError
+from pydantic import ValidationError
 
 from src.api.main import create_app
-from src.settings import Settings, get_settings
-
-JWT_SECRET = "test-jwt-secret-key-for-testing-minimum-32bytes"
-
-
-def _make_settings(**overrides) -> Settings:
-    defaults = {
-        "environment": "testing",
-        "debug": True,
-        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        "ha_url": "http://localhost:8123",
-        "ha_token": SecretStr("test-token"),
-        "openai_api_key": SecretStr("test-api-key"),
-        "mlflow_tracking_uri": "http://localhost:5000",
-        "sandbox_enabled": False,
-        "auth_username": "admin",
-        "auth_password": SecretStr("test-password"),
-        "jwt_secret": SecretStr(JWT_SECRET),
-        "api_key": SecretStr(""),
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
-
-
-def _make_jwt() -> str:
-    payload = {
-        "sub": "admin",
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 72 * 3600,
-    }
-    return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
+from src.settings import get_settings
+from tests.helpers.auth import make_test_jwt, make_test_settings
 
 
 @pytest.fixture
 async def client(monkeypatch):
     """Test client with auth configured."""
     get_settings.cache_clear()
-    settings = _make_settings()
+    settings = make_test_settings()
     from src import settings as settings_module
 
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
@@ -151,7 +120,7 @@ class TestListRatings:
         assert response.status_code == 401
 
     async def test_returns_ratings(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
         mock_r1 = _mock_rating(id_val="r1", model_name="gpt-4o", rating=4)
         mock_r2 = _mock_rating(id_val="r2", model_name="gemini-2.0-flash", rating=5)
 
@@ -192,7 +161,7 @@ class TestCreateRating:
         assert response.status_code == 401
 
     async def test_creates_rating(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
         now = datetime.now(UTC)
 
         mock_session = AsyncMock()
@@ -230,7 +199,7 @@ class TestCreateRating:
         mock_session.commit.assert_awaited_once()
 
     async def test_rejects_invalid_rating(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
         response = await client.post(
             "/api/v1/models/ratings",
             json={
@@ -252,7 +221,7 @@ class TestModelSummary:
         assert response.status_code == 401
 
     async def test_returns_summary(self, client: AsyncClient):
-        token = _make_jwt()
+        token = make_test_jwt()
 
         # Aggregation result row
         agg_row = MagicMock()
