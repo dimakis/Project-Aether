@@ -4,6 +4,8 @@ Canonical location for get_all_tools() and get_architect_tools().
 These are re-exported from src.tools.__init__ for backward compatibility.
 """
 
+from typing import Any
+
 from src.tools.agent_tools import (
     get_agent_tools,
 )
@@ -27,7 +29,7 @@ from src.tools.specialist_tools import (
 )
 
 
-def get_all_tools() -> list:
+def get_all_tools() -> list[Any]:
     """Return every registered tool (superset for backward compat / testing).
 
     Combines HA tools (entity queries, control, diagnostics) with agent
@@ -52,10 +54,10 @@ def get_all_tools() -> list:
     )
 
 
-_cached_architect_tools: list | None = None
+_cached_architect_tools: list[Any] | None = None
 
 
-def get_architect_tools() -> list:
+def get_architect_tools() -> list[Any]:
     """Curated tool set for the Architect agent (lean router, 16 tools).
 
     The Architect is a conversationalist and router.  It does NOT directly
@@ -106,11 +108,11 @@ def get_architect_tools() -> list:
         create_insight_schedule as _create_insight_schedule,
     )
     from src.tools.review_tools import review_config as _review_config
-    from src.tools.specialist_tools import (
-        consult_dashboard_designer as _consult_dashboard,
-    )
-    from src.tools.specialist_tools import (
+    from src.tools.ds_team_tool import (
         consult_data_science_team as _consult_ds_team,
+    )
+    from src.tools.specialist_consult_tools import (
+        consult_dashboard_designer as _consult_dashboard,
     )
 
     _cached_architect_tools = [
