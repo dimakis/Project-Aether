@@ -23,11 +23,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { streamChat } from "@/api/client";
 import { queryKeys } from "@/api/hooks/queryKeys";
 import type { ChatMessage, EntityContext } from "@/lib/types";
 import { handleTraceEvent } from "@/lib/trace-event-handler";
 import type { TraceEventChunk } from "@/lib/trace-event-handler";
+import { useStreamChat } from "@/lib/useStreamChat";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -217,6 +217,106 @@ export function InlineAssistant({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggerMessage]);
 
+  // Refs for stream content accumulation (avoids stale closures)
+  const fullContentRef = useRef("");
+  const toolCallsUsedRef = useRef<string[]>([]);
+
+  const { stream, abort: abortStream } = useStreamChat({
+    onToken: (text) => {
+      fullContentRef.current += text;
+      const snapshot = fullContentRef.current;
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: snapshot,
+          isStreaming: true,
+        };
+        return updated;
+      });
+    },
+    onMetadata: (chunk) => {
+      if (chunk.tool_calls) {
+        toolCallsUsedRef.current = chunk.tool_calls;
+      }
+    },
+    onTrace: (chunk) => {
+      handleTraceEvent(
+        chunk as TraceEventChunk,
+        (activity) => {
+          setActiveAgent(activity.activeAgent ?? null);
+        },
+        {
+          isActive: false,
+          activeAgent: null,
+          agentsSeen: [],
+          agentStates: {},
+          liveTimeline: [],
+          thinkingStream: "",
+          activeEdges: [],
+          delegationMessages: [],
+          completedAt: null,
+        },
+      );
+    },
+    onDelegation: (chunk) => {
+      const msg: DelegationMsg = {
+        from: chunk.from,
+        to: chunk.to,
+        content: chunk.content,
+        ts: chunk.ts ?? Date.now() / 1000,
+      };
+      setDelegationMsgs((prev) => [...prev, msg]);
+    },
+    onDone: () => {
+      // Finalize message
+      const finalContent = fullContentRef.current;
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: finalContent,
+          isStreaming: false,
+        };
+        return updated;
+      });
+
+      // Invalidate relevant queries
+      for (const key of stableInvalidateKeys) {
+        queryClient.invalidateQueries({ queryKey: [...key] });
+      }
+      const usedTools = toolCallsUsedRef.current;
+      if (usedTools.length > 0) {
+        for (const toolName of usedTools) {
+          const keys = TOOL_INVALIDATION_MAP[toolName];
+          if (keys) {
+            for (const key of keys) {
+              queryClient.invalidateQueries({ queryKey: [...key] });
+            }
+          }
+        }
+      }
+
+      setIsStreaming(false);
+      setActiveAgent(null);
+      inputRef.current?.focus();
+    },
+    onError: () => {
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: "Sorry, I encountered an error. Please try again.",
+          isStreaming: false,
+        };
+        return updated;
+      });
+      setIsStreaming(false);
+      setActiveAgent(null);
+      inputRef.current?.focus();
+    },
+  });
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isStreamingRef.current) return;
@@ -232,7 +332,10 @@ export function InlineAssistant({
       setInput("");
       setIsStreaming(true);
 
-      // Build full message history from ref (avoids stale closure) with system + entity context
+      // Reset refs for this stream
+      fullContentRef.current = "";
+      toolCallsUsedRef.current = [];
+
       const chatHistory: ChatMessage[] = [
         { role: "system", content: effectiveSystemContext },
         ...messagesRef.current.map((m) => ({
@@ -242,109 +345,9 @@ export function InlineAssistant({
         { role: "user", content: content.trim() },
       ];
 
-      try {
-        let fullContent = "";
-        let toolCallsUsed: string[] = [];
-
-        for await (const chunk of streamChat(model, chatHistory)) {
-          if (typeof chunk === "object" && "type" in chunk) {
-            if (chunk.type === "metadata") {
-              // Capture tool calls from metadata for targeted invalidation
-              if (chunk.tool_calls) {
-                toolCallsUsed = chunk.tool_calls;
-              }
-              continue;
-            }
-            if (chunk.type === "trace") {
-              // Update local agent activity indicator
-              handleTraceEvent(
-                chunk as TraceEventChunk,
-                (activity) => {
-                  setActiveAgent(activity.activeAgent ?? null);
-                },
-                {
-                  isActive: false,
-                  activeAgent: null,
-                  agentsSeen: [],
-                  agentStates: {},
-                  liveTimeline: [],
-                  thinkingStream: "",
-                  activeEdges: [],
-                  delegationMessages: [],
-                  completedAt: null,
-                },
-              );
-              continue;
-            }
-            if (chunk.type === "delegation") {
-              // Capture inter-agent delegation messages
-              const msg: DelegationMsg = {
-                from: (chunk as Record<string, unknown>).from as string,
-                to: (chunk as Record<string, unknown>).to as string,
-                content: (chunk as Record<string, unknown>).content as string,
-                ts: ((chunk as Record<string, unknown>).ts as number) ?? Date.now() / 1000,
-              };
-              setDelegationMsgs((prev) => [...prev, msg]);
-              continue;
-            }
-          }
-          const text = typeof chunk === "string" ? chunk : "";
-          fullContent += text;
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = {
-              role: "assistant",
-              content: fullContent,
-              isStreaming: true,
-            };
-            return updated;
-          });
-        }
-
-        // Finalize
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: fullContent,
-            isStreaming: false,
-          };
-          return updated;
-        });
-
-        // Invalidate relevant queries so the page data refreshes
-        for (const key of stableInvalidateKeys) {
-          queryClient.invalidateQueries({ queryKey: [...key] });
-        }
-
-        // Targeted invalidation based on which tools the Architect called
-        if (toolCallsUsed.length > 0) {
-          for (const toolName of toolCallsUsed) {
-            const keys = TOOL_INVALIDATION_MAP[toolName];
-            if (keys) {
-              for (const key of keys) {
-                queryClient.invalidateQueries({ queryKey: [...key] });
-              }
-            }
-          }
-        }
-      } catch {
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: "Sorry, I encountered an error. Please try again.",
-            isStreaming: false,
-          };
-          return updated;
-        });
-      } finally {
-        setIsStreaming(false);
-        setActiveAgent(null);
-        inputRef.current?.focus();
-      }
+      await stream(model, chatHistory);
     },
-    [effectiveSystemContext, model, stableInvalidateKeys, queryClient],
+    [effectiveSystemContext, model, stream],
   );
 
   // Stable ref for sendMessage so triggerMessage effect doesn't depend on the callback

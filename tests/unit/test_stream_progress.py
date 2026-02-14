@@ -287,7 +287,7 @@ class TestToolTimeout:
         workflow.agent._get_ha_tools.return_value = [mock_tool]
 
         # Patch settings to use a very short timeout
-        with patch("src.agents.architect.get_settings") as mock_settings:
+        with patch("src.agents.streaming.dispatcher.get_settings") as mock_settings:
             settings = MagicMock()
             settings.tool_timeout_seconds = 0.1
             settings.analysis_tool_timeout_seconds = 0.2

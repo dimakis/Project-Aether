@@ -7,7 +7,7 @@ import contextlib
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.agents.model_context import model_context
@@ -378,158 +378,11 @@ async def send_message(
         )
 
 
-@router.websocket("/{conversation_id}/stream")
-async def stream_conversation(
-    websocket: WebSocket,
-    conversation_id: str,
-) -> None:
-    """WebSocket endpoint for streaming conversation responses.
-
-    T087: WebSocket endpoint for streaming at /conversations/{id}/stream
-
-    Authentication: Requires a valid JWT token or API key passed as a
-    query parameter (?token=...) or via the session cookie. WebSocket
-    does not support custom headers, so Bearer tokens must use query params.
-    """
-    # --- WebSocket Authentication ---
-    # WebSocket doesn't support custom headers, so check query params and cookies
-    import src.settings as _settings_mod
-    from src.api.auth import JWT_COOKIE_NAME, decode_jwt_token
-
-    settings = _settings_mod.get_settings()
-
-    # Check if auth is configured
-    has_password = bool(settings.auth_password.get_secret_value())
-    has_api_key = bool(settings.api_key.get_secret_value())
-    auth_configured = has_password or has_api_key
-
-    if auth_configured:
-        authenticated = False
-
-        # 1. Check token query parameter (JWT or API key)
-        token = websocket.query_params.get("token")
-        if token:
-            # Try as JWT first
-            payload = decode_jwt_token(token, settings)
-            if payload and "sub" in payload:
-                authenticated = True
-            # Try as API key
-            elif has_api_key:
-                import secrets as _secrets
-
-                configured_key = settings.api_key.get_secret_value()
-                if _secrets.compare_digest(token, configured_key):
-                    authenticated = True
-
-        # 2. Check session cookie
-        if not authenticated:
-            cookie_token = websocket.cookies.get(JWT_COOKIE_NAME)
-            if cookie_token:
-                payload = decode_jwt_token(cookie_token, settings)
-                if payload and "sub" in payload:
-                    authenticated = True
-
-        if not authenticated:
-            await websocket.close(code=4001, reason="Authentication required")
-            return
-
-    await websocket.accept()
-
-    try:
-        async with get_session() as session:
-            conv_repo = ConversationRepository(session)
-            conversation = await conv_repo.get_by_id(conversation_id)
-
-            if not conversation:
-                await websocket.send_json({"error": "Conversation not found"})
-                await websocket.close()
-                return
-
-            while True:
-                # Receive message from client
-                data = await websocket.receive_json()
-                message = data.get("message", "")
-
-                if not message:
-                    continue
-
-                # Send acknowledgment
-                await websocket.send_json(
-                    {
-                        "type": "ack",
-                        "content": "Processing...",
-                    }
-                )
-
-                # Process message (simplified - full streaming would use async generator)
-                from langchain_core.messages import HumanMessage
-
-                from src.agents import ArchitectWorkflow
-                from src.graph.state import ConversationState
-
-                msg_repo = MessageRepository(session)
-                messages_list = await msg_repo.list_by_conversation(conversation_id)
-
-                state = ConversationState(
-                    conversation_id=conversation_id,
-                    messages=[
-                        HumanMessage(content=m.content)
-                        if m.role == "user"
-                        else type("AIMessage", (), {"content": m.content, "type": "ai"})()
-                        for m in messages_list
-                    ],
-                )
-
-                workflow = ArchitectWorkflow()
-                state = await workflow.continue_conversation(
-                    state=state,
-                    user_message=message,
-                    session=session,
-                )
-
-                # Get response
-                assistant_content = ""
-                if state.messages:
-                    for msg in reversed(state.messages):
-                        if hasattr(msg, "content") and getattr(msg, "type", None) == "ai":
-                            assistant_content = str(msg.content)
-                            break
-
-                # Send response in chunks (simulated streaming)
-                chunk_size = 50
-                for i in range(0, len(assistant_content), chunk_size):
-                    chunk = assistant_content[i : i + chunk_size]
-                    await websocket.send_json(
-                        {
-                            "type": "text",
-                            "content": chunk,
-                        }
-                    )
-
-                # Send completion
-                await websocket.send_json(
-                    {
-                        "type": "done",
-                        "has_proposal": bool(state.pending_approvals),
-                        "proposal_id": state.pending_approvals[0].id
-                        if state.pending_approvals
-                        else None,
-                    }
-                )
-
-                await session.commit()
-
-    except WebSocketDisconnect:
-        pass
-    except Exception:
-        import logging
-
-        logging.getLogger(__name__).exception("WebSocket error in conversation %s", conversation_id)
-        try:
-            await websocket.send_json({"error": "An internal error occurred."})
-            await websocket.close()
-        except Exception:
-            logging.getLogger(__name__).debug("websocket already disconnected", exc_info=True)
+## WebSocket streaming endpoint removed
+# The simulated-streaming WebSocket at /{conversation_id}/stream was removed
+# in the streaming module refactor (Feature 31). It used continue_conversation()
+# (non-streaming) and faked chunking by splitting text into 50-char pieces.
+# Real streaming is served via SSE at POST /v1/chat/completions (stream=true).
 
 
 @router.delete(

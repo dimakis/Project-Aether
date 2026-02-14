@@ -24,15 +24,10 @@ if TYPE_CHECKING:
     from src.storage.entities import AutomationProposal
 
 import asyncio
-import contextlib
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.agents import BaseAgent
-from src.agents.execution_context import (
-    ProgressEvent,
-    execution_context,
-)
 from src.agents.prompts import load_prompt
 from src.dal import (
     AreaRepository,
@@ -43,7 +38,6 @@ from src.dal import (
 )
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
 from src.llm import get_llm
-from src.settings import ANALYSIS_TOOLS, get_settings
 
 
 class ArchitectAgent(BaseAgent):
@@ -992,27 +986,29 @@ class ArchitectWorkflow:
     ) -> AsyncGenerator[StreamEvent, None]:
         """Stream a conversation turn, yielding token and tool events.
 
-        Provides real LLM token streaming instead of batched responses.
+        Thin orchestrator composing StreamConsumer, ToolCallParser,
+        ToolDispatcher, and ProposalTracker. See ``src/agents/streaming/``
+        for the individual component implementations.
+
         Yields ``StreamEvent`` dicts:
         - ``{"type": "token", "content": "..."}`` for each LLM token
         - ``{"type": "tool_start", "tool": "...", "agent": "..."}``
         - ``{"type": "tool_end", "tool": "...", "result": "..."}``
         - ``{"type": "state", "state": ConversationState}`` final state
-
-        Args:
-            state: Current conversation state.
-            user_message: New user message.
-            session: Database session.
-
-        Yields:
-            StreamEvent dicts.
         """
         import mlflow
 
-        state.messages.append(HumanMessage(content=user_message))
-        (len(state.messages) + 1) // 2
+        from src.agents.streaming import (
+            consume_stream,
+            dispatch_tool_calls,
+            extract_inline_proposals,
+            generate_fallback_events,
+            parse_tool_calls,
+        )
 
-        # Capture trace ID and emit it early so the frontend can start polling
+        state.messages.append(HumanMessage(content=user_message))
+
+        # Capture trace ID early so the frontend can start polling
         try:
             mlflow.set_tag("session.id", state.conversation_id)
             span = mlflow.get_current_active_span()
@@ -1024,342 +1020,109 @@ class ArchitectWorkflow:
         except Exception:
             logger.debug("trace ID capture failed", exc_info=True)
 
-        # Build messages for LLM
+        # Build messages and bind tools
         messages = self.agent._build_messages(state)
-
-        # Add entity context if session available
         if session:
             entity_context = await self.agent._get_entity_context(session, state)
             if entity_context:
                 messages.insert(1, SystemMessage(content=entity_context))
 
-        # Get tools and bind them
         tools = self.agent._get_ha_tools()
         tool_lookup = {tool.name: tool for tool in tools}
         llm = self.agent.llm
         tool_llm = llm.bind_tools(tools) if tools else llm
 
-        # Stream tokens from the LLM
-        collected_content = ""
-        tool_calls_buffer: list[dict] = []
-        full_tool_calls: list[dict] = []
+        # --- Initial LLM stream ---
+        collected_content, tool_calls_buffer = "", []
+        async for event in consume_stream(tool_llm.astream(messages)):
+            if event["type"] == "_consume_result":
+                collected_content = event["collected_content"]
+                tool_calls_buffer = event["tool_calls_buffer"]
+            else:
+                yield event
 
-        async for chunk in tool_llm.astream(messages):
-            has_tool_chunks = hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
-
-            # Token content — skip when tool call chunks are present in the
-            # same chunk to avoid leaking partial JSON from some models
-            if chunk.content and not has_tool_chunks:
-                token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
-                collected_content += token
-                yield StreamEvent(type="token", content=token)
-
-            # Tool call chunks (accumulated across multiple stream chunks)
-            if has_tool_chunks:
-                tool_call_chunks = getattr(chunk, "tool_call_chunks", None) or []
-                for tc_chunk in tool_call_chunks:
-                    # Merge into buffer by index
-                    idx = tc_chunk.get("index", 0)
-                    while len(tool_calls_buffer) <= idx:
-                        tool_calls_buffer.append({"name": "", "args": "", "id": ""})
-                    buf = tool_calls_buffer[idx]
-                    if tc_chunk.get("name"):
-                        buf["name"] = tc_chunk["name"]
-                    if tc_chunk.get("args"):
-                        buf["args"] += tc_chunk["args"]
-                    if tc_chunk.get("id"):
-                        buf["id"] = tc_chunk["id"]
-
-        # Multi-turn tool loop: allow the LLM to chain tool calls
+        # --- Multi-turn tool loop ---
         MAX_TOOL_ITERATIONS = 10
         iteration = 0
         all_new_messages: list[BaseMessage] = []
-        proposal_summaries: list[str] = []  # Track successful seek_approval results
+        proposal_summaries: list[str] = []
 
         while tool_calls_buffer and iteration < MAX_TOOL_ITERATIONS:
             iteration += 1
-            import json as _json
 
-            tool_results: dict[str, str] = {}  # tool_call_id -> result
-            full_tool_calls = []
-
-            for tc_buf in tool_calls_buffer:
-                tool_name = tc_buf["name"]
-                tool_call_id = tc_buf["id"]
-
-                # Skip truncated tool calls (empty name = output token limit hit)
-                if not tool_name:
-                    logger.warning(
-                        "Skipping tool call with empty name "
-                        "(likely truncated LLM output due to max_tokens)"
-                    )
-                    continue
-
-                try:
-                    args = _json.loads(tc_buf["args"]) if tc_buf["args"] else {}
-                except _json.JSONDecodeError:
-                    logger.warning(
-                        "Skipping tool call '%s': args JSON could not be parsed "
-                        "(likely truncated LLM output). Raw args: %s",
-                        tool_name,
-                        tc_buf["args"][:200] if tc_buf["args"] else "(empty)",
-                    )
-                    continue
-
-                full_tool_calls.append(
-                    {
-                        "name": tool_name,
-                        "args": args,
-                        "id": tool_call_id,
-                    }
-                )
-
-                # Check mutating
-                if self.agent._is_mutating_tool(tool_name):
-                    yield StreamEvent(
-                        type="approval_required",
-                        tool=tool_name,
-                        content=f"Approval needed: {tool_name}({args})",
-                    )
-                    tool_results[tool_call_id] = "Requires user approval"
-                    continue
-
-                yield StreamEvent(type="tool_start", tool=tool_name, agent="architect")
-
-                tool = tool_lookup.get(tool_name)
-                if tool:
-                    # Determine timeout based on tool type
-                    settings = get_settings()
-                    timeout = (
-                        settings.analysis_tool_timeout_seconds
-                        if tool_name in ANALYSIS_TOOLS
-                        else settings.tool_timeout_seconds
-                    )
-
-                    # Create progress queue and execution context
-                    progress_queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
-                    async with execution_context(
-                        progress_queue=progress_queue,
-                        conversation_id=state.conversation_id,
-                        tool_timeout=float(settings.tool_timeout_seconds),
-                        analysis_timeout=float(settings.analysis_tool_timeout_seconds),
-                    ):
-                        # Run tool in background task
-                        tool_task = asyncio.create_task(tool.ainvoke(args))
-
-                        # Track deadline for timeout
-                        import time as _time
-
-                        deadline = _time.monotonic() + float(timeout)
-                        timed_out = False
-
-                        # Drain progress events while tool runs
-                        try:
-                            while not tool_task.done():
-                                remaining = deadline - _time.monotonic()
-                                if remaining <= 0:
-                                    timed_out = True
-                                    break
-                                queue_get = asyncio.ensure_future(progress_queue.get())
-                                done_set, _ = await asyncio.wait(
-                                    {tool_task, queue_get},
-                                    timeout=min(0.5, remaining),
-                                    return_when=asyncio.FIRST_COMPLETED,
-                                )
-                                if queue_get in done_set:
-                                    event = queue_get.result()
-                                    yield StreamEvent(
-                                        type=event.type,
-                                        agent=event.agent,
-                                        content=event.message,
-                                        **({"target": event.target} if event.target else {}),  # type: ignore[arg-type]
-                                    )
-                                else:
-                                    queue_get.cancel()
-
-                            if timed_out:
-                                tool_task.cancel()
-                                with contextlib.suppress(asyncio.CancelledError, Exception):
-                                    await tool_task
-                                result_str = f"Error: Tool {tool_name} timed out after {timeout}s"
-                                tool_results[tool_call_id] = result_str
-                                yield StreamEvent(
-                                    type="tool_end",
-                                    tool=tool_name,
-                                    result=result_str,
-                                )
-                            else:
-                                # Drain any remaining events after tool completes
-                                while not progress_queue.empty():
-                                    event = progress_queue.get_nowait()
-                                    yield StreamEvent(
-                                        type=event.type,
-                                        agent=event.agent,
-                                        content=event.message,
-                                        **({"target": event.target} if event.target else {}),  # type: ignore[arg-type]
-                                    )
-
-                                # Collect result (tool is already done)
-                                result = tool_task.result()
-                                result_str = str(result)
-                                tool_results[tool_call_id] = result_str
-                                yield StreamEvent(
-                                    type="tool_end",
-                                    tool=tool_name,
-                                    result=result_str[:500],
-                                )
-
-                                # Track successful proposal creations
-                                if tool_name == "seek_approval" and (
-                                    "submitted" in result_str.lower()
-                                    or "proposal" in result_str.lower()
-                                ):
-                                    proposal_summaries.append(result_str)
-
-                        except Exception as e:
-                            if not tool_task.done():
-                                tool_task.cancel()
-                            result_str = f"Error: {e}"
-                            tool_results[tool_call_id] = result_str
-                            yield StreamEvent(
-                                type="tool_end",
-                                tool=tool_name,
-                                result=result_str,
-                            )
-                else:
-                    tool_results[tool_call_id] = f"Tool {tool_name} not found"
-
-            # Build AI message with tool_calls + ToolMessages from cached results
-            ai_msg = AIMessage(
-                content=collected_content,
-                tool_calls=full_tool_calls,
+            # Parse and dispatch tool calls
+            parsed = parse_tool_calls(
+                tool_calls_buffer,
+                is_mutating_fn=self.agent._is_mutating_tool,
             )
-            tool_messages_list = [
-                ToolMessage(
-                    content=tool_results.get(tc["id"], ""),
-                    tool_call_id=tc.get("id", ""),
-                )
+            tool_results: dict[str, str] = {}
+            full_tool_calls: list[dict] = []
+
+            async for event in dispatch_tool_calls(
+                tool_calls=parsed,
+                tool_lookup=tool_lookup,
+                conversation_id=state.conversation_id,
+            ):
+                if event["type"] == "_dispatch_result":
+                    tool_results = event["tool_results"]
+                    full_tool_calls = event["full_tool_calls"]
+                    proposal_summaries.extend(event["proposal_summaries"])
+                else:
+                    yield event
+
+            # Build AI message with tool_calls + ToolMessages
+            ai_msg = AIMessage(content=collected_content, tool_calls=full_tool_calls)
+            tool_msgs = [
+                ToolMessage(content=tool_results.get(tc["id"], ""), tool_call_id=tc.get("id", ""))
                 for tc in full_tool_calls
                 if not self.agent._is_mutating_tool(tc["name"])
             ]
+            all_new_messages.extend([ai_msg, *tool_msgs])
 
-            all_new_messages.extend([ai_msg, *tool_messages_list])
-
-            # Follow-up: stream using tool_llm (with tools bound) to allow chaining
+            # Follow-up LLM stream (reuses consume_stream — no duplication)
             follow_up_messages = messages + all_new_messages
-            collected_content = ""
-            tool_calls_buffer = []
+            collected_content, tool_calls_buffer = "", []
+            async for event in consume_stream(tool_llm.astream(follow_up_messages)):
+                if event["type"] == "_consume_result":
+                    collected_content = event["collected_content"]
+                    tool_calls_buffer = event["tool_calls_buffer"]
+                else:
+                    yield event
 
-            async for chunk in tool_llm.astream(follow_up_messages):
-                has_tool_chunks = hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks
-
-                if chunk.content and not has_tool_chunks:
-                    token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
-                    collected_content += token
-                    yield StreamEvent(type="token", content=token)
-
-                if has_tool_chunks:
-                    tool_call_chunks = getattr(chunk, "tool_call_chunks", None) or []
-                    for tc_chunk in tool_call_chunks:
-                        idx = tc_chunk.get("index", 0)
-                        while len(tool_calls_buffer) <= idx:
-                            tool_calls_buffer.append({"name": "", "args": "", "id": ""})
-                        buf = tool_calls_buffer[idx]
-                        if tc_chunk.get("name"):
-                            buf["name"] = tc_chunk["name"]
-                        if tc_chunk.get("args"):
-                            buf["args"] += tc_chunk["args"]
-                        if tc_chunk.get("id"):
-                            buf["id"] = tc_chunk["id"]
-
-            # If no more tool calls, this was the final response — append & exit
             if not tool_calls_buffer:
                 if collected_content:
                     all_new_messages.append(AIMessage(content=collected_content))
                 break
 
-        # If the while loop never ran (no initial tool calls)
+        # Append content when no tool calls occurred
         if iteration == 0 and collected_content:
             all_new_messages.append(AIMessage(content=collected_content))
 
-        # Fallback: if no visible text was streamed but proposals were created,
-        # emit the seek_approval results so the user sees something in the chat.
-        # This handles the case where the LLM only generated tool calls and the
-        # follow-up response was empty or truncated.
-        if not collected_content and proposal_summaries:
-            fallback = "\n\n---\n\n".join(proposal_summaries)
-            collected_content = fallback
-            yield StreamEvent(type="token", content=fallback)
-            all_new_messages.append(AIMessage(content=fallback))
-        elif not collected_content and iteration > 0:
-            # Tool calls were made but produced no proposals and no text.
-            # Emit a minimal fallback so the user isn't left with an empty chat.
-            fallback = (
-                "I processed your request using several tools but wasn't able to "
-                "generate a complete response. Please try rephrasing or breaking "
-                "your request into smaller steps."
-            )
-            collected_content = fallback
-            yield StreamEvent(type="token", content=fallback)
-            all_new_messages.append(AIMessage(content=fallback))
+        # Fallback content generation
+        for event in generate_fallback_events(
+            collected_content=collected_content,
+            proposal_summaries=proposal_summaries,
+            iteration=iteration,
+        ):
+            collected_content = event["content"]
+            all_new_messages.append(AIMessage(content=collected_content))
+            yield event
 
-        # Fallback proposal extraction: if the LLM wrote proposals inline
-        # (as ```json blocks) instead of using seek_approval, and no proposals
-        # were created via tools, extract and persist them now.
-        if session and collected_content and not proposal_summaries:
-            inline_proposals = self.agent._extract_proposals(collected_content)
-            for prop_data in inline_proposals:
-                try:
-                    proposal = await self.agent._create_proposal(
-                        session,
-                        state.conversation_id,
-                        prop_data,
-                    )
-                    logger.info(
-                        "Created inline proposal %s from streamed content",
-                        proposal.id,
-                    )
-                except Exception as e:
-                    logger.warning("Failed to create inline proposal: %s", e)
+        # Inline proposal extraction
+        await extract_inline_proposals(
+            agent=self.agent,
+            session=session,
+            conversation_id=state.conversation_id,
+            collected_content=collected_content,
+            proposal_summaries=proposal_summaries,
+        )
 
         state.messages.extend(all_new_messages)  # type: ignore[arg-type]
-
-        # Yield final state
         yield StreamEvent(type="state", state=state)
 
 
-class StreamEvent(dict[str, Any]):
-    """A typed dict for streaming events from the workflow.
-
-    Attributes:
-        type: Event type (token, tool_start, tool_end, state, approval_required)
-        content: Text content (for token events)
-        tool: Tool name (for tool events)
-        agent: Agent name (for tool events)
-        result: Tool result (for tool_end events)
-        state: Final conversation state (for state events)
-    """
-
-    def __init__(
-        self,
-        type: str,
-        content: str | None = None,
-        tool: str | None = None,
-        agent: str | None = None,
-        result: str | None = None,
-        state: ConversationState | None = None,
-        **kwargs: object,
-    ):
-        super().__init__(
-            type=type,
-            content=content,
-            tool=tool,
-            agent=agent,
-            result=result,
-            state=state,
-            **kwargs,
-        )
-
+# Re-export StreamEvent from its canonical location for backward compatibility
+from src.agents.streaming.events import StreamEvent
 
 # Exports
 __all__ = [
