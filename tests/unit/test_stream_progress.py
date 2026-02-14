@@ -251,8 +251,10 @@ class TestToolTimeout:
         workflow = _make_workflow()
         state = ConversationState(messages=[])
 
+        never_done = asyncio.Event()
+
         async def slow_tool_invoke(args):
-            await asyncio.sleep(10)  # Way too long
+            await never_done.wait()  # Block until cancelled by timeout
             return "should not reach"  # pragma: no cover
 
         mock_tool = MagicMock()
