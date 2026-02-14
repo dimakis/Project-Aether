@@ -102,14 +102,13 @@ class TestListDashboards:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_returns_empty_list_on_error(self):
-        """list_dashboards returns [] on request failure."""
+    async def test_propagates_error(self):
+        """list_dashboards propagates exceptions to the caller."""
         client = _make_client()
         client._request = AsyncMock(side_effect=Exception("connection failed"))
 
-        result = await client.list_dashboards()
-
-        assert result == []
+        with pytest.raises(Exception, match="connection failed"):
+            await client.list_dashboards()
 
 
 # ---------------------------------------------------------------------------

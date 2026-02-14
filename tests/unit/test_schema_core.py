@@ -555,3 +555,89 @@ actions:
         assert result.valid is False
         # Pydantic puts field name in the path, message says "Field required"
         assert any("entity_id" in e.path or "entity_id" in e.message for e in result.errors)
+
+
+# ─── parse_ha_yaml ──────────────────────────────────────────────────────────
+
+
+class TestParseHaYaml:
+    """Tests for the parse_ha_yaml utility."""
+
+    def test_parse_valid_automation(self) -> None:
+        """parse_ha_yaml returns normalized dict for valid YAML."""
+        from src.schema.core import parse_ha_yaml
+
+        yaml_str = """\
+alias: Test
+triggers:
+  - trigger: state
+    entity_id: light.test
+actions:
+  - action: light.turn_on
+"""
+        data, errors = parse_ha_yaml(yaml_str)
+        assert errors == []
+        assert data["alias"] == "Test"
+        # Plural -> singular normalization
+        assert "trigger" in data
+        assert "action" in data
+
+    def test_parse_invalid_yaml(self) -> None:
+        """parse_ha_yaml returns errors for invalid YAML syntax."""
+        from src.schema.core import parse_ha_yaml
+
+        data, errors = parse_ha_yaml("{{invalid yaml")
+        assert len(errors) > 0
+        assert data == {}
+
+    def test_parse_non_dict(self) -> None:
+        """parse_ha_yaml returns errors when YAML is not a mapping."""
+        from src.schema.core import parse_ha_yaml
+
+        data, errors = parse_ha_yaml("- item1\n- item2")
+        assert len(errors) > 0
+        assert data == {}
+
+    def test_parse_script_yaml(self) -> None:
+        """parse_ha_yaml normalizes script YAML (sequence-based)."""
+        from src.schema.core import parse_ha_yaml
+
+        yaml_str = "alias: My Script\nsequence:\n  - service: light.turn_on\n"
+        data, errors = parse_ha_yaml(yaml_str)
+        assert errors == []
+        assert data["sequence"] is not None
+
+
+# ─── detect_proposal_type ────────────────────────────────────────────────────
+
+
+class TestDetectProposalType:
+    """Tests for detect_proposal_type."""
+
+    def test_automation(self) -> None:
+        """Detects automation when trigger is present."""
+        from src.schema.core import detect_proposal_type
+
+        data = {"trigger": [{"platform": "sun"}], "action": [{"service": "light.turn_on"}]}
+        assert detect_proposal_type(data) == "automation"
+
+    def test_script(self) -> None:
+        """Detects script when sequence is present but no trigger."""
+        from src.schema.core import detect_proposal_type
+
+        data = {"sequence": [{"service": "light.turn_on"}]}
+        assert detect_proposal_type(data) == "script"
+
+    def test_scene(self) -> None:
+        """Detects scene when entities is present but no trigger."""
+        from src.schema.core import detect_proposal_type
+
+        data = {"entities": {"light.living_room": {"state": "on"}}}
+        assert detect_proposal_type(data) == "scene"
+
+    def test_defaults_to_automation(self) -> None:
+        """Defaults to automation for ambiguous YAML."""
+        from src.schema.core import detect_proposal_type
+
+        data = {"alias": "Something"}
+        assert detect_proposal_type(data) == "automation"

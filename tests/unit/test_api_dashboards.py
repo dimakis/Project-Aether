@@ -80,6 +80,28 @@ class TestListDashboards:
         assert response.status_code == 200
         assert response.json() == []
 
+    async def test_returns_502_on_ha_error(self, client: AsyncClient):
+        """When HA is unreachable, return 502 instead of silently returning []."""
+        token = make_test_jwt()
+
+        with patch("src.api.routes.dashboards.get_ha_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_client.list_dashboards = AsyncMock(
+                side_effect=ConnectionError("HA unreachable"),
+            )
+            mock_get_client.return_value = mock_client
+
+            response = await client.get(
+                "/api/v1/dashboards",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 502
+        body = response.json()
+        # App may use "detail" or "message" depending on error handler
+        error_text = body.get("detail") or body.get("message") or str(body)
+        assert "Could not fetch dashboards" in error_text
+
 
 @pytest.mark.asyncio
 class TestGetDashboardConfig:

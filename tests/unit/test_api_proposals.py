@@ -583,6 +583,46 @@ class TestCreateProposal:
             data = response.json()
             assert data["proposal_type"] == ProposalType.ENTITY_COMMAND.value
 
+    async def test_create_proposal_from_yaml_content(
+        self, proposal_client, mock_proposal_repo, mock_proposal, mock_get_session, mock_session
+    ):
+        """Should parse yaml_content and extract fields server-side."""
+        mock_proposal_repo.create = AsyncMock(return_value=mock_proposal)
+        mock_proposal_repo.propose = AsyncMock(return_value=mock_proposal)
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=mock_proposal)
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
+        ):
+            response = await proposal_client.post(
+                "/api/v1/proposals",
+                json={
+                    "yaml_content": "alias: Sunset Lights\ntrigger:\n  platform: sun\n  event: sunset\naction:\n  - service: light.turn_on\n",
+                },
+            )
+
+            assert response.status_code == 200
+            mock_proposal_repo.create.assert_called_once()
+            call_kwargs = mock_proposal_repo.create.call_args.kwargs
+            assert call_kwargs["name"] == "Sunset Lights"
+            assert call_kwargs["proposal_type"] == "automation"
+            # trigger and actions should be extracted from YAML
+            assert call_kwargs["trigger"] != {}
+            assert call_kwargs["actions"] != {}
+
+    async def test_create_proposal_from_invalid_yaml(self, proposal_client, mock_get_session):
+        """Should return 422 when yaml_content is invalid."""
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+        ):
+            response = await proposal_client.post(
+                "/api/v1/proposals",
+                json={"yaml_content": "{{invalid yaml"},
+            )
+
+            assert response.status_code == 422
+
     async def test_create_proposal_not_found_after_create(
         self, proposal_client, mock_proposal_repo, mock_proposal, mock_get_session, mock_session
     ):
@@ -1167,6 +1207,73 @@ class TestDeployProposal:
             assert data["method"] == "ws_lovelace_save"
             mock_ha_client.save_dashboard_config.assert_called_once_with(
                 None, dash_proposal.dashboard_config
+            )
+            mock_session.commit.assert_called_once()
+
+    async def test_deploy_helper_proposal(
+        self,
+        proposal_client,
+        mock_proposal_repo,
+        mock_get_session,
+        mock_session,
+    ):
+        """Should deploy a helper proposal by calling the HA create_* method."""
+        helper_proposal = MagicMock()
+        helper_proposal.id = "prop-uuid-helper"
+        helper_proposal.proposal_type = "helper"
+        helper_proposal.conversation_id = None
+        helper_proposal.name = "Create Vacation Mode"
+        helper_proposal.description = "Input boolean for vacation mode"
+        helper_proposal.trigger = {}
+        helper_proposal.conditions = None
+        helper_proposal.actions = {}
+        helper_proposal.mode = "single"
+        helper_proposal.status = ProposalStatus.APPROVED
+        helper_proposal.ha_automation_id = None
+        helper_proposal.proposed_at = datetime(2026, 2, 14, 10, 0, 0, tzinfo=UTC)
+        helper_proposal.approved_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        helper_proposal.approved_by = "user1"
+        helper_proposal.deployed_at = None
+        helper_proposal.rolled_back_at = None
+        helper_proposal.rejection_reason = None
+        helper_proposal.created_at = datetime(2026, 2, 14, 9, 0, 0, tzinfo=UTC)
+        helper_proposal.updated_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        helper_proposal.service_call = {
+            "helper_type": "input_boolean",
+            "input_id": "vacation_mode",
+            "name": "Vacation Mode",
+            "initial": False,
+        }
+        helper_proposal.dashboard_config = None
+        helper_proposal.original_yaml = None
+        helper_proposal.review_notes = None
+        helper_proposal.review_session_id = None
+        helper_proposal.parent_proposal_id = None
+        helper_proposal.to_ha_yaml_dict = MagicMock(return_value=helper_proposal.service_call)
+
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=helper_proposal)
+        mock_proposal_repo.deploy = AsyncMock(return_value=helper_proposal)
+
+        mock_ha_client = MagicMock()
+        mock_ha_client.create_input_boolean = AsyncMock(
+            return_value={"success": True, "entity_id": "input_boolean.vacation_mode"}
+        )
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
+            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+        ):
+            response = await proposal_client.post("/api/v1/proposals/prop-uuid-helper/deploy")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["method"] == "ha_helper_create"
+            mock_ha_client.create_input_boolean.assert_called_once_with(
+                input_id="vacation_mode",
+                name="Vacation Mode",
+                initial=False,
             )
             mock_session.commit.assert_called_once()
 

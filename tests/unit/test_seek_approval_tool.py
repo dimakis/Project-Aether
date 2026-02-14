@@ -491,3 +491,66 @@ class TestSeekApprovalTool:
         )
 
         assert "dashboard_config" in result.lower() or "required" in result.lower()
+
+    # ── Helper proposals ─────────────────────────────────────────────────
+
+    async def test_helper_creates_proposal(self, mock_repo, mock_session, mock_proposal):
+        """seek_approval with helper creates a helper proposal."""
+        with (
+            patch("src.tools.approval_tools.get_session") as mock_get_session,
+            patch("src.tools.approval_tools.ProposalRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            from src.tools.approval_tools import seek_approval
+
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "helper",
+                    "name": "Create Vacation Mode toggle",
+                    "description": "Input boolean for vacation mode",
+                    "helper_config": {
+                        "helper_type": "input_boolean",
+                        "input_id": "vacation_mode",
+                        "name": "Vacation Mode",
+                        "initial": False,
+                    },
+                }
+            )
+
+            assert "proposal" in result.lower() or "submitted" in result.lower()
+            mock_repo.create.assert_called_once()
+            call_kwargs = mock_repo.create.call_args.kwargs
+            assert call_kwargs["proposal_type"] == "helper"
+            assert call_kwargs["service_call"]["helper_type"] == "input_boolean"
+            assert call_kwargs["service_call"]["input_id"] == "vacation_mode"
+
+    async def test_helper_rejects_missing_config(self):
+        """seek_approval rejects helper without helper_config."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "helper",
+                "name": "Bad helper",
+                "description": "No config",
+            }
+        )
+
+        assert "helper_config" in result.lower() or "required" in result.lower()
+
+    async def test_helper_rejects_missing_helper_type(self):
+        """seek_approval rejects helper_config without helper_type key."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "helper",
+                "name": "Bad helper",
+                "description": "No type",
+                "helper_config": {"input_id": "test", "name": "Test"},
+            }
+        )
+
+        assert "helper_type" in result.lower()

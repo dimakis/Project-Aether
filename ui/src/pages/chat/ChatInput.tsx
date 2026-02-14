@@ -43,7 +43,6 @@ export function ChatInput({
     <div className="border-t border-border p-4">
       <div className="mx-auto max-w-3xl">
         <motion.div
-          layout
           className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 transition-colors focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20"
         >
           <textarea

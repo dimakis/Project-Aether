@@ -300,6 +300,51 @@ async def validate_yaml_semantic(
     )
 
 
+def parse_ha_yaml(content: str) -> tuple[dict[str, Any], list[ValidationError]]:
+    """Parse a YAML string and normalize HA automation syntax.
+
+    Returns the parsed+normalized dict and any parse errors.
+    Does NOT run schema validation -- use validate_yaml() for that.
+
+    Args:
+        content: YAML string to parse.
+
+    Returns:
+        Tuple of (normalized data dict, list of errors).
+        On success, errors is empty. On failure, data is {}.
+    """
+    try:
+        data = yaml.safe_load(content)
+    except yaml.YAMLError as exc:
+        return {}, [ValidationError(path="", message=f"Invalid YAML: {exc}")]
+
+    if not isinstance(data, dict):
+        return {}, [
+            ValidationError(
+                path="",
+                message=f"Expected mapping, got {type(data).__name__}",
+            )
+        ]
+
+    return _normalize_ha_automation(data), []
+
+
+def detect_proposal_type(data: dict[str, Any]) -> str:
+    """Detect proposal type from a normalized HA YAML dict.
+
+    Args:
+        data: Parsed and normalized YAML dict.
+
+    Returns:
+        One of "automation", "script", or "scene".
+    """
+    if data.get("entities") and not data.get("trigger"):
+        return "scene"
+    if data.get("sequence") and not data.get("trigger"):
+        return "script"
+    return "automation"
+
+
 def _get_default_registry() -> SchemaRegistry:
     """Return the module-level default registry."""
     return registry

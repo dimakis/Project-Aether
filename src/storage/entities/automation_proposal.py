@@ -33,6 +33,7 @@ class ProposalType(enum.Enum):
     SCRIPT = "script"
     SCENE = "scene"
     DASHBOARD = "dashboard"
+    HELPER = "helper"
 
 
 class ProposalStatus(enum.Enum):
@@ -320,6 +321,8 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
             return self._to_scene_dict()
         elif ptype == ProposalType.DASHBOARD:
             return self.dashboard_config or {}
+        elif ptype == ProposalType.HELPER:
+            return self._to_helper_dict()
         else:
             return self._to_automation_dict()
 
@@ -390,6 +393,12 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
             automation["condition"] = conditions_list
 
         return automation
+
+    def _to_helper_dict(self) -> dict:
+        """Convert to helper YAML display format."""
+        if self.service_call and isinstance(self.service_call, dict):
+            return dict(self.service_call)
+        return {}
 
     def _to_entity_command_dict(self) -> dict:
         """Convert to service call YAML format."""

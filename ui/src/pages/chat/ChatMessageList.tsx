@@ -32,8 +32,10 @@ export const ChatMessageList = memo(function ChatMessageList({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(messages.length);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (smooth = true) => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "auto",
+    });
   };
 
   /** True when the user is already at or near the bottom of the scroll area. */
@@ -44,12 +46,17 @@ export const ChatMessageList = memo(function ChatMessageList({
   };
 
   useEffect(() => {
-    // Always scroll for new messages (user just sent); otherwise only if near bottom
+    // Always smooth-scroll for genuinely new messages (user just sent or
+    // assistant reply appeared).  For streaming content updates (message
+    // count unchanged), use instant scroll to avoid competing smooth
+    // animations that cause visible bouncing.
     const isNewMessage = messages.length !== prevMessageCountRef.current;
     prevMessageCountRef.current = messages.length;
 
-    if (isNewMessage || isNearBottom()) {
-      scrollToBottom();
+    if (isNewMessage) {
+      scrollToBottom(true);
+    } else if (isNearBottom()) {
+      scrollToBottom(false);
     }
   }, [messages]);
 

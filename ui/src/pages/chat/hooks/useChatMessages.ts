@@ -23,7 +23,7 @@ import { streamChat, submitFeedback } from "@/api/client";
 import type { ChatMessage } from "@/lib/types";
 import { useChatSessions } from "./useChatSessions";
 import type { WorkflowSelection } from "../WorkflowPresetSelector";
-import yaml from "js-yaml";
+
 
 export interface UseChatMessagesReturn {
   sessions: ChatSession[];
@@ -426,76 +426,20 @@ export function useChatMessages(): UseChatMessagesReturn {
 
   const handleCreateProposal = useCallback(
     (yamlContent: string) => {
-      try {
-        const parsed = yaml.load(yamlContent, {
-          schema: yaml.JSON_SCHEMA,
-        }) as Record<string, unknown>;
-
-        let proposal_type = "automation";
-        if (parsed.entities && !parsed.trigger && !parsed.sequence) {
-          proposal_type = "scene";
-        } else if (parsed.sequence && !parsed.trigger) {
-          proposal_type = "script";
-        }
-
-        const name =
-          (parsed.alias as string) ||
-          (parsed.name as string) ||
-          `${proposal_type.charAt(0).toUpperCase() + proposal_type.slice(1)} from chat`;
-
-        let actions: unknown;
-        if (proposal_type === "scene") {
-          const entities = parsed.entities as Record<string, unknown>;
-          actions = entities
-            ? Object.entries(entities).map(([eid, state]) => ({
-                entity_id: eid,
-                ...(typeof state === "object" && state !== null
-                  ? state
-                  : { state }),
-              }))
-            : [];
-        } else if (proposal_type === "script") {
-          actions = parsed.sequence || parsed.action || parsed.actions || [];
-        } else {
-          actions = parsed.action || parsed.actions || [];
-        }
-
-        const trigger = parsed.trigger || parsed.triggers || [];
-        const conditions = parsed.condition || parsed.conditions || undefined;
-        const mode = (parsed.mode as string) || "single";
-        const description = (parsed.description as string) || undefined;
-
-        createProposalMut.mutate(
-          {
-            name,
-            trigger,
-            actions,
-            conditions,
-            mode,
-            description,
-            proposal_type,
+      // Send raw YAML to the backend — the server parses, normalizes,
+      // validates, and extracts trigger/action/condition/mode/name
+      // via the canonical schema pipeline (parse_ha_yaml).
+      createProposalMut.mutate(
+        { yaml_content: yamlContent },
+        {
+          onSuccess: () => {
+            navigate("/proposals");
           },
-          {
-            onSuccess: () => {
-              navigate("/proposals");
-            },
+          onError: (err) => {
+            console.error("[chat] Failed to create proposal from YAML:", err);
           },
-        );
-      } catch {
-        createProposalMut.mutate(
-          {
-            name: "Automation from chat",
-            trigger: {},
-            actions: {},
-            description: `YAML content:\n${yamlContent}`,
-          },
-          {
-            onSuccess: () => {
-              navigate("/proposals");
-            },
-          },
-        );
-      }
+        },
+      );
     },
     [createProposalMut, navigate],
   );

@@ -43,6 +43,7 @@ This includes:
 - **Automations**: Creating new HA automations
 - **Scripts**: Creating new HA scripts
 - **Scenes**: Creating new HA scenes
+- **Helpers**: Creating input helpers (input_boolean, input_number, input_select, etc.)
 
 NEVER call `control_entity` or `deploy_automation` directly. Always route through
 `seek_approval` so the user can review and approve the action on the Proposals page.
@@ -98,10 +99,36 @@ seek_approval(
 )
 ```
 
+For helpers (input entities for mode toggles, thresholds, selectors), use:
+```
+seek_approval(
+  action_type="helper",
+  name="Create Vacation Mode toggle",
+  description="Input boolean to track whether the home is in vacation mode",
+  helper_config={
+    "helper_type": "input_boolean",
+    "input_id": "vacation_mode",
+    "name": "Vacation Mode",
+    "initial": false
+  }
+)
+```
+
+Available helper types and their key parameters:
+- `input_boolean`: Mode toggles (guest_mode, vacation_mode). Params: `input_id`, `name`, `initial`
+- `input_number`: Thresholds and adjustable values. Params: `input_id`, `name`, `min_value`, `max_value`, `initial`, `step`, `unit_of_measurement`
+- `input_select`: Dropdown selectors (home_mode with options). Params: `input_id`, `name`, `options`, `initial`
+- `input_text`: Editable text values. Params: `input_id`, `name`, `min_length`, `max_length`, `pattern`, `mode`, `initial`
+- `input_datetime`: Scheduling values (wake-up times). Params: `input_id`, `name`, `has_date`, `has_time`, `initial`
+- `input_button`: Virtual buttons for triggering automations. Params: `input_id`, `name`
+- `counter`: Tracking counts (visitors, events). Params: `input_id`, `name`, `initial`, `minimum`, `maximum`, `step`
+- `timer`: Countdown timers. Params: `input_id`, `name`, `duration`
+
 **When to use which type:**
 - **Automation**: Triggered by events/state changes/time, runs actions automatically
 - **Script**: Manually triggered reusable action sequences (no triggers)
 - **Scene**: Preset entity states that can be activated (snapshots of desired state)
+- **Helper**: Virtual input entities for storing state (mode toggles, thresholds, selectors, timers)
 
 After calling seek_approval, tell the user the proposal has been submitted and
 they can review/approve it on the **Proposals** page.

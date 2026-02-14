@@ -23,7 +23,7 @@ class TestProposalType:
     def test_all_types_defined(self):
         """All expected proposal types are defined."""
         types = {t.value for t in ProposalType}
-        assert types == {"automation", "entity_command", "script", "scene", "dashboard"}
+        assert types == {"automation", "entity_command", "script", "scene", "dashboard", "helper"}
 
     def test_type_from_string(self):
         """ProposalType can be created from string values."""

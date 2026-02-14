@@ -454,16 +454,25 @@ export function DashboardEditorPage() {
   } | null>(null);
 
   // Fetch dashboards list
-  const { data: dashboardList, isLoading: loadingList } = useDashboards();
+  const { data: dashboardList, isLoading: loadingList, error: listError } = useDashboards();
 
   // Fetch config for selected dashboard
   const { data: dashboardConfig, isLoading: loadingConfig } =
     useDashboardConfig(selectedDashboard);
 
-  // Get HA URL from zones (default zone)
+  // Get HA URL from zones (default zone).
+  // The iframe runs in the user's browser, not the backend server,
+  // so prefer ha_url_remote when available.
   const { data: zones } = useHAZones();
   const defaultZone = zones?.find((z) => z.is_default) ?? zones?.[0];
-  const haUrl = defaultZone?.ha_url ?? null;
+  const haUrl = useMemo(() => {
+    if (!defaultZone) return null;
+    const { ha_url, ha_url_remote, url_preference } = defaultZone;
+    if (url_preference === "local") return ha_url;
+    if (url_preference === "remote") return ha_url_remote ?? ha_url;
+    // "auto" — prefer remote for browser context, fall back to local
+    return ha_url_remote ?? ha_url;
+  }, [defaultZone]);
 
   // Create proposal mutation
   const createProposal = useCreateProposal();
@@ -573,11 +582,19 @@ export function DashboardEditorPage() {
                 Loading dashboards...
               </div>
             ) : (
-              <DashboardPicker
-                dashboards={dashboardList ?? []}
-                selected={selectedDashboard}
-                onSelect={setSelectedDashboard}
-              />
+              <>
+                <DashboardPicker
+                  dashboards={dashboardList ?? []}
+                  selected={selectedDashboard}
+                  onSelect={setSelectedDashboard}
+                />
+                {listError && (
+                  <div className="mt-2 flex items-center gap-2 rounded-md bg-amber-400/10 px-3 py-1.5 text-xs text-amber-400">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    <span>Could not load dashboards from HA. Only the default overview is available.</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

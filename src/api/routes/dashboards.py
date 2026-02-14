@@ -6,11 +6,14 @@ their full Lovelace configuration (views, cards, etc.).
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 
 from src.ha import get_ha_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dashboards", tags=["Dashboards"])
 
@@ -23,7 +26,14 @@ async def list_dashboards() -> list[dict[str, Any]]:
     mode, and url_path.
     """
     ha = get_ha_client()
-    return cast("list[dict[str, Any]]", await ha.list_dashboards())
+    try:
+        return cast("list[dict[str, Any]]", await ha.list_dashboards())
+    except Exception as exc:
+        logger.warning("Failed to list dashboards from HA: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not fetch dashboards from Home Assistant: {exc}",
+        ) from exc
 
 
 @router.get("/{url_path}/config")
