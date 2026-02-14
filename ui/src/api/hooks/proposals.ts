@@ -97,6 +97,7 @@ export function useCreateProposal() {
       mode?: string;
       proposal_type?: string;
       service_call?: Record<string, unknown>;
+      dashboard_config?: Record<string, unknown>;
     }) => proposals.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.proposals.all });

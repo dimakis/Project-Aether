@@ -189,6 +189,19 @@ class BaseHAClient:
         """Get the active HA URL."""
         return self._active_url or self.config.ha_url
 
+    def _get_ws_url(self) -> str:
+        """Derive the WebSocket URL from the active HTTP URL.
+
+        Converts ``http://`` to ``ws://`` and ``https://`` to ``wss://``,
+        then appends ``/api/websocket``.
+
+        Returns:
+            Full WebSocket URL for HA, e.g. ``ws://ha.local:8123/api/websocket``.
+        """
+        url = self._get_url().rstrip("/")
+        ws_url = url.replace("https://", "wss://").replace("http://", "ws://")
+        return f"{ws_url}/api/websocket"
+
     def _get_http_client(self) -> Any:
         """Get or create a shared httpx.AsyncClient with connection pooling.
 

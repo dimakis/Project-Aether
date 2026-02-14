@@ -25,12 +25,14 @@ class ProposalType(enum.Enum):
     - entity_command: Single service call (turn on/off/toggle entity)
     - script: HA script creation
     - scene: HA scene creation
+    - dashboard: Lovelace dashboard config change (deployed via WS API)
     """
 
     AUTOMATION = "automation"
     ENTITY_COMMAND = "entity_command"
     SCRIPT = "script"
     SCENE = "scene"
+    DASHBOARD = "dashboard"
 
 
 class ProposalStatus(enum.Enum):
@@ -128,6 +130,11 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         JSONB,
         nullable=True,
         doc="Service call details for entity_command type (domain, service, data)",
+    )
+    dashboard_config: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        doc="Full Lovelace config for dashboard proposals (views, cards, etc.)",
     )
     status: Mapped[ProposalStatus] = mapped_column(
         default=ProposalStatus.DRAFT,
@@ -311,6 +318,8 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
             return self._to_script_dict()
         elif ptype == ProposalType.SCENE:
             return self._to_scene_dict()
+        elif ptype == ProposalType.DASHBOARD:
+            return self.dashboard_config or {}
         else:
             return self._to_automation_dict()
 

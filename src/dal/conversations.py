@@ -426,6 +426,7 @@ class ProposalRepository:
         service_call: dict | None = None,
         original_yaml: str | None = None,
         review_notes: list | None = None,
+        dashboard_config: dict | None = None,
     ) -> AutomationProposal:
         """Create a new automation proposal.
 
@@ -438,10 +439,11 @@ class ProposalRepository:
             conditions: Optional conditions
             mode: Execution mode
             mlflow_run_id: Optional MLflow tracking ID
-            proposal_type: Type of proposal (automation, entity_command, script, scene)
+            proposal_type: Type of proposal (automation, entity_command, script, scene, dashboard)
             service_call: Service call details for entity_command type
             original_yaml: Original YAML before review (enables diff view)
             review_notes: Structured review annotations
+            dashboard_config: Full Lovelace config for dashboard proposals
 
         Returns:
             Created AutomationProposal
@@ -472,6 +474,7 @@ class ProposalRepository:
             mlflow_run_id=mlflow_run_id,
             original_yaml=original_yaml,
             review_notes=review_notes,
+            dashboard_config=dashboard_config,
         )
         self.session.add(proposal)
         await self.session.flush()

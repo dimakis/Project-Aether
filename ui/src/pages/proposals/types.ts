@@ -1,4 +1,4 @@
-import { Sparkles, Zap, Target, Code, Home } from "lucide-react";
+import { Sparkles, Zap, Target, Code, Home, LayoutDashboard } from "lucide-react";
 
 export const STATUS_CONFIG: Record<
   string,
@@ -79,4 +79,5 @@ export const TYPE_ICONS: Record<string, typeof Sparkles> = {
   entity_command: Target,
   script: Code,
   scene: Home,
+  dashboard: LayoutDashboard,
 };

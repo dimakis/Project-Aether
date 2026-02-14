@@ -258,7 +258,11 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
             <div>
               <h4 className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <Code className="h-3 w-3" />
-                {(detail as Proposal).proposal_type === "entity_command" ? "Service Call" : "Automation YAML"}
+                {(detail as Proposal).proposal_type === "entity_command"
+                  ? "Service Call"
+                  : (detail as Proposal).proposal_type === "dashboard"
+                    ? "Dashboard Config"
+                    : "Automation YAML"}
               </h4>
               <div className="overflow-hidden rounded-lg border border-border">
                 <YamlViewer

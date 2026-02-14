@@ -37,6 +37,10 @@ class ProposalCreate(BaseModel):
         default=None,
         description="Service call details for entity_command type (domain, service, entity_id, data)",
     )
+    dashboard_config: dict | None = Field(
+        default=None,
+        description="Full Lovelace config for dashboard proposals",
+    )
 
 
 class ReviewNote(BaseModel):
@@ -89,6 +93,9 @@ class ProposalResponse(BaseModel):
     )
     parent_proposal_id: str | None = Field(
         default=None, description="Parent proposal ID for split reviews"
+    )
+    dashboard_config: dict | None = Field(
+        default=None, description="Full Lovelace config for dashboard proposals"
     )
 
     model_config = {"from_attributes": True}

@@ -89,14 +89,9 @@ MCP_GAPS: list[dict[str, Any]] = [
         "affects": ["Automation deployment"],
         "data_model_impact": ["AutomationProposal export mode"],
     },
-    {
-        "tool": "lovelace/config/write",
-        "priority": "P3",
-        "impact": "Cannot directly deploy/write dashboards to HA (read is implemented)",
-        "workaround": "Generate Lovelace YAML for manual import via HA UI",
-        "affects": ["Dashboard deployment"],
-        "data_model_impact": ["Dashboard write/deploy not yet available"],
-    },
+    # lovelace/config read+write gap CLOSED — implemented via WebSocket API
+    # in src/ha/websocket.py and src/ha/dashboards.py (get/save_dashboard_config).
+    # Dashboard changes go through HITL proposals before deployment.
 ]
 
 
