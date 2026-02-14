@@ -82,6 +82,9 @@ def get_architect_tools() -> list[Any]:
 
     from src.tools.agent_tools import discover_entities as _discover_entities
     from src.tools.approval_tools import seek_approval as _seek_approval
+    from src.tools.ds_team_tool import (
+        consult_data_science_team as _consult_ds_team,
+    )
     from src.tools.ha_automation_tools import (
         get_automation_config as _get_automation_config,
     )
@@ -108,9 +111,6 @@ def get_architect_tools() -> list[Any]:
         create_insight_schedule as _create_insight_schedule,
     )
     from src.tools.review_tools import review_config as _review_config
-    from src.tools.ds_team_tool import (
-        consult_data_science_team as _consult_ds_team,
-    )
     from src.tools.specialist_consult_tools import (
         consult_dashboard_designer as _consult_dashboard,
     )

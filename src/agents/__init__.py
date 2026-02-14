@@ -14,22 +14,21 @@ Canonical definitions live in their own modules:
 """
 
 # Base classes (canonical: src.agents.base)
-from src.agents.base import AgentContext, BaseAgent
-from src.agents.execution_context import emit_progress  # noqa: F401
-from src.graph.state import AgentRole, BaseState  # noqa: F401
-from src.tracing import add_span_event, get_active_span, log_dict, log_param  # noqa: F401
-
-# Librarian agent (canonical: src.agents.librarian)
-from src.agents.librarian import LibrarianAgent
-
 # Other agents
 from src.agents.architect import ArchitectAgent, ArchitectWorkflow, StreamEvent
+from src.agents.base import AgentContext, BaseAgent
 from src.agents.behavioral_analyst import BehavioralAnalyst
 from src.agents.dashboard_designer import DashboardDesignerAgent
 from src.agents.data_scientist import DataScientistAgent, DataScientistWorkflow
 from src.agents.developer import DeveloperAgent, DeveloperWorkflow
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
+from src.agents.execution_context import emit_progress  # noqa: F401
+
+# Librarian agent (canonical: src.agents.librarian)
+from src.agents.librarian import LibrarianAgent
+from src.graph.state import AgentRole, BaseState  # noqa: F401
+from src.tracing import add_span_event, get_active_span, log_dict, log_param  # noqa: F401
 
 # Exports
 __all__ = [

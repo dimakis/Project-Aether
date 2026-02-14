@@ -15,6 +15,7 @@ from src.api.main import create_app
 from src.settings import get_settings
 from tests.helpers.auth import make_test_jwt, make_test_settings
 
+
 @pytest.fixture
 async def client(monkeypatch):
     """Test client with auth configured."""

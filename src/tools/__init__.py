@@ -90,7 +90,9 @@ __all__ = [
     "get_insight_schedule_tools",
     "get_script_config",
     "get_specialist_tools",
+    "list_automations",
     "list_entities_by_domain",
+    "render_template",
     "request_synthesis_review",
     # Custom Analysis Tools
     "run_custom_analysis",

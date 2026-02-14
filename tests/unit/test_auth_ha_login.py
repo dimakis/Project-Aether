@@ -183,7 +183,9 @@ class TestHATokenLogin:
         """The HA token login endpoint doesn't require prior authentication."""
         get_settings.cache_clear()
         # Enable API key auth to verify this endpoint is exempt
-        settings = make_test_settings(auth_password=SecretStr(""), api_key=SecretStr("required-key"))
+        settings = make_test_settings(
+            auth_password=SecretStr(""), api_key=SecretStr("required-key")
+        )
         _patch_settings(monkeypatch, settings)
 
         with (

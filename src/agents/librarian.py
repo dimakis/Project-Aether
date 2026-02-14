@@ -8,14 +8,12 @@ maintaining the entity database.
 from datetime import UTC, datetime
 from typing import Any
 
+from src.agents.base import BaseAgent
 from src.dal import DiscoverySyncService
-from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
+from src.graph.state import AgentRole, BaseState, DiscoveryState, DiscoveryStatus, EntitySummary
 from src.ha import HAClient
 from src.settings import get_settings
 from src.tracing import log_dict, log_metric, log_param, start_experiment_run
-
-from src.agents.base import BaseAgent
-from src.graph.state import BaseState
 
 
 class LibrarianAgent(BaseAgent):
