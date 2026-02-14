@@ -98,6 +98,8 @@ def mock_proposal():
     proposal.review_notes = None
     proposal.review_session_id = None
     proposal.parent_proposal_id = None
+    # Dashboard fields
+    proposal.dashboard_config = None
     proposal.to_ha_yaml_dict = MagicMock(
         return_value={
             "alias": "Test Automation",
@@ -143,6 +145,8 @@ def mock_review_proposal():
     ]
     proposal.review_session_id = "review-session-abc"
     proposal.parent_proposal_id = None
+    # Dashboard fields
+    proposal.dashboard_config = None
     proposal.to_ha_yaml_dict = MagicMock(
         return_value={
             "alias": "Improved: Sunset Lights",
@@ -182,6 +186,8 @@ def mock_proposal_approved():
     proposal.review_notes = None
     proposal.review_session_id = None
     proposal.parent_proposal_id = None
+    # Dashboard fields
+    proposal.dashboard_config = None
     proposal.to_ha_yaml_dict = MagicMock(
         return_value={
             "alias": "Approved Automation",
@@ -221,6 +227,8 @@ def mock_proposal_deployed():
     proposal.review_notes = None
     proposal.review_session_id = None
     proposal.parent_proposal_id = None
+    # Dashboard fields
+    proposal.dashboard_config = None
     proposal.to_ha_yaml_dict = MagicMock(
         return_value={
             "alias": "Deployed Automation",
@@ -747,6 +755,7 @@ class TestRejectProposal:
         rejected_proposal.review_notes = None
         rejected_proposal.review_session_id = None
         rejected_proposal.parent_proposal_id = None
+        rejected_proposal.dashboard_config = None
         rejected_proposal.to_ha_yaml_dict = mock_proposal.to_ha_yaml_dict
         mock_proposal_repo.get_by_id = AsyncMock(side_effect=[mock_proposal, rejected_proposal])
         mock_proposal_repo.reject = AsyncMock(return_value=rejected_proposal)
@@ -800,6 +809,7 @@ class TestRejectProposal:
         rejected_proposal.review_notes = None
         rejected_proposal.review_session_id = None
         rejected_proposal.parent_proposal_id = None
+        rejected_proposal.dashboard_config = None
         rejected_proposal.to_ha_yaml_dict = mock_proposal.to_ha_yaml_dict
         mock_proposal_repo.get_by_id = AsyncMock(side_effect=[mock_proposal, rejected_proposal])
         mock_proposal_repo.reject = AsyncMock(return_value=rejected_proposal)
@@ -895,6 +905,7 @@ class TestRejectProposal:
         rejected_proposal.review_notes = None
         rejected_proposal.review_session_id = None
         rejected_proposal.parent_proposal_id = None
+        rejected_proposal.dashboard_config = None
         rejected_proposal.to_ha_yaml_dict = mock_proposal_approved.to_ha_yaml_dict
         mock_proposal_repo.get_by_id = AsyncMock(
             side_effect=[mock_proposal_approved, rejected_proposal]
@@ -1095,6 +1106,69 @@ class TestDeployProposal:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
+
+    async def test_deploy_dashboard_proposal(
+        self,
+        proposal_client,
+        mock_proposal_repo,
+        mock_get_session,
+        mock_session,
+    ):
+        """Should deploy a dashboard proposal via WebSocket save."""
+        dash_proposal = MagicMock()
+        dash_proposal.id = "prop-uuid-dash"
+        dash_proposal.proposal_type = ProposalType.DASHBOARD.value
+        dash_proposal.conversation_id = None
+        dash_proposal.name = "Modern Dashboard"
+        dash_proposal.description = "Updated home dashboard"
+        dash_proposal.trigger = {}
+        dash_proposal.conditions = None
+        dash_proposal.actions = {}
+        dash_proposal.mode = "single"
+        dash_proposal.status = ProposalStatus.APPROVED
+        dash_proposal.ha_automation_id = None
+        dash_proposal.proposed_at = datetime(2026, 2, 14, 10, 0, 0, tzinfo=UTC)
+        dash_proposal.approved_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        dash_proposal.approved_by = "user1"
+        dash_proposal.deployed_at = None
+        dash_proposal.rolled_back_at = None
+        dash_proposal.rejection_reason = None
+        dash_proposal.created_at = datetime(2026, 2, 14, 9, 0, 0, tzinfo=UTC)
+        dash_proposal.updated_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        dash_proposal.service_call = {"url_path": None}
+        dash_proposal.dashboard_config = {
+            "views": [{"title": "Home", "cards": [{"type": "weather-forecast"}]}]
+        }
+        dash_proposal.original_yaml = None
+        dash_proposal.review_notes = None
+        dash_proposal.review_session_id = None
+        dash_proposal.parent_proposal_id = None
+        dash_proposal.to_ha_yaml_dict = MagicMock(return_value=dash_proposal.dashboard_config)
+
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=dash_proposal)
+        mock_proposal_repo.deploy = AsyncMock(return_value=dash_proposal)
+
+        mock_ha_client = MagicMock()
+        mock_ha_client.save_dashboard_config = AsyncMock()
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch(
+                "src.api.routes.proposals.ProposalRepository",
+                return_value=mock_proposal_repo,
+            ),
+            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+        ):
+            response = await proposal_client.post("/api/v1/proposals/prop-uuid-dash/deploy")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["method"] == "ws_lovelace_save"
+            mock_ha_client.save_dashboard_config.assert_called_once_with(
+                None, dash_proposal.dashboard_config
+            )
+            mock_session.commit.assert_called_once()
 
     async def test_deploy_proposal_with_error(
         self,

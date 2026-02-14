@@ -17,7 +17,7 @@ from src.tracing import trace_with_uri
 
 logger = logging.getLogger(__name__)
 
-VALID_ACTION_TYPES = {"entity_command", "automation", "script", "scene"}
+VALID_ACTION_TYPES = {"entity_command", "automation", "script", "scene", "dashboard"}
 
 
 @tool("seek_approval")
@@ -36,6 +36,8 @@ async def seek_approval(
     conditions: dict | list | None = None,
     mode: str = "single",
     original_yaml: str | None = None,
+    dashboard_config: dict | None = None,
+    dashboard_url_path: str | None = None,
 ) -> str:
     """Submit an action for user approval before execution.
 
@@ -115,6 +117,13 @@ async def seek_approval(
             description=description,
             actions=actions,
             original_yaml=original_yaml,
+        )
+    elif action_type == "dashboard":
+        return await _create_dashboard_proposal(
+            name=name,
+            description=description,
+            dashboard_config=dashboard_config,
+            dashboard_url_path=dashboard_url_path,
         )
 
     return f"Unknown action type: {action_type}"
@@ -319,6 +328,45 @@ async def _create_scene_proposal(
             )
     except Exception as e:
         logger.error("Failed to create scene proposal: %s", e)
+        return f"Failed to create proposal: {e}"
+
+
+async def _create_dashboard_proposal(
+    name: str,
+    description: str,
+    dashboard_config: dict | None,
+    dashboard_url_path: str | None,
+) -> str:
+    """Create a dashboard proposal for Lovelace config changes."""
+    if not dashboard_config or not isinstance(dashboard_config, dict):
+        return "dashboard_config is required for dashboard proposals."
+
+    try:
+        async with get_session() as session:
+            repo = ProposalRepository(session)
+            proposal = await repo.create(
+                name=name,
+                description=description,
+                trigger={},
+                actions={},
+                proposal_type="dashboard",
+                dashboard_config=dashboard_config,
+                service_call={"url_path": dashboard_url_path or None},
+            )
+            await repo.propose(proposal.id)
+            await session.commit()
+
+            logger.info("Created dashboard proposal %s: %s", proposal.id, name)
+            return (
+                f"I've submitted a dashboard proposal for your approval: **{name}**\n\n"
+                f"- **Type**: Dashboard\n"
+                f"- **Description**: {description}\n"
+                f"- **Target**: {dashboard_url_path or 'default'}\n"
+                f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
+                f"Please review and approve it on the **Proposals** page."
+            )
+    except Exception as e:
+        logger.error("Failed to create dashboard proposal: %s", e)
         return f"Failed to create proposal: {e}"
 
 

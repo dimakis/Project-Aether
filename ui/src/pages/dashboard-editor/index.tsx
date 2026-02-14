@@ -16,12 +16,19 @@ import {
   RefreshCw,
   Pencil,
   Eye,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import yaml from "js-yaml";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { YamlEditor } from "@/components/ui/yaml-editor";
-import { useDashboards, useDashboardConfig, useHAZones } from "@/api/hooks";
+import {
+  useDashboards,
+  useDashboardConfig,
+  useHAZones,
+  useCreateProposal,
+} from "@/api/hooks";
 import { cn } from "@/lib/utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -301,6 +308,139 @@ function IframePreview({
   );
 }
 
+// ─── Structured Preview ──────────────────────────────────────────────────────
+
+/** Tree-based preview of dashboard structure: views → sections → cards. */
+function DashboardStructurePreview({
+  config,
+}: {
+  config: Record<string, unknown> | null;
+}) {
+  const [expandedViews, setExpandedViews] = useState<Set<number>>(new Set());
+
+  if (!config) return null;
+
+  const views = (config.views ?? []) as Array<Record<string, unknown>>;
+  if (views.length === 0) return null;
+
+  const toggleView = (idx: number) => {
+    setExpandedViews((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-1">
+      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        Structure
+      </h4>
+      <div className="rounded-lg border border-border bg-muted/20 text-xs">
+        {views.map((view, vi) => {
+          const viewTitle = (view.title as string) ?? `View ${vi + 1}`;
+          const sections = (view.sections ?? []) as Array<
+            Record<string, unknown>
+          >;
+          const cards = (view.cards ?? []) as Array<Record<string, unknown>>;
+          const isExpanded = expandedViews.has(vi);
+
+          return (
+            <div key={vi} className="border-b border-border/50 last:border-0">
+              <button
+                onClick={() => toggleView(vi)}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors",
+                  "hover:bg-accent/50",
+                )}
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-3 w-3 text-muted-foreground transition-transform",
+                    !isExpanded && "-rotate-90",
+                  )}
+                />
+                <LayoutDashboard className="h-3 w-3 text-primary" />
+                <span className="font-medium">{viewTitle}</span>
+                <span className="ml-auto text-muted-foreground">
+                  {cards.length > 0 && `${cards.length} card${cards.length !== 1 ? "s" : ""}`}
+                  {sections.length > 0 &&
+                    `${sections.length} section${sections.length !== 1 ? "s" : ""}`}
+                </span>
+              </button>
+
+              {isExpanded && (
+                <div className="pb-1.5 pl-8 pr-3">
+                  {/* Sections */}
+                  {sections.map((section, si) => {
+                    const sectionTitle =
+                      (section.title as string) ?? `Section ${si + 1}`;
+                    const sectionCards = (section.cards ?? []) as Array<
+                      Record<string, unknown>
+                    >;
+                    return (
+                      <div key={`s-${si}`} className="mt-1">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {sectionTitle}
+                          </span>
+                          <span>
+                            · {sectionCards.length} card
+                            {sectionCards.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="ml-3 mt-0.5 space-y-0.5">
+                          {sectionCards.map((card, ci) => (
+                            <CardNode key={`sc-${ci}`} card={card} />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Direct cards */}
+                  {cards.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {cards.map((card, ci) => (
+                        <CardNode key={`c-${ci}`} card={card} />
+                      ))}
+                    </div>
+                  )}
+
+                  {sections.length === 0 && cards.length === 0 && (
+                    <p className="py-1 text-muted-foreground italic">
+                      Empty view
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Renders a single card node in the tree. */
+function CardNode({ card }: { card: Record<string, unknown> }) {
+  const cardType = (card.type as string) ?? "unknown";
+  const cardTitle = (card.title as string) ?? (card.name as string) ?? null;
+  const entity = card.entity as string | undefined;
+
+  return (
+    <div className="flex items-center gap-1.5 text-muted-foreground">
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50" />
+      <span className="font-mono text-foreground">{cardType}</span>
+      {cardTitle && <span>— {cardTitle}</span>}
+      {!cardTitle && entity && (
+        <span className="font-mono text-[10px]">{entity}</span>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export function DashboardEditorPage() {
@@ -308,6 +448,10 @@ export function DashboardEditorPage() {
     null,
   );
   const [isEditing, setIsEditing] = useState(false);
+  const [submitFeedback, setSubmitFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // Fetch dashboards list
   const { data: dashboardList, isLoading: loadingList } = useDashboards();
@@ -320,6 +464,9 @@ export function DashboardEditorPage() {
   const { data: zones } = useHAZones();
   const defaultZone = zones?.find((z) => z.is_default) ?? zones?.[0];
   const haUrl = defaultZone?.ha_url ?? null;
+
+  // Create proposal mutation
+  const createProposal = useCreateProposal();
 
   // Convert config to YAML for the editor
   const configYaml = useMemo(() => {
@@ -336,10 +483,69 @@ export function DashboardEditorPage() {
     }
   }, [dashboardConfig]);
 
-  const handleSubmitEdit = useCallback((_editedYaml: string) => {
-    // Future: send to architect or deploy to HA
-    setIsEditing(false);
-  }, []);
+  // Clear feedback after 5 seconds
+  useEffect(() => {
+    if (!submitFeedback) return;
+    const timer = setTimeout(() => setSubmitFeedback(null), 5000);
+    return () => clearTimeout(timer);
+  }, [submitFeedback]);
+
+  const handleSubmitEdit = useCallback(
+    (editedYaml: string) => {
+      // Parse the edited YAML into a config object
+      let parsedConfig: Record<string, unknown>;
+      try {
+        parsedConfig = yaml.load(editedYaml) as Record<string, unknown>;
+        if (!parsedConfig || typeof parsedConfig !== "object") {
+          setSubmitFeedback({
+            type: "error",
+            message: "Invalid YAML: config must be an object.",
+          });
+          return;
+        }
+      } catch (e) {
+        setSubmitFeedback({
+          type: "error",
+          message: `Invalid YAML: ${e instanceof Error ? e.message : "parse error"}`,
+        });
+        return;
+      }
+
+      const dashTitle =
+        (parsedConfig.title as string) ?? selectedDashboard ?? "Dashboard";
+      const urlPath =
+        selectedDashboard === "default" ? undefined : selectedDashboard;
+
+      createProposal.mutate(
+        {
+          name: `Dashboard update: ${dashTitle}`,
+          description: `Lovelace config update for "${dashTitle}" dashboard`,
+          proposal_type: "dashboard",
+          dashboard_config: parsedConfig,
+          service_call: { url_path: urlPath ?? null },
+          trigger: {},
+          actions: {},
+        },
+        {
+          onSuccess: () => {
+            setSubmitFeedback({
+              type: "success",
+              message:
+                "Dashboard proposal submitted for approval. View it on the Proposals page.",
+            });
+            setIsEditing(false);
+          },
+          onError: (err) => {
+            setSubmitFeedback({
+              type: "error",
+              message: `Failed to create proposal: ${err instanceof Error ? err.message : "unknown error"}`,
+            });
+          },
+        },
+      );
+    },
+    [selectedDashboard, createProposal],
+  );
 
   return (
     <div className="flex h-[calc(100vh-theme(spacing.14))] flex-col">
@@ -436,13 +642,42 @@ export function DashboardEditorPage() {
                   </Button>
                 </div>
 
+                {/* Feedback banner */}
+                {submitFeedback && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+                      submitFeedback.type === "success"
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "bg-destructive/10 text-destructive",
+                    )}
+                  >
+                    {submitFeedback.type === "success" ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 shrink-0" />
+                    )}
+                    <span>{submitFeedback.message}</span>
+                  </div>
+                )}
+
+                {isEditing && (
+                  <p className="text-xs text-muted-foreground">
+                    Edits are submitted as a proposal for HITL approval before
+                    deployment to Home Assistant.
+                  </p>
+                )}
+
                 <YamlEditor
                   originalYaml={configYaml}
                   isEditing={isEditing}
                   onSubmitEdit={handleSubmitEdit}
                   onCancelEdit={() => setIsEditing(false)}
-                  maxHeight={800}
+                  maxHeight={600}
                 />
+
+                {/* Collapsible structure preview */}
+                <DashboardStructurePreview config={dashboardConfig} />
               </div>
             )}
           </div>

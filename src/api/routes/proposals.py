@@ -61,6 +61,8 @@ def _proposal_to_response(p: AutomationProposal) -> ProposalResponse:
         review_notes=p.review_notes,
         review_session_id=p.review_session_id,
         parent_proposal_id=p.parent_proposal_id,
+        # Dashboard fields
+        dashboard_config=p.dashboard_config,
     )
 
 
@@ -174,6 +176,7 @@ async def create_proposal(request: Request, body: ProposalCreate) -> ProposalRes
             mode=body.mode,
             proposal_type=body.proposal_type,
             service_call=body.service_call,
+            dashboard_config=body.dashboard_config,
         )
 
         # Submit for approval
@@ -335,6 +338,8 @@ async def deploy_proposal(
         try:
             if proposal.proposal_type == ProposalType.ENTITY_COMMAND.value:
                 result = await _deploy_entity_command(proposal, repo)
+            elif proposal.proposal_type == ProposalType.DASHBOARD.value:
+                result = await _deploy_dashboard(proposal, repo)
             else:
                 # Deploy via Developer agent (automations, scripts, scenes)
                 from src.agents import DeveloperWorkflow
@@ -544,6 +549,40 @@ async def _deploy_entity_command(
         "deployment_method": "mcp_service_call",
         "yaml_content": yaml_content,
         "instructions": f"Executed {domain}.{service} on {entity_id or 'target'}",
+    }
+
+
+async def _deploy_dashboard(
+    proposal: AutomationProposal, repo: ProposalRepository
+) -> dict[str, Any]:
+    """Deploy a dashboard proposal via WebSocket lovelace/config/save.
+
+    Args:
+        proposal: The AutomationProposal with proposal_type=dashboard
+        repo: ProposalRepository for state updates
+
+    Returns:
+        Deployment result dict
+    """
+    config = proposal.dashboard_config or {}
+    url_path = (proposal.service_call or {}).get("url_path")
+
+    ha = get_ha_client()
+    await ha.save_dashboard_config(url_path, config)
+
+    # Mark as deployed
+    deploy_id = f"dash_{proposal.id[:8]}_{url_path or 'default'}"
+    await repo.deploy(proposal.id, deploy_id)
+
+    import yaml as yaml_lib
+
+    yaml_content = yaml_lib.dump(config, default_flow_style=False, sort_keys=False)
+
+    return {
+        "ha_automation_id": deploy_id,
+        "deployment_method": "ws_lovelace_save",
+        "yaml_content": yaml_content,
+        "instructions": f"Deployed Lovelace config to dashboard '{url_path or 'default'}'",
     }
 
 

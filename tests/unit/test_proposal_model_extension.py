@@ -23,7 +23,7 @@ class TestProposalType:
     def test_all_types_defined(self):
         """All expected proposal types are defined."""
         types = {t.value for t in ProposalType}
-        assert types == {"automation", "entity_command", "script", "scene"}
+        assert types == {"automation", "entity_command", "script", "scene", "dashboard"}
 
     def test_type_from_string(self):
         """ProposalType can be created from string values."""
@@ -31,6 +31,7 @@ class TestProposalType:
         assert ProposalType("entity_command") == ProposalType.ENTITY_COMMAND
         assert ProposalType("script") == ProposalType.SCRIPT
         assert ProposalType("scene") == ProposalType.SCENE
+        assert ProposalType("dashboard") == ProposalType.DASHBOARD
 
     def test_invalid_type_raises(self):
         """Invalid proposal type string raises ValueError."""
@@ -219,3 +220,49 @@ class TestProposalYamlGeneration:
         assert "alias" in result
         assert "trigger" in result
         assert "action" in result
+
+    def test_dashboard_type(self):
+        """Dashboard proposals store the type correctly."""
+        p = self._make_proposal(
+            proposal_type=ProposalType.DASHBOARD.value,
+            name="Modern Home Dashboard",
+        )
+        assert p.proposal_type == "dashboard"
+        assert p.proposal_type_enum == ProposalType.DASHBOARD
+
+    def test_dashboard_config_field(self):
+        """Dashboard proposals store Lovelace config in dashboard_config."""
+        config = {"views": [{"title": "Home", "cards": [{"type": "weather-forecast"}]}]}
+        p = self._make_proposal(
+            proposal_type=ProposalType.DASHBOARD.value,
+            name="Weather Dashboard",
+            dashboard_config=config,
+        )
+        assert p.dashboard_config == config
+        assert p.dashboard_config["views"][0]["title"] == "Home"
+
+    def test_dashboard_config_default_none(self):
+        """dashboard_config defaults to None for non-dashboard proposals."""
+        p = self._make_proposal()
+        assert p.dashboard_config is None
+
+    def test_dashboard_yaml_dict(self):
+        """Dashboard proposals return the raw Lovelace config from to_ha_yaml_dict."""
+        config = {"views": [{"title": "Home"}]}
+        p = self._make_proposal(
+            proposal_type=ProposalType.DASHBOARD.value,
+            name="Test Dashboard",
+            dashboard_config=config,
+            service_call={"url_path": "my-dash"},
+        )
+        result = p.to_ha_yaml_dict()
+        assert result == config
+
+    def test_dashboard_yaml_dict_empty_config(self):
+        """Dashboard proposal with no config returns empty dict."""
+        p = self._make_proposal(
+            proposal_type=ProposalType.DASHBOARD.value,
+            name="Empty Dashboard",
+        )
+        result = p.to_ha_yaml_dict()
+        assert result == {}

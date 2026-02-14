@@ -448,3 +448,46 @@ class TestSeekApprovalTool:
 
         assert "actions" in result.lower()
         assert "required" in result.lower()
+
+    async def test_dashboard_creates_proposal(self, mock_repo, mock_session, mock_proposal):
+        """seek_approval with dashboard creates a dashboard proposal."""
+        with (
+            patch("src.tools.approval_tools.get_session") as mock_get_session,
+            patch("src.tools.approval_tools.ProposalRepository", return_value=mock_repo),
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            from src.tools.approval_tools import seek_approval
+
+            config = {"views": [{"title": "Home", "cards": []}]}
+
+            result = await seek_approval.ainvoke(
+                {
+                    "action_type": "dashboard",
+                    "name": "Modern Home Dashboard",
+                    "description": "Redesigned overview dashboard",
+                    "dashboard_config": config,
+                    "dashboard_url_path": "default",
+                }
+            )
+
+        assert "proposal" in result.lower() or "submitted" in result.lower()
+        mock_repo.create.assert_called_once()
+        create_kwargs = mock_repo.create.call_args
+        assert create_kwargs.kwargs.get("proposal_type") == "dashboard"
+        assert create_kwargs.kwargs.get("dashboard_config") == config
+
+    async def test_dashboard_rejects_missing_config(self):
+        """seek_approval rejects dashboard without config."""
+        from src.tools.approval_tools import seek_approval
+
+        result = await seek_approval.ainvoke(
+            {
+                "action_type": "dashboard",
+                "name": "Empty Dashboard",
+                "description": "No config provided",
+            }
+        )
+
+        assert "dashboard_config" in result.lower() or "required" in result.lower()

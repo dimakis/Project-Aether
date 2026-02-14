@@ -53,6 +53,7 @@ export const proposals = {
     mode?: string;
     proposal_type?: string;
     service_call?: Record<string, unknown>;
+    dashboard_config?: Record<string, unknown>;
   }) =>
     request<import("@/lib/types").Proposal>(`/proposals`, {
       method: "POST",
