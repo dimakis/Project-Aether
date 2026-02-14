@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
-from src.agents import BaseAgent
+from src.agents.base import BaseAgent
 from src.dal import ProposalRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus
 from src.ha import HAClient, get_ha_client

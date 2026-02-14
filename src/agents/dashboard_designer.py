@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 from langchain_core.messages import SystemMessage
 
-from src.agents import BaseAgent
+from src.agents.base import BaseAgent
 from src.agents.prompts import load_prompt
 from src.graph.state import AgentRole, DashboardState
 from src.llm import get_llm

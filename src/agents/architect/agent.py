@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from src.agents import BaseAgent
 from src.agents.architect.entity_context import get_entity_context
 from src.agents.architect.proposals import (
     create_proposal,
@@ -40,6 +39,7 @@ from src.agents.architect.review import (
     synthesize_review as _synthesize_review,
 )
 from src.agents.architect.tools import READ_ONLY_TOOLS, get_ha_tools, is_mutating_tool
+from src.agents.base import BaseAgent
 from src.agents.prompts import load_prompt
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
 from src.llm import get_llm
