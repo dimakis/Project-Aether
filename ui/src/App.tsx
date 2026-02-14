@@ -55,6 +55,11 @@ const ReportsPage = lazy(() =>
 const ReportDetailPage = lazy(() =>
   import("@/pages/reports/ReportDetail").then((m) => ({ default: m.ReportDetail })),
 );
+const DashboardEditorPage = lazy(() =>
+  import("@/pages/dashboard-editor").then((m) => ({
+    default: m.DashboardEditorPage,
+  })),
+);
 
 // ── Shared loading fallback ────────────────────────────────────────────────
 
@@ -148,6 +153,7 @@ export default function App() {
                     <Route path="settings/zones" element={<ZonesPage />} />
                     <Route path="reports" element={<ReportsPage />} />
                     <Route path="reports/:id" element={<ReportDetailPage />} />
+                    <Route path="dashboard-editor" element={<DashboardEditorPage />} />
                   </Route>
                 </Route>
               </Route>

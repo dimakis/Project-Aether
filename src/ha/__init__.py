@@ -16,6 +16,7 @@ from src.ha.automation_deploy import (
 from src.ha.behavioral import BehavioralAnalysisClient
 from src.ha.client import HAClient, get_ha_client
 from src.ha.constants import COMMON_SERVICES
+from src.ha.dashboards import DashboardMixin
 from src.ha.history import (
     EnergyDataPoint,
     EnergyHistory,
@@ -48,12 +49,13 @@ __all__ = [
     "AutomationDeployer",
     # Behavioral Analysis (US5 / Feature 03)
     "BehavioralAnalysisClient",
+    # Client
+    "DashboardMixin",
     "EnergyDataPoint",
     "EnergyHistory",
     # Energy History (US3)
     "EnergyHistoryClient",
     "EnergyStats",
-    # Client
     "HAClient",
     # Logbook (US5 / Feature 03)
     "LogbookHistoryClient",

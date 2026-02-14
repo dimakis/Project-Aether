@@ -90,12 +90,12 @@ MCP_GAPS: list[dict[str, Any]] = [
         "data_model_impact": ["AutomationProposal export mode"],
     },
     {
-        "tool": "lovelace/config",
+        "tool": "lovelace/config/write",
         "priority": "P3",
-        "impact": "Cannot directly deploy dashboards to HA",
-        "workaround": "Generate Lovelace YAML for manual import",
+        "impact": "Cannot directly deploy/write dashboards to HA (read is implemented)",
+        "workaround": "Generate Lovelace YAML for manual import via HA UI",
         "affects": ["Dashboard deployment"],
-        "data_model_impact": ["Dashboard export mode only"],
+        "data_model_impact": ["Dashboard write/deploy not yet available"],
     },
 ]
 
