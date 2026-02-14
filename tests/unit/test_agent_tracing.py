@@ -40,7 +40,7 @@ class TestBaseAgentTracing:
         """Test that _log_state_context logs the run_id."""
         state = BaseState(current_agent=AgentRole.ARCHITECT)
 
-        with patch("src.agents.log_param") as mock_log_param:
+        with patch("src.agents.base.log_param") as mock_log_param:
             agent._log_state_context(state)
 
             # Should log run_id
@@ -49,7 +49,7 @@ class TestBaseAgentTracing:
 
     def test_log_state_context_logs_conversation_id(self, agent, conversation_state):
         """Test that _log_state_context logs conversation_id for ConversationState."""
-        with patch("src.agents.log_param") as mock_log_param:
+        with patch("src.agents.base.log_param") as mock_log_param:
             agent._log_state_context(conversation_state)
 
             # Should log conversation_id
@@ -58,7 +58,7 @@ class TestBaseAgentTracing:
 
     def test_log_state_context_logs_message_count(self, agent, conversation_state):
         """Test that _log_state_context logs message count."""
-        with patch("src.agents.log_param") as mock_log_param:
+        with patch("src.agents.base.log_param") as mock_log_param:
             agent._log_state_context(conversation_state)
 
             # Should log message_count
@@ -67,7 +67,7 @@ class TestBaseAgentTracing:
 
     def test_log_state_context_logs_latest_message(self, agent, conversation_state):
         """Test that _log_state_context logs the latest message."""
-        with patch("src.agents.log_param") as mock_log_param:
+        with patch("src.agents.base.log_param") as mock_log_param:
             agent._log_state_context(conversation_state)
 
             # Should log latest_message
@@ -76,7 +76,7 @@ class TestBaseAgentTracing:
 
     def test_log_state_context_handles_none_state(self, agent):
         """Test that _log_state_context handles None state gracefully."""
-        with patch("src.agents.log_param") as mock_log_param:
+        with patch("src.agents.base.log_param") as mock_log_param:
             # Should not raise
             agent._log_state_context(None)
 
@@ -101,7 +101,7 @@ class TestLogConversation:
         conversation_id = str(uuid4())
         response = "New response"
 
-        with patch("src.agents.log_dict") as mock_log_dict:
+        with patch("src.agents.base.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages, response)
 
             mock_log_dict.assert_called_once()
@@ -122,7 +122,7 @@ class TestLogConversation:
         ]
         conversation_id = str(uuid4())
 
-        with patch("src.agents.log_dict") as mock_log_dict:
+        with patch("src.agents.base.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages)
 
             logged_data = mock_log_dict.call_args[0][0]
@@ -139,7 +139,7 @@ class TestLogConversation:
         conversation_id = str(uuid4())
         response = "New response text"
 
-        with patch("src.agents.log_dict") as mock_log_dict:
+        with patch("src.agents.base.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages, response)
 
             logged_data = mock_log_dict.call_args[0][0]
@@ -154,7 +154,7 @@ class TestLogConversation:
         messages = [HumanMessage(content=long_content)]
         conversation_id = str(uuid4())
 
-        with patch("src.agents.log_dict") as mock_log_dict:
+        with patch("src.agents.base.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages)
 
             logged_data = mock_log_dict.call_args[0][0]
@@ -167,7 +167,7 @@ class TestLogConversation:
         messages = [HumanMessage(content="Test")]
         conversation_id = "test-conv-id"
 
-        with patch("src.agents.log_dict") as mock_log_dict:
+        with patch("src.agents.base.log_dict") as mock_log_dict:
             agent.log_conversation(conversation_id, messages)
 
             filename = mock_log_dict.call_args[0][1]
