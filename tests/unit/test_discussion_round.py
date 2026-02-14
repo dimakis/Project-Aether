@@ -142,11 +142,11 @@ class TestTeamworkDiscussionRound:
         }
 
         with patch(
-            "src.tools.specialist_tools._run_discussion_round",
+            "src.tools.ds_team_strategies._run_discussion_round",
             new_callable=AsyncMock,
             return_value=[],
         ) as mock_disc:
-            from src.tools.specialist_tools import _run_teamwork
+            from src.tools.ds_team_strategies import _run_teamwork
 
             await _run_teamwork(
                 ["energy", "behavioral"],

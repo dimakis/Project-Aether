@@ -79,10 +79,12 @@ class TestPromptGeneration:
         mock_repo = AsyncMock()
         mock_repo.get_by_name = AsyncMock(return_value=None)
 
-        with patch("src.api.routes.agents.get_session") as mock_gs:
+        with patch("src.api.routes.agents.prompt_versions.get_session") as mock_gs:
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
-            with patch("src.api.routes.agents.AgentRepository", return_value=mock_repo):
+            with patch(
+                "src.api.routes.agents.prompt_versions.AgentRepository", return_value=mock_repo
+            ):
                 response = await client.post(
                     "/api/v1/agents/nonexistent/prompt/generate",
                     json={},
@@ -111,10 +113,12 @@ class TestPromptGeneration:
         mock_llm = MagicMock()
         mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
 
-        with patch("src.api.routes.agents.get_session") as mock_gs:
+        with patch("src.api.routes.agents.prompt_versions.get_session") as mock_gs:
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
-            with patch("src.api.routes.agents.AgentRepository", return_value=mock_repo):
+            with patch(
+                "src.api.routes.agents.prompt_versions.AgentRepository", return_value=mock_repo
+            ):
                 with patch("src.llm.get_llm", return_value=mock_llm):
                     response = await client.post(
                         "/api/v1/agents/data_scientist/prompt/generate",
@@ -147,10 +151,12 @@ class TestPromptGeneration:
         mock_llm = MagicMock()
         mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
 
-        with patch("src.api.routes.agents.get_session") as mock_gs:
+        with patch("src.api.routes.agents.prompt_versions.get_session") as mock_gs:
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
-            with patch("src.api.routes.agents.AgentRepository", return_value=mock_repo):
+            with patch(
+                "src.api.routes.agents.prompt_versions.AgentRepository", return_value=mock_repo
+            ):
                 with patch("src.llm.get_llm", return_value=mock_llm):
                     response = await client.post(
                         "/api/v1/agents/architect/prompt/generate",

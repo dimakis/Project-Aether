@@ -396,7 +396,7 @@ class TestDataScientistDiagnosticDataCollection:
             diagnostic_context="Logs show connection errors at 2am",
         )
 
-        with patch("src.agents.data_scientist.EnergyHistoryClient") as MockEnergyClient:
+        with patch("src.agents.data_scientist.collectors.EnergyHistoryClient") as MockEnergyClient:
             mock_energy = AsyncMock()
             mock_energy.get_aggregated_energy = AsyncMock(
                 return_value={
@@ -425,7 +425,7 @@ class TestDataScientistDiagnosticDataCollection:
             time_range_hours=24,
         )
 
-        with patch("src.agents.data_scientist.EnergyHistoryClient") as MockEnergyClient:
+        with patch("src.agents.data_scientist.collectors.EnergyHistoryClient") as MockEnergyClient:
             mock_energy = AsyncMock()
             mock_energy.get_aggregated_energy = AsyncMock(
                 return_value={
@@ -471,7 +471,7 @@ class TestDataScientistWorkflow:
             }
 
             # Mock MLflow
-            with patch("src.agents.data_scientist.start_experiment_run"):
+            with patch("src.agents.data_scientist.workflow.start_experiment_run"):
                 state = await workflow.run_analysis(
                     analysis_type=AnalysisType.ENERGY_OPTIMIZATION,
                     hours=48,
@@ -495,7 +495,7 @@ class TestDataScientistIntegration:
     ):
         """Test full invoke flow with mocks."""
         # Mock energy client
-        with patch("src.agents.data_scientist.EnergyHistoryClient") as MockEnergyClient:
+        with patch("src.agents.data_scientist.collectors.EnergyHistoryClient") as MockEnergyClient:
             mock_energy = AsyncMock()
             mock_energy.get_aggregated_energy = AsyncMock(return_value=sample_energy_data)
             MockEnergyClient.return_value = mock_energy

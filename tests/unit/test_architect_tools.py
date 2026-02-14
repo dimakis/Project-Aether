@@ -32,10 +32,10 @@ class TestArchitectContext:
     async def test_context_includes_entities_devices_services(self, architect, mock_session):
         """Ensure context includes entities, devices, areas, and services."""
         with (
-            patch("src.agents.architect.EntityRepository") as entity_repo_cls,
-            patch("src.agents.architect.DeviceRepository") as device_repo_cls,
-            patch("src.agents.architect.AreaRepository") as area_repo_cls,
-            patch("src.agents.architect.ServiceRepository") as service_repo_cls,
+            patch("src.agents.architect.entity_context.EntityRepository") as entity_repo_cls,
+            patch("src.agents.architect.entity_context.DeviceRepository") as device_repo_cls,
+            patch("src.agents.architect.entity_context.AreaRepository") as area_repo_cls,
+            patch("src.agents.architect.entity_context.ServiceRepository") as service_repo_cls,
         ):
             entity_repo = entity_repo_cls.return_value
             device_repo = device_repo_cls.return_value

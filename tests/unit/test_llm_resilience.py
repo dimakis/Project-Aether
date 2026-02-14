@@ -285,8 +285,8 @@ class TestGetLLMWithResilience:
 
     def test_returns_resilient_llm_with_fallback(self, mock_settings_with_fallback):
         """Test get_llm returns ResilientLLM when fallback configured."""
-        with patch("src.llm.get_settings", return_value=mock_settings_with_fallback):
-            with patch("src.llm._create_llm_instance") as mock_create:
+        with patch("src.llm.factory.get_settings", return_value=mock_settings_with_fallback):
+            with patch("src.llm.factory._create_llm_instance") as mock_create:
                 from src.llm import get_llm
 
                 primary_llm = MagicMock()
@@ -312,8 +312,8 @@ class TestGetLLMWithResilience:
         settings.llm_fallback_provider = None
         settings.llm_fallback_model = None
 
-        with patch("src.llm.get_settings", return_value=settings):
-            with patch("src.llm._create_llm_instance") as mock_create:
+        with patch("src.llm.factory.get_settings", return_value=settings):
+            with patch("src.llm.factory._create_llm_instance") as mock_create:
                 from src.llm import get_llm
 
                 primary_llm = MagicMock()

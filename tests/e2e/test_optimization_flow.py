@@ -89,7 +89,7 @@ class TestFullOptimizationFlow:
             )
         )
 
-        with patch("src.agents.architect.get_llm", return_value=mock_llm):
+        with patch("src.agents.architect.agent.get_llm", return_value=mock_llm):
             from src.agents.architect import ArchitectAgent
 
             architect = ArchitectAgent()

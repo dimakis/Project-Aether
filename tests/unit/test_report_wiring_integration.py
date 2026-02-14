@@ -56,25 +56,25 @@ class TestReportCreation:
 
         with (
             patch(
-                "src.tools.specialist_tools.create_analysis_report",
+                "src.tools.ds_team_tool.create_analysis_report",
                 new_callable=AsyncMock,
                 return_value=mock_report,
             ) as mock_create,
             patch(
-                "src.tools.specialist_tools.complete_analysis_report",
+                "src.tools.ds_team_tool.complete_analysis_report",
                 new_callable=AsyncMock,
             ),
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy"],
             ),
             patch(
-                "src.tools.specialist_tools._run_parallel",
+                "src.tools.ds_team_tool._run_parallel",
                 new_callable=AsyncMock,
                 return_value=["Energy results"],
             ),
             patch(
-                "src.tools.specialist_tools.is_agent_enabled",
+                "src.tools.ds_team_runners.is_agent_enabled",
                 new_callable=AsyncMock,
                 return_value=True,
             ),
@@ -97,15 +97,15 @@ class TestReportCreation:
 
         with (
             patch(
-                "src.tools.specialist_tools.create_analysis_report",
+                "src.tools.ds_team_tool.create_analysis_report",
                 new_callable=AsyncMock,
             ) as mock_create,
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy"],
             ),
             patch(
-                "src.tools.specialist_tools._run_parallel",
+                "src.tools.ds_team_tool._run_parallel",
                 new_callable=AsyncMock,
                 return_value=["Energy results"],
             ),
@@ -133,20 +133,20 @@ class TestReportCompletion:
 
         with (
             patch(
-                "src.tools.specialist_tools.create_analysis_report",
+                "src.tools.ds_team_tool.create_analysis_report",
                 new_callable=AsyncMock,
                 return_value=mock_report,
             ),
             patch(
-                "src.tools.specialist_tools.complete_analysis_report",
+                "src.tools.ds_team_tool.complete_analysis_report",
                 new_callable=AsyncMock,
             ) as mock_complete,
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy"],
             ),
             patch(
-                "src.tools.specialist_tools._run_parallel",
+                "src.tools.ds_team_tool._run_parallel",
                 new_callable=AsyncMock,
                 return_value=["Energy results"],
             ),
@@ -174,20 +174,20 @@ class TestReportFailure:
 
         with (
             patch(
-                "src.tools.specialist_tools.create_analysis_report",
+                "src.tools.ds_team_tool.create_analysis_report",
                 new_callable=AsyncMock,
                 return_value=mock_report,
             ),
             patch(
-                "src.tools.specialist_tools.fail_analysis_report",
+                "src.tools.ds_team_tool.fail_analysis_report",
                 new_callable=AsyncMock,
             ) as mock_fail,
             patch(
-                "src.tools.specialist_tools._select_specialists",
+                "src.tools.ds_team_tool._select_specialists",
                 return_value=["energy"],
             ),
             patch(
-                "src.tools.specialist_tools._run_parallel",
+                "src.tools.ds_team_tool._run_parallel",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("boom"),
             ),

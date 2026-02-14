@@ -23,18 +23,17 @@ from src.tools.diagnostic_tools import (
     get_diagnostic_tools,
     validate_config,
 )
-from src.tools.ha_tools import (
-    check_ha_config,
+from src.tools.ha_automation_tools import get_automation_config, list_automations
+from src.tools.ha_entity_tools import (
     control_entity,
-    get_automation_config,
     get_domain_summary,
     get_entity_state,
-    get_ha_logs,
-    get_ha_tools,
-    get_script_config,
     list_entities_by_domain,
     search_entities,
 )
+from src.tools.ha_script_scene_tools import get_script_config
+from src.tools.ha_tools import get_ha_tools
+from src.tools.ha_utility_tools import check_ha_config, get_ha_logs, render_template
 from src.tools.insight_schedule_tools import (
     create_insight_schedule,
     get_insight_schedule_tools,
@@ -103,33 +102,27 @@ def get_architect_tools() -> list:
 
     from src.tools.agent_tools import discover_entities as _discover_entities
     from src.tools.approval_tools import seek_approval as _seek_approval
-    from src.tools.ha_tools import (
-        check_ha_config as _check_ha_config,
-    )
-    from src.tools.ha_tools import (
+    from src.tools.ha_automation_tools import (
         get_automation_config as _get_automation_config,
     )
-    from src.tools.ha_tools import (
+    from src.tools.ha_entity_tools import (
         get_domain_summary as _get_domain_summary,
     )
-    from src.tools.ha_tools import (
+    from src.tools.ha_entity_tools import (
         get_entity_state as _get_entity_state,
     )
-    from src.tools.ha_tools import (
-        get_ha_logs as _get_ha_logs,
-    )
-    from src.tools.ha_tools import (
-        get_script_config as _get_script_config,
-    )
-    from src.tools.ha_tools import (
-        list_automations,
-        render_template,
-    )
-    from src.tools.ha_tools import (
+    from src.tools.ha_entity_tools import (
         list_entities_by_domain as _list_entities_by_domain,
     )
-    from src.tools.ha_tools import (
+    from src.tools.ha_entity_tools import (
         search_entities as _search_entities,
+    )
+    from src.tools.ha_script_scene_tools import get_script_config as _get_script_config
+    from src.tools.ha_utility_tools import (
+        check_ha_config as _check_ha_config,
+    )
+    from src.tools.ha_utility_tools import (
+        get_ha_logs as _get_ha_logs,
     )
     from src.tools.insight_schedule_tools import (
         create_insight_schedule as _create_insight_schedule,

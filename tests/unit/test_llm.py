@@ -64,7 +64,7 @@ class TestGetLLM:
 
     def test_openrouter_provider(self, mock_settings_openrouter):
         """Test OpenRouter provider configuration."""
-        with patch("src.llm.get_settings", return_value=mock_settings_openrouter):
+        with patch("src.llm.factory.get_settings", return_value=mock_settings_openrouter):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
@@ -80,7 +80,7 @@ class TestGetLLM:
 
     def test_openai_provider(self, mock_settings_openai):
         """Test OpenAI provider configuration."""
-        with patch("src.llm.get_settings", return_value=mock_settings_openai):
+        with patch("src.llm.factory.get_settings", return_value=mock_settings_openai):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
@@ -94,7 +94,7 @@ class TestGetLLM:
 
     def test_google_provider(self, mock_settings_google):
         """Test Google Gemini provider configuration."""
-        with patch("src.llm.get_settings", return_value=mock_settings_google):
+        with patch("src.llm.factory.get_settings", return_value=mock_settings_google):
             with patch("langchain_google_genai.ChatGoogleGenerativeAI") as MockGemini:
                 from src.llm import get_llm
 
@@ -108,7 +108,7 @@ class TestGetLLM:
 
     def test_custom_base_url(self, mock_settings_custom):
         """Test custom base URL for OpenAI-compatible APIs."""
-        with patch("src.llm.get_settings", return_value=mock_settings_custom):
+        with patch("src.llm.factory.get_settings", return_value=mock_settings_custom):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
@@ -120,7 +120,7 @@ class TestGetLLM:
 
     def test_temperature_override(self, mock_settings_openrouter):
         """Test temperature can be overridden."""
-        with patch("src.llm.get_settings", return_value=mock_settings_openrouter):
+        with patch("src.llm.factory.get_settings", return_value=mock_settings_openrouter):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
@@ -131,7 +131,7 @@ class TestGetLLM:
 
     def test_model_override(self, mock_settings_openrouter):
         """Test model can be overridden."""
-        with patch("src.llm.get_settings", return_value=mock_settings_openrouter):
+        with patch("src.llm.factory.get_settings", return_value=mock_settings_openrouter):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
@@ -151,7 +151,7 @@ class TestGetLLM:
         settings.llm_fallback_provider = None
         settings.llm_fallback_model = None
 
-        with patch("src.llm.get_settings", return_value=settings):
+        with patch("src.llm.factory.get_settings", return_value=settings):
             from src.llm import get_llm
 
             with pytest.raises(ValueError, match="LLM_API_KEY is required"):
@@ -168,7 +168,7 @@ class TestGetLLM:
         settings.llm_fallback_provider = None
         settings.llm_fallback_model = None
 
-        with patch("src.llm.get_settings", return_value=settings):
+        with patch("src.llm.factory.get_settings", return_value=settings):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
                 from src.llm import get_llm
 
