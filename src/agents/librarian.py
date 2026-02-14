@@ -6,12 +6,56 @@ maintaining the entity database.
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
+from src.agents.base import BaseAgent
 from src.dal import DiscoverySyncService
-from src.graph.state import AgentRole, DiscoveryState, DiscoveryStatus, EntitySummary
+from src.graph.state import AgentRole, BaseState, DiscoveryState, DiscoveryStatus, EntitySummary
 from src.ha import HAClient
 from src.settings import get_settings
 from src.tracing import log_dict, log_metric, log_param, start_experiment_run
+
+
+class LibrarianAgent(BaseAgent):
+    """The Librarian agent for entity discovery.
+
+    Responsibilities:
+    - Discover HA entities via MCP
+    - Infer devices and areas from entity attributes
+    - Sync entities to the local database
+    - Track MCP capability gaps
+    """
+
+    def __init__(self) -> None:
+        """Initialize Librarian agent."""
+        super().__init__(
+            role=AgentRole.LIBRARIAN,
+            name="Librarian",
+        )
+
+    async def invoke(
+        self,
+        state: BaseState,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Run entity discovery.
+
+        This method is typically called from the discovery workflow graph.
+
+        Args:
+            state: Current discovery state
+            **kwargs: Additional arguments (ha_client, session)
+
+        Returns:
+            State updates with discovery results
+        """
+        # Implementation delegated to graph nodes for modularity
+        # This method serves as the entry point
+        from typing import cast
+
+        from src.graph.nodes import run_discovery_node
+
+        return await run_discovery_node(cast("DiscoveryState", state), **kwargs)
 
 
 class LibrarianWorkflow:

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from src.agents import BaseAgent
+from src.agents.base import BaseAgent
 from src.agents.data_scientist.collectors import collect_behavioral_data, collect_energy_data
 from src.agents.data_scientist.prompts import build_analysis_prompt
 from src.agents.data_scientist.suggestions import generate_automation_suggestion

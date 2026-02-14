@@ -11,24 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import SecretStr
 
-from src.settings import Settings
-
-
-def _make_settings(**overrides) -> Settings:
-    """Create test settings."""
-    defaults = {
-        "environment": "testing",
-        "debug": True,
-        "database_url": "postgresql+asyncpg://test:test@localhost:5432/aether_test",
-        "ha_url": "http://env-ha:8123",
-        "ha_token": SecretStr("env-token"),
-        "openai_api_key": SecretStr("test-key"),
-        "mlflow_tracking_uri": "http://localhost:5000",
-        "sandbox_enabled": False,
-        "jwt_secret": SecretStr("test-jwt-secret-key-for-testing-minimum-32bytes"),
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
+from tests.helpers.auth import make_test_settings
 
 
 class TestResetHAClient:
@@ -50,7 +33,10 @@ class TestResetHAClient:
         from src.ha import client as client_mod
 
         # Patch _resolve_zone_config to avoid DB access
-        settings = _make_settings()
+        settings = make_test_settings(
+            ha_url="http://env-ha:8123",
+            ha_token=SecretStr("env-token"),
+        )
         monkeypatch.setattr("src.ha.base.get_settings", lambda: settings)
         monkeypatch.setattr("src.ha.base._try_get_db_config", lambda s: None)
         monkeypatch.setattr("src.ha.client._resolve_zone_config", lambda key: None)
@@ -75,7 +61,10 @@ class TestTryGetDBConfig:
         """Returns None when DB raises an exception."""
         from src.ha.base import _try_get_db_config
 
-        settings = _make_settings()
+        settings = make_test_settings(
+            ha_url="http://env-ha:8123",
+            ha_token=SecretStr("env-token"),
+        )
 
         # Patch get_session to raise an error (no DB available)
         with (
@@ -91,7 +80,10 @@ class TestTryGetDBConfig:
         """Returns None when called from within an async context."""
         from src.ha.base import _try_get_db_config
 
-        settings = _make_settings()
+        settings = make_test_settings(
+            ha_url="http://env-ha:8123",
+            ha_token=SecretStr("env-token"),
+        )
 
         # Inside async context - get_running_loop() returns a loop,
         # so the function should return None
@@ -106,7 +98,7 @@ class TestResolveConfig:
         """When DB config is unavailable, uses env vars."""
         from src.ha.base import BaseHAClient
 
-        settings = _make_settings(
+        settings = make_test_settings(
             ha_url="http://fallback-ha:8123",
             ha_token=SecretStr("fallback-token"),
         )
@@ -121,7 +113,7 @@ class TestResolveConfig:
         """When DB config is available, uses it."""
         from src.ha.base import BaseHAClient
 
-        settings = _make_settings(
+        settings = make_test_settings(
             ha_url="http://env-ha:8123",
             ha_token=SecretStr("env-token"),
         )

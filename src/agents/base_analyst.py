@@ -25,10 +25,10 @@ from uuid import uuid4
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
-from src.agents import BaseAgent
 from src.agents.analyst_config_mixin import AnalystConfigMixin
 from src.agents.analyst_discussion_mixin import AnalystDiscussionMixin
 from src.agents.analyst_persistence_mixin import AnalystPersistenceMixin
+from src.agents.base import BaseAgent
 from src.agents.execution_context import emit_communication
 from src.agents.model_context import get_model_context, resolve_model
 from src.agents.prompts import load_depth_fragment
