@@ -10,7 +10,16 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from src.agents.architect import ArchitectAgent
+from src.agents.architect.entity_context import _invalidate_entity_context_cache
 from src.graph.state import ConversationState, ConversationStatus
+
+
+@pytest.fixture(autouse=True)
+def _clear_entity_cache():
+    """Clear the entity context cache before each test."""
+    _invalidate_entity_context_cache()
+    yield
+    _invalidate_entity_context_cache()
 
 
 @pytest.fixture

@@ -76,6 +76,7 @@ class ArchitectAgent(BaseAgent):
         self.model_name = model_name
         self.temperature = temperature
         self._llm: BaseChatModel | None = None
+        self._bound_llm: Any = None  # Runnable from bind_tools()
 
     @property
     def llm(self) -> BaseChatModel:
@@ -86,6 +87,20 @@ class ArchitectAgent(BaseAgent):
                 temperature=self.temperature,
             )
         return self._llm
+
+    def get_tool_llm(self) -> Any:
+        """Get LLM with tools bound, cached for reuse.
+
+        Tools are cached at module level (get_architect_tools) and
+        the LLM is cached per (model, temperature), so the bound
+        LLM only needs to be created once per agent instance.
+
+        Returns a Runnable (bind_tools wrapper) or BaseChatModel.
+        """
+        if self._bound_llm is None:
+            tools = self._get_ha_tools()
+            self._bound_llm = self.llm.bind_tools(tools) if tools else self.llm
+        return self._bound_llm
 
     async def invoke(  # type: ignore[override]
         self,
@@ -131,7 +146,7 @@ class ArchitectAgent(BaseAgent):
                     messages.insert(1, SystemMessage(content=entity_context))
 
             tools = self._get_ha_tools()
-            tool_llm = self.llm.bind_tools(tools) if tools else self.llm
+            tool_llm = self.get_tool_llm()
             response = await tool_llm.ainvoke(messages)
 
             if hasattr(response, "tool_calls") and response.tool_calls:

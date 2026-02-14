@@ -4,6 +4,7 @@ Tests SandboxResult model and SandboxRunner configuration.
 All process execution is mocked.
 """
 
+import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -105,6 +106,104 @@ class TestSandboxRunnerRun:
             result = await runner.run("print('hello')")
             assert result.success is False
             assert "Podman not found" in result.stderr
+
+
+class TestGetAvailableImage:
+    """Tests for _get_available_image with auto-build and timeouts."""
+
+    async def test_returns_image_when_exists(self):
+        """Should return preferred image when podman confirms it exists."""
+        runner = SandboxRunner()
+        runner._build_attempted = False
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"", b""))
+        mock_proc.returncode = 0
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            result = await runner._get_available_image()
+            assert result == SandboxRunner.DEFAULT_IMAGE
+
+    async def test_auto_builds_when_missing(self):
+        """Should attempt auto-build when image not found."""
+        runner = SandboxRunner()
+        runner._build_attempted = False
+
+        # First call: image doesn't exist (returncode=1)
+        mock_check = AsyncMock()
+        mock_check.communicate = AsyncMock(return_value=(b"", b""))
+        mock_check.returncode = 1
+
+        # Second call: build succeeds
+        mock_build = AsyncMock()
+        mock_build.communicate = AsyncMock(return_value=(b"Built", b""))
+        mock_build.returncode = 0
+
+        # Third call: image now exists after build
+        mock_verify = AsyncMock()
+        mock_verify.communicate = AsyncMock(return_value=(b"", b""))
+        mock_verify.returncode = 0
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            side_effect=[mock_check, mock_build, mock_verify],
+        ):
+            result = await runner._get_available_image()
+            assert result == SandboxRunner.DEFAULT_IMAGE
+            assert runner._build_attempted is True
+
+    async def test_falls_back_when_build_fails(self):
+        """Should fall back to FALLBACK_IMAGE when auto-build fails."""
+        runner = SandboxRunner()
+        runner._build_attempted = False
+
+        # Image doesn't exist
+        mock_check = AsyncMock()
+        mock_check.communicate = AsyncMock(return_value=(b"", b""))
+        mock_check.returncode = 1
+
+        # Build fails
+        mock_build = AsyncMock()
+        mock_build.communicate = AsyncMock(return_value=(b"", b"Error"))
+        mock_build.returncode = 1
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            side_effect=[mock_check, mock_build],
+        ):
+            result = await runner._get_available_image()
+            assert result == SandboxRunner.FALLBACK_IMAGE
+
+    async def test_timeout_on_image_check(self):
+        """Should not hang if podman image exists takes too long."""
+        runner = SandboxRunner()
+        runner._build_attempted = True  # Skip auto-build to test check timeout
+        runner._PODMAN_CHECK_TIMEOUT = 0.5  # Fast timeout for test
+
+        async def slow_communicate():
+            await asyncio.sleep(10)
+            return (b"", b"")
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = slow_communicate
+        mock_proc.returncode = 1
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            result = await runner._get_available_image()
+            assert result == SandboxRunner.FALLBACK_IMAGE
+
+    async def test_skips_build_if_already_attempted(self):
+        """Should not retry build if already attempted in this process."""
+        runner = SandboxRunner()
+        runner._build_attempted = True
+
+        mock_check = AsyncMock()
+        mock_check.communicate = AsyncMock(return_value=(b"", b""))
+        mock_check.returncode = 1
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_check):
+            result = await runner._get_available_image()
+            assert result == SandboxRunner.FALLBACK_IMAGE
 
 
 class TestIsGvisorAvailable:

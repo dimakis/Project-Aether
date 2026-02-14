@@ -199,8 +199,7 @@ class ArchitectWorkflow:
 
         tools = self.agent._get_ha_tools()
         tool_lookup = {tool.name: tool for tool in tools}
-        llm = self.agent.llm
-        tool_llm = llm.bind_tools(tools) if tools else llm
+        tool_llm = self.agent.get_tool_llm()
 
         # --- Initial LLM stream ---
         collected_content, tool_calls_buffer = "", []

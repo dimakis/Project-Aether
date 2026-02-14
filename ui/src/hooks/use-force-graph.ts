@@ -74,18 +74,13 @@ export interface UseForceGraphReturn {
 const NODE_RADIUS = 15;
 const AETHER_RADIUS = NODE_RADIUS + 4;
 
-/** Jitter amplitude for ambient micro-drift (px). */
-const JITTER_AMPLITUDE = 0.06;
-/** Alpha threshold below which jitter kicks in. */
-const JITTER_ALPHA_THRESHOLD = 0.015;
-/** Minimum alpha to keep simulation alive for jitter. */
-const JITTER_ALPHA_MIN = 0.001;
-
 /** Padding from SVG edges to keep nodes (incl. labels) in view. */
 const BOUNDARY_PADDING = 25;
 
-/** How strongly nodes are pulled toward their brain target (0-1). */
-const TARGET_STRENGTH = 0.12;
+/** How strongly nodes are pulled toward their brain target (0-1).
+ *  High value keeps nodes pinned to their brain-layout positions;
+ *  physics adds gentle organic breathing, not relocation. */
+const TARGET_STRENGTH = 0.4;
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
@@ -100,17 +95,26 @@ export function useForceGraph(
   const containerRef = useRef<SVGSVGElement | null>(null);
   const simRef = useRef<Simulation<ForceNode, ForceLink> | null>(null);
   const nodesRef = useRef<ForceNode[]>([]);
-  const [positions, setPositions] = useState<ForceGraphPositions>({});
+
+  // Synchronous initial positions from brain layout so nodes appear
+  // at correct positions on the very first render (no flash/scatter).
+  const [positions, setPositions] = useState<ForceGraphPositions>(() => {
+    const init: ForceGraphPositions = {};
+    const size = 300; // matches SVG_SIZE in agent-topology.tsx
+    for (const id of agentIds) {
+      const t = targetPositions[id];
+      if (t) init[id] = { x: t.x * size, y: t.y * size };
+    }
+    return init;
+  });
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const rafRef = useRef<number>(0);
   const pinnedSetRef = useRef(new Set(pinnedNodes));
   pinnedSetRef.current = new Set(pinnedNodes);
 
-  // Stable references for the simulation tick callback
+  // Stable reference for the simulation tick callback
   const agentStatesRef = useRef(agentStates);
   agentStatesRef.current = agentStates;
-  const reducedMotionRef = useRef(prefersReducedMotion);
-  reducedMotionRef.current = prefersReducedMotion;
 
   // ── Compute pixel targets from fractional layout ──────────────────
 
@@ -195,26 +199,12 @@ export function useForceGraph(
         "y",
         forceY<ForceNode>((d) => (d as ForceNode).targetY ?? height / 2).strength(TARGET_STRENGTH),
       )
-      .alphaDecay(0.025)
+      .alpha(0.3)          // Start calm — nodes are already at targets
+      .alphaDecay(0.03)    // Settle quickly
       .velocityDecay(0.6);
 
-    // Custom tick: boundary clamping, ambient jitter, position updates
+    // Custom tick: boundary clamping + position updates
     sim.on("tick", () => {
-      // Ambient jitter when nearly settled (organic breathing)
-      if (
-        !reducedMotionRef.current &&
-        sim.alpha() < JITTER_ALPHA_THRESHOLD
-      ) {
-        for (const node of nodes) {
-          if (node.fx != null) continue;
-          node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * JITTER_AMPLITUDE;
-          node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * JITTER_AMPLITUDE;
-        }
-        if (sim.alpha() < JITTER_ALPHA_MIN) {
-          sim.alpha(JITTER_ALPHA_MIN);
-        }
-      }
-
       // Clamp unpinned nodes to SVG bounds
       for (const node of nodes) {
         if (node.fx != null) continue;

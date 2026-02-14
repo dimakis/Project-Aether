@@ -94,8 +94,7 @@ class TestStreamProgressEvents:
         tool_llm_mock = MagicMock()
         tool_llm_mock.astream = mock_astream
 
-        workflow.agent.llm = MagicMock()
-        workflow.agent.llm.bind_tools = MagicMock(return_value=tool_llm_mock)
+        workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
         workflow.agent._get_ha_tools.return_value = [mock_tool]
 
         events = []
@@ -160,8 +159,7 @@ class TestStreamProgressEvents:
         tool_llm_mock = MagicMock()
         tool_llm_mock.astream = mock_astream
 
-        workflow.agent.llm = MagicMock()
-        workflow.agent.llm.bind_tools = MagicMock(return_value=tool_llm_mock)
+        workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
         workflow.agent._get_ha_tools.return_value = [mock_tool]
 
         events = []
@@ -219,8 +217,7 @@ class TestDrainLoopExitsImmediately:
         tool_llm_mock = MagicMock()
         tool_llm_mock.astream = mock_astream
 
-        workflow.agent.llm = MagicMock()
-        workflow.agent.llm.bind_tools = MagicMock(return_value=tool_llm_mock)
+        workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
         workflow.agent._get_ha_tools.return_value = [mock_tool]
 
         t0 = _time.monotonic()
@@ -284,8 +281,7 @@ class TestToolTimeout:
         tool_llm_mock = MagicMock()
         tool_llm_mock.astream = mock_astream
 
-        workflow.agent.llm = MagicMock()
-        workflow.agent.llm.bind_tools = MagicMock(return_value=tool_llm_mock)
+        workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
         workflow.agent._get_ha_tools.return_value = [mock_tool]
 
         # Patch settings to use a very short timeout

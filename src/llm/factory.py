@@ -14,6 +14,7 @@ Environment variables:
 - LLM_TEMPERATURE: Generation temperature (0.0-2.0)
 """
 
+import logging
 from functools import lru_cache
 from typing import Any
 
@@ -21,6 +22,13 @@ from langchain_core.language_models import BaseChatModel
 
 from src.llm.resilient import ResilientLLM
 from src.settings import get_settings
+
+logger = logging.getLogger(__name__)
+
+# ─── LLM Instance Cache ──────────────────────────────────────────────────────
+# Cache LLM instances per (provider, model, temperature) to avoid creating
+# new HTTP connections and ResilientLLM wrappers on every request.
+_llm_cache: dict[tuple[str, str, float], BaseChatModel] = {}
 
 # Provider base URLs
 PROVIDER_BASE_URLS = {
@@ -81,6 +89,11 @@ def get_llm(
 
     provider = provider or detected_provider or settings.llm_provider
 
+    # Check cache: reuse LLM instance for same (provider, model, temperature)
+    cache_key = (provider, model_name, temp)
+    if cache_key in _llm_cache and not kwargs:
+        return _llm_cache[cache_key]
+
     # Create primary LLM instance
     primary_llm = _create_llm_instance(
         provider=provider,
@@ -103,18 +116,24 @@ def get_llm(
         )
 
         # Wrap with resilience
-        return ResilientLLM(  # type: ignore[return-value]
+        llm: BaseChatModel = ResilientLLM(  # type: ignore[assignment]
             primary_llm=primary_llm,
             provider=provider,
             fallback_llm=fallback_llm,
             fallback_provider=fallback_provider,
         )
+    else:
+        # No fallback, wrap primary with resilience
+        llm = ResilientLLM(  # type: ignore[assignment]
+            primary_llm=primary_llm,
+            provider=provider,
+        )
 
-    # No fallback, wrap primary with resilience
-    return ResilientLLM(  # type: ignore[return-value]
-        primary_llm=primary_llm,
-        provider=provider,
-    )
+    # Cache for reuse (skip caching if extra kwargs were provided)
+    if not kwargs:
+        _llm_cache[cache_key] = llm
+
+    return llm
 
 
 def _create_llm_instance(

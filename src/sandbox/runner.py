@@ -92,6 +92,7 @@ class SandboxRunner:
         self.image = image or self.DEFAULT_IMAGE
         self.podman_path = podman_path
         self._gvisor_available: bool | None = None  # Cached check result
+        self._build_attempted: bool = False  # Only attempt auto-build once per process
 
     async def run(
         self,
@@ -369,36 +370,97 @@ class SandboxRunner:
 
         return cmd
 
-    async def _get_available_image(self) -> str:
-        """Get an available container image, falling back if necessary.
+    # Timeout for podman subprocess checks (image exists, build, etc.)
+    _PODMAN_CHECK_TIMEOUT = 10  # seconds
+    _PODMAN_BUILD_TIMEOUT = 300  # 5 minutes for image build
 
-        Returns:
-            Available container image name
-        """
-        # Check if preferred image exists
+    async def _image_exists(self, image: str) -> bool:
+        """Check if a container image exists, with timeout."""
         try:
             process = await asyncio.create_subprocess_exec(
                 self.podman_path,
                 "image",
                 "exists",
-                self.image,
+                image,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await process.communicate()
-
-            if process.returncode == 0:
-                return self.image
-
+            await asyncio.wait_for(process.communicate(), timeout=self._PODMAN_CHECK_TIMEOUT)
+            return process.returncode == 0
+        except TimeoutError:
+            logger.warning(
+                "Timed out checking image '%s' (podman machine may not be running)",
+                image,
+            )
+            return False
         except Exception:
-            logger.warning("Failed to verify container image availability", exc_info=True)
+            return False
+
+    async def _auto_build_image(self) -> bool:
+        """Attempt to auto-build the sandbox image from the Containerfile.
+
+        Returns True on success, False on failure.
+        """
+        # Resolve project root from this file's location
+        project_root = Path(__file__).resolve().parent.parent.parent
+        containerfile = project_root / "infrastructure" / "podman" / "Containerfile.sandbox"
+
+        if not containerfile.exists():
+            logger.warning("Containerfile not found at %s, cannot auto-build", containerfile)
+            return False
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                self.podman_path,
+                "build",
+                "-t",
+                self.image,
+                "-f",
+                str(containerfile),
+                str(project_root),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await asyncio.wait_for(process.communicate(), timeout=self._PODMAN_BUILD_TIMEOUT)
+            return process.returncode == 0
+        except TimeoutError:
+            logger.warning("Sandbox image build timed out after %ds", self._PODMAN_BUILD_TIMEOUT)
+            return False
+        except Exception as exc:
+            logger.warning("Sandbox image auto-build failed: %s", exc)
+            return False
+
+    async def _get_available_image(self) -> str:
+        """Get an available container image, auto-building if needed.
+
+        Returns:
+            Available container image name
+        """
+        # Check if preferred image already exists
+        if await self._image_exists(self.image):
+            return self.image
+
+        # Attempt auto-build (once per process lifetime)
+        if not self._build_attempted:
+            self._build_attempted = True
+            logger.info(
+                "Sandbox image '%s' not found. Building automatically "
+                "(first run only, this may take 2-3 minutes)...",
+                self.image,
+            )
+            if await self._auto_build_image():
+                logger.info("Sandbox image '%s' built successfully.", self.image)
+                return self.image
+            logger.warning("Auto-build of sandbox image failed.")
 
         # Fall back to basic Python image
         logger.warning(
-            f"Container image '{self.image}' not found — falling back to '{self.FALLBACK_IMAGE}'. "
-            f"The fallback image lacks data-science packages (numpy, pandas, scipy, etc.) "
-            f"and analysis scripts WILL fail. Build the sandbox image with:\n"
-            f"  make build-sandbox"
+            "Container image '%s' not found — falling back to '%s'. "
+            "The fallback image lacks data-science packages (numpy, pandas, scipy, etc.) "
+            "and analysis scripts WILL fail. Build manually with:\n"
+            "  make build-sandbox",
+            self.image,
+            self.FALLBACK_IMAGE,
         )
         return self.FALLBACK_IMAGE
 
