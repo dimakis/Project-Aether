@@ -45,7 +45,7 @@ export const proposals = {
     }),
 
   create: (data: {
-    name: string;
+    name?: string;
     trigger?: unknown;
     actions?: unknown;
     description?: string;
@@ -54,6 +54,7 @@ export const proposals = {
     proposal_type?: string;
     service_call?: Record<string, unknown>;
     dashboard_config?: Record<string, unknown>;
+    yaml_content?: string;
   }) =>
     request<import("@/lib/types").Proposal>(`/proposals`, {
       method: "POST",

@@ -62,7 +62,6 @@ export const MessageBubble = memo(function MessageBubble({
 
   return (
     <motion.div
-      layout
       initial="hidden"
       animate="visible"
       variants={messageVariants}

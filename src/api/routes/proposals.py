@@ -161,20 +161,56 @@ async def get_proposal(proposal_id: str) -> ProposalYAMLResponse:
 )
 @limiter.limit("10/minute")
 async def create_proposal(request: Request, body: ProposalCreate) -> ProposalResponse:
-    """Create a new proposal."""
+    """Create a new proposal.
+
+    When ``yaml_content`` is provided, the server parses, normalizes,
+    and extracts trigger/action/condition/mode/name from the YAML using
+    the canonical schema pipeline.  Explicit body fields override
+    extracted values.
+    """
+    # ── Parse yaml_content if provided ──────────────────────────────
+    name = body.name
+    trigger: dict | list = body.trigger
+    actions: dict | list = body.actions
+    conditions = body.conditions
+    mode = body.mode
+    proposal_type = body.proposal_type
+
+    if body.yaml_content:
+        from src.schema import detect_proposal_type, parse_ha_yaml
+
+        data, errors = parse_ha_yaml(body.yaml_content)
+        if errors:
+            raise HTTPException(
+                status_code=422,
+                detail=[str(e) for e in errors],
+            )
+        # Extract fields; explicit body values take precedence
+        name = name or data.get("alias") or data.get("name") or "Proposal from YAML"
+        trigger = trigger or data.get("trigger", {})
+        actions = actions or data.get("action", data.get("sequence", {}))
+        conditions = conditions or data.get("condition")
+        mode = mode if mode != "single" else data.get("mode", "single")
+        proposal_type = (
+            proposal_type if proposal_type != "automation" else detect_proposal_type(data)
+        )
+
+    if not name:
+        name = "Untitled Proposal"
+
     async with get_session() as session:
         repo = ProposalRepository(session)
 
         proposal = await repo.create(
-            name=body.name,
-            trigger=body.trigger if isinstance(body.trigger, dict) else {"triggers": body.trigger},
-            actions=body.actions if isinstance(body.actions, dict) else {"actions": body.actions},
+            name=name,
+            trigger=trigger if isinstance(trigger, dict) else {"triggers": trigger},
+            actions=actions if isinstance(actions, dict) else {"actions": actions},
             description=body.description,
-            conditions=cast("dict[str, Any] | None", body.conditions)
-            if isinstance(body.conditions, dict)
-            else body.conditions,
-            mode=body.mode,
-            proposal_type=body.proposal_type,
+            conditions=cast("dict[str, Any] | None", conditions)
+            if isinstance(conditions, dict)
+            else conditions,
+            mode=mode,
+            proposal_type=proposal_type,
             service_call=body.service_call,
             dashboard_config=body.dashboard_config,
         )
@@ -340,6 +376,8 @@ async def deploy_proposal(
                 result = await _deploy_entity_command(proposal, repo)
             elif proposal.proposal_type == ProposalType.DASHBOARD.value:
                 result = await _deploy_dashboard(proposal, repo)
+            elif proposal.proposal_type == ProposalType.HELPER.value:
+                result = await _deploy_helper(proposal, repo)
             else:
                 # Deploy via Developer agent (automations, scripts, scenes)
                 from src.agents import DeveloperWorkflow
@@ -583,6 +621,67 @@ async def _deploy_dashboard(
         "deployment_method": "ws_lovelace_save",
         "yaml_content": yaml_content,
         "instructions": f"Deployed Lovelace config to dashboard '{url_path or 'default'}'",
+    }
+
+
+_HELPER_DISPATCH: dict[str, str] = {
+    "input_boolean": "create_input_boolean",
+    "input_number": "create_input_number",
+    "input_text": "create_input_text",
+    "input_select": "create_input_select",
+    "input_datetime": "create_input_datetime",
+    "input_button": "create_input_button",
+    "counter": "create_counter",
+    "timer": "create_timer",
+}
+
+# Keys that are metadata, not HA client kwargs
+_HELPER_META_KEYS = {"helper_type"}
+
+
+async def _deploy_helper(proposal: AutomationProposal, repo: ProposalRepository) -> dict[str, Any]:
+    """Deploy a helper proposal by calling the HA create_* method.
+
+    Args:
+        proposal: The AutomationProposal with proposal_type=helper and
+                  helper config stored in service_call.
+        repo: ProposalRepository for state updates.
+
+    Returns:
+        Deployment result dict.
+    """
+    config = proposal.service_call or {}
+    helper_type = config.get("helper_type", "")
+    method_name = _HELPER_DISPATCH.get(helper_type)
+
+    if not method_name:
+        return {
+            "ha_automation_id": None,
+            "deployment_method": "ha_helper_create",
+            "yaml_content": "",
+            "error": f"Unknown helper type: {helper_type}",
+        }
+
+    ha = get_ha_client()
+    method = getattr(ha, method_name)
+
+    # Build kwargs from config, excluding metadata keys
+    kwargs = {k: v for k, v in config.items() if k not in _HELPER_META_KEYS}
+    result = await method(**kwargs)
+
+    entity_id = result.get("entity_id", "")
+    deploy_id = entity_id or f"helper_{proposal.id[:8]}_{helper_type}"
+    await repo.deploy(proposal.id, deploy_id)
+
+    import yaml as yaml_lib
+
+    yaml_content = yaml_lib.dump(config, default_flow_style=False, sort_keys=False)
+
+    return {
+        "ha_automation_id": deploy_id,
+        "deployment_method": "ha_helper_create",
+        "yaml_content": yaml_content,
+        "instructions": f"Created {helper_type} helper: {entity_id}",
     }
 
 

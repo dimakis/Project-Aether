@@ -11,9 +11,19 @@ from pydantic import BaseModel, Field
 class ProposalCreate(BaseModel):
     """Schema for creating a proposal directly (bypass conversation)."""
 
-    name: str = Field(max_length=255, description="Automation name")
+    name: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Automation name (extracted from YAML if not provided)",
+    )
     trigger: dict | list = Field(default_factory=dict, description="HA trigger configuration")
     actions: dict | list = Field(default_factory=dict, description="HA action configuration")
+    yaml_content: str | None = Field(
+        default=None,
+        max_length=10000,
+        description="Raw YAML content; server will parse, normalize, and validate. "
+        "When provided, trigger/actions/conditions/mode/name are extracted from the YAML.",
+    )
     description: str | None = Field(
         default=None,
         max_length=2000,

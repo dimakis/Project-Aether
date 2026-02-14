@@ -27,16 +27,14 @@ class DashboardMixin:
 
         Returns:
             List of dashboard dicts with id, title, mode, url_path, etc.
-            Returns empty list on failure.
+
+        Raises:
+            Exception: On connection or API errors (propagated to caller).
         """
-        try:
-            result = await self._request("GET", "/api/lovelace/dashboards")  # type: ignore[attr-defined]
-            if not result or not isinstance(result, list):
-                return []
-            return cast("list[dict[str, Any]]", result)
-        except Exception as exc:
-            logger.warning("Failed to list dashboards from HA: %s", exc)
+        result = await self._request("GET", "/api/lovelace/dashboards")  # type: ignore[attr-defined]
+        if not result or not isinstance(result, list):
             return []
+        return cast("list[dict[str, Any]]", result)
 
     @_trace_ha_call("ha.get_dashboard_config")
     async def get_dashboard_config(

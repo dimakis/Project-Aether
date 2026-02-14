@@ -17,7 +17,7 @@ from src.tracing import trace_with_uri
 
 logger = logging.getLogger(__name__)
 
-VALID_ACTION_TYPES = {"entity_command", "automation", "script", "scene", "dashboard"}
+VALID_ACTION_TYPES = {"entity_command", "automation", "script", "scene", "dashboard", "helper"}
 
 
 @tool("seek_approval")
@@ -38,6 +38,7 @@ async def seek_approval(
     original_yaml: str | None = None,
     dashboard_config: dict | None = None,
     dashboard_url_path: str | None = None,
+    helper_config: dict | None = None,
 ) -> str:
     """Submit an action for user approval before execution.
 
@@ -51,6 +52,7 @@ async def seek_approval(
             - "automation": Create a new HA automation
             - "script": Create a new HA script
             - "scene": Create a new HA scene
+            - "helper": Create an input helper entity (input_boolean, etc.)
         name: Short descriptive name for the action
         description: What this action does and why
         yaml_content: Raw YAML content (optional, for automation/script/scene)
@@ -71,6 +73,11 @@ async def seek_approval(
         original_yaml: The original YAML config being improved (enables diff view
             in the Proposals page). Pass the current entity config when proposing
             improvements to existing automations, scripts, or scenes.
+        helper_config: Configuration for creating an input helper (action_type="helper").
+            Must include "helper_type" (e.g., "input_boolean", "input_number",
+            "input_select", "input_text", "input_datetime", "input_button",
+            "counter", "timer") and "input_id" (unique ID). Additional keys
+            depend on the helper type (e.g., "name", "initial", "options").
 
     Returns:
         Confirmation message with the proposal details
@@ -124,6 +131,12 @@ async def seek_approval(
             description=description,
             dashboard_config=dashboard_config,
             dashboard_url_path=dashboard_url_path,
+        )
+    elif action_type == "helper":
+        return await _create_helper_proposal(
+            name=name,
+            description=description,
+            helper_config=helper_config,
         )
 
     return f"Unknown action type: {action_type}"
@@ -195,21 +208,21 @@ async def _create_automation_proposal(
     original_yaml: str | None = None,
 ) -> str:
     """Create an automation proposal."""
-    # If yaml_content provided, try to parse it
+    # If yaml_content provided, parse using the canonical schema pipeline
     if yaml_content:
-        try:
-            import yaml
+        from src.schema import parse_ha_yaml
 
-            parsed = yaml.safe_load(yaml_content)
-            if isinstance(parsed, dict):
-                trigger = trigger or parsed.get("trigger", parsed.get("triggers", {}))
-                actions = actions or parsed.get("action", parsed.get("actions", {}))
-                conditions = conditions or parsed.get("condition", parsed.get("conditions"))
-                mode = parsed.get("mode", mode)
-        except Exception:
+        parsed, errors = parse_ha_yaml(yaml_content)
+        if not errors:
+            trigger = trigger or parsed.get("trigger", {})
+            actions = actions or parsed.get("action", {})
+            conditions = conditions or parsed.get("condition")
+            mode = parsed.get("mode", mode)
+        else:
             logger.debug(
-                "Failed to parse YAML content, falling back to explicit params", exc_info=True
-            )  # Fall through to use explicit params
+                "Failed to parse YAML content, falling back to explicit params: %s",
+                [str(e) for e in errors],
+            )
 
     # Validate required fields — reject early so the LLM retries with full data
     missing: list[str] = []
@@ -367,6 +380,50 @@ async def _create_dashboard_proposal(
             )
     except Exception as e:
         logger.error("Failed to create dashboard proposal: %s", e)
+        return f"Failed to create proposal: {e}"
+
+
+async def _create_helper_proposal(
+    name: str,
+    description: str,
+    helper_config: dict | None,
+) -> str:
+    """Create a helper entity proposal."""
+    if not helper_config or "helper_type" not in helper_config:
+        return (
+            "helper_config with 'helper_type' is required for helper proposals. "
+            "Provide a dict with helper_type (e.g., 'input_boolean'), input_id, "
+            "name, and any type-specific parameters."
+        )
+
+    helper_type = helper_config["helper_type"]
+    input_id = helper_config.get("input_id", "")
+
+    try:
+        async with get_session() as session:
+            repo = ProposalRepository(session)
+            proposal = await repo.create(
+                name=name,
+                description=description,
+                trigger={},
+                actions={},
+                proposal_type="helper",
+                service_call=helper_config,
+            )
+            await repo.propose(proposal.id)
+            await session.commit()
+
+            logger.info("Created helper proposal %s: %s", proposal.id, name)
+            return (
+                f"I've submitted a helper proposal for your approval: **{name}**\n\n"
+                f"- **Type**: Helper ({helper_type})\n"
+                f"- **ID**: `{input_id}`\n"
+                f"- **Description**: {description}\n"
+                f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
+                f"Please review and approve it on the **Proposals** page."
+            )
+    except Exception as e:
+        logger.error("Failed to create helper proposal: %s", e)
         return f"Failed to create proposal: {e}"
 
 
