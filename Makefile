@@ -90,9 +90,11 @@ dev: install up migrate
 
 COMPOSE := podman-compose -f infrastructure/podman/compose.yaml
 
-# Non-fatal sandbox build (skips silently if podman unavailable)
+# Build sandbox image only if not already present (non-fatal)
 ensure-sandbox:
-	@$(MAKE) build-sandbox 2>/dev/null || echo "  Sandbox image skipped (podman not available)"
+	@podman image exists aether-sandbox:latest 2>/dev/null \
+		&& echo "  Sandbox image: aether-sandbox:latest (exists)" \
+		|| ($(MAKE) build-sandbox 2>/dev/null || echo "  Sandbox image skipped (podman not available)")
 
 # Development mode: infra in containers, API on host with hot-reload
 run: up migrate ensure-sandbox
