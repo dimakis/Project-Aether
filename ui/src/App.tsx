@@ -18,7 +18,8 @@ const LoginPage = lazy(() =>
 const DashboardPage = lazy(() =>
   import("@/pages/dashboard").then((m) => ({ default: m.DashboardPage })),
 );
-const ChatPage = lazy(() => import("@/pages/chat"));
+// ChatPage is mounted persistently by AppLayout (not through Routes)
+// so that active streams survive page navigation.
 const ProposalsPage = lazy(() => import("@/pages/proposals"));
 const InsightsPage = lazy(() => import("@/pages/insights"));
 const EntitiesPage = lazy(() =>
@@ -48,6 +49,9 @@ const WebhooksPage = lazy(() =>
 );
 const ZonesPage = lazy(() =>
   import("@/pages/settings/zones").then((m) => ({ default: m.ZonesPage })),
+);
+const SettingsPage = lazy(() =>
+  import("@/pages/settings").then((m) => ({ default: m.SettingsPage })),
 );
 const ReportsPage = lazy(() =>
   import("@/pages/reports").then((m) => ({ default: m.ReportsPage })),
@@ -138,7 +142,8 @@ export default function App() {
                 <Route element={<AppLayout />}>
                   <Route element={<RouteShell />}>
                     <Route index element={<DashboardPage />} />
-                    <Route path="chat" element={<ChatPage />} />
+                    {/* Chat is rendered by AppLayout (persistent mount); noop route for NavLink matching */}
+                    <Route path="chat" element={null} />
                     <Route path="proposals" element={<ProposalsPage />} />
                     <Route path="insights" element={<InsightsPage />} />
                     <Route path="entities" element={<EntitiesPage />} />
@@ -150,6 +155,7 @@ export default function App() {
                     <Route path="architecture" element={<ArchitecturePage />} />
                     <Route path="agents/registry" element={<ModelRegistryPage />} />
                     <Route path="webhooks" element={<WebhooksPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
                     <Route path="settings/zones" element={<ZonesPage />} />
                     <Route path="reports" element={<ReportsPage />} />
                     <Route path="reports/:id" element={<ReportDetailPage />} />

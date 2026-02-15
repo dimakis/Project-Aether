@@ -126,7 +126,7 @@ class TestStreamConversation:
         workflow.agent._llm = mock_llm
 
         # Mock entity context
-        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
             with patch.object(workflow.agent, "_get_ha_tools", return_value=[]):
                 state = ConversationState(messages=[])
                 events = []
@@ -154,7 +154,7 @@ class TestStreamConversation:
         workflow = ArchitectWorkflow(model_name="test-model")
         workflow.agent._llm = mock_llm
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
             with patch.object(workflow.agent, "_get_ha_tools", return_value=[]):
                 state = ConversationState(messages=[])
                 events = []
@@ -185,7 +185,7 @@ class TestStreamConversation:
         workflow = ArchitectWorkflow(model_name="test-model")
         workflow.agent._llm = mock_llm
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
             with patch.object(workflow.agent, "_get_ha_tools", return_value=[]):
                 state = ConversationState(messages=[])
                 events = []
@@ -326,7 +326,7 @@ class TestTruncatedToolCalls:
         mock_tool.name = "seek_approval"
         mock_tool.ainvoke = AsyncMock(return_value="Proposal submitted")
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
             with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
                 state = ConversationState(messages=[])
                 events = []
@@ -377,7 +377,7 @@ class TestTruncatedToolCalls:
         mock_tool.name = "seek_approval"
         mock_tool.ainvoke = AsyncMock(return_value="Proposal submitted")
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
             with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
                 state = ConversationState(messages=[])
                 events = []
@@ -435,7 +435,7 @@ class TestFallbackResponse:
         mock_tool.name = "get_entity_state"
         mock_tool.ainvoke = AsyncMock(return_value="light is on")
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=None):
+        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
             with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
                 state = ConversationState(messages=[])
                 events = []

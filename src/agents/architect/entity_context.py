@@ -4,6 +4,10 @@ The base entity context (domain counts, areas, devices, services)
 changes infrequently — only when a discovery sync runs (~30 min).
 We cache this base context with a short TTL so that subsequent
 requests within the same time window skip 5-6 DB queries entirely.
+
+Each DB query runs in its own short-lived session so that
+``asyncio.gather`` can execute them truly in parallel without
+hitting SQLAlchemy's "concurrent operations not permitted" error.
 """
 
 from __future__ import annotations
@@ -14,11 +18,10 @@ import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     from src.graph.state import ConversationState
 
 from src.dal import AreaRepository, DeviceRepository, EntityRepository, ServiceRepository
+from src.storage import get_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -35,21 +38,24 @@ def _invalidate_entity_context_cache() -> None:
 
 
 async def get_entity_context(
-    session: AsyncSession,
     state: ConversationState,
-) -> str | None:
+) -> tuple[str | None, str | None]:
     """Get relevant entity context for the conversation.
 
     Uses a short-TTL cache for the base context (domain counts, areas,
     devices, services) to avoid 5-6 DB queries on every request.
     Mentioned entities are always fetched fresh since they're per-message.
 
+    Each query manages its own session — the caller does NOT need to
+    pass a session.
+
     Args:
-        session: Database session
         state: Current conversation state
 
     Returns:
-        Context string or None
+        Tuple of (context_string, warning_string).
+        - On success: (context, None)
+        - On failure: (None, human-readable warning explaining what went wrong)
     """
     try:
         global _base_context_cache
@@ -62,20 +68,23 @@ async def get_entity_context(
 
         # ── Build base context if not cached ──────────────────────
         if base_context is None:
-            base_context = await _build_base_context(session)
+            base_context = await _build_base_context()
             if base_context:
                 _base_context_cache = (now, base_context)
             else:
-                return None
+                return None, None  # No entities in DB at all
 
         # ── Always-fresh: mentioned entities (per-message) ────────
         mentioned_section = ""
         if state.entities_mentioned:
-            repo = EntityRepository(session)
-            mentioned_results = await asyncio.gather(
-                *(repo.get_by_entity_id(eid) for eid in state.entities_mentioned[:10])
-            )
-            found = [e for e in mentioned_results if e is not None]
+            factory = get_session_factory()
+            session = factory()
+            try:
+                repo = EntityRepository(session)
+                found = await repo.get_by_entity_ids(list(state.entities_mentioned[:10]))
+            finally:
+                await session.close()
+
             if found:
                 lines = ["\nEntities mentioned by user:"]
                 for entity in found:
@@ -84,29 +93,40 @@ async def get_entity_context(
                     )
                 mentioned_section = "\n".join(lines)
 
-        return base_context + mentioned_section if mentioned_section else base_context
+        context = base_context + mentioned_section if mentioned_section else base_context
+        return context, None
     except Exception as e:
-        logger.warning(f"Failed to get entity context: {e}")
-        return None
+        warning = f"Entity context unavailable: {e}"
+        logger.warning(warning)
+        return None, warning
 
 
-async def _build_base_context(session: AsyncSession) -> str | None:
+async def _build_base_context() -> str | None:
     """Build the base entity context from DB queries.
 
-    This is the expensive part: 5-6 DB queries for domain counts,
-    areas, devices, services, and detailed entity listings.
+    Each query runs in its own short-lived session obtained from the
+    session factory so that ``asyncio.gather`` can execute them in
+    true parallel without concurrent-operation errors on a single
+    ``AsyncSession``.
     """
-    repo = EntityRepository(session)
-    device_repo = DeviceRepository(session)
-    area_repo = AreaRepository(session)
-    service_repo = ServiceRepository(session)
+    factory = get_session_factory()
+
+    from typing import Any
+
+    async def _query(coro_fn: Any) -> Any:
+        """Run *coro_fn(session)* in a dedicated session."""
+        session = factory()
+        try:
+            return await coro_fn(session)
+        finally:
+            await session.close()
 
     # Phase 1: fetch domain counts + independent summaries in parallel
     counts_result, areas, devices, services = await asyncio.gather(
-        repo.get_domain_counts(),
-        area_repo.list_all(limit=20),
-        device_repo.list_all(limit=20),
-        service_repo.list_all(limit=30),
+        _query(lambda s: EntityRepository(s).get_domain_counts()),
+        _query(lambda s: AreaRepository(s).list_all(limit=20)),
+        _query(lambda s: DeviceRepository(s).list_all(limit=20)),
+        _query(lambda s: ServiceRepository(s).list_all(limit=30)),
     )
     counts: dict[str, int] = counts_result or {}
     if not counts:
@@ -127,9 +147,11 @@ async def _build_base_context(session: AsyncSession) -> str | None:
 
     # Batch-fetch entities for all detailed domains in a single query
     domains_to_detail = [d for d, c in counts.items() if d in detailed_domains and c <= 50]
-    entities_by_domain = await repo.list_by_domains(
-        domains_to_detail,
-        limit_per_domain=50,
+    entities_by_domain = await _query(
+        lambda s: EntityRepository(s).list_by_domains(
+            domains_to_detail,
+            limit_per_domain=50,
+        )
     )
 
     for domain, count in sorted(counts.items()):

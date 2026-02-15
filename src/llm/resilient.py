@@ -154,7 +154,16 @@ class ResilientLLM:
 
         Falls back to the secondary provider when primary retries are
         exhausted, mirroring the ainvoke failover logic.
+
+        Usage is logged from the final accumulated chunk's usage_metadata
+        (LangChain AIMessageChunk.__add__ accumulates token counts).
         """
+        import time as _time
+
+        model_name = self._get_model_name()
+        start_ms = _time.perf_counter()
+        _publish_llm_activity("start", model_name)
+
         last_error: Exception | None = None
 
         for attempt in range(MAX_RETRIES):
@@ -164,10 +173,15 @@ class ResilientLLM:
 
             try:
                 stream = self.primary_llm.astream(input, config=config, **kwargs)
-                # Yield from the stream — mid-stream errors propagate
+                last_chunk = None
                 async for chunk in stream:
+                    last_chunk = chunk
                     yield chunk
                 self._circuit_breaker.record_success()
+                latency_ms = int((_time.perf_counter() - start_ms) * 1000)
+                if last_chunk is not None:
+                    _log_usage_async(last_chunk, self.provider, model_name, latency_ms)
+                _publish_llm_activity("end", model_name, latency_ms=latency_ms)
                 return
             except Exception as e:
                 last_error = e
@@ -194,9 +208,17 @@ class ResilientLLM:
             if fallback_cb.can_attempt():
                 try:
                     stream = self.fallback_llm.astream(input, config=config, **kwargs)
+                    last_chunk = None
                     async for chunk in stream:
+                        last_chunk = chunk
                         yield chunk
                     fallback_cb.record_success()
+                    latency_ms = int((_time.perf_counter() - start_ms) * 1000)
+                    if last_chunk is not None:
+                        _log_usage_async(
+                            last_chunk, self.fallback_provider or "fallback", model_name, latency_ms
+                        )
+                    _publish_llm_activity("end", model_name, latency_ms=latency_ms)
                     return
                 except Exception as e:
                     fallback_cb.record_failure()

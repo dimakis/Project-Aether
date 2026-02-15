@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from src.dal.base import BaseRepository
 from src.storage.entities import HAEntity
@@ -108,6 +109,7 @@ class EntityRepository(BaseRepository[HAEntity]):
 
         query = (
             select(HAEntity)
+            .options(selectinload(HAEntity.area))
             .where(HAEntity.domain.in_(domains))
             .order_by(HAEntity.domain, HAEntity.entity_id)
         )
@@ -123,6 +125,28 @@ class EntityRepository(BaseRepository[HAEntity]):
                 domain_list.append(entity)
 
         return grouped
+
+    async def get_by_entity_ids(self, ha_entity_ids: list[str]) -> list[HAEntity]:
+        """Get multiple entities by HA entity_id in a single query.
+
+        Uses a WHERE IN clause for efficient batch lookup instead of
+        N individual queries.
+
+        Args:
+            ha_entity_ids: List of HA entity IDs (e.g., ["light.a", "switch.b"])
+
+        Returns:
+            List of matching HAEntity objects (may be fewer than input if some not found)
+        """
+        if not ha_entity_ids:
+            return []
+        query = (
+            select(HAEntity)
+            .options(selectinload(HAEntity.area))
+            .where(HAEntity.entity_id.in_(ha_entity_ids))
+        )
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
 
     async def count(self, domain: str | None = None) -> int:
         """Count entities, optionally by domain.

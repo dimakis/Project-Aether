@@ -25,7 +25,7 @@ def _make_workflow():
     mock_agent._get_ha_tools.return_value = []
     mock_agent._build_messages.return_value = [HumanMessage(content="test")]
     mock_agent._is_mutating_tool.return_value = False
-    mock_agent._get_entity_context = AsyncMock(return_value=None)
+    mock_agent._get_entity_context = AsyncMock(return_value=(None, None))
 
     workflow = ArchitectWorkflow.__new__(ArchitectWorkflow)
     workflow.agent = mock_agent

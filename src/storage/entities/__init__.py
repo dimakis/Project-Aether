@@ -10,6 +10,9 @@ from src.storage.entities.agent_config_version import AgentConfigVersion, Versio
 from src.storage.entities.agent_prompt_version import AgentPromptVersion
 from src.storage.entities.analysis_report import AnalysisReport, ReportStatus
 
+# App Settings (runtime-configurable via UI)
+from src.storage.entities.app_settings import AppSettings
+
 # HA Registry models (User Story 1)
 from src.storage.entities.area import Area
 
@@ -57,6 +60,7 @@ __all__ = [
     "AgentConfigVersion",
     "AgentPromptVersion",
     "AnalysisReport",
+    "AppSettings",
     "Area",
     "AutomationProposal",
     "Conversation",

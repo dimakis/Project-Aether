@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import time
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -35,6 +37,11 @@ from src.tracing.context import session_context
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
+
+_log = logging.getLogger(__name__)
+
+# Fallback if DB settings aren't available yet (first request before migration).
+_FALLBACK_STREAM_TIMEOUT = 900  # 15 minutes
 
 
 async def _create_chat_completion(
@@ -148,282 +155,114 @@ async def _stream_chat_completion(
 
     Yields Server-Sent Events in the OpenAI format:
     data: {"id": "...", "object": "chat.completion.chunk", ...}
-    """
-    import mlflow
 
+    MLflow tracing is handled by the workflow layer (stream_conversation
+    creates its own trace via start_span). The handler only iterates the
+    generator and yields SSE events.
+    """
     completion_id = f"chatcmpl-{uuid4().hex[:8]}"
     created = int(time.time())
 
+    # Resolve stream timeout from DB settings (cached, fast path)
     try:
-        async with get_session() as session:
-            # Use stable ID derived from messages for MLflow session correlation
+        from src.dal.app_settings import get_chat_setting
+
+        stream_timeout = await get_chat_setting("stream_timeout_seconds")
+        stream_timeout = int(stream_timeout) if stream_timeout else _FALLBACK_STREAM_TIMEOUT
+    except Exception:
+        stream_timeout = _FALLBACK_STREAM_TIMEOUT
+
+    try:
+        async with asyncio.timeout(stream_timeout), get_session() as session:
+            # Use stable ID derived from messages for conversation grouping
             conversation_id = request.conversation_id or _derive_conversation_id(request.messages)
 
-            with session_context(conversation_id):
-                # Convert messages and extract user message BEFORE MLflow
-                # so streaming can start with minimal blocking.
-                lc_messages = _convert_to_langchain_messages(request.messages)
+            # Set session context for MLflow trace correlation — all spans
+            # within this request will share the same session ID.
+            from src.tracing.context import set_session_id
 
-                user_message = ""
-                for msg in reversed(request.messages):
-                    if msg.role == "user" and msg.content:
-                        user_message = msg.content
-                        break
+            set_session_id(conversation_id)
 
-                if not user_message:
-                    yield _format_sse_error("No user message found")
-                    return
+            # Convert messages and extract user message
+            lc_messages = _convert_to_langchain_messages(request.messages)
 
-                turn = (len(lc_messages) + 1) // 2
+            user_message = ""
+            for msg in reversed(request.messages):
+                if msg.role == "user" and msg.content:
+                    user_message = msg.content
+                    break
 
-                # Defer MLflow run creation to a background thread so it
-                # doesn't block time-to-first-token.  The run context is
-                # established asynchronously — if it's not ready by the
-                # time the first token arrives, tracing attaches later.
-                import asyncio
+            if not user_message:
+                yield _format_sse_error("No user message found")
+                return
 
-                loop = asyncio.get_event_loop()
+            # Create state
+            state = ConversationState(
+                conversation_id=conversation_id,
+                messages=lc_messages[:-1],  # type: ignore[arg-type]
+            )
 
-                def _setup_mlflow() -> None:
-                    """Synchronous MLflow setup (runs in thread pool)."""
-                    import contextlib
+            # Propagate user's model selection to all delegated agents
+            with model_context(
+                model_name=request.model,
+                temperature=request.temperature,
+            ):
+                workflow = ArchitectWorkflow(
+                    model_name=request.model,
+                    temperature=request.temperature,
+                )
 
-                    with contextlib.suppress(Exception):  # Tracing is best-effort
-                        from src.tracing.mlflow_runs import start_run
+                is_background = _is_background_request(request.messages)
+                tool_calls_used: list[str] = []
+                final_state: ConversationState | None = None
+                trace_id: str | None = None
+                tag_filter = _StreamingTagFilter()
 
-                        start_run(run_name="conversation")
-                        mlflow.set_tag("endpoint", "chat_completion_stream")
-                        mlflow.set_tag("session.id", conversation_id)
-                        mlflow.set_tag("mlflow.trace.session", conversation_id)
-                        log_param("conversation_id", conversation_id)
-                        log_param("model", request.model)
-                        log_param("turn", turn)
-                        log_param("type", "continue_conversation")
+                # --- Agent lifecycle tracking for the activity panel ---
+                # Use a stack to support nested agents (e.g. DS team -> energy_analyst)
+                agent_stack: list[str] = []
+                agents_seen: list[str] = ["architect"]
+                stream_started = False
 
-                mlflow_future = loop.run_in_executor(None, _setup_mlflow)
-
-                # Use a lightweight no-op context instead of the blocking one
-                try:
-                    # Create state
-                    state = ConversationState(
-                        conversation_id=conversation_id,
-                        messages=lc_messages[:-1],  # type: ignore[arg-type]
+                def _make_token_chunk(tok: str) -> str:
+                    """Build an SSE line for a single token delta."""
+                    return (
+                        "data: "
+                        + json.dumps(
+                            {
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "created": created,
+                                "model": request.model,
+                                "choices": [
+                                    {
+                                        "index": 0,
+                                        "delta": {"content": tok},
+                                        "finish_reason": None,
+                                    }
+                                ],
+                            }
+                        )
+                        + "\n\n"
                     )
 
-                    # Propagate user's model selection to all delegated agents
-                    with model_context(
-                        model_name=request.model,
-                        temperature=request.temperature,
-                    ):
-                        workflow = ArchitectWorkflow(
-                            model_name=request.model,
-                            temperature=request.temperature,
-                        )
+                # --- Real token-by-token streaming ---
+                async for event in workflow.stream_conversation(
+                    state=state,
+                    user_message=user_message,
+                    session=session,
+                ):
+                    event_type = event.get("type")
 
-                        is_background = _is_background_request(request.messages)
-                        tool_calls_used: list[str] = []
-                        final_state: ConversationState | None = None
-                        trace_id: str | None = None
-                        tag_filter = _StreamingTagFilter()
+                    # --- Emit architect start on first meaningful event ---
+                    if not stream_started and not is_background:
+                        stream_started = True
+                        yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'start', 'ts': time.time()})}\n\n"
 
-                        # --- Agent lifecycle tracking for the activity panel ---
-                        # Use a stack to support nested agents (e.g. DS team -> energy_analyst)
-                        agent_stack: list[str] = []
-                        agents_seen: list[str] = ["architect"]
-                        stream_started = False
-
-                        def _make_token_chunk(tok: str) -> str:
-                            """Build an SSE line for a single token delta."""
-                            return (
-                                "data: "
-                                + json.dumps(
-                                    {
-                                        "id": completion_id,
-                                        "object": "chat.completion.chunk",
-                                        "created": created,
-                                        "model": request.model,
-                                        "choices": [
-                                            {
-                                                "index": 0,
-                                                "delta": {"content": tok},
-                                                "finish_reason": None,
-                                            }
-                                        ],
-                                    }
-                                )
-                                + "\n\n"
-                            )
-
-                        # --- Real token-by-token streaming ---
-                        async for event in workflow.stream_conversation(
-                            state=state,
-                            user_message=user_message,
-                            session=session,
-                        ):
-                            event_type = event.get("type")
-
-                            # --- Emit architect start on first meaningful event ---
-                            if not stream_started and not is_background:
-                                stream_started = True
-                                yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'start', 'ts': time.time()})}\n\n"
-
-                            if event_type == "token":
-                                raw_token = event.get("content", "")
-                                # Separate visible content from thinking
-                                for ft in tag_filter.feed(raw_token):
-                                    if not ft.text:
-                                        continue
-                                    if ft.is_thinking:
-                                        yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
-                                    else:
-                                        yield _make_token_chunk(ft.text)
-
-                            elif event_type == "trace_id":
-                                # Early trace_id — emit immediately so
-                                # the activity panel can start polling
-                                trace_id = event.get("content", "")
-                                if trace_id:
-                                    early_meta = {
-                                        "type": "metadata",
-                                        "trace_id": trace_id,
-                                    }
-                                    yield f"data: {json.dumps(early_meta)}\n\n"
-
-                            elif event_type == "tool_start":
-                                tool_name = event.get("tool", "")
-                                tool_calls_used.append(tool_name)
-                                if not is_background:
-                                    target = TOOL_AGENT_MAP.get(tool_name, "architect")
-
-                                    # --- Agent lifecycle: delegate to new agent ---
-                                    if target != "architect" and (
-                                        not agent_stack or agent_stack[-1] != target
-                                    ):
-                                        # Start new delegated agent (push onto stack)
-                                        yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'start', 'ts': time.time()})}\n\n"
-                                        agent_stack.append(target)
-                                        if target not in agents_seen:
-                                            agents_seen.append(target)
-
-                                    trace_ev: dict[str, object] = {
-                                        "type": "trace",
-                                        "agent": target,
-                                        "event": "tool_call",
-                                        "tool": tool_name,
-                                        "ts": time.time(),
-                                    }
-                                    # Include tool args summary for the activity feed
-                                    tool_args = event.get("args", "")
-                                    if tool_args:
-                                        trace_ev["tool_args"] = tool_args[:200]
-                                    yield f"data: {json.dumps(trace_ev)}\n\n"
-                                    # Status event for UI
-                                    status_ev = {
-                                        "type": "status",
-                                        "content": f"Running {tool_name}...",
-                                    }
-                                    yield f"data: {json.dumps(status_ev)}\n\n"
-
-                            elif event_type == "tool_end":
-                                if not is_background:
-                                    # --- Agent lifecycle: pop the tool-level agent ---
-                                    # Only pop if the top of stack matches the tool's agent
-                                    tool_name = event.get("tool", "")
-                                    target = TOOL_AGENT_MAP.get(tool_name, "architect")
-                                    if agent_stack and agent_stack[-1] == target:
-                                        agent_stack.pop()
-                                        yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
-                                    elif agent_stack:
-                                        # Tool ended but didn't match top of stack -- pop all down to it
-                                        while agent_stack and agent_stack[-1] != target:
-                                            popped = agent_stack.pop()
-                                            yield f"data: {json.dumps({'type': 'trace', 'agent': popped, 'event': 'end', 'ts': time.time()})}\n\n"
-                                        if agent_stack and agent_stack[-1] == target:
-                                            agent_stack.pop()
-                                            yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
-
-                                    # Emit tool_result trace event for the activity feed
-                                    tool_result = event.get("result", "")
-                                    if tool_result:
-                                        result_ev: dict[str, object] = {
-                                            "type": "trace",
-                                            "agent": target,
-                                            "event": "tool_result",
-                                            "tool": tool_name,
-                                            "tool_result": tool_result[:200],
-                                            "ts": time.time(),
-                                        }
-                                        yield f"data: {json.dumps(result_ev)}\n\n"
-
-                                    # Emit proposal_created event when seek_approval
-                                    # successfully created a proposal (result contains
-                                    # "submitted" or "proposal").
-                                    if tool_name == "seek_approval" and (
-                                        "submitted" in tool_result.lower()
-                                        or "proposal for your approval" in tool_result.lower()
-                                    ):
-                                        yield f"data: {json.dumps({'type': 'proposal_created', 'content': tool_result})}\n\n"
-
-                                    status_ev = {
-                                        "type": "status",
-                                        "content": "",  # Clear status
-                                    }
-                                    yield f"data: {json.dumps(status_ev)}\n\n"
-
-                            elif event_type == "agent_start":
-                                # Progress: a sub-agent has started (push onto stack)
-                                agent_name = event.get("agent", "")
-                                if not is_background and agent_name:
-                                    yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'start', 'ts': time.time()})}\n\n"
-                                    agent_stack.append(agent_name)
-                                    if agent_name not in agents_seen:
-                                        agents_seen.append(agent_name)
-
-                            elif event_type == "agent_end":
-                                # Progress: a sub-agent has completed (pop from stack)
-                                agent_name = event.get("agent", "")
-                                if not is_background and agent_name:
-                                    yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'end', 'ts': time.time()})}\n\n"
-                                    if agent_stack and agent_stack[-1] == agent_name:
-                                        agent_stack.pop()
-
-                            elif event_type == "delegation":
-                                # Inter-agent message capture
-                                if not is_background:
-                                    from_agent = event.get("agent", "")
-                                    to_agent = event.get("target", "")
-                                    content = event.get("content", "")
-                                    yield f"data: {json.dumps({'type': 'delegation', 'from': from_agent, 'to': to_agent, 'content': content, 'ts': time.time()})}\n\n"
-
-                            elif event_type == "status":
-                                # Progress: status message from a sub-agent
-                                status_content = event.get("content", "")
-                                if not is_background and status_content:
-                                    yield f"data: {json.dumps({'type': 'status', 'content': status_content})}\n\n"
-
-                            elif event_type == "state":
-                                final_state = event.get("state")
-
-                            elif event_type == "approval_required":
-                                # Emit as a text chunk so user sees the approval request
-                                approval_text = event.get("content", "Approval required")
-                                chunk_data = {
-                                    "id": completion_id,
-                                    "object": "chat.completion.chunk",
-                                    "created": created,
-                                    "model": request.model,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": {"content": approval_text},
-                                            "finish_reason": None,
-                                        }
-                                    ],
-                                }
-                                yield f"data: {json.dumps(chunk_data)}\n\n"
-
-                        # Flush any remaining buffered content from the tag filter
-                        for ft in tag_filter.flush():
+                    if event_type == "token":
+                        raw_token = event.get("content", "")
+                        # Separate visible content from thinking
+                        for ft in tag_filter.feed(raw_token):
                             if not ft.text:
                                 continue
                             if ft.is_thinking:
@@ -431,64 +270,212 @@ async def _stream_chat_completion(
                             else:
                                 yield _make_token_chunk(ft.text)
 
-                    # --- Agent lifecycle: complete event ---
-                    if stream_started and not is_background:
-                        # End any still-active agents in the stack (deepest first)
-                        while agent_stack:
-                            popped = agent_stack.pop()
-                            yield f"data: {json.dumps({'type': 'trace', 'agent': popped, 'event': 'end', 'ts': time.time()})}\n\n"
-                        # Architect end
-                        yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
-                        # Complete event with all agents
-                        yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': agents_seen, 'ts': time.time()})}\n\n"
-
-                    # Use final state from stream, or fall back to original
-                    state = final_state or state
-
-                    # Capture trace ID from the state (set during streaming)
-                    if not trace_id:
-                        trace_id = state.last_trace_id
-
-                    # Send final chunk with finish_reason
-                    final_chunk = {
-                        "id": completion_id,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": request.model,
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {},
-                                "finish_reason": "stop",
+                    elif event_type == "trace_id":
+                        # Early trace_id — emit immediately so
+                        # the activity panel can start polling
+                        trace_id = event.get("content", "")
+                        if trace_id:
+                            early_meta = {
+                                "type": "metadata",
+                                "trace_id": trace_id,
                             }
-                        ],
+                            yield f"data: {json.dumps(early_meta)}\n\n"
+
+                    elif event_type == "tool_start":
+                        tool_name = event.get("tool", "")
+                        tool_calls_used.append(tool_name)
+                        if not is_background:
+                            target = TOOL_AGENT_MAP.get(tool_name, "architect")
+
+                            # --- Agent lifecycle: delegate to new agent ---
+                            if target != "architect" and (
+                                not agent_stack or agent_stack[-1] != target
+                            ):
+                                # Start new delegated agent (push onto stack)
+                                yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'start', 'ts': time.time()})}\n\n"
+                                agent_stack.append(target)
+                                if target not in agents_seen:
+                                    agents_seen.append(target)
+
+                            trace_ev: dict[str, object] = {
+                                "type": "trace",
+                                "agent": target,
+                                "event": "tool_call",
+                                "tool": tool_name,
+                                "ts": time.time(),
+                            }
+                            # Include tool args summary for the activity feed
+                            tool_args = event.get("args", "")
+                            if tool_args:
+                                trace_ev["tool_args"] = tool_args[:200]
+                            yield f"data: {json.dumps(trace_ev)}\n\n"
+                            # Status event for UI
+                            status_ev = {
+                                "type": "status",
+                                "content": f"Running {tool_name}...",
+                            }
+                            yield f"data: {json.dumps(status_ev)}\n\n"
+
+                    elif event_type == "tool_end":
+                        if not is_background:
+                            # --- Agent lifecycle: pop the tool-level agent ---
+                            tool_name = event.get("tool", "")
+                            target = TOOL_AGENT_MAP.get(tool_name, "architect")
+                            if agent_stack and agent_stack[-1] == target:
+                                agent_stack.pop()
+                                yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
+                            elif agent_stack:
+                                while agent_stack and agent_stack[-1] != target:
+                                    popped = agent_stack.pop()
+                                    yield f"data: {json.dumps({'type': 'trace', 'agent': popped, 'event': 'end', 'ts': time.time()})}\n\n"
+                                if agent_stack and agent_stack[-1] == target:
+                                    agent_stack.pop()
+                                    yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
+
+                            # Emit tool_result trace event for the activity feed
+                            tool_result = event.get("result", "")
+                            if tool_result:
+                                result_ev: dict[str, object] = {
+                                    "type": "trace",
+                                    "agent": target,
+                                    "event": "tool_result",
+                                    "tool": tool_name,
+                                    "tool_result": tool_result[:200],
+                                    "ts": time.time(),
+                                }
+                                yield f"data: {json.dumps(result_ev)}\n\n"
+
+                            # Emit proposal_created event when seek_approval
+                            # successfully created a proposal
+                            if tool_name == "seek_approval" and (
+                                "submitted" in tool_result.lower()
+                                or "proposal for your approval" in tool_result.lower()
+                            ):
+                                yield f"data: {json.dumps({'type': 'proposal_created', 'content': tool_result})}\n\n"
+
+                            status_ev = {
+                                "type": "status",
+                                "content": "",  # Clear status
+                            }
+                            yield f"data: {json.dumps(status_ev)}\n\n"
+
+                    elif event_type == "agent_start":
+                        agent_name = event.get("agent", "")
+                        if not is_background and agent_name:
+                            yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'start', 'ts': time.time()})}\n\n"
+                            agent_stack.append(agent_name)
+                            if agent_name not in agents_seen:
+                                agents_seen.append(agent_name)
+
+                    elif event_type == "agent_end":
+                        agent_name = event.get("agent", "")
+                        if not is_background and agent_name:
+                            yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'end', 'ts': time.time()})}\n\n"
+                            if agent_stack and agent_stack[-1] == agent_name:
+                                agent_stack.pop()
+
+                    elif event_type == "delegation":
+                        if not is_background:
+                            from_agent = event.get("agent", "")
+                            to_agent = event.get("target", "")
+                            content = event.get("content", "")
+                            yield f"data: {json.dumps({'type': 'delegation', 'from': from_agent, 'to': to_agent, 'content': content, 'ts': time.time()})}\n\n"
+
+                    elif event_type == "status":
+                        status_content = event.get("content", "")
+                        if not is_background and status_content:
+                            yield f"data: {json.dumps({'type': 'status', 'content': status_content})}\n\n"
+
+                    elif event_type == "state":
+                        final_state = event.get("state")
+
+                    elif event_type == "approval_required":
+                        approval_text = event.get("content", "Approval required")
+                        chunk_data = {
+                            "id": completion_id,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": request.model,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {"content": approval_text},
+                                    "finish_reason": None,
+                                }
+                            ],
+                        }
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
+
+                # Flush any remaining buffered content from the tag filter
+                for ft in tag_filter.flush():
+                    if not ft.text:
+                        continue
+                    if ft.is_thinking:
+                        yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
+                    else:
+                        yield _make_token_chunk(ft.text)
+
+            # --- Agent lifecycle: complete event ---
+            if stream_started and not is_background:
+                while agent_stack:
+                    popped = agent_stack.pop()
+                    yield f"data: {json.dumps({'type': 'trace', 'agent': popped, 'event': 'end', 'ts': time.time()})}\n\n"
+                yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
+                yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': agents_seen, 'ts': time.time()})}\n\n"
+
+            # Use final state from stream, or fall back to original
+            state = final_state or state
+
+            # Capture trace ID from the state (set during streaming)
+            if not trace_id:
+                trace_id = state.last_trace_id
+
+            # Send final chunk with finish_reason
+            final_chunk = {
+                "id": completion_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": request.model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "stop",
                     }
-                    yield f"data: {json.dumps(final_chunk)}\n\n"
+                ],
+            }
+            yield f"data: {json.dumps(final_chunk)}\n\n"
 
-                    # Send metadata event with trace_id and tool calls before DONE
-                    metadata: dict[str, object] = {
-                        "type": "metadata",
-                        "conversation_id": conversation_id,
-                    }
-                    if trace_id:
-                        metadata["trace_id"] = trace_id
-                    if tool_calls_used:
-                        metadata["tool_calls"] = list(set(tool_calls_used))
-                    yield f"data: {json.dumps(metadata)}\n\n"
+            # Send metadata event with trace_id and tool calls before DONE
+            metadata: dict[str, object] = {
+                "type": "metadata",
+                "conversation_id": conversation_id,
+            }
+            if trace_id:
+                metadata["trace_id"] = trace_id
+            if tool_calls_used:
+                metadata["tool_calls"] = list(set(tool_calls_used))
+            yield f"data: {json.dumps(metadata)}\n\n"
 
-                    yield "data: [DONE]\n\n"
+            # Commit before [DONE] so failures surface as SSE errors.
+            # Do NOT wrap in asyncio.wait_for — the outer asyncio.timeout
+            # already guards against a hung commit and using both would make
+            # it impossible to distinguish a commit-specific timeout from
+            # the stream-level timeout (both raise TimeoutError).
+            try:
+                await session.commit()
+            except Exception as commit_err:
+                _log.warning("session.commit() failed: %s", commit_err)
+                yield _format_sse_error(f"Database error: {commit_err}")
 
-                    await session.commit()
-                finally:
-                    # Ensure the background MLflow setup has completed,
-                    # then close the run.
-                    import contextlib
+            yield "data: [DONE]\n\n"
 
-                    with contextlib.suppress(Exception):
-                        await mlflow_future
-                    from src.tracing.mlflow_runs import end_run
-
-                    end_run()
-
+    except TimeoutError:
+        _log.error("Stream timed out after %ds", stream_timeout)
+        yield _format_sse_error(
+            f"Stream timed out after {stream_timeout}s. "
+            "You can increase this in Settings > Chat & Streaming."
+        )
     except Exception as e:
+        _log.exception("Unhandled error in streaming handler")
         yield _format_sse_error(str(e))

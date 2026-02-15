@@ -15,6 +15,8 @@ export {
   modelRatings,
 } from "./system";
 export { authApi } from "./auth";
+export { appSettings } from "./settings";
+export type { AppSettingsResponse } from "./settings";
 export { workflows } from "./workflows";
 export { flowGrades } from "./flow-grades";
 export type { FlowGradePayload, FlowGradeItem, FlowGradeSummary } from "./flow-grades";

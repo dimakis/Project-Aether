@@ -460,18 +460,31 @@ export function DashboardEditorPage() {
   const { data: dashboardConfig, isLoading: loadingConfig } =
     useDashboardConfig(selectedDashboard);
 
+  // Auto-select the first available dashboard when data loads
+  useEffect(() => {
+    if (selectedDashboard) return; // user already picked one
+    if (dashboardList && dashboardList.length > 0) {
+      setSelectedDashboard(dashboardList[0].url_path);
+    } else if (dashboardList !== undefined) {
+      // List loaded but empty — fall back to the built-in default
+      setSelectedDashboard("default");
+    }
+  }, [dashboardList, selectedDashboard]);
+
   // Get HA URL from zones (default zone).
   // The iframe runs in the user's browser, not the backend server,
   // so prefer ha_url_remote when available.
+  // Falls back to VITE_HA_URL env var if no zones are configured.
   const { data: zones } = useHAZones();
   const defaultZone = zones?.find((z) => z.is_default) ?? zones?.[0];
   const haUrl = useMemo(() => {
-    if (!defaultZone) return null;
+    const viteHaUrl = (import.meta as unknown as { env: Record<string, string> }).env.VITE_HA_URL;
+    if (!defaultZone) return viteHaUrl || null;
     const { ha_url, ha_url_remote, url_preference } = defaultZone;
-    if (url_preference === "local") return ha_url;
-    if (url_preference === "remote") return ha_url_remote ?? ha_url;
+    if (url_preference === "local") return ha_url || viteHaUrl || null;
+    if (url_preference === "remote") return ha_url_remote ?? ha_url ?? viteHaUrl ?? null;
     // "auto" — prefer remote for browser context, fall back to local
-    return ha_url_remote ?? ha_url;
+    return ha_url_remote ?? ha_url ?? viteHaUrl ?? null;
   }, [defaultZone]);
 
   // Create proposal mutation
