@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox openapi
+.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -90,8 +90,12 @@ dev: install up migrate
 
 COMPOSE := podman-compose -f infrastructure/podman/compose.yaml
 
+# Non-fatal sandbox build (skips silently if podman unavailable)
+ensure-sandbox:
+	@$(MAKE) build-sandbox 2>/dev/null || echo "  Sandbox image skipped (podman not available)"
+
 # Development mode: infra in containers, API on host with hot-reload
-run: up migrate
+run: up migrate ensure-sandbox
 	@echo ""
 	@echo "Starting API server with hot-reload..."
 	@echo "Press Ctrl+C to stop"
@@ -99,7 +103,7 @@ run: up migrate
 	uv run aether serve --reload
 
 # Development + UI (API on host, UI dev server)
-run-ui: up migrate
+run-ui: up migrate ensure-sandbox
 	@echo ""
 	@echo "Starting API server + UI dev server..."
 	@echo "UI:  http://localhost:$(WEBUI_PORT)"

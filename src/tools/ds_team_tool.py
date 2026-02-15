@@ -44,34 +44,16 @@ async def consult_data_science_team(
     depth: str = "standard",
     strategy: str = "parallel",
 ) -> str:
-    """Consult the Data Science team for analysis, insights, and diagnostics.
-
-    This is the primary tool for ANY data analysis, pattern detection,
-    energy optimization, behavioral analysis, troubleshooting, or custom
-    investigation.  The team automatically selects the right specialist(s)
-    based on your query, runs their analyses with shared cross-consultation,
-    and returns a synthesised unified response.
+    """Consult the DS team for analysis, diagnostics, or optimization.
 
     Args:
-        query: What to analyze (e.g., "Why is energy high overnight?",
-            "Check system health", "Find automation opportunities")
-        hours: Hours of historical data to analyze (default: 24, max: 168)
-        entity_ids: Specific entity IDs to focus on (auto-discovers if empty)
-        specialists: Override auto-routing.  Valid values: "energy",
-            "behavioral", "diagnostic".  If omitted the team decides
-            based on query keywords.
+        query: What to analyze
+        hours: Hours of history (default 24, max 168)
+        entity_ids: Entity IDs to focus on (optional)
+        specialists: Override routing: "energy", "behavioral", "diagnostic"
         custom_query: Free-form analysis prompt for ad-hoc investigations
-            (e.g., "Check if HVAC is short-cycling").  When provided,
-            the most relevant specialist will run a custom script.
-        depth: Analysis depth — "quick" (fast summary), "standard" (default),
-            or "deep" (comprehensive EDA with charts and statistical tests).
-        strategy: Execution strategy — "parallel" (fast, all specialists
-            run simultaneously) or "teamwork" (sequential with
-            cross-consultation between specialists for deeper analysis).
-
-    Returns:
-        A unified, synthesised summary of all specialist findings
-        including cross-referenced insights and recommendations.
+        depth: "quick", "standard", or "deep"
+        strategy: "parallel" (fast) or "teamwork" (sequential cross-consult)
     """
     hours = min(max(hours, 1), 168)
     effective_query = custom_query or query

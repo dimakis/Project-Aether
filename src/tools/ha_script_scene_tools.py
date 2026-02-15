@@ -16,16 +16,10 @@ from src.tracing import trace_with_uri
 @tool("get_script_config")
 @trace_with_uri(name="ha.get_script_config", span_type="TOOL")
 async def get_script_config(entity_id: str) -> str:
-    """Get the full sequence/fields YAML for a script.
-
-    Reads the cached config from the discovery database. If the config
-    is not yet available, advises running a discovery sync.
+    """Get full YAML config for a script.
 
     Args:
-        entity_id: Script entity ID (e.g., 'script.movie_mode')
-
-    Returns:
-        YAML string of the script config, or guidance message
+        entity_id: Script entity ID
     """
     async with get_session() as session:
         repo = ScriptRepository(session)

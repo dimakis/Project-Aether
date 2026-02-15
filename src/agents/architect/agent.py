@@ -226,12 +226,26 @@ class ArchitectAgent(BaseAgent):
     # Delegating methods (thin wrappers for backwards compatibility)
     # ------------------------------------------------------------------
 
+    # Maximum number of conversation messages to include in the prompt.
+    # Keeps prompt size bounded on long conversations while preserving
+    # enough context for the LLM to follow the thread (10 turns = 20 msgs).
+    MAX_HISTORY_MESSAGES = 20
+
     def _build_messages(self, state: ConversationState) -> list[BaseMessage]:
-        """Build message list for LLM from state."""
+        """Build message list for LLM from state.
+
+        Applies a sliding window to cap conversation history at
+        MAX_HISTORY_MESSAGES, keeping the system prompt plus the
+        most recent turns.
+        """
         messages: list[BaseMessage] = [SystemMessage(content=load_prompt("architect_system"))]
-        for msg in state.messages:
-            if isinstance(msg, (HumanMessage, AIMessage, ToolMessage)):
-                messages.append(msg)
+        history: list[BaseMessage] = [
+            msg for msg in state.messages if isinstance(msg, (HumanMessage, AIMessage, ToolMessage))
+        ]
+        # Truncate old messages beyond the window
+        if len(history) > self.MAX_HISTORY_MESSAGES:
+            history = history[-self.MAX_HISTORY_MESSAGES :]
+        messages.extend(history)
         return messages
 
     def _serialize_messages(

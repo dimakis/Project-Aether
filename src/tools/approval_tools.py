@@ -42,45 +42,21 @@ async def seek_approval(
 ) -> str:
     """Submit an action for user approval before execution.
 
-    Use this tool whenever you want to perform any action that modifies
-    Home Assistant state. The action will appear in the Proposals page
-    for the user to review, approve, and deploy.
-
     Args:
-        action_type: Type of action - must be one of:
-            - "entity_command": Turn on/off/toggle an entity or call a service
-            - "automation": Create a new HA automation
-            - "script": Create a new HA script
-            - "scene": Create a new HA scene
-            - "helper": Create an input helper entity (input_boolean, etc.)
-        name: Short descriptive name for the action
-        description: What this action does and why
-        yaml_content: Raw YAML content (optional, for automation/script/scene)
-        entity_id: Entity ID for entity_command type (e.g., "light.living_room")
-        service_domain: Service domain for entity_command (e.g., "light", "switch")
-        service_action: Service action for entity_command (e.g., "turn_on", "toggle")
-        service_data: Additional service call data (e.g., {"brightness": 255})
-        trigger: Trigger config for automation type.
-            REQUIRED for "automation" — must be a non-empty dict or list
-            describing what triggers the automation (e.g., sun event, state
-            change, time pattern). Do NOT omit this.
-        actions: Action config for automation/script type.
-            REQUIRED for "automation" and "script" — must be a non-empty dict
-            or list describing what the automation/script does (service calls,
-            delays, conditions, etc.). Do NOT omit this.
-        conditions: Condition config for automation type (optional)
-        mode: Execution mode for automation/script (default: "single")
-        original_yaml: The original YAML config being improved (enables diff view
-            in the Proposals page). Pass the current entity config when proposing
-            improvements to existing automations, scripts, or scenes.
-        helper_config: Configuration for creating an input helper (action_type="helper").
-            Must include "helper_type" (e.g., "input_boolean", "input_number",
-            "input_select", "input_text", "input_datetime", "input_button",
-            "counter", "timer") and "input_id" (unique ID). Additional keys
-            depend on the helper type (e.g., "name", "initial", "options").
-
-    Returns:
-        Confirmation message with the proposal details
+        action_type: entity_command, automation, script, scene, or helper
+        name: Short name
+        description: What and why
+        yaml_content: Raw YAML (optional)
+        entity_id: Entity ID for entity_command
+        service_domain: Service domain for entity_command
+        service_action: Service action for entity_command
+        service_data: Extra service data
+        trigger: Trigger config (required for automation)
+        actions: Action config (required for automation/script)
+        conditions: Condition config (optional)
+        mode: Execution mode (default "single")
+        original_yaml: Current config for diff view
+        helper_config: Helper creation config with helper_type and input_id
     """
     if action_type not in VALID_ACTION_TYPES:
         return (

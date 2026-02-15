@@ -52,41 +52,20 @@ async def create_insight_schedule(
     webhook_event: str | None = None,
     custom_prompt: str | None = None,
 ) -> str:
-    """Create a new insight schedule for recurring or event-driven analysis.
-
-    Use this tool when the user wants to:
-    - Set up recurring analysis (e.g., "run energy check every morning")
-    - Create event-triggered analysis (e.g., "analyze when a device goes offline")
-    - Schedule any kind of periodic insight generation
+    """Create a recurring or event-driven analysis schedule.
 
     Args:
-        name: Human-readable name for the schedule (e.g., "Daily Energy Report")
-        analysis_type: Type of analysis to run. One of:
-            - "energy_optimization": Find energy saving opportunities
-            - "anomaly_detection": Detect unusual patterns
-            - "usage_patterns": Identify daily/weekly usage patterns
-            - "device_health": Check device connectivity and health
-            - "behavior_analysis": Analyze behavioral patterns
-            - "automation_analysis": Analyze automation efficiency
-            - "automation_gap_detection": Find missing automations
-            - "correlation_discovery": Find correlations between entities
-            - "cost_optimization": Optimize energy costs
-            - "comfort_analysis": Temperature/humidity comfort scoring
-            - "security_audit": Door/window/motion sensor coverage gaps
-            - "weather_correlation": Energy usage vs weather patterns
-            - "custom": Free-form analysis (requires custom_prompt)
-        trigger_type: "cron" for periodic or "webhook" for event-driven
-        cron_expression: Cron expression for periodic schedules.
-            Examples: "0 2 * * *" (daily at 2am), "0 8 * * 1" (weekly Monday 8am),
-            "0 */6 * * *" (every 6 hours), "*/30 * * * *" (every 30 min)
-        hours: Lookback window in hours for the analysis (default: 24, max: 8760)
-        entity_ids: Specific entity IDs to analyze (optional, auto-discovers if empty)
-        webhook_event: Event label for webhook triggers (e.g., "device_offline")
-        custom_prompt: Natural language description of what to analyze
-            (required when analysis_type is "custom")
-
-    Returns:
-        Confirmation message with the schedule details
+        name: Schedule name
+        analysis_type: energy_optimization, anomaly_detection, usage_patterns,
+            device_health, behavior_analysis, automation_analysis,
+            automation_gap_detection, correlation_discovery, cost_optimization,
+            comfort_analysis, security_audit, weather_correlation, custom
+        trigger_type: "cron" or "webhook"
+        cron_expression: Cron expression (e.g. "0 2 * * *")
+        hours: Lookback hours (default 24, max 8760)
+        entity_ids: Entity IDs to analyze (optional)
+        webhook_event: Event label for webhook triggers
+        custom_prompt: Analysis description (required for "custom" type)
     """
     from src.dal.insight_schedules import InsightScheduleRepository
     from src.storage import get_session

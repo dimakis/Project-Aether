@@ -92,17 +92,10 @@ async def send_ha_notification(
 @tool("render_template")
 @trace_with_uri(name="ha.render_template", span_type="TOOL")
 async def render_template(template: str) -> str:
-    """Render a Jinja2 template using Home Assistant's engine.
-
-    Useful for complex calculations involving entity states.
+    """Render a Jinja2 template via HA's template engine.
 
     Args:
-        template: Jinja2 template, e.g.:
-            "{{ states('sensor.temperature') | float + 5 }}"
-            "{{ state_attr('light.living_room', 'brightness') }}"
-
-    Returns:
-        Rendered result or error message
+        template: Jinja2 template string
     """
     ha = get_ha_client()
     try:
@@ -118,17 +111,7 @@ async def render_template(template: str) -> str:
 @tool("get_ha_logs")
 @trace_with_uri(name="ha.get_ha_logs", span_type="TOOL")
 async def get_ha_logs() -> str:
-    """Get the Home Assistant error log for diagnostics.
-
-    Use this when troubleshooting issues like:
-    - Missing sensor data or entity unavailability
-    - Integration errors or connection failures
-    - Automation failures or unexpected behavior
-    - Device disconnections
-
-    Returns:
-        Recent error/warning log entries (truncated to ~4000 chars)
-    """
+    """Get recent HA error/warning log entries."""
     ha = get_ha_client()
     try:
         log_text = await ha.get_error_log()
@@ -148,16 +131,7 @@ async def get_ha_logs() -> str:
 @tool("check_ha_config")
 @trace_with_uri(name="ha.check_ha_config", span_type="TOOL")
 async def check_ha_config() -> str:
-    """Check Home Assistant configuration validity.
-
-    Use this when diagnosing:
-    - Configuration errors after changes
-    - Integration setup problems
-    - YAML syntax issues
-
-    Returns:
-        Configuration check result with any errors or warnings
-    """
+    """Check HA configuration validity."""
     ha = get_ha_client()
     try:
         result = await ha.check_config()
