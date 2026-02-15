@@ -47,10 +47,11 @@ async def get_entity_state(entity_id: str) -> str:
 @tool("list_entities_by_domain")
 @trace_with_uri(name="ha.list_entities_by_domain", span_type="TOOL")
 async def list_entities_by_domain(domain: str, state_filter: str | None = None) -> str:
-    """List entities for a given domain, optionally filtered by state.
+    """List entities in a domain, optionally filtered by state.
 
-    Reads from the discovery database for fast, no-round-trip lookups.
-    Data is as fresh as the last discovery sync.
+    Args:
+        domain: HA domain (e.g. "light", "sensor")
+        state_filter: Filter by state value
     """
     async with get_session() as session:
         repo = EntityRepository(session)
@@ -71,8 +72,8 @@ async def list_entities_by_domain(domain: str, state_filter: str | None = None) 
 async def search_entities(query: str) -> str:
     """Search entities by name or ID.
 
-    Reads from the discovery database for fast, no-round-trip lookups.
-    Data is as fresh as the last discovery sync.
+    Args:
+        query: Search term
     """
     async with get_session() as session:
         repo = EntityRepository(session)
@@ -88,10 +89,10 @@ async def search_entities(query: str) -> str:
 @tool("get_domain_summary")
 @trace_with_uri(name="ha.get_domain_summary", span_type="TOOL")
 async def get_domain_summary(domain: str) -> str:
-    """Get a summary of entity counts and states for a domain.
+    """Get entity counts and state distribution for a domain.
 
-    Reads from the discovery database for fast, no-round-trip lookups.
-    Data is as fresh as the last discovery sync.
+    Args:
+        domain: HA domain
     """
     async with get_session() as session:
         repo = EntityRepository(session)

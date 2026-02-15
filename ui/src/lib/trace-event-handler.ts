@@ -20,6 +20,8 @@ export interface TraceEventChunk {
   agent?: string;
   event: string;
   tool?: string;
+  tool_args?: string;
+  tool_result?: string;
   ts?: number;
   agents?: string[];
 }
@@ -75,6 +77,8 @@ export function handleTraceEvent(
     agent,
     event: event.event,
     tool: event.tool,
+    toolArgs: event.tool_args,
+    toolResult: event.tool_result,
     ts,
   };
 
@@ -251,26 +255,37 @@ export function buildNarrativeFeed(
         break;
       }
 
-      case "tool_call":
+      case "tool_call": {
+        // Show tool args if available (e.g., "get_entity_state(light.kitchen)")
+        const toolName = ev.tool ?? "tool";
+        const argsStr = ev.toolArgs
+          ? `(${ev.toolArgs.length > 80 ? ev.toolArgs.slice(0, 80) + "…" : ev.toolArgs})`
+          : "";
         entries.push({
           ts: ev.ts,
-          description: `${label} called ${ev.tool ?? "tool"}`,
+          description: `${label} called ${toolName}${argsStr}`,
           agentColor: ev.agent,
           icon: NARRATIVE_ICONS.tool_call,
           kind: "tool",
         });
         break;
+      }
 
-      case "tool_result":
+      case "tool_result": {
+        // Show truncated result summary
+        const resultDetail = ev.toolResult
+          ? ev.toolResult.length > 100 ? ev.toolResult.slice(0, 100) + "…" : ev.toolResult
+          : ev.tool;
         entries.push({
           ts: ev.ts,
           description: `${label} received result`,
-          detail: ev.tool,
+          detail: resultDetail,
           agentColor: ev.agent,
           icon: NARRATIVE_ICONS.tool_result,
           kind: "tool",
         });
         break;
+      }
 
       case "complete":
         entries.push({

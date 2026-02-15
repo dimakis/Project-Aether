@@ -174,19 +174,10 @@ def _format_energy_analysis(state: Any, analysis_type: str, hours: int) -> str:
 @tool("discover_entities")
 @trace_with_uri(name="agent.discover_entities", span_type="TOOL")
 async def discover_entities(domain_filter: str | None = None) -> str:
-    """Discover and catalog Home Assistant entities.
-
-    Use this tool when the user asks to:
-    - Refresh or update the entity list
-    - Discover new devices
-    - Sync with Home Assistant
-    - Find all entities of a type
+    """Refresh entity list from Home Assistant.
 
     Args:
-        domain_filter: Optional domain to filter (e.g., "light", "sensor", "switch")
-
-    Returns:
-        A summary of discovered entities
+        domain_filter: Optional domain to filter
     """
     from src.agents.librarian import LibrarianWorkflow
     from src.storage import get_session

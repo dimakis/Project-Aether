@@ -89,15 +89,7 @@ async def delete_automation(automation_id: str) -> str:
 @tool("list_automations")
 @trace_with_uri(name="ha.list_automations", span_type="TOOL")
 async def list_automations() -> str:
-    """List all automations in Home Assistant.
-
-    Reads from the discovery database. Use get_automation_config to
-    retrieve the full trigger/condition/action YAML for a specific
-    automation.
-
-    Returns:
-        Formatted list of automations with their status
-    """
+    """List all automations with their status."""
     try:
         async with get_session() as session:
             repo = AutomationRepository(session)
@@ -122,16 +114,10 @@ async def list_automations() -> str:
 @tool("get_automation_config")
 @trace_with_uri(name="ha.get_automation_config", span_type="TOOL")
 async def get_automation_config(entity_id: str) -> str:
-    """Get the full trigger/condition/action YAML for an automation.
-
-    Reads the cached config from the discovery database. If the config
-    is not yet available, advises running a discovery sync.
+    """Get full YAML config for an automation.
 
     Args:
-        entity_id: Automation entity ID (e.g., 'automation.sunset_lights')
-
-    Returns:
-        YAML string of the automation config, or guidance message
+        entity_id: Automation entity ID
     """
     async with get_session() as session:
         repo = AutomationRepository(session)

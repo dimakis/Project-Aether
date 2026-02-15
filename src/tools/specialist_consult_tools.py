@@ -256,24 +256,10 @@ async def request_synthesis_review(
 async def consult_dashboard_designer(
     query: str,
 ) -> str:
-    """Consult the Dashboard Designer to create or update Lovelace dashboards.
-
-    Use when the user asks about:
-    - Creating a new Home Assistant dashboard
-    - Updating or redesigning an existing dashboard
-    - Adding cards, views, or sections to a dashboard
-    - Dashboard layout or visualisation recommendations
-
-    The Dashboard Designer will generate valid Lovelace YAML configuration
-    based on the user's requirements, consulting DS team data as needed.
+    """Consult the Dashboard Designer for Lovelace dashboards.
 
     Args:
-        query: What the user wants for their dashboard (e.g.,
-            "Create an energy monitoring dashboard",
-            "Update my overview dashboard with temperature cards")
-
-    Returns:
-        Dashboard Designer's response with Lovelace YAML and explanation.
+        query: Dashboard request
     """
     if not await is_agent_enabled("dashboard_designer"):
         return "Dashboard Designer is currently disabled. Enable it on the Agents page to use."

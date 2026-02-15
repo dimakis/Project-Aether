@@ -22,19 +22,11 @@ async def review_config(
     target: str,
     focus: str | None = None,
 ) -> str:
-    """Review existing HA config and suggest improvements.
-
-    Analyzes the target automation/script/scene using the DS team
-    (energy, behavioral, diagnostic analysts) and produces concrete
-    YAML improvement suggestions as review proposals.
+    """Review HA config and suggest improvements.
 
     Args:
-        target: Entity ID (e.g. 'automation.kitchen_lights') or
-                'all_automations', 'all_scripts', 'all_scenes'
-        focus: Optional focus area ('energy', 'behavioral', 'efficiency', 'security')
-
-    Returns:
-        Summary of review findings and created proposals.
+        target: Entity ID or 'all_automations'/'all_scripts'/'all_scenes'
+        focus: Focus area: energy, behavioral, efficiency, security
     """
     from src.graph.workflows import build_review_graph
 

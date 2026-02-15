@@ -160,31 +160,50 @@ async def _stream_chat_completion(
             conversation_id = request.conversation_id or _derive_conversation_id(request.messages)
 
             with session_context(conversation_id):
-                # Create MLflow run for full observability (runs + nested traces)
-                with start_experiment_run("conversation"):
-                    mlflow.set_tag("endpoint", "chat_completion_stream")
-                    mlflow.set_tag("session.id", conversation_id)
-                    mlflow.set_tag("mlflow.trace.session", conversation_id)
-                    log_param("conversation_id", conversation_id)
-                    log_param("model", request.model)
+                # Convert messages and extract user message BEFORE MLflow
+                # so streaming can start with minimal blocking.
+                lc_messages = _convert_to_langchain_messages(request.messages)
 
-                    # Convert messages
-                    lc_messages = _convert_to_langchain_messages(request.messages)
+                user_message = ""
+                for msg in reversed(request.messages):
+                    if msg.role == "user" and msg.content:
+                        user_message = msg.content
+                        break
 
-                    # Extract last user message
-                    user_message = ""
-                    for msg in reversed(request.messages):
-                        if msg.role == "user" and msg.content:
-                            user_message = msg.content
-                            break
+                if not user_message:
+                    yield _format_sse_error("No user message found")
+                    return
 
-                    if not user_message:
-                        yield _format_sse_error("No user message found")
-                        return
+                turn = (len(lc_messages) + 1) // 2
 
-                    log_param("turn", (len(lc_messages) + 1) // 2)
-                    log_param("type", "continue_conversation")
+                # Defer MLflow run creation to a background thread so it
+                # doesn't block time-to-first-token.  The run context is
+                # established asynchronously — if it's not ready by the
+                # time the first token arrives, tracing attaches later.
+                import asyncio
 
+                loop = asyncio.get_event_loop()
+
+                def _setup_mlflow() -> None:
+                    """Synchronous MLflow setup (runs in thread pool)."""
+                    import contextlib
+
+                    with contextlib.suppress(Exception):  # Tracing is best-effort
+                        from src.tracing.mlflow_runs import start_run
+
+                        start_run(run_name="conversation")
+                        mlflow.set_tag("endpoint", "chat_completion_stream")
+                        mlflow.set_tag("session.id", conversation_id)
+                        mlflow.set_tag("mlflow.trace.session", conversation_id)
+                        log_param("conversation_id", conversation_id)
+                        log_param("model", request.model)
+                        log_param("turn", turn)
+                        log_param("type", "continue_conversation")
+
+                mlflow_future = loop.run_in_executor(None, _setup_mlflow)
+
+                # Use a lightweight no-op context instead of the blocking one
+                try:
                     # Create state
                     state = ConversationState(
                         conversation_id=conversation_id,
@@ -286,13 +305,17 @@ async def _stream_chat_completion(
                                         if target not in agents_seen:
                                             agents_seen.append(target)
 
-                                    trace_ev = {
+                                    trace_ev: dict[str, object] = {
                                         "type": "trace",
                                         "agent": target,
                                         "event": "tool_call",
                                         "tool": tool_name,
                                         "ts": time.time(),
                                     }
+                                    # Include tool args summary for the activity feed
+                                    tool_args = event.get("args", "")
+                                    if tool_args:
+                                        trace_ev["tool_args"] = tool_args[:200]
                                     yield f"data: {json.dumps(trace_ev)}\n\n"
                                     # Status event for UI
                                     status_ev = {
@@ -319,10 +342,22 @@ async def _stream_chat_completion(
                                             agent_stack.pop()
                                             yield f"data: {json.dumps({'type': 'trace', 'agent': target, 'event': 'end', 'ts': time.time()})}\n\n"
 
+                                    # Emit tool_result trace event for the activity feed
+                                    tool_result = event.get("result", "")
+                                    if tool_result:
+                                        result_ev: dict[str, object] = {
+                                            "type": "trace",
+                                            "agent": target,
+                                            "event": "tool_result",
+                                            "tool": tool_name,
+                                            "tool_result": tool_result[:200],
+                                            "ts": time.time(),
+                                        }
+                                        yield f"data: {json.dumps(result_ev)}\n\n"
+
                                     # Emit proposal_created event when seek_approval
                                     # successfully created a proposal (result contains
                                     # "submitted" or "proposal").
-                                    tool_result = event.get("result", "")
                                     if tool_name == "seek_approval" and (
                                         "submitted" in tool_result.lower()
                                         or "proposal for your approval" in tool_result.lower()
@@ -444,6 +479,16 @@ async def _stream_chat_completion(
                     yield "data: [DONE]\n\n"
 
                     await session.commit()
+                finally:
+                    # Ensure the background MLflow setup has completed,
+                    # then close the run.
+                    import contextlib
+
+                    with contextlib.suppress(Exception):
+                        await mlflow_future
+                    from src.tracing.mlflow_runs import end_run
+
+                    end_run()
 
     except Exception as e:
         yield _format_sse_error(str(e))

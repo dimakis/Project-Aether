@@ -24,6 +24,10 @@ export interface LiveTimelineEntry {
   agent: string;
   event: string; // "start" | "end" | "tool_call" | "tool_result" | "complete"
   tool?: string;
+  /** Truncated tool arguments (for tool_call events). */
+  toolArgs?: string;
+  /** Truncated tool result (for tool_result events). */
+  toolResult?: string;
   ts: number;
 }
 

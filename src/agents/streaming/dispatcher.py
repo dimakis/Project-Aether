@@ -68,7 +68,9 @@ async def dispatch_tool_calls(
             tool_results[tc.id] = "Requires user approval"
             continue
 
-        yield StreamEvent(type="tool_start", tool=tc.name, agent="architect")
+        # Include truncated args so the activity panel can show what's being called
+        args_summary = str(tc.args)[:200] if tc.args else ""
+        yield StreamEvent(type="tool_start", tool=tc.name, agent="architect", args=args_summary)
 
         tool = tool_lookup.get(tc.name)
         if not tool:
