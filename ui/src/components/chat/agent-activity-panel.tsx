@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Brain, ChevronDown, Loader2, Cpu, Clock } from "lucide-react";
+import { X, Brain, ChevronDown, ChevronLeft, ChevronRight, Loader2, Cpu, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentTopology } from "./agent-topology";
 import { TOPOLOGY_AGENT_IDS, agentColor } from "@/lib/agent-registry";
@@ -11,6 +11,8 @@ import {
   useActivityPanel,
   setActivityPanelOpen,
   setActivityPanelWidth,
+  setActivitySession,
+  useSessionCache,
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
 } from "@/lib/agent-activity-store";
@@ -120,6 +122,70 @@ function ThinkingBox({ content, isActive }: { content: string; isActive: boolean
               className="max-h-48 overflow-auto border-t border-border/20 px-3 py-2"
             >
               <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground/70">
+                {content}
+              </pre>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Reasoning Footer (pinned to bottom of panel) ────────────────────────────
+
+function ReasoningFooter({ content, isActive }: { content: string; isActive: boolean }) {
+  const [expanded, setExpanded] = useState(true);
+  const { ref: scrollRef, onScroll } = useSmartAutoScroll(content);
+
+  if (!content) return null;
+
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+
+  return (
+    <div className="shrink-0 border-t border-border bg-card/80">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-muted/40"
+      >
+        <Brain
+          className={cn(
+            "h-3 w-3",
+            isActive ? "animate-pulse text-primary" : "text-muted-foreground/60",
+          )}
+        />
+        <span className="font-medium text-muted-foreground/70">
+          {isActive ? "Reasoning..." : "Agent Reasoning"}
+        </span>
+        {wordCount > 0 && (
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground/40">
+            {wordCount}w
+          </span>
+        )}
+        <motion.span
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.15 }}
+          className="ml-auto"
+        >
+          <ChevronDown className="h-3 w-3 text-muted-foreground/40" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div
+              ref={scrollRef}
+              onScroll={onScroll}
+              className="max-h-40 overflow-auto border-t border-border/20 px-3 py-2"
+            >
+              <pre className="whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-muted-foreground/60">
                 {content}
               </pre>
             </div>
@@ -249,6 +315,53 @@ function NarrativeFeed({ entries }: { entries: NarrativeFeedEntry[] }) {
   );
 }
 
+// ─── Session Cycler ──────────────────────────────────────────────────────────
+
+function SessionCycler() {
+  const { sessionIds, activeSessionId } = useSessionCache();
+
+  if (sessionIds.length <= 1) return null;
+
+  const currentIdx = activeSessionId ? sessionIds.indexOf(activeSessionId) : -1;
+  const total = sessionIds.length;
+
+  const goPrev = () => {
+    if (currentIdx > 0) {
+      setActivitySession(sessionIds[currentIdx - 1]);
+    }
+  };
+
+  const goNext = () => {
+    if (currentIdx < total - 1) {
+      setActivitySession(sessionIds[currentIdx + 1]);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <button
+        onClick={goPrev}
+        disabled={currentIdx <= 0}
+        className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-30"
+        title="Previous session"
+      >
+        <ChevronLeft className="h-3 w-3" />
+      </button>
+      <span className="text-[10px] tabular-nums text-muted-foreground/50">
+        {currentIdx >= 0 ? currentIdx + 1 : "?"}/{total}
+      </span>
+      <button
+        onClick={goNext}
+        disabled={currentIdx >= total - 1}
+        className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-30"
+        title="Next session"
+      >
+        <ChevronRight className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
 export function AgentActivityPanel() {
@@ -353,12 +466,15 @@ export function AgentActivityPanel() {
                 />
               )}
             </div>
-            <button
-              onClick={() => setActivityPanelOpen(false)}
-              className="rounded-md p-1 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <SessionCycler />
+              <button
+                onClick={() => setActivityPanelOpen(false)}
+                className="rounded-md p-1 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -467,6 +583,18 @@ export function AgentActivityPanel() {
               </p>
             )}
           </div>
+
+          {/* ── Pinned reasoning footer ────────────────────────── */}
+          {/* Always visible at the bottom of the panel when any
+              agent thinking/reasoning content is available. */}
+          {hasThinking && (
+            <SectionErrorBoundary fallback="Reasoning unavailable">
+              <ReasoningFooter
+                content={activity.thinkingStream}
+                isActive={isStreaming}
+              />
+            </SectionErrorBoundary>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

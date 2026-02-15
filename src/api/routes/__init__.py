@@ -85,5 +85,9 @@ from src.api.routes.reports import router as reports_router
 api_router.include_router(reports_router)
 # Dashboard editor (Lovelace config)
 api_router.include_router(dashboards_router)
+# App Settings (runtime-configurable via UI)
+from src.api.routes.settings import router as settings_router
+
+api_router.include_router(settings_router)
 
 __all__ = ["api_router"]

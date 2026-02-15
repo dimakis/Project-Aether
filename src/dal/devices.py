@@ -1,5 +1,8 @@
 """Device repository for HA device CRUD operations."""
 
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 from src.dal.base import BaseRepository
 from src.storage.entities import Device
 
@@ -31,6 +34,10 @@ class DeviceRepository(BaseRepository[Device]):
     ) -> list[Device]:
         """List devices with optional filtering.
 
+        Eagerly loads the ``area`` relationship so results remain usable
+        after the session is closed (required for session-per-task
+        concurrency in entity_context).
+
         Args:
             area_id: Filter by area
             manufacturer: Filter by manufacturer
@@ -40,9 +47,18 @@ class DeviceRepository(BaseRepository[Device]):
         Returns:
             List of devices
         """
-        return await super().list_all(
-            limit=limit, offset=offset, area_id=area_id, manufacturer=manufacturer
-        )
+        query = select(Device).options(selectinload(Device.area))
+
+        # Apply filters
+        if area_id is not None:
+            query = query.where(Device.area_id == area_id)
+        if manufacturer is not None:
+            query = query.where(Device.manufacturer == manufacturer)
+
+        query = query.order_by(Device.name).limit(limit).offset(offset)
+
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
 
     async def get_all_ha_device_ids(self) -> set[str]:
         """Get all HA device IDs in database.

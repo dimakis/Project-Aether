@@ -9,8 +9,8 @@ import {
 } from "@/lib/storage";
 
 export interface UseChatSessionsOptions {
-  /** Called after startNewChat or switchSession; use to clear input and focus. */
-  onSessionSwitch?: () => void;
+  /** Called after startNewChat or switchSession with the new session ID. */
+  onSessionSwitch?: (newSessionId: string) => void;
 }
 
 export interface UseChatSessionsReturn {
@@ -98,13 +98,13 @@ export function useChatSessions(
     };
     setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(id);
-    onSessionSwitch?.();
+    onSessionSwitch?.(id);
   }, [selectedModel, setSessions, setActiveSessionId, onSessionSwitch]);
 
   const switchSession = useCallback(
     (sessionId: string) => {
       setActiveSessionId(sessionId);
-      onSessionSwitch?.();
+      onSessionSwitch?.(sessionId);
     },
     [setActiveSessionId, onSessionSwitch],
   );

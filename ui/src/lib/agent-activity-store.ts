@@ -80,6 +80,24 @@ const activityListeners = new Set<() => void>();
 /** Session that currently owns the activity panel. */
 let activeSessionId: string | null = null;
 
+// ─── Per-Session Activity Cache ────────────────────────────────────────────
+
+/** Cached activity snapshot for a completed session. */
+export interface SessionActivitySnapshot {
+  activity: AgentActivity;
+  traceId: string | null;
+  /** ISO timestamp when the snapshot was created. */
+  cachedAt: string;
+}
+
+const MAX_CACHED_SESSIONS = 20;
+
+/** Map of sessionId -> snapshot for completed sessions. */
+const sessionCache = new Map<string, SessionActivitySnapshot>();
+
+/** Ordered list of session IDs (most recent first) for the cycler UI. */
+let sessionOrder: string[] = [];
+
 // ─── Array Caps (prevent unbounded growth) ────────────────────────────────
 
 const MAX_LIVE_TIMELINE = 200;
@@ -152,6 +170,12 @@ export function completeAgentActivity() {
     activeEdges: [],
     completedAt: Date.now(),
   };
+
+  // Cache the completed snapshot so it can be restored when switching sessions
+  if (activeSessionId) {
+    _cacheSessionSnapshot(activeSessionId, currentActivity);
+  }
+
   notifyActivity();
 }
 
@@ -172,11 +196,31 @@ function subscribeActivity(listener: () => void) {
 
 /**
  * Set which session currently owns the activity panel.
- * Resets activity state so the panel shows a clean slate for the new session.
+ *
+ * If a cached snapshot exists for the new session, it is restored.
+ * Otherwise the panel starts with a clean slate.
  */
 export function setActivitySession(sessionId: string | null) {
+  // Save current session's state to cache before switching
+  if (activeSessionId && currentActivity.agentsSeen.length > 0) {
+    _cacheSessionSnapshot(activeSessionId, currentActivity);
+  }
+
   activeSessionId = sessionId;
-  currentActivity = { ...DEFAULT_ACTIVITY };
+
+  // Restore cached snapshot or start clean
+  if (sessionId && sessionCache.has(sessionId)) {
+    const cached = sessionCache.get(sessionId)!;
+    currentActivity = cached.activity;
+    // Also update the panel's lastTraceId to match the restored session
+    if (cached.traceId) {
+      setLastTraceId(cached.traceId);
+    }
+  } else {
+    currentActivity = { ...DEFAULT_ACTIVITY };
+  }
+  // Rebuild session cache snapshot since activeSessionId changed
+  _rebuildSessionCacheSnapshot();
   notifyActivity();
 }
 
@@ -193,6 +237,73 @@ export function getActivitySnapshot(): AgentActivity {
 /** React hook to read the current agent activity state. */
 export function useAgentActivity(): AgentActivity {
   return useSyncExternalStore(subscribeActivity, getActivitySnapshot, getActivitySnapshot);
+}
+
+// ─── Session Cache Internals ─────────────────────────────────────────────────
+
+function _cacheSessionSnapshot(sessionId: string, activity: AgentActivity) {
+  const traceId = currentPanel?.lastTraceId ?? null;
+  sessionCache.set(sessionId, {
+    activity: { ...activity },
+    traceId,
+    cachedAt: new Date().toISOString(),
+  });
+
+  // Update session order (most recent first)
+  sessionOrder = [sessionId, ...sessionOrder.filter((id) => id !== sessionId)];
+
+  // Evict oldest entries if over the cap
+  while (sessionOrder.length > MAX_CACHED_SESSIONS) {
+    const evicted = sessionOrder.pop();
+    if (evicted) sessionCache.delete(evicted);
+  }
+
+  notifySessionCache();
+}
+
+// Listeners for the session cache (used by the cycler UI)
+const sessionCacheListeners = new Set<() => void>();
+
+function notifySessionCache() {
+  _rebuildSessionCacheSnapshot();
+  for (const listener of sessionCacheListeners) {
+    listener();
+  }
+}
+
+interface SessionCacheInfo {
+  /** Ordered list of cached session IDs (most recent first). */
+  sessionIds: string[];
+  /** The currently active session ID. */
+  activeSessionId: string | null;
+}
+
+// Memoised snapshot — only recreated when notifySessionCache() fires.
+// useSyncExternalStore compares snapshots with Object.is, so returning
+// a new object on every call would cause an infinite re-render loop.
+let _sessionCacheSnapshot: SessionCacheInfo = { sessionIds: sessionOrder, activeSessionId };
+
+function _rebuildSessionCacheSnapshot() {
+  _sessionCacheSnapshot = { sessionIds: sessionOrder, activeSessionId };
+}
+
+function getSessionCacheSnapshot(): SessionCacheInfo {
+  return _sessionCacheSnapshot;
+}
+
+function subscribeSessionCache(listener: () => void) {
+  sessionCacheListeners.add(listener);
+  return () => sessionCacheListeners.delete(listener);
+}
+
+/** React hook for the session cycler — returns cached session IDs and active session. */
+export function useSessionCache(): SessionCacheInfo {
+  return useSyncExternalStore(subscribeSessionCache, getSessionCacheSnapshot, getSessionCacheSnapshot);
+}
+
+/** Get a cached session's snapshot (for display in the cycler). */
+export function getCachedSession(sessionId: string): SessionActivitySnapshot | null {
+  return sessionCache.get(sessionId) ?? null;
 }
 
 // ─── Panel State (persistent across navigation) ─────────────────────────────

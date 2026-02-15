@@ -400,7 +400,10 @@ class TestGetEntityContextParallel:
     async def test_independent_queries_run_concurrently(self):
         """Domain counts, areas, devices, services should be fetched in parallel."""
         from src.agents.architect import ArchitectAgent
+        from src.agents.architect.entity_context import _invalidate_entity_context_cache
         from src.graph.state import ConversationState
+
+        _invalidate_entity_context_cache()
 
         call_log: list[tuple[str, float]] = []
 
@@ -429,9 +432,14 @@ class TestGetEntityContextParallel:
         mock_service_repo = MagicMock()
         mock_service_repo.list_all = AsyncMock(side_effect=_make_tracked_coro("services", []))
 
-        mock_session = MagicMock()
+        # Mock session factory to return a fresh mock session each time
+        mock_factory = MagicMock(side_effect=lambda: AsyncMock())
 
         with (
+            patch(
+                "src.agents.architect.entity_context.get_session_factory",
+                return_value=mock_factory,
+            ),
             patch(
                 "src.agents.architect.entity_context.EntityRepository",
                 return_value=mock_entity_repo,
@@ -451,7 +459,7 @@ class TestGetEntityContextParallel:
             agent = ArchitectAgent.__new__(ArchitectAgent)
             state = ConversationState(messages=[])
 
-            await agent._get_entity_context(mock_session, state)
+            await agent._get_entity_context(state)
 
         # All repos should have been called
         assert len(call_log) >= 4
@@ -464,3 +472,5 @@ class TestGetEntityContextParallel:
             f"Queries ran sequentially (time spread={spread:.3f}s). "
             "Expected parallel execution with spread < 0.1s."
         )
+
+        _invalidate_entity_context_cache()

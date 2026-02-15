@@ -96,3 +96,4 @@ export {
   useReportCommunication,
 } from "./reports";
 export { useDashboards, useDashboardConfig } from "./dashboards";
+export { useAppSettings, usePatchSettings, useResetSettings } from "./settings";

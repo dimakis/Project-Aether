@@ -72,6 +72,15 @@ export type StreamChunk =
       /** Inter-agent message content */
       content: string;
       ts?: number;
+    }
+  | {
+      type: "error";
+      /** Human-readable error description */
+      content: string;
+      /** Machine-readable error code (e.g. "entity_context_degraded", "llm_error") */
+      errorCode?: string;
+      /** True = warning (stream continues), False = fatal (stream should stop) */
+      recoverable: boolean;
     };
 
 export async function* streamChat(
@@ -180,6 +189,17 @@ export async function* streamChat(
             to: parsed.to ?? "",
             content: parsed.content ?? "",
             ts: parsed.ts,
+          };
+          continue;
+        }
+
+        // Handle structured error events from the backend
+        if (parsed.type === "error") {
+          yield {
+            type: "error" as const,
+            content: parsed.content ?? "Unknown error",
+            errorCode: parsed.error_code,
+            recoverable: parsed.recoverable ?? false,
           };
           continue;
         }

@@ -66,20 +66,32 @@ export function useChatMessages(): UseChatMessagesReturn {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
+  // Track WHICH session is streaming rather than a boolean.
+  // This lets background streams continue when the user switches sessions.
+  const [streamingSessionId, setStreamingSessionId] = useState<string | null>(
+    null,
+  );
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [workflowSelection, setWorkflowSelection] = useState<WorkflowSelection>({
-    preset: null,
-    disabledAgents: new Set(),
-  });
+  const [workflowSelection, setWorkflowSelection] =
+    useState<WorkflowSelection>({
+      preset: null,
+      disabledAgents: new Set(),
+    });
 
   const abortRef = useRef<AbortController | null>(null);
   const streamContentRef = useRef("");
   const streamThinkingRef = useRef("");
   const streamSessionIdRef = useRef<string | null>(null);
+
+  // Per-session draft storage so switching chats preserves unsent input
+  const draftsRef = useRef<Map<string, string>>(new Map());
+  // Track current values in refs for the switch callback (avoids stale closures)
+  const activeSessionIdRef = useRef<string | null>(null);
+  const inputRef2 = useRef(input);
+  inputRef2.current = input;
 
   const { panelOpen: activityPanelOpen } = useActivityPanel();
 
@@ -96,20 +108,53 @@ export function useChatMessages(): UseChatMessagesReturn {
     switchSession,
     deleteSession,
   } = useChatSessions({
-    onSessionSwitch: () => {
-      // Abort any running stream so orphaned SSE connections don't
-      // leak or write stale events to the activity panel.
-      if (abortRef.current) {
-        abortRef.current.abort();
-        abortRef.current = null;
+    onSessionSwitch: (newSessionId: string) => {
+      // Do NOT abort the running stream — it continues in the background.
+      // The updateSessionMessages closure captures the correct sessionId,
+      // so data keeps flowing to the right session.
+
+      // Save the current draft before switching (read from ref to avoid stale closure)
+      const oldId = activeSessionIdRef.current;
+      if (oldId) {
+        const currentDraft = inputRef2.current.trim();
+        if (currentDraft) {
+          draftsRef.current.set(oldId, currentDraft);
+        } else {
+          draftsRef.current.delete(oldId);
+        }
       }
-      setInput("");
-      setIsStreaming(false);
+
+      // Restore the new session's draft (or empty)
+      setInput(draftsRef.current.get(newSessionId) ?? "");
       setStreamStartTime(null);
       setStatusMessage("");
       inputRef.current?.focus();
+
+      // Rebind the activity panel to the new session so the System
+      // Activity panel reflects the correct session's state.
+      setActivitySession(newSessionId);
+
+      // Restore the last traceId from the new session's messages
+      // so the activity panel can show the last trace timeline.
+      const stored = storageGet<ChatSession[]>(STORAGE_KEYS.chatSessions, []);
+      const targetSession = stored.find((s) => s.id === newSessionId);
+      if (targetSession) {
+        const lastAssistant = [...targetSession.messages]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.traceId);
+        setLastTraceId(lastAssistant?.traceId ?? null);
+      } else {
+        setLastTraceId(null);
+      }
     },
   });
+
+  // Keep the ref in sync so the switch callback can read the old session ID
+  activeSessionIdRef.current = activeSessionId;
+
+  // Derive isStreaming from whether the ACTIVE session is the one streaming.
+  // Other sessions can stream in the background without blocking the UI.
+  const isStreaming = streamingSessionId === activeSessionId && activeSessionId !== null;
 
   const { data: modelsData } = useModels();
   const { data: conversationsData } = useConversations();
@@ -127,6 +172,7 @@ export function useChatMessages(): UseChatMessagesReturn {
     }
   }, [location.state, location.pathname, navigate]);
 
+  // Component unmount: abort the stream and persist partial content
   useEffect(() => {
     return () => {
       const controller = abortRef.current;
@@ -139,7 +185,10 @@ export function useChatMessages(): UseChatMessagesReturn {
       const sessionId = streamSessionIdRef.current;
       if (!sessionId) return;
 
-      const stored = storageGet<ChatSession[]>(STORAGE_KEYS.chatSessions, []);
+      const stored = storageGet<ChatSession[]>(
+        STORAGE_KEYS.chatSessions,
+        [],
+      );
       const idx = stored.findIndex((s) => s.id === sessionId);
       if (idx === -1) return;
 
@@ -162,8 +211,9 @@ export function useChatMessages(): UseChatMessagesReturn {
     };
   }, []);
 
+  // Elapsed timer: only runs when the active session is streaming
   useEffect(() => {
-    if (!streamStartTime) {
+    if (!streamStartTime || !isStreaming) {
       setElapsed(0);
       return;
     }
@@ -171,10 +221,18 @@ export function useChatMessages(): UseChatMessagesReturn {
       setElapsed(Math.floor((Date.now() - streamStartTime) / 1000));
     }, 1000);
     return () => clearInterval(interval);
-  }, [streamStartTime]);
+  }, [streamStartTime, isStreaming]);
+
+  // When switching back to a session that is still streaming, restore the timer
+  useEffect(() => {
+    if (isStreaming && !streamStartTime) {
+      setStreamStartTime(Date.now());
+    }
+  }, [isStreaming, streamStartTime]);
 
   const sendMessage = useCallback(
     async (content: string) => {
+      // Guard: block send if the ACTIVE session is already streaming
       if (!content.trim() || isStreaming) return;
 
       let sessionId = activeSessionId;
@@ -194,17 +252,17 @@ export function useChatMessages(): UseChatMessagesReturn {
         sessionId = id;
       }
 
-      const now = new Date().toISOString();
+      const userTimestamp = new Date().toISOString();
       const userMsg: DisplayMessage = {
         role: "user",
         content: content.trim(),
-        timestamp: now,
+        timestamp: userTimestamp,
       };
       const assistantMsg: DisplayMessage = {
         role: "assistant",
         content: "",
         isStreaming: true,
-        timestamp: now,
+        // No timestamp yet — set when the first token arrives (Bug 2 fix)
       };
 
       const updateSessionMessages = (
@@ -231,7 +289,7 @@ export function useChatMessages(): UseChatMessagesReturn {
 
       updateSessionMessages((prev) => [...prev, userMsg, assistantMsg]);
       setInput("");
-      setIsStreaming(true);
+      setStreamingSessionId(sessionId);
       setStreamStartTime(Date.now());
 
       // Claim the activity panel for this session
@@ -266,9 +324,19 @@ export function useChatMessages(): UseChatMessagesReturn {
       const thinkingRef = streamThinkingRef;
       const rafPending = { current: false };
 
+      // Bug 2 fix: track the assistant timestamp separately.
+      // Set it on the first flush (when the first token arrives) so the
+      // assistant message shows when the response actually started,
+      // not when the user pressed send.
+      let assistantTimestamp: string | undefined;
+
       const scheduleFlush = () => {
         if (rafPending.current) return;
         rafPending.current = true;
+        if (!assistantTimestamp) {
+          assistantTimestamp = new Date().toISOString();
+        }
+        const ts = assistantTimestamp;
         requestAnimationFrame(() => {
           rafPending.current = false;
           const snapshot = fullContentRef.current;
@@ -279,7 +347,7 @@ export function useChatMessages(): UseChatMessagesReturn {
               role: "assistant",
               content: snapshot,
               isStreaming: true,
-              timestamp: assistantMsg.timestamp,
+              timestamp: ts,
               thinkingContent: thinkingSnapshot || undefined,
             };
             return updated;
@@ -320,7 +388,7 @@ export function useChatMessages(): UseChatMessagesReturn {
               continue;
             }
             if (chunk.type === "status") {
-              setStatusMessage(chunk.content);
+              if (ownsPanel()) setStatusMessage(chunk.content);
               continue;
             }
             if (chunk.type === "thinking") {
@@ -352,12 +420,27 @@ export function useChatMessages(): UseChatMessagesReturn {
               }
               continue;
             }
+            if (chunk.type === "error") {
+              if (chunk.recoverable) {
+                if (ownsPanel())
+                  setStatusMessage(`\u26A0 ${chunk.content}`);
+              } else {
+                const errorMsg =
+                  chunk.content || "An unexpected error occurred.";
+                fullContentRef.current += `\n\n---\n\n**Error:** ${errorMsg}`;
+                scheduleFlush();
+              }
+              continue;
+            }
           }
           const text = typeof chunk === "string" ? chunk : "";
           fullContentRef.current += text;
           scheduleFlush();
         }
 
+        // Use the assistant timestamp captured during streaming,
+        // or fall back to now if no tokens arrived at all.
+        const finalTs = assistantTimestamp ?? new Date().toISOString();
         const finalContent = fullContentRef.current;
         const finalThinking = thinkingRef.current;
         updateSessionMessages((prev) => {
@@ -367,7 +450,7 @@ export function useChatMessages(): UseChatMessagesReturn {
             role: "assistant",
             content: finalContent || last.content || "",
             isStreaming: false,
-            timestamp: assistantMsg.timestamp,
+            timestamp: finalTs,
             traceId,
             thinkingContent: finalThinking || undefined,
           };
@@ -378,22 +461,29 @@ export function useChatMessages(): UseChatMessagesReturn {
           return;
         }
         console.warn("[chat] Stream error:", err);
+
+        const errorDetail =
+          err instanceof Error ? err.message : String(err);
+        const partial = fullContentRef.current;
+        const errorSuffix = partial
+          ? `\n\n---\n\n**Error:** ${errorDetail}`
+          : `Something went wrong: ${errorDetail}. Please try again.`;
+
+        const errorTs = assistantTimestamp ?? new Date().toISOString();
         updateSessionMessages((prev) => {
           const updated = [...prev];
-          const partial = fullContentRef.current;
           updated[updated.length - 1] = {
             role: "assistant",
-            content:
-              partial ||
-              "Sorry, I encountered an error processing your request. Please try again.",
+            content: partial ? partial + errorSuffix : errorSuffix,
             isStreaming: false,
-            timestamp: assistantMsg.timestamp,
+            timestamp: errorTs,
           };
           return updated;
         });
       } finally {
         abortRef.current = null;
-        setIsStreaming(false);
+        streamSessionIdRef.current = null;
+        setStreamingSessionId(null);
         setStreamStartTime(null);
         setStatusMessage("");
         completeAgentActivity();
@@ -451,9 +541,6 @@ export function useChatMessages(): UseChatMessagesReturn {
 
   const handleCreateProposal = useCallback(
     (yamlContent: string) => {
-      // Send raw YAML to the backend — the server parses, normalizes,
-      // validates, and extracts trigger/action/condition/mode/name
-      // via the canonical schema pipeline (parse_ha_yaml).
       createProposalMut.mutate(
         { yaml_content: yamlContent },
         {
@@ -461,7 +548,10 @@ export function useChatMessages(): UseChatMessagesReturn {
             navigate("/proposals");
           },
           onError: (err) => {
-            console.error("[chat] Failed to create proposal from YAML:", err);
+            console.error(
+              "[chat] Failed to create proposal from YAML:",
+              err,
+            );
           },
         },
       );

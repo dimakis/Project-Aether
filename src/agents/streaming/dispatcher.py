@@ -196,10 +196,14 @@ async def _execute_single_tool(
                 result_str = str(result)
                 yield StreamEvent(type="tool_end", tool=tool_name, result=result_str[:500])
 
-                # Track proposal creations
-                is_proposal = tool_name == "seek_approval" and (
-                    "submitted" in result_str.lower() or "proposal" in result_str.lower()
-                )
+                # Track proposal creations — authoritative check is tool name,
+                # string match on result is a secondary signal for the frontend.
+                is_proposal = tool_name == "seek_approval"
+                if is_proposal:
+                    logger.info(
+                        "seek_approval invoked — result (first 200 chars): %s",
+                        result_str[:200],
+                    )
                 yield StreamEvent(
                     type="_tool_result",
                     result_str=result_str,

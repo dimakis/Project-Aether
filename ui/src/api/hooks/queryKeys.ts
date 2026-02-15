@@ -147,4 +147,9 @@ export const queryKeys = {
   system: {
     status: ["system", "status"] as const,
   },
+
+  // ── App Settings ──────────────────────────────────────────────────────
+  appSettings: {
+    all: ["app-settings"] as const,
+  },
 } as const;

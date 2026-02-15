@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -18,7 +18,9 @@ import {
   MapPin,
   FileBarChart,
   PanelLeft,
+  Settings,
 } from "lucide-react";
+import { lazy, Suspense, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { agentLabel } from "@/lib/agent-registry";
 import { useAuth } from "@/contexts/auth-context";
@@ -30,7 +32,9 @@ import {
   toggleActivityPanel,
 } from "@/lib/agent-activity-store";
 import { AgentActivityPanel } from "@/components/chat/agent-activity-panel";
-import { useState, useRef, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+
+const ChatPage = lazy(() => import("@/pages/chat"));
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -48,6 +52,7 @@ const navItems = [
   { to: "/architecture", icon: Network, label: "Architecture" },
   { to: "/agents/registry", icon: Star, label: "Model Performance" },
   { to: "/dashboard-editor", icon: PanelLeft, label: "Dashboard Editor" },
+  { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/settings/zones", icon: MapPin, label: "HA Zones" },
 ];
 
@@ -57,6 +62,8 @@ export function AppLayout() {
   const isHealthy = status?.status === "healthy";
   const agentActivity = useAgentActivity();
   const { panelOpen } = useActivityPanel();
+  const location = useLocation();
+  const isOnChat = location.pathname === "/chat";
 
   // Global SSE subscription for system-wide LLM activity
   useGlobalActivityStream();
@@ -162,11 +169,30 @@ export function AppLayout() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-          <footer className="px-6 py-4 text-center text-[11px] text-muted-foreground/50">
-            Made with CC (Claude 🤖 &amp; Coffee ☕) 😄
-          </footer>
+        <main className="flex-1 overflow-hidden">
+          {/* ChatPage is always mounted so streams survive navigation.
+              Hidden via CSS when on another route. */}
+          <div className={cn("h-full", isOnChat ? "" : "hidden")}>
+            <Suspense
+              fallback={
+                <div className="flex min-h-[50vh] items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              }
+            >
+              <ChatPage />
+            </Suspense>
+          </div>
+
+          {/* Other routes render via Outlet (hidden when on /chat) */}
+          {!isOnChat && (
+            <div className="h-full overflow-auto">
+              <Outlet />
+              <footer className="px-6 py-4 text-center text-[11px] text-muted-foreground/50">
+                Made with CC (Claude 🤖 &amp; Coffee ☕) 😄
+              </footer>
+            </div>
+          )}
         </main>
 
         {/* Global Agent Activity Panel */}

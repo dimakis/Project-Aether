@@ -381,7 +381,12 @@ def _get_trace_duration(trace: Any) -> float:
 
 
 def _extract_attributes(span: Any) -> dict[str, Any]:
-    """Extract useful display attributes from a span."""
+    """Extract useful display attributes from a span.
+
+    Reads both ``span.attributes`` (metadata) and ``span.inputs``/
+    ``span.outputs`` (MLflow 3.x stores LLM prompts and responses
+    there, not in the regular attributes dict).
+    """
     attrs: dict[str, Any] = {}
     raw = getattr(span, "attributes", None) or {}
 
@@ -400,5 +405,16 @@ def _extract_attributes(span: Any) -> dict[str, Any]:
         if key in raw:
             attrs["tool"] = str(raw[key])
             break
+
+    # MLflow 3.x: span.inputs / span.outputs contain LLM I/O
+    inputs = getattr(span, "inputs", None)
+    if inputs:
+        input_str = str(inputs)
+        attrs["input"] = input_str[:500] if len(input_str) > 500 else input_str
+
+    outputs = getattr(span, "outputs", None)
+    if outputs:
+        output_str = str(outputs)
+        attrs["output"] = output_str[:500] if len(output_str) > 500 else output_str
 
     return attrs

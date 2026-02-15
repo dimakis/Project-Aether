@@ -40,7 +40,18 @@ class TestArchitectContext:
     @pytest.mark.asyncio
     async def test_context_includes_entities_devices_services(self, architect, mock_session):
         """Ensure context includes entities, devices, areas, and services."""
+        from src.agents.architect.entity_context import _invalidate_entity_context_cache
+
+        _invalidate_entity_context_cache()
+
+        # Mock session factory so _build_base_context creates independent sessions
+        mock_factory = MagicMock(side_effect=lambda: AsyncMock())
+
         with (
+            patch(
+                "src.agents.architect.entity_context.get_session_factory",
+                return_value=mock_factory,
+            ),
             patch("src.agents.architect.entity_context.EntityRepository") as entity_repo_cls,
             patch("src.agents.architect.entity_context.DeviceRepository") as device_repo_cls,
             patch("src.agents.architect.entity_context.AreaRepository") as area_repo_cls,
@@ -85,13 +96,16 @@ class TestArchitectContext:
             )
 
             state = ConversationState()
-            context = await architect._get_entity_context(mock_session, state)
+            context, warning = await architect._get_entity_context(state)
 
-            assert context is not None
-            assert "Available entities" in context
-            assert "Areas" in context
-            assert "Devices" in context
-            assert "Services" in context
+        _invalidate_entity_context_cache()
+
+        assert context is not None
+        assert warning is None
+        assert "Available entities" in context
+        assert "Areas" in context
+        assert "Devices" in context
+        assert "Services" in context
 
 
 class TestArchitectToolCalls:

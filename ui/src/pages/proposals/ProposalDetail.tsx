@@ -167,12 +167,16 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
 
   const config = STATUS_CONFIG[detail.status] ?? STATUS_CONFIG.proposed;
   const TypeIcon = TYPE_ICONS[(detail as Proposal).proposal_type ?? "automation"] ?? Sparkles;
+  const hasDiff = !!(detail as ProposalWithYAML).original_yaml && !!detail.yaml_content;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/60 p-4 pt-[8vh] backdrop-blur-sm">
       <div
         ref={overlayRef}
-        className="w-full max-w-2xl animate-in rounded-2xl border border-border bg-card shadow-2xl"
+        className={cn(
+          "w-full animate-in rounded-2xl border border-border bg-card shadow-2xl",
+          hasDiff ? "max-w-5xl" : "max-w-2xl",
+        )}
       >
         {/* Header */}
         <div className="flex items-start justify-between border-b border-border p-6 pb-4">

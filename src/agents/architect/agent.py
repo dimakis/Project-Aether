@@ -135,15 +135,11 @@ class ArchitectAgent(BaseAgent):
 
         async with self.trace_span("invoke", state, inputs=trace_inputs) as span:
             session = kwargs.get("session")
-
             messages = self._build_messages(state)
 
-            if session:
-                entity_context = await self._get_entity_context(
-                    cast("AsyncSession", session), state
-                )
-                if entity_context:
-                    messages.insert(1, SystemMessage(content=entity_context))
+            entity_context, _warning = await self._get_entity_context(state)
+            if entity_context:
+                messages.insert(1, SystemMessage(content=entity_context))
 
             tools = self._get_ha_tools()
             tool_llm = self.get_tool_llm()
@@ -335,11 +331,15 @@ class ArchitectAgent(BaseAgent):
 
     async def _get_entity_context(
         self,
-        session: AsyncSession,
         state: ConversationState,
-    ) -> str | None:
-        """Get relevant entity context for the conversation."""
-        return await get_entity_context(session, state)
+    ) -> tuple[str | None, str | None]:
+        """Get relevant entity context for the conversation.
+
+        Returns:
+            Tuple of (context_string, warning_string).
+            Warning is non-None when entity context is degraded.
+        """
+        return await get_entity_context(state)
 
     def _extract_proposal(self, response: str) -> dict[str, Any] | None:
         """Extract the first proposal JSON from response if present."""

@@ -35,13 +35,12 @@ function flattenSpans(span: SpanNode, events: TimelineEvent[] = []): TimelineEve
   if (span.attributes.tool) {
     detail = String(span.attributes.tool);
   }
-  // Show tool input summary for tool spans (from MLflow attributes)
-  if ((type === "tool_call") && span.attributes.input) {
+  // Show input/output summaries for tool and LLM spans
+  if ((type === "tool_call" || type === "llm") && span.attributes.input) {
     const input = String(span.attributes.input);
     detail = (detail ? detail + " · " : "") + (input.length > 100 ? input.slice(0, 100) + "…" : input);
   }
-  // Show tool output summary for tool spans
-  if ((type === "tool_call") && span.attributes.output) {
+  if ((type === "tool_call" || type === "llm") && span.attributes.output) {
     const output = String(span.attributes.output);
     const summary = output.length > 80 ? output.slice(0, 80) + "…" : output;
     detail = (detail ? detail + " → " : "") + summary;
