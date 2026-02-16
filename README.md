@@ -123,13 +123,14 @@ Project Aether is an intelligent home automation system that connects AI agents 
 
 ```bash
 # Clone the repository
-git clone https://github.com/dsaridak/home_agent.git
-cd home_agent
+git clone https://github.com/dimakis/Project-Aether.git
+cd Project-Aether
 
 # Install Python dependencies
 make install
 
 # Install UI dependencies
+# Requires npm
 make ui-install
 
 # Configure environment
