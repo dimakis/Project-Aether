@@ -137,6 +137,11 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         nullable=True,
         doc="Full Lovelace config for dashboard proposals (views, cards, etc.)",
     )
+    previous_dashboard_config: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        doc="Snapshot of the existing Lovelace config taken before deployment (for rollback).",
+    )
     status: Mapped[ProposalStatus] = mapped_column(
         default=ProposalStatus.DRAFT,
         nullable=False,
