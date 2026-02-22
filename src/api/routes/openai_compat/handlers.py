@@ -196,11 +196,15 @@ async def _stream_chat_completion(
                 yield _format_sse_error("No user message found")
                 return
 
-            # Create state
+            # Create state and apply agent routing (Feature 30)
+            from src.agents.routing import apply_routing_to_state, resolve_agent_routing
+
             state = ConversationState(
                 conversation_id=conversation_id,
                 messages=lc_messages[:-1],  # type: ignore[arg-type]
             )
+            routing = resolve_agent_routing(agent=request.agent)
+            apply_routing_to_state(state, routing)
 
             # Propagate user's model selection to all delegated agents
             with model_context(

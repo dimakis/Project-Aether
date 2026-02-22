@@ -18,6 +18,8 @@ class AgentRole(StrEnum):
     DIAGNOSTIC_ANALYST = "diagnostic_analyst"
     # Dashboard designer
     DASHBOARD_DESIGNER = "dashboard_designer"
+    # Domain agents (Feature 30: Domain-Agnostic Orchestration)
+    KNOWLEDGE = "knowledge"
 
 
 class ConversationStatus(StrEnum):

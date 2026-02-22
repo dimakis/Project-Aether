@@ -16,11 +16,42 @@ from .schemas import (
     AgentListResponse,
     AgentResponse,
     AgentStatusUpdate,
+    AvailableAgentResponse,
+    AvailableAgentsListResponse,
     QuickModelSwitch,
 )
 from .serializers import _serialize_agent
 
 router = APIRouter(tags=["Agents"])
+
+
+@router.get("/available", response_model=AvailableAgentsListResponse)
+async def list_available_agents() -> AvailableAgentsListResponse:
+    """List routable agents for the Orchestrator and UI agent picker.
+
+    Returns only agents where is_routable=True and status is not disabled.
+    Includes routing metadata: domain, intent_patterns, capabilities.
+
+    Feature 30: Domain-Agnostic Orchestration (FR-004).
+    """
+    async with get_session() as session:
+        repo = AgentRepository(session)
+        all_agents = await repo.list_all()
+
+        items = [
+            AvailableAgentResponse(
+                name=a.name,
+                description=a.description,
+                domain=a.domain,
+                is_routable=True,
+                intent_patterns=a.intent_patterns or [],
+                capabilities=a.capabilities or [],
+            )
+            for a in all_agents
+            if a.is_routable and a.status != AgentStatus.DISABLED.value
+        ]
+
+        return AvailableAgentsListResponse(agents=items, total=len(items))
 
 
 @router.get("", response_model=AgentListResponse)

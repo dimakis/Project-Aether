@@ -28,6 +28,10 @@ class ChatCompletionRequest(BaseModel):
     user: str | None = Field(default=None, description="User identifier")
     # Extra fields for conversation context
     conversation_id: str | None = Field(default=None, description="Existing conversation ID")
+    agent: str = Field(
+        default="auto",
+        description='Agent to handle the request: "auto" (Orchestrator routes) or a specific agent name',
+    )
 
 
 class ChatChoice(BaseModel):
