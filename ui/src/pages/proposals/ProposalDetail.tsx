@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import {
   X,
   FileCheck,
@@ -12,6 +12,7 @@ import {
   Sparkles,
   Trash2,
   Search,
+  AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -133,6 +134,31 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
     instructions?: string;
     error?: string;
   } | null>(null);
+  const [confirmingDeploy, setConfirmingDeploy] = useState(false);
+
+  const isDashboard = (detail as Proposal)?.proposal_type === "dashboard";
+
+  const handleDeploy = useCallback(() => {
+    if (!detail) return;
+    deployMut.mutate(detail.id, {
+      onSuccess: (data) => {
+        setDeployResult({
+          success: data.success,
+          method: data.method,
+          instructions: data.instructions ?? undefined,
+          error: data.error ?? undefined,
+        });
+        setConfirmingDeploy(false);
+      },
+      onError: (err) => {
+        setDeployResult({
+          success: false,
+          error: err instanceof Error ? err.message : "Deployment failed",
+        });
+        setConfirmingDeploy(false);
+      },
+    });
+  }, [detail, deployMut]);
 
   // Close on Escape
   useEffect(() => {
@@ -428,27 +454,16 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                 </Button>
               </>
             )}
-            {detail.status === "approved" && (
+            {detail.status === "approved" && !confirmingDeploy && (
               <Button
                 size="sm"
-                onClick={() =>
-                  deployMut.mutate(detail.id, {
-                    onSuccess: (data) => {
-                      setDeployResult({
-                        success: data.success,
-                        method: data.method,
-                        instructions: data.instructions ?? undefined,
-                        error: data.error ?? undefined,
-                      });
-                    },
-                    onError: (err) => {
-                      setDeployResult({
-                        success: false,
-                        error: err instanceof Error ? err.message : "Deployment failed",
-                      });
-                    },
-                  })
-                }
+                onClick={() => {
+                  if (isDashboard) {
+                    setConfirmingDeploy(true);
+                  } else {
+                    handleDeploy();
+                  }
+                }}
                 disabled={deployMut.isPending}
               >
                 {deployMut.isPending ? (
@@ -458,6 +473,35 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                 )}
                 Deploy to HA
               </Button>
+            )}
+            {confirmingDeploy && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-400 ring-1 ring-amber-500/20">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  <span>This will replace the current dashboard.</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmingDeploy(false)}
+                  disabled={deployMut.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDeploy}
+                  disabled={deployMut.isPending}
+                >
+                  {deployMut.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Rocket className="mr-1 h-3 w-3" />
+                  )}
+                  Confirm Deploy
+                </Button>
+              </div>
             )}
             {detail.status === "deployed" && (
               <Button
@@ -483,10 +527,10 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                   : "bg-amber-500/10 text-amber-500",
               )}>
                 {rollbackMut.data.ha_disabled
-                  ? "Automation disabled in HA"
+                  ? (rollbackMut.data.note ?? "Rolled back successfully")
                   : rollbackMut.data.ha_error
-                    ? `Rolled back in DB but HA disable failed: ${rollbackMut.data.ha_error}`
-                    : "Rolled back (no HA automation to disable)"}
+                    ? `Rolled back in DB but HA action failed: ${rollbackMut.data.ha_error}`
+                    : (rollbackMut.data.note ?? "Rolled back (no HA action to undo)")}
               </div>
             )}
           </div>

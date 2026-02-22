@@ -266,3 +266,50 @@ class TestProposalYamlGeneration:
         )
         result = p.to_ha_yaml_dict()
         assert result == {}
+
+
+class TestPreviousDashboardConfig:
+    """Tests for previous_dashboard_config field on AutomationProposal."""
+
+    def _make_proposal(self, **kwargs) -> AutomationProposal:
+        defaults = {
+            "id": "test-id",
+            "name": "Test",
+            "trigger": {},
+            "actions": {},
+            "mode": "single",
+            "status": ProposalStatus.DRAFT,
+            "proposal_type": ProposalType.DASHBOARD.value,
+        }
+        defaults.update(kwargs)
+        return AutomationProposal(**defaults)
+
+    def test_previous_dashboard_config_defaults_to_none(self):
+        """previous_dashboard_config is None by default."""
+        p = self._make_proposal()
+        assert p.previous_dashboard_config is None
+
+    def test_previous_dashboard_config_stores_lovelace_config(self):
+        """previous_dashboard_config can store a full Lovelace config dict."""
+        original = {
+            "views": [
+                {"title": "Home", "cards": [{"type": "weather-forecast"}]},
+                {"title": "Lights", "cards": [{"type": "entities"}]},
+            ]
+        }
+        p = self._make_proposal(previous_dashboard_config=original)
+        assert p.previous_dashboard_config == original
+        assert p.previous_dashboard_config["views"][0]["title"] == "Home"
+
+    def test_previous_dashboard_config_none_for_non_dashboard(self):
+        """previous_dashboard_config is None for automation proposals."""
+        p = AutomationProposal(
+            id="test-id",
+            name="Test Automation",
+            trigger={},
+            actions={},
+            mode="single",
+            status=ProposalStatus.DRAFT,
+            proposal_type=ProposalType.AUTOMATION.value,
+        )
+        assert p.previous_dashboard_config is None

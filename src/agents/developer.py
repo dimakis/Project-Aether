@@ -17,7 +17,7 @@ from src.dal import ProposalRepository
 from src.graph.state import AgentRole, ConversationState, ConversationStatus
 from src.ha import HAClient, get_ha_client
 from src.ha.automation_deploy import AutomationDeployer
-from src.storage.entities import AutomationProposal, ProposalStatus
+from src.storage.entities import AutomationProposal, ProposalStatus, ProposalType
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -205,11 +205,12 @@ class DeveloperAgent(BaseAgent):
         proposal_id: str,
         session: AsyncSession,
     ) -> dict[str, object]:
-        """Rollback a deployed automation.
+        """Rollback a deployed proposal.
 
-        Disables the automation in Home Assistant and updates the proposal
-        status to ROLLED_BACK. Reports whether the HA disable succeeded
-        so the caller can surface errors to the user.
+        For automation proposals: disables the automation in Home Assistant.
+        For dashboard proposals: restores the previous Lovelace config if available.
+
+        Updates the proposal status to ROLLED_BACK in all cases.
 
         Args:
             proposal_id: ID of proposal to rollback
@@ -229,11 +230,72 @@ class DeveloperAgent(BaseAgent):
                 "error": f"Can only rollback deployed proposals (status: {proposal.status.value})"
             }
 
+        # Dashboard proposals: restore previous config
+        if proposal.proposal_type == ProposalType.DASHBOARD.value:
+            return await self._rollback_dashboard(proposal, proposal_id, repo)
+
+        # Automation / other proposals: disable via HA service call
+        return await self._rollback_automation_entity(proposal, proposal_id, repo)
+
+    async def _rollback_dashboard(
+        self,
+        proposal: AutomationProposal,
+        proposal_id: str,
+        repo: ProposalRepository,
+    ) -> dict[str, object]:
+        """Restore the previous dashboard config from the pre-deploy snapshot."""
+        ha_disabled = False
+        ha_error: str | None = None
+
+        previous = proposal.previous_dashboard_config
+        if previous is not None:
+            url_path = (proposal.service_call or {}).get("url_path")
+            try:
+                await self.ha.save_dashboard_config(url_path, previous)
+                ha_disabled = True
+                logger.info(
+                    "Rollback: restored previous dashboard config for '%s' (proposal %s)",
+                    url_path or "default",
+                    proposal_id,
+                )
+            except Exception as exc:
+                ha_error = str(exc)
+                logger.warning(
+                    "Rollback: failed to restore dashboard '%s' for proposal %s: %s",
+                    url_path or "default",
+                    proposal_id,
+                    exc,
+                )
+
+        await repo.rollback(proposal_id)
+
+        note = (
+            "Previous dashboard config restored."
+            if ha_disabled
+            else "Dashboard rolled back in DB. No previous config available to restore."
+        )
+        result: dict[str, object] = {
+            "rolled_back": True,
+            "ha_disabled": ha_disabled,
+            "ha_automation_id": proposal.ha_automation_id,
+            "rolled_back_at": datetime.now(UTC).isoformat(),
+            "note": note,
+        }
+        if ha_error:
+            result["ha_error"] = ha_error
+        return result
+
+    async def _rollback_automation_entity(
+        self,
+        proposal: AutomationProposal,
+        proposal_id: str,
+        repo: ProposalRepository,
+    ) -> dict[str, object]:
+        """Disable an automation entity in Home Assistant."""
         ha_automation_id = proposal.ha_automation_id
         ha_disabled = False
         ha_error: str | None = None
 
-        # Attempt to disable via HA REST API
         if ha_automation_id:
             entity_id = f"automation.{ha_automation_id}"
             try:

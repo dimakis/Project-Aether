@@ -39,7 +39,7 @@ export const proposals = {
     ),
 
   rollback: (id: string) =>
-    request<import("@/lib/types").Proposal>(`/proposals/${id}/rollback`, {
+    request<import("@/lib/types").RollbackResponse>(`/proposals/${id}/rollback`, {
       method: "POST",
       body: JSON.stringify({}),
     }),

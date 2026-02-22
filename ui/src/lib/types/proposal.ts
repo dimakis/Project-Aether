@@ -72,3 +72,13 @@ export interface DeploymentResponse {
   deployed_at?: string;
   error?: string;
 }
+
+export interface RollbackResponse {
+  success: boolean;
+  proposal_id: string;
+  ha_automation_id?: string;
+  ha_disabled: boolean;
+  ha_error?: string;
+  rolled_back_at: string;
+  note?: string;
+}

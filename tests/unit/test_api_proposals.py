@@ -1210,6 +1210,129 @@ class TestDeployProposal:
             )
             mock_session.commit.assert_called_once()
 
+    async def test_deploy_dashboard_snapshots_previous_config(
+        self,
+        proposal_client,
+        mock_proposal_repo,
+        mock_get_session,
+        mock_session,
+    ):
+        """Deploy dashboard should fetch and store the current config before overwriting."""
+        existing_config = {"views": [{"title": "Old Home", "cards": [{"type": "entities"}]}]}
+        new_config = {"views": [{"title": "New Home", "cards": [{"type": "weather-forecast"}]}]}
+
+        dash_proposal = MagicMock()
+        dash_proposal.id = "prop-uuid-snap"
+        dash_proposal.proposal_type = ProposalType.DASHBOARD.value
+        dash_proposal.conversation_id = None
+        dash_proposal.name = "Snapshot Dashboard"
+        dash_proposal.description = "Test snapshot"
+        dash_proposal.trigger = {}
+        dash_proposal.conditions = None
+        dash_proposal.actions = {}
+        dash_proposal.mode = "single"
+        dash_proposal.status = ProposalStatus.APPROVED
+        dash_proposal.ha_automation_id = None
+        dash_proposal.proposed_at = datetime(2026, 2, 14, 10, 0, 0, tzinfo=UTC)
+        dash_proposal.approved_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        dash_proposal.approved_by = "user1"
+        dash_proposal.deployed_at = None
+        dash_proposal.rolled_back_at = None
+        dash_proposal.rejection_reason = None
+        dash_proposal.created_at = datetime(2026, 2, 14, 9, 0, 0, tzinfo=UTC)
+        dash_proposal.updated_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        dash_proposal.service_call = {"url_path": "my-dash"}
+        dash_proposal.dashboard_config = new_config
+        dash_proposal.previous_dashboard_config = None
+        dash_proposal.original_yaml = None
+        dash_proposal.review_notes = None
+        dash_proposal.review_session_id = None
+        dash_proposal.parent_proposal_id = None
+        dash_proposal.to_ha_yaml_dict = MagicMock(return_value=new_config)
+
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=dash_proposal)
+        mock_proposal_repo.deploy = AsyncMock(return_value=dash_proposal)
+
+        mock_ha_client = MagicMock()
+        mock_ha_client.get_dashboard_config = AsyncMock(return_value=existing_config)
+        mock_ha_client.save_dashboard_config = AsyncMock()
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch(
+                "src.api.routes.proposals.ProposalRepository",
+                return_value=mock_proposal_repo,
+            ),
+            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+        ):
+            response = await proposal_client.post("/api/v1/proposals/prop-uuid-snap/deploy")
+
+            assert response.status_code == 200
+            # Should have fetched the current config before saving
+            mock_ha_client.get_dashboard_config.assert_called_once_with("my-dash")
+            # Should have stored previous config on the proposal
+            assert dash_proposal.previous_dashboard_config == existing_config
+
+    async def test_deploy_dashboard_snapshot_handles_missing_current(
+        self,
+        proposal_client,
+        mock_proposal_repo,
+        mock_get_session,
+        mock_session,
+    ):
+        """Deploy dashboard should handle case where no current config exists (new dashboard)."""
+        new_config = {"views": [{"title": "Brand New", "cards": []}]}
+
+        dash_proposal = MagicMock()
+        dash_proposal.id = "prop-uuid-new"
+        dash_proposal.proposal_type = ProposalType.DASHBOARD.value
+        dash_proposal.conversation_id = None
+        dash_proposal.name = "New Dashboard"
+        dash_proposal.description = "Brand new"
+        dash_proposal.trigger = {}
+        dash_proposal.conditions = None
+        dash_proposal.actions = {}
+        dash_proposal.mode = "single"
+        dash_proposal.status = ProposalStatus.APPROVED
+        dash_proposal.ha_automation_id = None
+        dash_proposal.proposed_at = datetime(2026, 2, 14, 10, 0, 0, tzinfo=UTC)
+        dash_proposal.approved_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        dash_proposal.approved_by = "user1"
+        dash_proposal.deployed_at = None
+        dash_proposal.rolled_back_at = None
+        dash_proposal.rejection_reason = None
+        dash_proposal.created_at = datetime(2026, 2, 14, 9, 0, 0, tzinfo=UTC)
+        dash_proposal.updated_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        dash_proposal.service_call = {"url_path": "brand-new"}
+        dash_proposal.dashboard_config = new_config
+        dash_proposal.previous_dashboard_config = None
+        dash_proposal.original_yaml = None
+        dash_proposal.review_notes = None
+        dash_proposal.review_session_id = None
+        dash_proposal.parent_proposal_id = None
+        dash_proposal.to_ha_yaml_dict = MagicMock(return_value=new_config)
+
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=dash_proposal)
+        mock_proposal_repo.deploy = AsyncMock(return_value=dash_proposal)
+
+        mock_ha_client = MagicMock()
+        mock_ha_client.get_dashboard_config = AsyncMock(return_value=None)
+        mock_ha_client.save_dashboard_config = AsyncMock()
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch(
+                "src.api.routes.proposals.ProposalRepository",
+                return_value=mock_proposal_repo,
+            ),
+            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+        ):
+            response = await proposal_client.post("/api/v1/proposals/prop-uuid-new/deploy")
+
+            assert response.status_code == 200
+            # previous_dashboard_config should be None when no current config exists
+            assert dash_proposal.previous_dashboard_config is None
+
     async def test_deploy_helper_proposal(
         self,
         proposal_client,

@@ -4,10 +4,13 @@ User Story 2: HITL approval for automation proposals.
 """
 
 import contextlib
+import logging
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
+
+logger = logging.getLogger(__name__)
 
 from src.api.rate_limit import limiter
 from src.api.schemas import (
@@ -606,6 +609,19 @@ async def _deploy_dashboard(
     url_path = (proposal.service_call or {}).get("url_path")
 
     ha = get_ha_client()
+
+    # Snapshot current config before overwriting (enables rollback)
+    try:
+        current_config = await ha.get_dashboard_config(url_path)
+        if current_config is not None:
+            proposal.previous_dashboard_config = current_config
+    except Exception:
+        logger.warning(
+            "Failed to snapshot current dashboard config for '%s' before deploy; "
+            "rollback will not be available.",
+            url_path or "default",
+        )
+
     await ha.save_dashboard_config(url_path, config)
 
     # Mark as deployed
