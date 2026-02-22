@@ -27,6 +27,7 @@ from src.agents.execution_context import emit_progress  # noqa: F401
 
 # Librarian agent (canonical: src.agents.librarian)
 from src.agents.librarian import LibrarianAgent
+from src.agents.orchestrator import OrchestratorAgent
 from src.graph.state import AgentRole, BaseState  # noqa: F401
 from src.tracing import add_span_event, get_active_span, log_dict, log_param  # noqa: F401
 
@@ -45,5 +46,6 @@ __all__ = [
     "DiagnosticAnalyst",
     "EnergyAnalyst",
     "LibrarianAgent",
+    "OrchestratorAgent",
     "StreamEvent",
 ]

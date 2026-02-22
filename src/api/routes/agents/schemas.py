@@ -115,6 +115,24 @@ class AgentListResponse(BaseModel):
     total: int
 
 
+class AvailableAgentResponse(BaseModel):
+    """Response schema for a routable agent (Feature 30)."""
+
+    name: str
+    description: str
+    domain: str | None = None
+    is_routable: bool = True
+    intent_patterns: list[str] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
+
+
+class AvailableAgentsListResponse(BaseModel):
+    """Response schema for the available agents list."""
+
+    agents: list[AvailableAgentResponse]
+    total: int
+
+
 class PromoteBothResponse(BaseModel):
     """Response schema for promoting both config and prompt drafts."""
 

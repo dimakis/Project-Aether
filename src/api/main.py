@@ -156,6 +156,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Auth is applied globally but exempts health endpoints (handled in auth.py)
     app.include_router(api_router, prefix="/api/v1", dependencies=[Depends(verify_api_key)])
 
+    # A2A Agent Card — served at /.well-known/agent.json (no auth required)
+    from src.api.routes.agent_card import router as agent_card_router
+
+    app.include_router(agent_card_router)
+
     # Add exception handlers
     _register_exception_handlers(app)
 

@@ -124,6 +124,10 @@ class AgentRepository:
         description: str,
         version: str = "0.1.0",
         status: str = AgentStatus.ENABLED.value,
+        domain: str | None = None,
+        is_routable: bool = False,
+        intent_patterns: list[str] | None = None,
+        capabilities: list[str] | None = None,
     ) -> Agent:
         """Create or update an agent by name.
 
@@ -132,6 +136,10 @@ class AgentRepository:
             description: Human-readable description
             version: Semantic version
             status: Initial status
+            domain: Domain classification for intent routing
+            is_routable: Whether the Orchestrator can route to this agent
+            intent_patterns: Intent patterns for Orchestrator matching
+            capabilities: Agent capabilities for discovery
 
         Returns:
             Created or updated Agent
@@ -140,6 +148,10 @@ class AgentRepository:
         if agent:
             agent.description = description
             agent.version = version
+            agent.domain = domain
+            agent.is_routable = is_routable
+            agent.intent_patterns = intent_patterns or []
+            agent.capabilities = capabilities or []
         else:
             agent = Agent(
                 id=str(uuid4()),
@@ -147,6 +159,10 @@ class AgentRepository:
                 description=description,
                 version=version,
                 status=status,
+                domain=domain,
+                is_routable=is_routable,
+                intent_patterns=intent_patterns or [],
+                capabilities=capabilities or [],
             )
             self.session.add(agent)
         await self.session.flush()

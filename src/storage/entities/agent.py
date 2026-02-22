@@ -7,8 +7,8 @@ Extended in Feature 23 with status lifecycle and versioned configuration.
 from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
-from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.storage.models import Base, TimestampMixin, UUIDMixin
@@ -26,6 +26,8 @@ AgentName = Literal[
     "developer",
     "data_scientist",
     "orchestrator",
+    "knowledge",
+    "dashboard_designer",
 ]
 
 
@@ -102,6 +104,35 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         nullable=True,
         doc="Legacy system prompt template (superseded by AgentPromptVersion)",
     )
+    # Routing metadata (Feature 30: Domain-Agnostic Orchestration)
+    domain: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        doc="Domain classification for intent routing (e.g., 'home', 'knowledge', 'food')",
+    )
+    is_routable: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        doc="Whether the Orchestrator can route messages to this agent",
+    )
+    intent_patterns: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+        doc="Intent patterns for Orchestrator matching (e.g., ['home_automation', 'device_control'])",
+    )
+    capabilities: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default="[]",
+        doc="Agent capabilities for discovery and Agent Card generation",
+    )
+
     active_config_version_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("agent_config_version.id", ondelete="SET NULL", use_alter=True),
