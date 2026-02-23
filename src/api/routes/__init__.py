@@ -89,5 +89,9 @@ api_router.include_router(dashboards_router)
 from src.api.routes.settings import router as settings_router
 
 api_router.include_router(settings_router)
+# Workflow Definitions (Feature 29: Dynamic Workflow Composition)
+from src.api.routes.workflow_definitions import router as workflow_defs_router
+
+api_router.include_router(workflow_defs_router)
 
 __all__ = ["api_router"]

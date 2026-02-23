@@ -35,6 +35,7 @@ def upgrade() -> None:
             sa.Boolean(),
             nullable=False,
             server_default="false",
+            index=True,
         ),
     )
     op.add_column(

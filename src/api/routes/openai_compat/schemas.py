@@ -30,6 +30,7 @@ class ChatCompletionRequest(BaseModel):
     conversation_id: str | None = Field(default=None, description="Existing conversation ID")
     agent: str = Field(
         default="auto",
+        max_length=50,
         description='Agent to handle the request: "auto" (Orchestrator routes) or a specific agent name',
     )
 

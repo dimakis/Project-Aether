@@ -97,12 +97,21 @@ class OrchestratorAgent(BaseAgent):
         system = _CLASSIFICATION_SYSTEM_PROMPT.format(agents_block=agents_block)
         llm = self._get_classification_llm()
 
-        response = await llm.ainvoke(
-            [
-                SystemMessage(content=system),
-                HumanMessage(content=user_message),
-            ]
-        )
+        try:
+            response = await llm.ainvoke(
+                [
+                    SystemMessage(content=system),
+                    HumanMessage(content=user_message),
+                ]
+            )
+        except Exception:
+            logger.warning("LLM classification call failed", exc_info=True)
+            return {
+                "agent": FALLBACK_AGENT,
+                "confidence": 0.0,
+                "reasoning": "Classification unavailable — LLM call failed",
+                "needs_clarification": False,
+            }
 
         return self._parse_classification(response.content, available_agents)
 
@@ -192,10 +201,7 @@ class OrchestratorAgent(BaseAgent):
         user_message = ""
         if state.messages:
             for msg in reversed(list(state.messages)):
-                if hasattr(msg, "content") and type(msg).__name__ in (
-                    "HumanMessage",
-                    "UserMessage",
-                ):
+                if isinstance(msg, HumanMessage):
                     user_message = str(msg.content)[:2000]
                     break
 

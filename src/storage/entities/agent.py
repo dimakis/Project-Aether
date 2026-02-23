@@ -116,6 +116,7 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         default=False,
         server_default="false",
+        index=True,
         doc="Whether the Orchestrator can route messages to this agent",
     )
     intent_patterns: Mapped[list[str]] = mapped_column(
