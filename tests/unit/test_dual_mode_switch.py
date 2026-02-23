@@ -30,7 +30,7 @@ class TestResolveAgentInvoker:
 
         with patch("src.settings.get_settings") as mock_settings:
             mock_settings.return_value.deployment_mode = "distributed"
-            mock_settings.return_value.ds_service_url = "http://ds:8000"
+            mock_settings.return_value.ds_analysts_url = "http://ds:8000"
             invoker = resolve_agent_invoker("energy_analyst")
 
         assert invoker.mode == "remote"
@@ -49,7 +49,7 @@ class TestResolveAgentInvoker:
 
         with patch("src.settings.get_settings") as mock_settings:
             mock_settings.return_value.deployment_mode = "distributed"
-            mock_settings.return_value.ds_service_url = "http://ds:8000"
+            mock_settings.return_value.ds_analysts_url = "http://ds:8000"
             invoker = resolve_agent_invoker("energy_analyst")
 
         assert invoker.service_url == "http://ds:8000"

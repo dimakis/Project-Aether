@@ -1,0 +1,119 @@
+# =============================================================================
+# Project Aether - Distributed Mode Override
+# =============================================================================
+#
+# Adds 3 agent containers alongside the monolith gateway:
+#   - architect: Primary conversational agent (A2A service)
+#   - ds-orchestrator: Data Science team coordinator (A2A service)
+#   - ds-analysts: Energy + Behavioral + Diagnostic analysts (A2A service)
+#
+# Usage:
+#   podman-compose -f compose.yaml -f compose.distributed.yaml --profile full up -d
+#
+# The monolith app acts as gateway, delegating to agent containers via A2A.
+# All agents share the same Postgres and MLflow infrastructure.
+#
+# Verify:
+#   curl http://localhost:8001/health                    # architect
+#   curl http://localhost:8002/health                    # ds-orchestrator
+#   curl http://localhost:8003/health                    # ds-analysts
+#   curl http://localhost:8001/.well-known/agent-card.json  # architect card
+
+services:
+  # Override: set distributed mode on the monolith gateway
+  app:
+    environment:
+      DEPLOYMENT_MODE: distributed
+      ARCHITECT_SERVICE_URL: http://architect:8000
+
+  # ===========================================================================
+  # Architect Agent (single-agent container)
+  # ===========================================================================
+  architect:
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.service
+      args:
+        AETHER_SERVICE: architect
+    image: aether-architect:latest
+    container_name: aether-architect
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      DEPLOYMENT_MODE: distributed
+      DS_ORCHESTRATOR_URL: http://ds-orchestrator:8000
+      DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # DS Orchestrator (single-agent container)
+  # ===========================================================================
+  ds-orchestrator:
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.service
+      args:
+        AETHER_SERVICE: ds_orchestrator
+    image: aether-ds-orchestrator:latest
+    container_name: aether-ds-orchestrator
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      DEPLOYMENT_MODE: distributed
+      DS_ANALYSTS_URL: http://ds-analysts:8000
+      DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8002:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ds-analysts:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # DS Analysts (multi-agent container: Energy + Behavioral + Diagnostic)
+  # ===========================================================================
+  ds-analysts:
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.service
+      args:
+        AETHER_SERVICE: ds_analysts
+    image: aether-ds-analysts:latest
+    container_name: aether-ds-analysts
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8003:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

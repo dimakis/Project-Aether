@@ -20,13 +20,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _AGENT_CLASS_MAP: dict[str, str] = {
+    "architect": "src.agents.architect.ArchitectAgent",
     "energy_analyst": "src.agents.energy_analyst.EnergyAnalyst",
     "behavioral_analyst": "src.agents.behavioral_analyst.BehavioralAnalyst",
     "diagnostic_analyst": "src.agents.diagnostic_analyst.DiagnosticAnalyst",
     "data_scientist": "src.agents.data_scientist.DataScientistAgent",
 }
 
-_DS_AGENTS = frozenset(_AGENT_CLASS_MAP.keys())
+_DISTRIBUTED_AGENTS = frozenset(_AGENT_CLASS_MAP.keys())
+
+_AGENT_URL_MAP: dict[str, str] = {
+    "architect": "architect_service_url",
+    "data_scientist": "ds_orchestrator_url",
+    "energy_analyst": "ds_analysts_url",
+    "behavioral_analyst": "ds_analysts_url",
+    "diagnostic_analyst": "ds_analysts_url",
+}
 
 
 @dataclass
@@ -93,11 +102,14 @@ def resolve_agent_invoker(agent_name: str) -> AgentInvoker:
 
     settings = get_settings()
 
-    if settings.deployment_mode == "distributed" and agent_name in _DS_AGENTS:
-        return AgentInvoker(
-            mode="remote",
-            service_url=settings.ds_service_url,
-        )
+    if settings.deployment_mode == "distributed" and agent_name in _DISTRIBUTED_AGENTS:
+        url_attr = _AGENT_URL_MAP.get(agent_name)
+        service_url = getattr(settings, url_attr, None) if url_attr else None
+        if service_url:
+            return AgentInvoker(
+                mode="remote",
+                service_url=service_url,
+            )
 
     cls_path = _AGENT_CLASS_MAP.get(agent_name)
     agent_cls = _import_class(cls_path) if cls_path else None

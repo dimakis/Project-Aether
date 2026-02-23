@@ -205,9 +205,21 @@ class Settings(BaseSettings):
         default="monolith",
         description="'monolith' (all agents in-process) or 'distributed' (agents as remote A2A services)",
     )
+    architect_service_url: str = Field(
+        default="http://architect:8000",
+        description="URL of the Architect A2A service (distributed mode)",
+    )
+    ds_orchestrator_url: str = Field(
+        default="http://ds-orchestrator:8000",
+        description="URL of the DS Orchestrator A2A service (distributed mode)",
+    )
+    ds_analysts_url: str = Field(
+        default="http://ds-analysts:8000",
+        description="URL of the DS Analysts A2A service (distributed mode)",
+    )
     ds_service_url: str = Field(
-        default="http://data-science.aether.svc.cluster.local:8000",
-        description="URL of the Data Science A2A service (used when deployment_mode=distributed)",
+        default="http://ds-orchestrator:8000",
+        description="Legacy alias for ds_orchestrator_url",
     )
 
     # Scheduler (Feature 10: Scheduled & Event-Driven Insights)

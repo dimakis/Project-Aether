@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox openapi
+.PHONY: help install dev run run-ui run-prod run-distributed up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -346,6 +346,28 @@ build-sandbox:
 	@echo ""
 	@echo "Sandbox image built: aether-sandbox:latest"
 	@echo "The Data Scientist can now run analysis scripts with numpy, pandas, scipy, etc."
+
+# ============================================================================
+# Distributed Agent Services
+# ============================================================================
+
+COMPOSE_DIST := $(COMPOSE) -f infrastructure/podman/compose.distributed.yaml
+
+run-distributed: migrate-container
+	$(COMPOSE_DIST) --profile full up -d --build
+	@echo ""
+	@echo "Distributed mode started:"
+	@echo "  Gateway:        http://localhost:8000"
+	@echo "  Architect:      http://localhost:8001"
+	@echo "  DS Orchestrator: http://localhost:8002"
+	@echo "  DS Analysts:    http://localhost:8003"
+
+build-services:
+	@echo "Building all agent service images..."
+	podman build --build-arg AETHER_SERVICE=architect -t aether-architect:latest -f infrastructure/podman/Containerfile.service .
+	podman build --build-arg AETHER_SERVICE=ds_orchestrator -t aether-ds-orchestrator:latest -f infrastructure/podman/Containerfile.service .
+	podman build --build-arg AETHER_SERVICE=ds_analysts -t aether-ds-analysts:latest -f infrastructure/podman/Containerfile.service .
+	@echo "Built: aether-architect, aether-ds-orchestrator, aether-ds-analysts"
 
 # ============================================================================
 # Docs

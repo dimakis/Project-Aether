@@ -78,20 +78,17 @@ class AetherAgentExecutor(AgentExecutor):
     pushes the result onto the event queue.
     """
 
-    def __init__(self, agent: BaseAgent) -> None:
+    def __init__(
+        self,
+        agent: BaseAgent,
+        state_type: str = "ConversationState",
+    ) -> None:
         self.agent = agent
+        self.state_type = state_type
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         """Handle an A2A SendMessage request."""
-        user_text = _extract_user_text(context)
-
-        from langchain_core.messages import HumanMessage
-
-        from src.graph.state import ConversationState
-
-        state = ConversationState(
-            messages=[HumanMessage(content=user_text[:_MAX_USER_MESSAGE_LEN])],
-        )
+        state = _extract_state_from_context(context, self.state_type)
 
         try:
             task_id = context.task_id or "unknown"
@@ -167,6 +164,71 @@ def _extract_user_text(context: RequestContext) -> str:
             if hasattr(inner, "text"):
                 return str(inner.text)
     return ""
+
+
+_STATE_TYPE_MAP: dict[str, type] = {}
+
+
+def _get_state_class(state_type: str) -> type | None:
+    """Resolve a state type name to its class (lazy-loaded)."""
+    if not _STATE_TYPE_MAP:
+        from src.graph.state import AnalysisState, ConversationState
+
+        _STATE_TYPE_MAP.update(
+            {
+                "ConversationState": ConversationState,
+                "AnalysisState": AnalysisState,
+            }
+        )
+    return _STATE_TYPE_MAP.get(state_type)
+
+
+def _extract_state_from_context(
+    context: RequestContext,
+    state_type: str = "ConversationState",
+) -> Any:
+    """Extract full state from A2A context, checking DataPart first.
+
+    If the message contains a DataPart with serialized state fields,
+    reconstructs the full state object including LangChain messages.
+    Falls back to creating a minimal state from text content.
+
+    Args:
+        context: The A2A request context.
+        state_type: Name of the state class to construct.
+
+    Returns:
+        A state object (ConversationState, AnalysisState, etc.).
+    """
+    from langchain_core.load import load
+    from langchain_core.messages import HumanMessage
+
+    state_cls = _get_state_class(state_type)
+    if state_cls is None:
+        from src.graph.state import ConversationState
+
+        state_cls = ConversationState
+
+    if context.message and context.message.parts:
+        for part in context.message.parts:
+            inner = part.root if hasattr(part, "root") else part
+            if hasattr(inner, "data") and isinstance(inner.data, dict):
+                data = dict(inner.data)
+                lc_messages_raw = data.pop("_lc_messages", None)
+
+                messages = []
+                if lc_messages_raw:
+                    messages = [load(m) for m in lc_messages_raw]
+
+                if messages:
+                    data["messages"] = messages
+
+                return state_cls(**data)
+
+    user_text = _extract_user_text(context)
+    return state_cls(
+        messages=[HumanMessage(content=user_text[:_MAX_USER_MESSAGE_LEN])],
+    )
 
 
 async def _health(request: Request) -> JSONResponse:
