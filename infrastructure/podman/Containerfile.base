@@ -1,0 +1,46 @@
+# =============================================================================
+# Project Aether - Shared Base Image
+# =============================================================================
+# Contains Python runtime + all pip dependencies. Built once, reused by
+# all agent service images. Only needs rebuilding when pyproject.toml changes.
+#
+# Build:  make build-base
+#   or:   podman build -t aether-base:latest -f infrastructure/podman/Containerfile.base .
+
+FROM python:3.11-slim-bookworm AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# Builder - install dependencies
+# =============================================================================
+FROM base AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+COPY pyproject.toml uv.lock ./
+
+RUN uv venv /app/.venv && \
+    uv pip install --python /app/.venv/bin/python -r pyproject.toml
+
+# =============================================================================
+# Runtime - deps only (no application code)
+# =============================================================================
+FROM base
+
+COPY --from=builder /app/.venv /app/.venv
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+RUN useradd --create-home --shell /bin/bash aether && \
+    chown -R aether:aether /app

@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod run-distributed run-distributed-build down-distributed run-observed down-observed up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
+.PHONY: help install dev run run-ui run-prod run-distributed run-distributed-build down-distributed run-observed down-observed up up-full up-ui up-all down migrate build-base test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -64,7 +64,8 @@ help:
 	@echo "  make run-distributed       - Start distributed stack (gateway + UI + agent containers)"
 	@echo "  make run-distributed-build - Same but rebuilds images first"
 	@echo "  make down-distributed      - Stop distributed services"
-	@echo "  make build-services        - Build all agent service container images"
+	@echo "  make build-base            - Build shared base image (deps only, run once)"
+	@echo "  make build-services        - Build all agent service images (fast, uses base)"
 	@echo ""
 	@echo "Observability (distributed + metrics/logs):"
 	@echo "  make run-observed          - Distributed + Prometheus + Grafana + Loki"
@@ -417,8 +418,13 @@ down-observed:
 	$(COMPOSE_OBS) --profile full --profile ui down
 	@echo "All services stopped."
 
-build-services:
-	@echo "Building all agent service images..."
+build-base:
+	@echo "Building shared base image (deps only — run once or when pyproject.toml changes)..."
+	podman build -t aether-base:latest -f infrastructure/podman/Containerfile.base .
+	@echo "Base image built: aether-base:latest"
+
+build-services: build-base
+	@echo "Building all agent service images (lightweight, uses aether-base)..."
 	podman build --build-arg AETHER_SERVICE=architect -t aether-architect:latest -f infrastructure/podman/Containerfile.service .
 	podman build --build-arg AETHER_SERVICE=ds_orchestrator -t aether-ds-orchestrator:latest -f infrastructure/podman/Containerfile.service .
 	podman build --build-arg AETHER_SERVICE=ds_analysts -t aether-ds-analysts:latest -f infrastructure/podman/Containerfile.service .
