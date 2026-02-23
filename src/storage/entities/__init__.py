@@ -54,6 +54,9 @@ from src.storage.entities.system_config import SystemConfig
 # User Profiles
 from src.storage.entities.user_profile import UserProfile
 
+# Workflow Definitions (Feature 29)
+from src.storage.entities.workflow_definition import WorkflowDefinitionEntity
+
 __all__ = [
     "VALID_TRANSITIONS",
     "Agent",
@@ -89,4 +92,5 @@ __all__ = [
     "TriggerType",
     "UserProfile",
     "VersionStatus",
+    "WorkflowDefinitionEntity",
 ]

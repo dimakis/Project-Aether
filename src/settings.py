@@ -200,6 +200,16 @@ class Settings(BaseSettings):
         description="Process role: 'all' (default), 'api' (no scheduler), or 'scheduler' (scheduler only)",
     )
 
+    # Deployment mode (Feature 30: Domain-Agnostic Orchestration / A2A)
+    deployment_mode: Literal["monolith", "distributed"] = Field(
+        default="monolith",
+        description="'monolith' (all agents in-process) or 'distributed' (agents as remote A2A services)",
+    )
+    ds_service_url: str = Field(
+        default="http://data-science.aether.svc.cluster.local:8000",
+        description="URL of the Data Science A2A service (used when deployment_mode=distributed)",
+    )
+
     # Scheduler (Feature 10: Scheduled & Event-Driven Insights)
     scheduler_enabled: bool = Field(
         default=True,

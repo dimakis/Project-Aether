@@ -1,0 +1,30 @@
+---
+description: Pre-commit quality checks that must pass before every commit touching source code. Eliminates post-phase audit debt.
+alwaysApply: true
+---
+
+# Quality Contract
+
+Before every commit that modifies `src/` or `tests/`, run these checks on changed files:
+
+## Checks
+
+1. `uv run ruff format <files>` — auto-format
+2. `uv run ruff check <files>` — lint (fix all, no unjustified `# noqa`)
+3. `uv run mypy <file> --ignore-missing-imports` — type check
+4. `uv run bandit <file> -c pyproject.toml` — security scan
+
+## Completeness
+
+- New modules MUST be exported from parent `__init__.py` in the SAME commit.
+- New routes MUST be registered in the SAME commit.
+- New entities MUST be exported from `src/storage/entities/__init__.py` in the SAME commit.
+- New migrations MUST have correct `revision` and `down_revision` matching the chain.
+
+## After Commit
+
+Run `make ci-local` before starting the next task. Fix failures immediately.
+
+## Reference
+
+Full checklist: `.cursor/skills/quality-contract/SKILL.md`

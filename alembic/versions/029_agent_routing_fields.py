@@ -17,8 +17,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "026_agent_routing_fields"
-down_revision: str | None = "025_dashboard_proposals"
+revision: str = "029_agent_routing_fields"
+down_revision: str | None = "027_previous_dashboard_config"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
