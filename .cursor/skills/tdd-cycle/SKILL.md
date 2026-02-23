@@ -63,6 +63,19 @@ Verify: All PASSED in output
 - Tests must still pass after refactoring.
 - Run tests again to confirm.
 
+### Step 5.5: Quality Contract (Mandatory)
+
+Run the quality contract checklist from `.cursor/skills/quality-contract/SKILL.md`:
+
+```
+uv run ruff format <files>
+uv run ruff check <files>
+uv run mypy <file> --ignore-missing-imports
+uv run bandit <file> -c pyproject.toml
+```
+
+Then verify: exports in `__init__.py`, routes registered, entities exported, error handling uses specific exceptions. **Do NOT skip this step.**
+
 ### Step 6: Commit Immediately (Mandatory Checkpoint)
 
 - Stage both test and implementation files.

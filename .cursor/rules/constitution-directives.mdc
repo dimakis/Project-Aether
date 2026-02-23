@@ -33,8 +33,9 @@ These are non-negotiable constraints from `.specify/memory/constitution.md`. Vio
 - **Conventional Commits**: `<type>[scope]: <description>` (feat, fix, docs, style, refactor, perf, test, build, ci, chore).
 - **Feature delivery**: Create feature dir with spec/plan/tasks before coding. Update docs alongside code.
 - **Branch workflow**: New features on dedicated branch → `make ci-local` → squash commits locally → push → open PR → rebase-merge. Never push directly to main/develop for functional changes.
+- **Quality contract**: Before every commit — format, lint, mypy, bandit on changed files. New modules/routes/entities exported in the same commit. `make ci-local` after commit. See `.cursor/skills/quality-contract/SKILL.md`.
 
 ## Reference
 
 Full governance with rationale: `.specify/memory/constitution.md`
-Active skills: `security-review`, `tdd-cycle`, `feature-checklist`, `feature-branch` (in `.cursor/skills/`)
+Active skills: `security-review`, `tdd-cycle`, `feature-checklist`, `feature-branch`, `quality-contract` (in `.cursor/skills/`)

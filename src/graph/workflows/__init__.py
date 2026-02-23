@@ -9,6 +9,7 @@ This package re-exports every public name so that existing consumers
 
 from src.graph.workflows._registry import WORKFLOW_REGISTRY, get_workflow
 from src.graph.workflows.analysis import build_analysis_graph, run_analysis_workflow
+from src.graph.workflows.compiler import CompilationError, WorkflowCompiler
 from src.graph.workflows.conversation import (
     build_conversation_graph,
     compile_conversation_graph,
@@ -16,11 +17,18 @@ from src.graph.workflows.conversation import (
     run_conversation_workflow,
 )
 from src.graph.workflows.dashboard import DashboardWorkflow, build_dashboard_graph
+from src.graph.workflows.definition import (
+    ConditionalEdge,
+    EdgeDefinition,
+    NodeDefinition,
+    WorkflowDefinition,
+)
 from src.graph.workflows.discovery import (
     build_discovery_graph,
     build_simple_discovery_graph,
     run_discovery_workflow,
 )
+from src.graph.workflows.manifest import NodeManifest, NodeManifestEntry, get_default_manifest
 from src.graph.workflows.optimization import (
     build_optimization_graph,
     run_optimization_workflow,
@@ -33,8 +41,16 @@ from src.graph.workflows.team_analysis import (
 
 __all__ = [
     "WORKFLOW_REGISTRY",
+    "CompilationError",
+    "ConditionalEdge",
     "DashboardWorkflow",
+    "EdgeDefinition",
+    "NodeDefinition",
+    "NodeManifest",
+    "NodeManifestEntry",
     "TeamAnalysisWorkflow",
+    "WorkflowCompiler",
+    "WorkflowDefinition",
     "build_analysis_graph",
     "build_conversation_graph",
     "build_dashboard_graph",
@@ -44,6 +60,7 @@ __all__ = [
     "build_simple_discovery_graph",
     "build_team_analysis_graph",
     "compile_conversation_graph",
+    "get_default_manifest",
     "get_workflow",
     "resume_after_approval",
     "run_analysis_workflow",

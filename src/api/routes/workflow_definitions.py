@@ -22,7 +22,7 @@ from src.storage.entities.workflow_definition import WorkflowDefinitionEntity
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/workflows", tags=["Workflows"])
+router = APIRouter(tags=["Workflows"])
 
 
 class WorkflowCreateRequest(BaseModel):
@@ -76,7 +76,7 @@ def _serialize(entity: WorkflowDefinitionEntity) -> WorkflowResponse:
     )
 
 
-@router.post("/definitions", response_model=WorkflowResponse, status_code=201)
+@router.post("/workflows/definitions", response_model=WorkflowResponse, status_code=201)
 async def create_workflow_definition(body: WorkflowCreateRequest) -> WorkflowResponse:
     """Create a new workflow definition.
 
@@ -116,7 +116,7 @@ async def create_workflow_definition(body: WorkflowCreateRequest) -> WorkflowRes
         return _serialize(entity)
 
 
-@router.get("/definitions", response_model=WorkflowListResponse)
+@router.get("/workflows/definitions", response_model=WorkflowListResponse)
 async def list_workflow_definitions() -> WorkflowListResponse:
     """List all workflow definitions (excluding archived)."""
     async with get_session() as session:
@@ -125,7 +125,7 @@ async def list_workflow_definitions() -> WorkflowListResponse:
         return WorkflowListResponse(definitions=items, total=len(items))
 
 
-@router.get("/definitions/{definition_id}", response_model=WorkflowResponse)
+@router.get("/workflows/definitions/{definition_id}", response_model=WorkflowResponse)
 async def get_workflow_definition(definition_id: str) -> WorkflowResponse:
     """Get a single workflow definition by ID."""
     async with get_session() as session:
@@ -135,7 +135,7 @@ async def get_workflow_definition(definition_id: str) -> WorkflowResponse:
         return _serialize(entity)
 
 
-@router.delete("/definitions/{definition_id}")
+@router.delete("/workflows/definitions/{definition_id}")
 async def delete_workflow_definition(definition_id: str) -> dict[str, str]:
     """Soft-delete a workflow definition (set status to archived)."""
     async with get_session() as session:

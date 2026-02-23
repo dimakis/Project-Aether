@@ -15,6 +15,8 @@ Canonical definitions live in their own modules:
 
 # Base classes (canonical: src.agents.base)
 # Other agents
+from src.agents.a2a_client import A2AClientError, A2ARemoteClient
+from src.agents.a2a_service import create_a2a_service
 from src.agents.architect import ArchitectAgent, ArchitectWorkflow, StreamEvent
 from src.agents.base import AgentContext, BaseAgent
 from src.agents.behavioral_analyst import BehavioralAnalyst
@@ -22,6 +24,7 @@ from src.agents.dashboard_designer import DashboardDesignerAgent
 from src.agents.data_scientist import DataScientistAgent, DataScientistWorkflow
 from src.agents.developer import DeveloperAgent, DeveloperWorkflow
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
+from src.agents.dual_mode import AgentInvoker, resolve_agent_invoker
 from src.agents.energy_analyst import EnergyAnalyst
 from src.agents.execution_context import emit_progress  # noqa: F401
 
@@ -33,7 +36,10 @@ from src.tracing import add_span_event, get_active_span, log_dict, log_param  # 
 
 # Exports
 __all__ = [
+    "A2AClientError",
+    "A2ARemoteClient",
     "AgentContext",
+    "AgentInvoker",
     "ArchitectAgent",
     "ArchitectWorkflow",
     "BaseAgent",
@@ -48,4 +54,6 @@ __all__ = [
     "LibrarianAgent",
     "OrchestratorAgent",
     "StreamEvent",
+    "create_a2a_service",
+    "resolve_agent_invoker",
 ]

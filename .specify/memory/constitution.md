@@ -52,11 +52,12 @@ Follow-up TODOs:
 - MUST regenerate the OpenAPI spec (`specs/<project>/contracts/api.yaml`) when any API route, schema, or endpoint changes. Stale specs are bugs.
 - MUST NOT choose a simpler implementation that weakens security or creates tech debt degrading security posture later.
 - MUST develop new features on a dedicated branch, run CI locally (`make ci-local`), squash commits into one, then push and open a PR. PRs are rebase-merged for linear history.
+- MUST run the quality contract (format, lint, mypy, bandit, completeness check) on every changed file BEFORE committing. New modules, routes, and entities MUST be exported/registered in the same commit. See `.cursor/skills/quality-contract/SKILL.md`.
 
 ### Reference
 
 Full governance, rationale, examples, and amendment procedure: see sections below.
-Procedural skills: `security-review`, `tdd-cycle`, `feature-checklist` (in `.cursor/skills/`).
+Procedural skills: `security-review`, `tdd-cycle`, `feature-checklist`, `quality-contract` (in `.cursor/skills/`).
 
 ---
 
