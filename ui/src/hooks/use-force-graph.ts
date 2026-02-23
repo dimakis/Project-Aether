@@ -90,7 +90,7 @@ export function useForceGraph(
   targetPositions: Record<string, FractionalPosition>,
   pinnedNodes: string[] = [],
   agentStates?: Record<string, AgentNodeState>,
-  prefersReducedMotion?: boolean,
+  _prefersReducedMotion?: boolean,
 ): UseForceGraphReturn {
   const containerRef = useRef<SVGSVGElement | null>(null);
   const simRef = useRef<Simulation<ForceNode, ForceLink> | null>(null);

@@ -145,7 +145,7 @@ function IframePreview({
 }) {
   const [status, setStatus] = useState<IframeStatus>("loading");
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const iframeUrl = useMemo(() => {
     if (!haUrl || !dashboardPath) return null;

@@ -37,7 +37,7 @@ export interface UseInlineAssistantParams {
     action: InlineMessage[] | ((prev: InlineMessage[]) => InlineMessage[]),
   ) => void;
   externalDelegationMsgs?: DelegationMsg[];
-  onDelegationMsgsChange?: (msgs: DelegationMsg[]) => void;
+  onDelegationMsgsChange?: (msgs: DelegationMsg[] | ((prev: DelegationMsg[]) => DelegationMsg[])) => void;
 }
 
 export interface UseInlineAssistantResult {
@@ -146,7 +146,7 @@ export function useInlineAssistant({
   const fullContentRef = useRef("");
   const toolCallsUsedRef = useRef<string[]>([]);
 
-  const { stream, abort: abortStream } = useStreamChat({
+  const { stream } = useStreamChat({
     onToken: (text) => {
       fullContentRef.current += text;
       const snapshot = fullContentRef.current;

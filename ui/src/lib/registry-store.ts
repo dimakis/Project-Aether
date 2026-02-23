@@ -36,7 +36,8 @@ export type TabKey =
   | "automations"
   | "scripts"
   | "scenes"
-  | "services";
+  | "services"
+  | "helpers";
 
 export interface RegistryState {
   // Page-level
@@ -110,8 +111,11 @@ export function updateMessages(
   notify();
 }
 
-export function setDelegationMsgs(msgs: DelegationMsg[]): void {
-  current = { ...current, delegationMsgs: msgs };
+export function setDelegationMsgs(
+  msgs: DelegationMsg[] | ((prev: DelegationMsg[]) => DelegationMsg[]),
+): void {
+  const next = typeof msgs === "function" ? msgs(current.delegationMsgs) : msgs;
+  current = { ...current, delegationMsgs: next };
   notify();
 }
 

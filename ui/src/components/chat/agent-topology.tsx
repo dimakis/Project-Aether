@@ -112,7 +112,7 @@ interface AgentTopologyProps {
 
 export function AgentTopology({
   agents,
-  activeAgent,
+  activeAgent: _activeAgent,
   isLive,
   agentStates,
   activeEdges,

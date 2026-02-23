@@ -89,7 +89,7 @@ export function useCreateProposal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
-      name: string;
+      name?: string;
       trigger?: unknown;
       actions?: unknown;
       description?: string;
@@ -98,6 +98,7 @@ export function useCreateProposal() {
       proposal_type?: string;
       service_call?: Record<string, unknown>;
       dashboard_config?: Record<string, unknown>;
+      yaml_content?: string;
     }) => proposals.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.proposals.all });

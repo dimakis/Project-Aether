@@ -22,7 +22,7 @@ import {
 } from "@/lib/storage";
 import { useModels, useConversations, useCreateProposal } from "@/api/hooks";
 import { streamChat, submitFeedback } from "@/api/client";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, ModelInfo, Conversation } from "@/lib/types";
 import { useChatSessions } from "./useChatSessions";
 import type { WorkflowSelection } from "../WorkflowPresetSelector";
 
@@ -55,8 +55,8 @@ export interface UseChatMessagesReturn {
       | DisplayMessage[]
       | ((prev: DisplayMessage[]) => DisplayMessage[]),
   ) => void;
-  availableModels: { id: string }[];
-  recentConversations: { id: string; title: string | null }[];
+  availableModels: ModelInfo[];
+  recentConversations: Conversation[];
   activityPanelOpen: boolean;
 }
 
