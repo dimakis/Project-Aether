@@ -19,7 +19,7 @@ export interface LoginResponse {
 }
 
 export interface PasskeyAuthOptions {
-  // WebAuthn public-key credential request options (opaque to us)
+  challenge: string;
   [key: string]: unknown;
 }
 

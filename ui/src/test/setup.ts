@@ -6,6 +6,7 @@ import { vi } from "vitest";
 vi.mock("react-diff-viewer-continued", () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
+    // @ts-expect-error -- CJS require in vi.mock factory (no top-level await)
     const React = require("react");
     return React.createElement("div", {
       "data-testid": "mock-diff-viewer",

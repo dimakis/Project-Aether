@@ -18,7 +18,6 @@ import {
   clearSubmittedEdit,
   clearRegistryState,
   subscribeRegistry,
-  type RegistryState,
 } from "../registry-store";
 
 describe("registry-store", () => {

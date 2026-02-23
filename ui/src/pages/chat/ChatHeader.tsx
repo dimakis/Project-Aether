@@ -8,10 +8,11 @@ import {
   WorkflowPresetSelector,
   type WorkflowSelection,
 } from "./WorkflowPresetSelector";
+import type { ModelInfo } from "@/lib/types";
 
 export interface ChatHeaderProps {
   selectedModel: string;
-  availableModels: { id: string }[];
+  availableModels: ModelInfo[];
   onModelChange: (model: string) => void;
   workflowSelection: WorkflowSelection;
   onWorkflowSelectionChange: (selection: WorkflowSelection) => void;

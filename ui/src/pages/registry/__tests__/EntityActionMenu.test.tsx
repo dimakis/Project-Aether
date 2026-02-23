@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EntityActionMenu } from "../EntityActionMenu";
-import type { EntityAction } from "../EntityActionMenu";
 
 // Mock framer-motion
 vi.mock("framer-motion", () => ({

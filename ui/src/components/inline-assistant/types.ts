@@ -47,5 +47,5 @@ export interface InlineAssistantProps {
   /** External delegation messages (store-driven) */
   externalDelegationMsgs?: DelegationMsg[];
   /** External setter for delegation messages */
-  onDelegationMsgsChange?: (msgs: DelegationMsg[]) => void;
+  onDelegationMsgsChange?: (msgs: DelegationMsg[] | ((prev: DelegationMsg[]) => DelegationMsg[])) => void;
 }
