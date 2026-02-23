@@ -19,6 +19,7 @@ import {
   FileBarChart,
   PanelLeft,
   Settings,
+  Workflow,
 } from "lucide-react";
 import { lazy, Suspense, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ const navItems = [
   { to: "/diagnostics", icon: Activity, label: "Diagnostics" },
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/architecture", icon: Network, label: "Architecture" },
+  { to: "/workflows", icon: Workflow, label: "Workflows" },
   { to: "/agents/registry", icon: Star, label: "Model Performance" },
   { to: "/dashboard-editor", icon: PanelLeft, label: "Dashboard Editor" },
   { to: "/settings", icon: Settings, label: "Settings" },

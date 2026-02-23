@@ -124,6 +124,8 @@ export const queryKeys = {
   // ── Workflow Presets ─────────────────────────────────────────────────────
   workflows: {
     presets: ["workflows", "presets"] as const,
+    definitions: ["workflows", "definitions"] as const,
+    definition: (id: string) => ["workflows", "definitions", id] as const,
   },
 
   // ── Dashboards (Lovelace) ────────────────────────────────────────────────
