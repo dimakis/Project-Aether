@@ -25,6 +25,7 @@ import { streamChat, submitFeedback } from "@/api/client";
 import type { ChatMessage, ModelInfo, Conversation } from "@/lib/types";
 import { useChatSessions } from "./useChatSessions";
 import type { WorkflowSelection } from "../WorkflowPresetSelector";
+import { getPersistedAgent } from "../AgentPicker";
 
 
 export interface UseChatMessagesReturn {
@@ -32,6 +33,8 @@ export interface UseChatMessagesReturn {
   activeSessionId: string | null;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
+  selectedAgent: string;
+  setSelectedAgent: (agent: string) => void;
   messages: DisplayMessage[];
   startNewChat: () => void;
   switchSession: (sessionId: string) => void;
@@ -75,6 +78,7 @@ export function useChatMessages(): UseChatMessagesReturn {
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [selectedAgent, setSelectedAgent] = useState<string>(getPersistedAgent());
   const [workflowSelection, setWorkflowSelection] =
     useState<WorkflowSelection>({
       preset: null,
@@ -363,11 +367,14 @@ export function useChatMessages(): UseChatMessagesReturn {
         // but their trace/thinking events are dropped from the panel.
         const ownsPanel = () => getActivitySessionId() === sessionId;
 
+        const agentArg = selectedAgent === "auto" ? undefined : selectedAgent;
+
         for await (const chunk of streamChat(
           selectedModel,
           chatHistory,
           sessionId,
           controller.signal,
+          agentArg,
         )) {
           if (typeof chunk === "object" && "type" in chunk) {
             if (chunk.type === "metadata") {
@@ -494,6 +501,7 @@ export function useChatMessages(): UseChatMessagesReturn {
       activeSessionId,
       isStreaming,
       selectedModel,
+      selectedAgent,
       sessions,
       setSessions,
       setActiveSessionId,
@@ -564,6 +572,8 @@ export function useChatMessages(): UseChatMessagesReturn {
     activeSessionId,
     selectedModel,
     setSelectedModel,
+    selectedAgent,
+    setSelectedAgent,
     messages,
     startNewChat,
     switchSession,

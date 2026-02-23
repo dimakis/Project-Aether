@@ -10,6 +10,8 @@ export function ChatPage() {
     activeSessionId,
     selectedModel,
     setSelectedModel,
+    selectedAgent,
+    setSelectedAgent,
     messages,
     startNewChat,
     switchSession,
@@ -49,6 +51,8 @@ export function ChatPage() {
             selectedModel={selectedModel}
             availableModels={availableModels}
             onModelChange={setSelectedModel}
+            selectedAgent={selectedAgent}
+            onAgentChange={setSelectedAgent}
             workflowSelection={workflowSelection}
             onWorkflowSelectionChange={setWorkflowSelection}
             isStreaming={isStreaming}

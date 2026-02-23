@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toggleActivityPanel } from "@/lib/agent-activity-store";
 import { ModelPicker } from "./ModelPicker";
+import { AgentPicker } from "./AgentPicker";
 import {
   WorkflowPresetSelector,
   type WorkflowSelection,
@@ -14,6 +15,8 @@ export interface ChatHeaderProps {
   selectedModel: string;
   availableModels: ModelInfo[];
   onModelChange: (model: string) => void;
+  selectedAgent: string;
+  onAgentChange: (agent: string) => void;
   workflowSelection: WorkflowSelection;
   onWorkflowSelectionChange: (selection: WorkflowSelection) => void;
   isStreaming: boolean;
@@ -27,6 +30,8 @@ export function ChatHeader({
   selectedModel,
   availableModels,
   onModelChange,
+  selectedAgent,
+  onAgentChange,
   workflowSelection,
   onWorkflowSelectionChange,
   isStreaming,
@@ -42,6 +47,10 @@ export function ChatHeader({
           selectedModel={selectedModel}
           availableModels={availableModels}
           onModelChange={onModelChange}
+        />
+        <AgentPicker
+          selectedAgent={selectedAgent}
+          onAgentChange={onAgentChange}
         />
         <WorkflowPresetSelector
           selection={workflowSelection}
