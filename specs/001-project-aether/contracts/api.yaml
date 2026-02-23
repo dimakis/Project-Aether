@@ -36,13 +36,408 @@ info:
   license:
     name: MIT
 paths:
+  /api/v1/auth/setup-status:
+    get:
+      tags:
+      - Authentication
+      summary: Setup Status
+      description: 'Check whether initial setup has been completed.
+
+
+        This endpoint is exempt from authentication so the frontend can
+
+        determine whether to show the setup wizard or login page.'
+      operationId: setup_status_api_v1_auth_setup_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupStatusResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/setup:
+    post:
+      tags:
+      - Authentication
+      summary: Setup
+      description: 'First-time system setup.
+
+
+        Validates HA connection, stores config in DB (encrypted), and returns JWT.
+
+        Returns 409 if setup has already been completed.'
+      operationId: setup_api_v1_auth_setup_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/login/ha-token:
+    post:
+      tags:
+      - Authentication
+      summary: Login With Ha Token
+      description: 'Authenticate using an HA long-lived access token.
+
+
+        Validates the provided token against the stored HA URL (from DB or env).'
+      operationId: login_with_ha_token_api_v1_auth_login_ha_token_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HATokenLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/login:
+    post:
+      tags:
+      - Authentication
+      summary: Login
+      description: 'Authenticate with username and password, receive JWT.
+
+
+        Checks DB password hash first, then falls back to env var AUTH_PASSWORD.
+
+        The JWT is returned both in the response body and as an httpOnly cookie.'
+      operationId: login_api_v1_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - Authentication
+      summary: Logout
+      description: Clear the session cookie.
+      operationId: logout_api_v1_auth_logout_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/me:
+    get:
+      tags:
+      - Authentication
+      summary: Me
+      description: 'Check current authentication status.
+
+
+        Returns user info if authenticated, 401 if not.'
+      operationId: me_api_v1_auth_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/google/url:
+    get:
+      tags:
+      - Authentication
+      summary: Google Auth Url
+      description: 'Get the Google OAuth authorization URL.
+
+
+        Returns 501 if Google OAuth is not configured.'
+      operationId: google_auth_url_api_v1_auth_google_url_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleUrlResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/google/callback:
+    post:
+      tags:
+      - Authentication
+      summary: Google Callback
+      description: 'Handle Google OAuth callback.
+
+
+        Verifies the Google ID token, creates or updates a user profile,
+
+        and issues a JWT session.'
+      operationId: google_callback_api_v1_auth_google_callback_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleCallbackRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/passkey/register/options:
+    post:
+      tags:
+      - Authentication
+      summary: Passkey Register Options
+      description: 'Generate WebAuthn registration options (challenge).
+
+
+        Requires active JWT session. Returns options for the browser''s
+
+        navigator.credentials.create() call.'
+      operationId: passkey_register_options_api_v1_auth_passkey_register_options_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Passkey Register Options Api V1 Auth Passkey Register Options Post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/passkey/register/verify:
+    post:
+      tags:
+      - Authentication
+      summary: Passkey Register Verify
+      description: 'Verify WebAuthn registration response and store credential.
+
+
+        Requires active JWT session.'
+      operationId: passkey_register_verify_api_v1_auth_passkey_register_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterVerifyRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Passkey Register Verify Api V1 Auth Passkey Register Verify Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/passkey/authenticate/options:
+    post:
+      tags:
+      - Authentication
+      summary: Passkey Authenticate Options
+      description: 'Generate WebAuthn authentication options (challenge).
+
+
+        This is a public endpoint (no auth required) - it''s the entry point
+
+        for passkey login.'
+      operationId: passkey_authenticate_options_api_v1_auth_passkey_authenticate_options_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Passkey Authenticate Options Api V1 Auth Passkey Authenticate Options Post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/passkey/authenticate/verify:
+    post:
+      tags:
+      - Authentication
+      summary: Passkey Authenticate Verify
+      description: 'Verify WebAuthn authentication response and return JWT.
+
+
+        This is a public endpoint - successful verification grants a JWT session.'
+      operationId: passkey_authenticate_verify_api_v1_auth_passkey_authenticate_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticateVerifyRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Passkey Authenticate Verify Api V1 Auth Passkey Authenticate Verify Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/passkeys:
+    get:
+      tags:
+      - Authentication
+      summary: List Passkeys
+      description: List all registered passkeys for the current user.
+      operationId: list_passkeys_api_v1_auth_passkeys_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyListResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/auth/passkeys/{passkey_id}:
+    delete:
+      tags:
+      - Authentication
+      summary: Delete Passkey
+      description: Delete a registered passkey.
+      operationId: delete_passkey_api_v1_auth_passkeys__passkey_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: passkey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Passkey Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Delete Passkey Api V1 Auth Passkeys  Passkey Id  Delete
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/health:
     get:
       tags:
       - System
-      summary: Health Check
+      summary: Health Check (Liveness)
       description: Simple health check for load balancers. Returns 200 if the service is running.
       operationId: health_check_api_v1_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/ready:
+    get:
+      tags:
+      - System
+      summary: Readiness Probe
+      description: Readiness check that verifies critical dependencies (database). Returns 503 if not ready.
+      operationId: readiness_check_api_v1_ready_get
       responses:
         '200':
           description: Successful Response
@@ -460,6 +855,7 @@ paths:
     post:
       tags:
       - HA Registry
+      - HA Registry
       summary: Sync Registry
       description: 'Sync automations, scripts, and scenes from Home Assistant.
 
@@ -481,6 +877,7 @@ paths:
   /api/v1/registry/automations:
     get:
       tags:
+      - HA Registry
       - HA Registry
       summary: List Automations
       description: "List all automations.\n\nArgs:\n    state: Optional filter by state (on/off)\n    limit: Maximum number\
@@ -530,6 +927,7 @@ paths:
     get:
       tags:
       - HA Registry
+      - HA Registry
       summary: Get Automation
       description: "Get a specific automation.\n\nArgs:\n    automation_id: Internal UUID or HA automation ID\n    session:\
         \ Database session\n\nReturns:\n    Automation details\n\nRaises:\n    HTTPException: If automation not found"
@@ -560,6 +958,7 @@ paths:
   /api/v1/registry/automations/{automation_id}/config:
     get:
       tags:
+      - HA Registry
       - HA Registry
       summary: Get Automation Config
       description: "Get an automation's raw YAML configuration from Home Assistant.\n\nArgs:\n    automation_id: Internal\
@@ -594,6 +993,7 @@ paths:
   /api/v1/registry/scripts:
     get:
       tags:
+      - HA Registry
       - HA Registry
       summary: List Scripts
       description: "List all scripts.\n\nArgs:\n    state: Optional filter by state\n    limit: Maximum number of results\n\
@@ -642,6 +1042,7 @@ paths:
     get:
       tags:
       - HA Registry
+      - HA Registry
       summary: Get Script
       description: "Get a specific script.\n\nArgs:\n    script_id: Internal UUID or entity ID\n    session: Database session\n\
         \nReturns:\n    Script details\n\nRaises:\n    HTTPException: If script not found"
@@ -672,6 +1073,7 @@ paths:
   /api/v1/registry/scenes:
     get:
       tags:
+      - HA Registry
       - HA Registry
       summary: List Scenes
       description: "List all scenes.\n\nArgs:\n    limit: Maximum number of results\n    offset: Number of results to skip\n\
@@ -712,6 +1114,7 @@ paths:
     get:
       tags:
       - HA Registry
+      - HA Registry
       summary: Get Scene
       description: "Get a specific scene.\n\nArgs:\n    scene_id: Internal UUID or entity ID\n    session: Database session\n\
         \nReturns:\n    Scene details\n\nRaises:\n    HTTPException: If scene not found"
@@ -742,6 +1145,7 @@ paths:
   /api/v1/registry/services:
     get:
       tags:
+      - HA Registry
       - HA Registry
       summary: List Services
       description: "List all services.\n\nArgs:\n    domain: Optional filter by domain\n    limit: Maximum number of results\n\
@@ -790,6 +1194,7 @@ paths:
     get:
       tags:
       - HA Registry
+      - HA Registry
       summary: Get Service
       description: "Get a specific service.\n\nArgs:\n    service_id: Internal UUID or full service name (domain.service)\n\
         \    session: Database session\n\nReturns:\n    Service details\n\nRaises:\n    HTTPException: If service not found"
@@ -821,9 +1226,12 @@ paths:
     post:
       tags:
       - HA Registry
+      - HA Registry
       summary: Call Service
-      description: "Call a Home Assistant service via MCP.\n\nArgs:\n    request: Service call request\n    session: Database\
-        \ session\n\nReturns:\n    Service call result"
+      description: "Call a Home Assistant service via MCP.\n\nRate limited to 10/minute. Domain validation prevents calls\
+        \ to\ndangerous domains that should only go through the HITL approval flow.\n\nArgs:\n    request: FastAPI/Starlette\
+        \ request (for rate limiter)\n    body: Service call request body\n    session: Database session\n\nReturns:\n   \
+        \ Service call result"
       operationId: call_service_api_v1_registry_services_call_post
       requestBody:
         content:
@@ -851,6 +1259,7 @@ paths:
     post:
       tags:
       - HA Registry
+      - HA Registry
       summary: Seed Services
       description: "Seed common services into the database.\n\nThis populates the service registry with known common services\n\
         that agents can use for automation proposals.\n\nArgs:\n    session: Database session\n\nReturns:\n    Seeding statistics"
@@ -868,13 +1277,103 @@ paths:
       security:
       - APIKeyHeader: []
       - APIKeyQuery: []
+  /api/v1/registry/helpers:
+    get:
+      tags:
+      - HA Registry
+      - HA Registry
+      summary: List Helpers
+      description: "List all helper entities from Home Assistant.\n\nReturns live helper state directly from HA (not cached).\n\
+        \nReturns:\n    List of helpers with type breakdown"
+      operationId: list_helpers_api_v1_registry_helpers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelperListResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+    post:
+      tags:
+      - HA Registry
+      - HA Registry
+      summary: Create Helper
+      description: "Create a helper entity in Home Assistant.\n\nDispatches to the appropriate HA client method based on helper_type.\n\
+        Rate limited to 10/minute.\n\nArgs:\n    request: FastAPI/Starlette request (for rate limiter)\n    body: Helper creation\
+        \ request\n\nReturns:\n    Creation result"
+      operationId: create_helper_api_v1_registry_helpers_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HelperCreateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelperCreateResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/registry/helpers/{domain}/{input_id}:
+    delete:
+      tags:
+      - HA Registry
+      - HA Registry
+      summary: Delete Helper
+      description: "Delete a helper entity from Home Assistant.\n\nRate limited to 10/minute.\n\nArgs:\n    request: FastAPI/Starlette\
+        \ request (for rate limiter)\n    domain: Helper domain (e.g., input_boolean, counter)\n    input_id: Helper ID to\
+        \ delete\n\nReturns:\n    Deletion result"
+      operationId: delete_helper_api_v1_registry_helpers__domain___input_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: domain
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Domain
+      - name: input_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Input Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelperDeleteResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/registry/summary:
     get:
       tags:
       - HA Registry
+      - HA Registry
       summary: Get Registry Summary
       description: "Get a summary of the HA registry.\n\nProvides counts and status of automations, scripts, scenes, and services.\n\
-        \nArgs:\n    session: Database session\n\nReturns:\n    Registry summary with MCP gaps"
+        \nArgs:\n    session: Database session\n\nReturns:\n    Registry summary with HA gaps"
       operationId: get_registry_summary_api_v1_registry_summary_get
       responses:
         '200':
@@ -2225,6 +2724,1188 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/usage/summary:
+    get:
+      tags:
+      - Usage
+      summary: Get Usage Summary
+      description: 'Get LLM usage summary for the specified period.
+
+
+        Returns total calls, tokens, cost, and per-model breakdown.'
+      operationId: get_usage_summary_api_v1_usage_summary_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 365
+          minimum: 1
+          description: Number of days to summarize
+          default: 30
+          title: Days
+        description: Number of days to summarize
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Usage Summary Api V1 Usage Summary Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/usage/daily:
+    get:
+      tags:
+      - Usage
+      summary: Get Daily Usage
+      description: 'Get daily LLM usage breakdown for charting.
+
+
+        Returns a list of daily entries with calls, tokens, and cost.'
+      operationId: get_daily_usage_api_v1_usage_daily_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 365
+          minimum: 1
+          description: Number of days of history
+          default: 30
+          title: Days
+        description: Number of days of history
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Daily Usage Api V1 Usage Daily Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/usage/models:
+    get:
+      tags:
+      - Usage
+      summary: Get Usage By Model
+      description: 'Get per-model LLM usage breakdown.
+
+
+        Returns calls, tokens, cost, and average latency for each model.'
+      operationId: get_usage_by_model_api_v1_usage_models_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 365
+          minimum: 1
+          description: Number of days to analyze
+          default: 30
+          title: Days
+        description: Number of days to analyze
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Usage By Model Api V1 Usage Models Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/usage/conversation/{conversation_id}:
+    get:
+      tags:
+      - Usage
+      summary: Get Conversation Cost
+      description: 'Get aggregated cost and usage for a specific conversation.
+
+
+        Returns total calls, tokens, cost, and per-agent breakdown.'
+      operationId: get_conversation_cost_api_v1_usage_conversation__conversation_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Conversation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Conversation Cost Api V1 Usage Conversation  Conversation Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/available:
+    get:
+      tags:
+      - Agents
+      - Agents
+      summary: List Available Agents
+      description: 'List routable agents for the Orchestrator and UI agent picker.
+
+
+        Returns only agents where is_routable=True and status is not disabled.
+
+        Includes routing metadata: domain, intent_patterns, capabilities.
+
+
+        Feature 30: Domain-Agnostic Orchestration (FR-004).'
+      operationId: list_available_agents_api_v1_agents_available_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableAgentsListResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/agents:
+    get:
+      tags:
+      - Agents
+      - Agents
+      summary: List Agents
+      description: List all agents with their active config/prompt versions.
+      operationId: list_agents_api_v1_agents_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentListResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/agents/{agent_name}:
+    get:
+      tags:
+      - Agents
+      - Agents
+      summary: Get Agent
+      description: Get agent details by name.
+      operationId: get_agent_api_v1_agents__agent_name__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Agents
+      - Agents
+      summary: Update Agent Status
+      description: Update agent lifecycle status.
+      operationId: update_agent_status_api_v1_agents__agent_name__patch
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentStatusUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/clone:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Clone Agent
+      description: 'Clone an agent with its active config and prompt as new drafts.
+
+
+        Creates a new agent named ``{agent_name}_copy`` (or ``_copy2`` etc. if
+
+        the name already exists). The active config and prompt versions are
+
+        copied as new drafts on the cloned agent, ready for editing.
+
+
+        This makes it trivial to swap LLM backends: clone, change the model
+
+        in the cloned config, promote, and disable the original.'
+      operationId: clone_agent_api_v1_agents__agent_name__clone_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/model:
+    patch:
+      tags:
+      - Agents
+      - Agents
+      summary: Quick Model Switch
+      description: 'Quick model switch: create a new config version and promote in one step.
+
+
+        Creates a draft config version with the new model (copying temperature
+
+        and other settings from the current active config), then auto-promotes it.'
+      operationId: quick_model_switch_api_v1_agents__agent_name__model_patch
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickModelSwitch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/config/versions:
+    get:
+      tags:
+      - Agents
+      - Agents
+      summary: List Config Versions
+      description: List all config versions for an agent.
+      operationId: list_config_versions_api_v1_agents__agent_name__config_versions_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConfigVersionResponse'
+                title: Response List Config Versions Api V1 Agents  Agent Name  Config Versions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Create Config Version
+      description: Create a new draft config version for an agent.
+      operationId: create_config_version_api_v1_agents__agent_name__config_versions_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfigVersionCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/config/versions/{version_id}:
+    patch:
+      tags:
+      - Agents
+      - Agents
+      summary: Update Config Version
+      description: Update a draft config version.
+      operationId: update_config_version_api_v1_agents__agent_name__config_versions__version_id__patch
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Version Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfigVersionUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Agents
+      - Agents
+      summary: Delete Config Version
+      description: Delete a draft config version.
+      operationId: delete_config_version_api_v1_agents__agent_name__config_versions__version_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Version Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/config/versions/{version_id}/promote:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Promote Config Version
+      description: "Promote a draft config version to active.\n\nQuery params:\n    bump_type: Semver bump type (major / minor\
+        \ / patch). Defaults to patch."
+      operationId: promote_config_version_api_v1_agents__agent_name__config_versions__version_id__promote_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Version Id
+      - name: bump_type
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^(major|minor|patch)$
+          default: patch
+          title: Bump Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/config/rollback:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Rollback Config Version
+      description: Rollback to the previous config version (creates a new draft).
+      operationId: rollback_config_version_api_v1_agents__agent_name__config_rollback_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/prompt/versions:
+    get:
+      tags:
+      - Agents
+      - Agents
+      summary: List Prompt Versions
+      description: List all prompt versions for an agent.
+      operationId: list_prompt_versions_api_v1_agents__agent_name__prompt_versions_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PromptVersionResponse'
+                title: Response List Prompt Versions Api V1 Agents  Agent Name  Prompt Versions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Create Prompt Version
+      description: Create a new draft prompt version for an agent.
+      operationId: create_prompt_version_api_v1_agents__agent_name__prompt_versions_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentPromptVersionCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/prompt/versions/{version_id}:
+    patch:
+      tags:
+      - Agents
+      - Agents
+      summary: Update Prompt Version
+      description: Update a draft prompt version.
+      operationId: update_prompt_version_api_v1_agents__agent_name__prompt_versions__version_id__patch
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Version Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentPromptVersionUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Agents
+      - Agents
+      summary: Delete Prompt Version
+      description: Delete a draft prompt version.
+      operationId: delete_prompt_version_api_v1_agents__agent_name__prompt_versions__version_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Version Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/prompt/versions/{version_id}/promote:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Promote Prompt Version
+      description: "Promote a draft prompt version to active.\n\nQuery params:\n    bump_type: Semver bump type (major / minor\
+        \ / patch). Defaults to patch."
+      operationId: promote_prompt_version_api_v1_agents__agent_name__prompt_versions__version_id__promote_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Version Id
+      - name: bump_type
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^(major|minor|patch)$
+          default: patch
+          title: Bump Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/prompt/rollback:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Rollback Prompt Version
+      description: Rollback to the previous prompt version (creates a new draft).
+      operationId: rollback_prompt_version_api_v1_agents__agent_name__prompt_rollback_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptVersionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/promote-all:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Promote Both
+      description: "Promote both config and prompt drafts to active in one operation.\n\nQuery params:\n    bump_type: Semver\
+        \ bump type (major / minor / patch). Defaults to patch.\n\nPromotes any existing drafts. If no drafts exist, returns\
+        \ a message."
+      operationId: promote_both_api_v1_agents__agent_name__promote_all_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      - name: bump_type
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^(major|minor|patch)$
+          default: patch
+          title: Bump Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoteBothResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/{agent_name}/prompt/generate:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Generate Prompt
+      description: 'Generate a system prompt for an agent using AI.
+
+
+        Uses the architect''s LLM to generate a context-aware system prompt
+
+        based on the agent''s role, description, available tools, current
+
+        prompt, and optional user instructions.'
+      operationId: generate_prompt_api_v1_agents__agent_name__prompt_generate_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Agent Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptGenerateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptGenerateResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/agents/seed:
+    post:
+      tags:
+      - Agents
+      - Agents
+      summary: Seed Agents
+      description: 'Seed default agents with initial configurations.
+
+
+        Creates agent records for all known roles (if they don''t exist)
+
+        and populates initial config and prompt versions from env vars
+
+        and file-based prompts.'
+      operationId: seed_agents_api_v1_agents_seed_post
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Seed Agents Api V1 Agents Seed Post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/models/ratings:
+    get:
+      tags:
+      - Model Registry
+      summary: List Ratings
+      description: List model ratings with optional filtering.
+      operationId: list_ratings_api_v1_models_ratings_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: model_name
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model Name
+      - name: agent_role
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Agent Role
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelRatingListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Model Registry
+      summary: Create Rating
+      description: Create a new model rating.
+      operationId: create_rating_api_v1_models_ratings_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelRatingCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelRatingResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/summary:
+    get:
+      tags:
+      - Model Registry
+      summary: Model Summary
+      description: Get aggregated model summaries with average ratings.
+      operationId: model_summary_api_v1_models_summary_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_role
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Agent Role
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelSummaryResponse'
+                title: Response Model Summary Api V1 Models Summary Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/performance:
+    get:
+      tags:
+      - Model Registry
+      summary: Model Performance
+      description: "Get auto-collected performance metrics from LLM usage data.\n\nAggregates latency, token counts, and cost\
+        \ from the LLMUsage table.\nNo manual ratings required -- metrics come from actual usage.\n\nArgs:\n    agent_role:\
+        \ Filter by agent role (e.g. 'architect')\n    hours: Time window in hours (default: 168 = 7 days)"
+      operationId: model_performance_api_v1_models_performance_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: agent_role
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Agent Role
+      - name: hours
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 168
+          title: Hours
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelPerformanceResponse'
+                title: Response Model Performance Api V1 Models Performance Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/diagnostics/ha-health:
+    get:
+      tags:
+      - Diagnostics
+      summary: Ha Health
+      description: 'Home Assistant health: unavailable/stale entities & unhealthy integrations.'
+      operationId: ha_health_api_v1_diagnostics_ha_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Ha Health Api V1 Diagnostics Ha Health Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/diagnostics/error-log:
+    get:
+      tags:
+      - Diagnostics
+      summary: Error Log
+      description: Parsed HA error log with summary and known pattern matching.
+      operationId: error_log_api_v1_diagnostics_error_log_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Error Log Api V1 Diagnostics Error Log Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/diagnostics/config-check:
+    get:
+      tags:
+      - Diagnostics
+      summary: Config Check
+      description: Run HA config validation.
+      operationId: config_check_api_v1_diagnostics_config_check_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Config Check Api V1 Diagnostics Config Check Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/diagnostics/traces/recent:
+    get:
+      tags:
+      - Diagnostics
+      summary: Recent Traces
+      description: Get recent agent traces from MLflow.
+      operationId: recent_traces_api_v1_diagnostics_traces_recent_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Recent Traces Api V1 Diagnostics Traces Recent Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/workflows/presets:
+    get:
+      tags:
+      - Workflows
+      summary: List Workflow Presets
+      description: 'List available workflow presets.
+
+
+        Returns all preset workflow configurations that define which agents
+
+        participate in different task types. Used by the chat interface to
+
+        offer quick-start workflow templates and agent customization.'
+      operationId: list_workflow_presets_api_v1_workflows_presets_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowPresetsListResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
   /api/v1/models:
     get:
       tags:
@@ -2275,7 +3956,11 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Submit Feedback Api V1 Feedback Post
         '422':
           description: Validation Error
           content:
@@ -2321,18 +4006,819 @@ paths:
       security:
       - APIKeyHeader: []
       - APIKeyQuery: []
+  /api/v1/activity/stream:
+    get:
+      tags:
+      - activity
+      summary: Activity Stream
+      description: 'SSE endpoint for global system activity events.
+
+
+        Events include:
+
+        - LLM call start/end with agent_role and model
+
+        - Agent lifecycle events'
+      operationId: activity_stream_api_v1_activity_stream_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/flow-grades:
+    post:
+      tags:
+      - Flow Grades
+      summary: Submit Grade
+      description: 'Submit or update a grade for a conversation step or overall.
+
+
+        When trace_id is provided, feedback is also logged to MLflow''s
+
+        assessment system for unified trace-level observability.'
+      operationId: submit_grade_api_v1_flow_grades_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlowGradeCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlowGradeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/flow-grades/{conversation_id}:
+    get:
+      tags:
+      - Flow Grades
+      summary: Get Grades
+      description: Get all grades for a conversation with summary.
+      operationId: get_grades_api_v1_flow_grades__conversation_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Conversation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Grades Api V1 Flow Grades  Conversation Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/flow-grades/{grade_id}:
+    delete:
+      tags:
+      - Flow Grades
+      summary: Delete Grade
+      description: Delete a grade.
+      operationId: delete_grade_api_v1_flow_grades__grade_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: grade_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Grade Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/evaluations/summary:
+    get:
+      tags:
+      - Evaluations
+      summary: Get Evaluation Summary
+      description: 'Get the latest evaluation summary from MLflow.
+
+
+        Searches for the most recent evaluation run and returns
+
+        aggregated scorer results for the UI.'
+      operationId: get_evaluation_summary_api_v1_evaluations_summary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationSummary'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/evaluations/run:
+    post:
+      tags:
+      - Evaluations
+      summary: Trigger Evaluation
+      description: 'Trigger an on-demand trace evaluation.
+
+
+        Runs all custom scorers against recent traces and logs
+
+        results to MLflow. This is the same evaluation that runs
+
+        nightly via the scheduler.'
+      operationId: trigger_evaluation_api_v1_evaluations_run_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: max_traces
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Max Traces
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationTriggerResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/evaluations/scorers:
+    get:
+      tags:
+      - Evaluations
+      summary: List Scorers
+      description: List available scorers and their descriptions.
+      operationId: list_scorers_api_v1_evaluations_scorers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response List Scorers Api V1 Evaluations Scorers Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/zones:
+    get:
+      tags:
+      - HA Zones
+      summary: List Zones
+      description: List all configured HA zones.
+      operationId: list_zones_api_v1_zones_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ZoneResponse'
+                type: array
+                title: Response List Zones Api V1 Zones Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+    post:
+      tags:
+      - HA Zones
+      summary: Create Zone
+      description: Create a new HA zone. Validates connectivity before saving.
+      operationId: create_zone_api_v1_zones_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/zones/{zone_id}:
+    patch:
+      tags:
+      - HA Zones
+      summary: Update Zone
+      description: Update a zone's configuration.
+      operationId: update_zone_api_v1_zones__zone_id__patch
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: zone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Zone Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoneUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - HA Zones
+      summary: Delete Zone
+      description: Delete a zone. Cannot delete the default or last zone.
+      operationId: delete_zone_api_v1_zones__zone_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: zone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Zone Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/zones/{zone_id}/set-default:
+    post:
+      tags:
+      - HA Zones
+      summary: Set Default Zone
+      description: Set a zone as the default.
+      operationId: set_default_zone_api_v1_zones__zone_id__set_default_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: zone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Zone Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/zones/{zone_id}/test:
+    post:
+      tags:
+      - HA Zones
+      summary: Test Zone
+      description: Test connectivity to a zone's local and remote URLs.
+      operationId: test_zone_api_v1_zones__zone_id__test_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: zone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Zone Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneTestResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/reports/{report_id}/artifacts/{filename}:
+    get:
+      tags:
+      - Artifacts
+      summary: Serve an analysis artifact
+      description: "Serve a validated artifact from a completed analysis report.\n\nSecurity headers are set on all responses:\n\
+        - X-Content-Type-Options: nosniff (prevent MIME sniffing)\n- Content-Security-Policy: sandbox (prevent script execution)\n\
+        - Content-Disposition: inline; filename=... (safe inline rendering)\n\nArgs:\n    report_id: The analysis report ID\
+        \ (alphanumeric, hyphens, underscores).\n    filename: The artifact filename (e.g. ``chart.png``).\n\nReturns:\n \
+        \   FileResponse with the artifact content and security headers.\n\nRaises:\n    HTTPException 404: If the artifact\
+        \ does not exist.\n    HTTPException 400: If the parameters contain unsafe characters."
+      operationId: serve_artifact_api_v1_reports__report_id__artifacts__filename__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: report_id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[a-zA-Z0-9_-]+$
+          title: Report Id
+      - name: filename
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 255
+          title: Filename
+      responses:
+        '200':
+          description: Artifact file
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Artifact not found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/reports:
+    get:
+      tags:
+      - Reports
+      summary: List analysis reports
+      description: "List analysis reports with optional status filter.\n\nArgs:\n    status: Optional filter by status (running,\
+        \ completed, failed).\n    limit: Maximum number of results.\n    offset: Number of results to skip."
+      operationId: list_reports_api_v1_reports_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/reports/{report_id}:
+    get:
+      tags:
+      - Reports
+      summary: Get analysis report
+      description: "Get a specific analysis report by ID.\n\nArgs:\n    report_id: The report UUID."
+      operationId: get_report_api_v1_reports__report_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: report_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Report Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '404':
+          description: Report not found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/reports/{report_id}/communication:
+    get:
+      tags:
+      - Reports
+      summary: Get report communication log
+      description: "Get the inter-agent communication log for a report.\n\nReturns the chronological list of messages exchanged\
+        \ between\nspecialist agents during the analysis.\n\nArgs:\n    report_id: The report UUID."
+      operationId: get_report_communication_api_v1_reports__report_id__communication_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: report_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Report Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Report Communication Api V1 Reports  Report Id  Communication Get
+        '404':
+          description: Report not found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/dashboards:
+    get:
+      tags:
+      - Dashboards
+      summary: List Dashboards
+      description: 'List all Lovelace dashboards configured in Home Assistant.
+
+
+        Returns a list of dashboard metadata including id, title,
+
+        mode, and url_path.'
+      operationId: list_dashboards_api_v1_dashboards_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  additionalProperties: true
+                  type: object
+                type: array
+                title: Response List Dashboards Api V1 Dashboards Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/dashboards/{url_path}/config:
+    get:
+      tags:
+      - Dashboards
+      summary: Get Dashboard Config
+      description: "Fetch the full Lovelace config for a dashboard.\n\nArgs:\n    url_path: URL path of the dashboard. Use\
+        \ \"default\" for the\n              default/overview dashboard.\n\nReturns:\n    Full Lovelace config dict with title,\
+        \ views, cards, etc.\n\nRaises:\n    404: Dashboard not found."
+      operationId: get_dashboard_config_api_v1_dashboards__url_path__config_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: url_path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Url Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Dashboard Config Api V1 Dashboards  Url Path  Config Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/settings:
+    get:
+      tags:
+      - Settings
+      summary: Get Settings Endpoint
+      description: Get all application settings merged with defaults.
+      operationId: get_settings_endpoint_api_v1_settings_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+    patch:
+      tags:
+      - Settings
+      summary: Patch Settings
+      description: 'Update settings for one or more sections.
+
+
+        Only include sections you want to change. Within each section,
+
+        only include the keys you want to change — existing keys are
+
+        preserved (merge, not replace).
+
+
+        Values are validated and clamped to allowed bounds.'
+      operationId: patch_settings_api_v1_settings_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsPatchRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/settings/reset:
+    post:
+      tags:
+      - Settings
+      summary: Reset Section
+      description: Reset a section to its default values (clears all DB overrides).
+      operationId: reset_section_api_v1_settings_reset_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/workflows/definitions:
+    get:
+      tags:
+      - Workflows
+      summary: List Workflow Definitions
+      description: List all workflow definitions (excluding archived).
+      operationId: list_workflow_definitions_api_v1_workflows_definitions_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowListResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+    post:
+      tags:
+      - Workflows
+      summary: Create Workflow Definition
+      description: 'Create a new workflow definition.
+
+
+        Validates the workflow topology (node functions, edges, cycles)
+
+        against the default manifest before persisting.'
+      operationId: create_workflow_definition_api_v1_workflows_definitions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/workflows/definitions/{definition_id}:
+    get:
+      tags:
+      - Workflows
+      summary: Get Workflow Definition
+      description: Get a single workflow definition by ID.
+      operationId: get_workflow_definition_api_v1_workflows_definitions__definition_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: definition_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Definition Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Workflows
+      summary: Delete Workflow Definition
+      description: Soft-delete a workflow definition (set status to archived).
+      operationId: delete_workflow_definition_api_v1_workflows_definitions__definition_id__delete
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: definition_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Definition Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                title: Response Delete Workflow Definition Api V1 Workflows Definitions  Definition Id  Delete
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /.well-known/agent.json:
+    get:
+      summary: Get Agent Card
+      description: 'Return the A2A Agent Card for this Aether instance.
+
+
+        The card describes the instance as a single A2A agent with
+
+        multiple skills — one per routable domain agent.'
+      operationId: get_agent_card__well_known_agent_json_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Get Agent Card  Well Known Agent Json Get
 components:
   schemas:
     ActionRequest:
       properties:
         actioned_by:
           type: string
+          maxLength: 100
           title: Actioned By
           description: Who took action
           default: user
         action_taken:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Action Taken
           description: What action was taken
@@ -2344,6 +4830,207 @@ components:
       type: object
       title: ActionRequest
       description: Schema for marking an insight as actioned.
+    AgentConfigVersionCreate:
+      properties:
+        model_name:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Model Name
+        temperature:
+          anyOf:
+          - type: number
+            maximum: 2.0
+            minimum: 0.0
+          - type: 'null'
+          title: Temperature
+        fallback_model:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Fallback Model
+        tools_enabled:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tools Enabled
+        change_summary:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Change Summary
+        bump_type:
+          type: string
+          pattern: ^(major|minor|patch)$
+          title: Bump Type
+          default: patch
+      type: object
+      title: AgentConfigVersionCreate
+      description: Request body for creating a config version draft.
+    AgentConfigVersionUpdate:
+      properties:
+        model_name:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Model Name
+        temperature:
+          anyOf:
+          - type: number
+            maximum: 2.0
+            minimum: 0.0
+          - type: 'null'
+          title: Temperature
+        fallback_model:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Fallback Model
+        tools_enabled:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tools Enabled
+        change_summary:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Change Summary
+      type: object
+      title: AgentConfigVersionUpdate
+      description: Request body for updating a config version draft.
+    AgentListResponse:
+      properties:
+        agents:
+          items:
+            $ref: '#/components/schemas/AgentResponse'
+          type: array
+          title: Agents
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - agents
+      - total
+      title: AgentListResponse
+      description: Response schema for agent list.
+    AgentPromptVersionCreate:
+      properties:
+        prompt_template:
+          type: string
+          maxLength: 50000
+          minLength: 1
+          title: Prompt Template
+        change_summary:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Change Summary
+        bump_type:
+          type: string
+          pattern: ^(major|minor|patch)$
+          title: Bump Type
+          default: patch
+      type: object
+      required:
+      - prompt_template
+      title: AgentPromptVersionCreate
+      description: Request body for creating a prompt version draft.
+    AgentPromptVersionUpdate:
+      properties:
+        prompt_template:
+          anyOf:
+          - type: string
+            maxLength: 50000
+          - type: 'null'
+          title: Prompt Template
+        change_summary:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Change Summary
+      type: object
+      title: AgentPromptVersionUpdate
+      description: Request body for updating a prompt version draft.
+    AgentResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+        version:
+          type: string
+          title: Version
+        status:
+          type: string
+          title: Status
+        active_config_version_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Config Version Id
+        active_prompt_version_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Prompt Version Id
+        active_config:
+          anyOf:
+          - $ref: '#/components/schemas/ConfigVersionResponse'
+          - type: 'null'
+        active_prompt:
+          anyOf:
+          - $ref: '#/components/schemas/PromptVersionResponse'
+          - type: 'null'
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - description
+      - version
+      - status
+      - active_config_version_id
+      - active_prompt_version_id
+      - created_at
+      - updated_at
+      title: AgentResponse
+      description: Response schema for an agent.
+    AgentStatusUpdate:
+      properties:
+        status:
+          type: string
+          maxLength: 20
+          pattern: ^(disabled|enabled|primary)$
+          title: Status
+      type: object
+      required:
+      - status
+      title: AgentStatusUpdate
+      description: Request body for updating agent status.
     AnalysisJob:
       properties:
         job_id:
@@ -2407,6 +5094,7 @@ components:
       properties:
         analysis_type:
           type: string
+          maxLength: 50
           title: Analysis Type
           description: 'Type of analysis: energy, anomaly, pattern'
           default: energy
@@ -2437,15 +5125,23 @@ components:
       properties:
         approved_by:
           type: string
+          maxLength: 100
           title: Approved By
           description: Who is approving
           default: user
         comment:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Comment
           description: Optional approval comment
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: MLflow trace ID from the conversation that generated this proposal
       type: object
       title: ApprovalRequest
       description: Schema for approving a proposal.
@@ -2507,6 +5203,17 @@ components:
       - id
       title: AreaResponse
       description: Area response with all fields.
+    AuthenticateVerifyRequest:
+      properties:
+        credential:
+          additionalProperties: true
+          type: object
+          title: Credential
+      type: object
+      required:
+      - credential
+      title: AuthenticateVerifyRequest
+      description: WebAuthn authentication response from the browser.
     AutomationListResponse:
       properties:
         automations:
@@ -2657,6 +5364,55 @@ components:
       - created_at
       title: AutomationSuggestionResponse
       description: Schema for an automation suggestion from the DS.
+    AvailableAgentResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+        is_routable:
+          type: boolean
+          title: Is Routable
+          default: true
+        intent_patterns:
+          items:
+            type: string
+          type: array
+          title: Intent Patterns
+        capabilities:
+          items:
+            type: string
+          type: array
+          title: Capabilities
+      type: object
+      required:
+      - name
+      - description
+      title: AvailableAgentResponse
+      description: Response schema for a routable agent (Feature 30).
+    AvailableAgentsListResponse:
+      properties:
+        agents:
+          items:
+            $ref: '#/components/schemas/AvailableAgentResponse'
+          type: array
+          title: Agents
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - agents
+      - total
+      title: AvailableAgentsListResponse
+      description: Response schema for the available agents list.
     ChatCompletionRequest:
       properties:
         model:
@@ -2701,6 +5457,12 @@ components:
           - type: 'null'
           title: Conversation Id
           description: Existing conversation ID
+        agent:
+          type: string
+          maxLength: 50
+          title: Agent
+          description: 'Agent to handle the request: "auto" (Orchestrator routes) or a specific agent name'
+          default: auto
       type: object
       required:
       - messages
@@ -2748,6 +5510,7 @@ components:
       properties:
         message:
           type: string
+          maxLength: 50000
           title: Message
           description: User message content
         context:
@@ -2820,16 +5583,91 @@ components:
       - status
       title: ComponentHealth
       description: Health status for a single component.
+    ConfigVersionResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        agent_id:
+          type: string
+          title: Agent Id
+        version_number:
+          type: integer
+          title: Version Number
+        version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Version
+        status:
+          type: string
+          title: Status
+        model_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model Name
+        temperature:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Temperature
+        fallback_model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fallback Model
+        tools_enabled:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tools Enabled
+        change_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Change Summary
+        promoted_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Promoted At
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - id
+      - agent_id
+      - version_number
+      - status
+      - model_name
+      - temperature
+      - fallback_model
+      - tools_enabled
+      - change_summary
+      - promoted_at
+      - created_at
+      - updated_at
+      title: ConfigVersionResponse
+      description: Response schema for a config version.
     ConversationCreate:
       properties:
         title:
           anyOf:
           - type: string
+            maxLength: 255
           - type: 'null'
           title: Title
           description: Optional conversation title
         initial_message:
           type: string
+          maxLength: 50000
           title: Initial Message
           description: Initial user message to start conversation
         context:
@@ -3126,6 +5964,7 @@ components:
         reason:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Reason
           description: Why dismissed
@@ -3157,6 +5996,7 @@ components:
       properties:
         query:
           type: string
+          maxLength: 2000
           title: Query
           description: Natural language query
         limit:
@@ -3361,6 +6201,55 @@ components:
       - service_unavailable
       title: ErrorType
       description: Standard error types.
+    EvaluationSummary:
+      properties:
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+          description: MLflow evaluation run ID
+        trace_count:
+          type: integer
+          title: Trace Count
+          description: Number of traces evaluated
+          default: 0
+        scorer_results:
+          items:
+            $ref: '#/components/schemas/ScorerResult'
+          type: array
+          title: Scorer Results
+          description: Per-scorer results
+        evaluated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evaluated At
+          description: ISO-8601 timestamp
+      type: object
+      title: EvaluationSummary
+      description: Summary of an evaluation run.
+    EvaluationTriggerResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+          description: '''started'' or ''error'''
+        trace_count:
+          type: integer
+          title: Trace Count
+          description: Number of traces found
+          default: 0
+        message:
+          type: string
+          title: Message
+          description: Status message
+      type: object
+      required:
+      - status
+      - message
+      title: EvaluationTriggerResponse
+      description: Response from triggering an on-demand evaluation.
     FeedbackRequest:
       properties:
         trace_id:
@@ -3377,6 +6266,113 @@ components:
       - sentiment
       title: FeedbackRequest
       description: Request body for submitting feedback on a trace.
+    FlowGradeCreate:
+      properties:
+        conversation_id:
+          type: string
+          title: Conversation Id
+        grade:
+          type: integer
+          maximum: 1.0
+          minimum: -1.0
+          title: Grade
+          description: 1 = thumbs up, -1 = thumbs down
+        span_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Span Id
+          description: Span ID (null = overall)
+        comment:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Comment
+        agent_role:
+          anyOf:
+          - type: string
+            maxLength: 50
+          - type: 'null'
+          title: Agent Role
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: MLflow trace ID for feedback bridging (optional)
+      type: object
+      required:
+      - conversation_id
+      - grade
+      title: FlowGradeCreate
+      description: Request body for creating/updating a grade.
+    FlowGradeResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        conversation_id:
+          type: string
+          title: Conversation Id
+        span_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Span Id
+        grade:
+          type: integer
+          title: Grade
+        comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comment
+        agent_role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Agent Role
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - id
+      - conversation_id
+      - span_id
+      - grade
+      - comment
+      - agent_role
+      - created_at
+      title: FlowGradeResponse
+      description: Response schema for a grade.
+    GoogleCallbackRequest:
+      properties:
+        credential:
+          type: string
+          maxLength: 4096
+          title: Credential
+          description: Google ID token (JWT)
+      type: object
+      required:
+      - credential
+      title: GoogleCallbackRequest
+      description: Google OAuth callback with ID token credential.
+    GoogleUrlResponse:
+      properties:
+        url:
+          type: string
+          title: Url
+        client_id:
+          type: string
+          title: Client Id
+      type: object
+      required:
+      - url
+      - client_id
+      title: GoogleUrlResponse
+      description: Google OAuth authorization URL.
     HARegistrySummary:
       properties:
         automations_count:
@@ -3403,6 +6399,10 @@ components:
           type: integer
           title: Services Seeded
           default: 0
+        helpers_count:
+          type: integer
+          title: Helpers Count
+          default: 0
         last_synced_at:
           anyOf:
           - type: string
@@ -3417,7 +6417,18 @@ components:
           description: Known MCP capability gaps affecting this data
       type: object
       title: HARegistrySummary
-      description: Summary of HA registry (automations, scripts, scenes, services).
+      description: Summary of HA registry (automations, scripts, scenes, services, helpers).
+    HATokenLoginRequest:
+      properties:
+        ha_token:
+          type: string
+          maxLength: 1000
+          title: Ha Token
+      type: object
+      required:
+      - ha_token
+      title: HATokenLoginRequest
+      description: HA token login request body.
     HAWebhookPayload:
       properties:
         event_type:
@@ -3483,6 +6494,155 @@ components:
       - unhealthy
       title: HealthStatus
       description: Health check status values.
+    HelperCreateRequest:
+      properties:
+        helper_type:
+          $ref: '#/components/schemas/HelperType'
+          description: Type of helper to create
+        input_id:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Input Id
+          description: Unique ID (lowercase, underscores, no spaces)
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+          description: Display name
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Icon
+          description: MDI icon (e.g. mdi:toggle-switch)
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+          description: Type-specific configuration
+      type: object
+      required:
+      - helper_type
+      - input_id
+      - name
+      title: HelperCreateRequest
+      description: Request to create a helper entity.
+    HelperCreateResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        entity_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entity Id
+        input_id:
+          type: string
+          title: Input Id
+        helper_type:
+          type: string
+          title: Helper Type
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+      type: object
+      required:
+      - success
+      - input_id
+      - helper_type
+      title: HelperCreateResponse
+      description: Response from helper creation.
+    HelperDeleteResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        entity_id:
+          type: string
+          title: Entity Id
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+      type: object
+      required:
+      - success
+      - entity_id
+      title: HelperDeleteResponse
+      description: Response from helper deletion.
+    HelperListResponse:
+      properties:
+        helpers:
+          items:
+            $ref: '#/components/schemas/HelperResponse'
+          type: array
+          title: Helpers
+        total:
+          type: integer
+          title: Total
+          description: Total number of helpers
+        by_type:
+          additionalProperties:
+            type: integer
+          type: object
+          title: By Type
+          description: Count per helper domain
+      type: object
+      required:
+      - helpers
+      - total
+      title: HelperListResponse
+      description: Response for helper list.
+    HelperResponse:
+      properties:
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Full entity ID (e.g. input_boolean.vacation)
+        domain:
+          type: string
+          title: Domain
+          description: Helper domain
+        name:
+          type: string
+          title: Name
+          description: Display name
+        state:
+          type: string
+          title: State
+          description: Current state
+        attributes:
+          additionalProperties: true
+          type: object
+          title: Attributes
+          description: Entity attributes
+      type: object
+      required:
+      - entity_id
+      - domain
+      - name
+      - state
+      title: HelperResponse
+      description: A helper entity from Home Assistant.
+    HelperType:
+      type: string
+      enum:
+      - input_boolean
+      - input_number
+      - input_text
+      - input_select
+      - input_datetime
+      - input_button
+      - counter
+      - timer
+      title: HelperType
+      description: Supported helper types.
     InsightCreate:
       properties:
         type:
@@ -3490,10 +6650,12 @@ components:
           description: Insight category
         title:
           type: string
+          maxLength: 500
           title: Title
           description: Brief summary
         description:
           type: string
+          maxLength: 10000
           title: Description
           description: Detailed explanation (markdown supported)
         evidence:
@@ -3509,17 +6671,20 @@ components:
           description: Confidence score 0.0-1.0
         impact:
           type: string
+          maxLength: 20
           title: Impact
           description: 'Potential impact: low, medium, high, critical'
         entities:
           items:
             type: string
           type: array
+          maxItems: 100
           title: Entities
           description: Related entity IDs
         script_path:
           anyOf:
           - type: string
+            maxLength: 500
           - type: 'null'
           title: Script Path
           description: Path to analysis script
@@ -3533,6 +6698,7 @@ components:
         mlflow_run_id:
           anyOf:
           - type: string
+            maxLength: 100
           - type: 'null'
           title: Mlflow Run Id
           description: MLflow run ID for traceability
@@ -3632,6 +6798,18 @@ components:
           - type: 'null'
           title: Mlflow Run Id
           description: MLflow run ID
+        conversation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Conversation Id
+          description: Originating conversation ID
+        task_label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Label
+          description: Task/analysis label for context
         created_at:
           type: string
           format: date-time
@@ -3679,10 +6857,12 @@ components:
           title: Name
         analysis_type:
           type: string
+          maxLength: 50
           title: Analysis Type
           description: energy, behavioral, anomaly, device_health, etc.
         trigger_type:
           type: string
+          maxLength: 20
           pattern: ^(cron|webhook)$
           title: Trigger Type
           description: '''cron'' or ''webhook'''
@@ -3710,12 +6890,14 @@ components:
         cron_expression:
           anyOf:
           - type: string
+            maxLength: 100
           - type: 'null'
           title: Cron Expression
           description: Cron expression, e.g. '0 2 * * *'. Required for cron triggers.
         webhook_event:
           anyOf:
           - type: string
+            maxLength: 255
           - type: 'null'
           title: Webhook Event
           description: Event label for matching, e.g. 'device_offline'. Required for webhook triggers.
@@ -3846,6 +7028,7 @@ components:
         name:
           anyOf:
           - type: string
+            maxLength: 255
           - type: 'null'
           title: Name
         enabled:
@@ -3856,6 +7039,7 @@ components:
         analysis_type:
           anyOf:
           - type: string
+            maxLength: 50
           - type: 'null'
           title: Analysis Type
         entity_ids:
@@ -3881,11 +7065,13 @@ components:
         cron_expression:
           anyOf:
           - type: string
+            maxLength: 100
           - type: 'null'
           title: Cron Expression
         webhook_event:
           anyOf:
           - type: string
+            maxLength: 255
           - type: 'null'
           title: Webhook Event
         webhook_filter:
@@ -3954,16 +7140,105 @@ components:
       - correlation
       - device_health
       - behavioral_pattern
+      - comfort_analysis
+      - security_audit
+      - weather_correlation
+      - automation_efficiency
+      - custom
       title: InsightType
       description: Types of insights.
+    LoginRequest:
+      properties:
+        username:
+          type: string
+          maxLength: 100
+          title: Username
+        password:
+          type: string
+          maxLength: 128
+          title: Password
+      type: object
+      required:
+      - username
+      - password
+      title: LoginRequest
+      description: Login request body.
+    LoginResponse:
+      properties:
+        token:
+          type: string
+          title: Token
+        username:
+          type: string
+          title: Username
+        message:
+          type: string
+          title: Message
+          default: Login successful
+      type: object
+      required:
+      - token
+      - username
+      title: LoginResponse
+      description: Login response with token and user info.
+    LogoutResponse:
+      properties:
+        message:
+          type: string
+          title: Message
+          default: Logged out
+      type: object
+      title: LogoutResponse
+      description: Logout response.
+    MeResponse:
+      properties:
+        authenticated:
+          type: boolean
+          title: Authenticated
+        username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Username
+        auth_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Auth Method
+        has_passkeys:
+          type: boolean
+          title: Has Passkeys
+          default: false
+        display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Display Name
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Email
+        avatar_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Avatar Url
+      type: object
+      required:
+      - authenticated
+      title: MeResponse
+      description: Session status response.
     MessageResponse:
       properties:
         role:
           type: string
+          maxLength: 20
           title: Role
           description: 'Message role: user, assistant, system'
         content:
           type: string
+          maxLength: 50000
           title: Content
           description: Message content
         id:
@@ -4030,11 +7305,204 @@ components:
           type: string
           title: Owned By
           default: aether
+        input_cost_per_1m:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Input Cost Per 1M
+        output_cost_per_1m:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Output Cost Per 1M
       type: object
       required:
       - id
       title: ModelInfo
       description: Model information.
+    ModelPerformanceResponse:
+      properties:
+        model:
+          type: string
+          title: Model
+        agent_role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Agent Role
+        call_count:
+          type: integer
+          title: Call Count
+        avg_latency_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Avg Latency Ms
+        p95_latency_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: P95 Latency Ms
+        total_input_tokens:
+          type: integer
+          title: Total Input Tokens
+        total_output_tokens:
+          type: integer
+          title: Total Output Tokens
+        total_tokens:
+          type: integer
+          title: Total Tokens
+        total_cost_usd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Total Cost Usd
+        avg_cost_per_call:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Avg Cost Per Call
+      type: object
+      required:
+      - model
+      - agent_role
+      - call_count
+      - avg_latency_ms
+      - p95_latency_ms
+      - total_input_tokens
+      - total_output_tokens
+      - total_tokens
+      - total_cost_usd
+      - avg_cost_per_call
+      title: ModelPerformanceResponse
+      description: Auto-collected performance metrics from LLMUsage data.
+    ModelRatingCreate:
+      properties:
+        model_name:
+          type: string
+          maxLength: 255
+          title: Model Name
+          description: Model identifier
+        agent_role:
+          type: string
+          maxLength: 50
+          title: Agent Role
+          description: Agent role this rating applies to
+        rating:
+          type: integer
+          maximum: 5.0
+          minimum: 1.0
+          title: Rating
+          description: 1-5 star rating
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+          description: Optional notes
+        config_snapshot:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Config Snapshot
+          description: Model config at time of rating (temperature, context_window, cost, etc.)
+      type: object
+      required:
+      - model_name
+      - agent_role
+      - rating
+      title: ModelRatingCreate
+      description: Request body for creating a model rating.
+    ModelRatingListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ModelRatingResponse'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - items
+      - total
+      title: ModelRatingListResponse
+      description: Response for list of model ratings.
+    ModelRatingResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        model_name:
+          type: string
+          title: Model Name
+        agent_role:
+          type: string
+          title: Agent Role
+        rating:
+          type: integer
+          title: Rating
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        config_snapshot:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Config Snapshot
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - id
+      - model_name
+      - agent_role
+      - rating
+      - notes
+      - config_snapshot
+      - created_at
+      - updated_at
+      title: ModelRatingResponse
+      description: Response for a single model rating.
+    ModelSummaryResponse:
+      properties:
+        model_name:
+          type: string
+          title: Model Name
+        agent_role:
+          type: string
+          title: Agent Role
+        avg_rating:
+          type: number
+          title: Avg Rating
+        rating_count:
+          type: integer
+          title: Rating Count
+        latest_config:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Latest Config
+      type: object
+      required:
+      - model_name
+      - agent_role
+      - avg_rating
+      - rating_count
+      - latest_config
+      title: ModelSummaryResponse
+      description: Aggregated model summary with average rating.
     ModelsResponse:
       properties:
         object:
@@ -4172,12 +7640,154 @@ components:
       - started_at
       title: OptimizationResult
       description: Schema for optimization analysis results.
+    PasskeyInfo:
+      properties:
+        id:
+          type: string
+          title: Id
+        device_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Name
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        last_used_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used At
+      type: object
+      required:
+      - id
+      - device_name
+      - created_at
+      - last_used_at
+      title: PasskeyInfo
+      description: Public info about a registered passkey.
+    PasskeyListResponse:
+      properties:
+        passkeys:
+          items:
+            $ref: '#/components/schemas/PasskeyInfo'
+          type: array
+          title: Passkeys
+      type: object
+      required:
+      - passkeys
+      title: PasskeyListResponse
+      description: List of registered passkeys.
+    PromoteBothResponse:
+      properties:
+        config:
+          anyOf:
+          - $ref: '#/components/schemas/ConfigVersionResponse'
+          - type: 'null'
+        prompt:
+          anyOf:
+          - $ref: '#/components/schemas/PromptVersionResponse'
+          - type: 'null'
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - message
+      title: PromoteBothResponse
+      description: Response schema for promoting both config and prompt drafts.
+    PromptGenerateRequest:
+      properties:
+        user_input:
+          anyOf:
+          - type: string
+            maxLength: 5000
+          - type: 'null'
+          title: User Input
+          description: Custom instructions for prompt generation
+      type: object
+      title: PromptGenerateRequest
+      description: Request body for AI-assisted prompt generation.
+    PromptGenerateResponse:
+      properties:
+        generated_prompt:
+          type: string
+          title: Generated Prompt
+        agent_name:
+          type: string
+          title: Agent Name
+        agent_role:
+          type: string
+          title: Agent Role
+      type: object
+      required:
+      - generated_prompt
+      - agent_name
+      - agent_role
+      title: PromptGenerateResponse
+      description: Response from prompt generation.
+    PromptVersionResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        agent_id:
+          type: string
+          title: Agent Id
+        version_number:
+          type: integer
+          title: Version Number
+        version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Version
+        status:
+          type: string
+          title: Status
+        prompt_template:
+          type: string
+          title: Prompt Template
+        change_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Change Summary
+        promoted_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Promoted At
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - id
+      - agent_id
+      - version_number
+      - status
+      - prompt_template
+      - change_summary
+      - promoted_at
+      - created_at
+      - updated_at
+      title: PromptVersionResponse
+      description: Response schema for a prompt version.
     ProposalCreate:
       properties:
         name:
-          type: string
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
           title: Name
-          description: Automation name
+          description: Automation name (extracted from YAML if not provided)
         trigger:
           anyOf:
           - additionalProperties: true
@@ -4194,9 +7804,18 @@ components:
             type: array
           title: Actions
           description: HA action configuration
+        yaml_content:
+          anyOf:
+          - type: string
+            maxLength: 10000
+          - type: 'null'
+          title: Yaml Content
+          description: Raw YAML content; server will parse, normalize, and validate. When provided, trigger/actions/conditions/mode/name
+            are extracted from the YAML.
         description:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Description
           description: What the automation does
@@ -4211,11 +7830,13 @@ components:
           description: HA conditions
         mode:
           type: string
+          maxLength: 20
           title: Mode
           description: 'Execution mode: single, restart, queued, parallel'
           default: single
         proposal_type:
           type: string
+          maxLength: 50
           title: Proposal Type
           description: 'Type: automation, entity_command, script, scene'
           default: automation
@@ -4226,9 +7847,14 @@ components:
           - type: 'null'
           title: Service Call
           description: Service call details for entity_command type (domain, service, entity_id, data)
+        dashboard_config:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Dashboard Config
+          description: Full Lovelace config for dashboard proposals
       type: object
-      required:
-      - name
       title: ProposalCreate
       description: Schema for creating a proposal directly (bypass conversation).
     ProposalListResponse:
@@ -4382,6 +8008,40 @@ components:
           format: date-time
           title: Updated At
           description: Last update
+        original_yaml:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Original Yaml
+          description: Original YAML before review (present = review proposal)
+        review_notes:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Review Notes
+          description: Structured change annotations [{change, rationale, category}]
+        review_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Review Session Id
+          description: UUID grouping proposals from a batch review
+        parent_proposal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Proposal Id
+          description: Parent proposal ID for split reviews
+        dashboard_config:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Dashboard Config
+          description: Full Lovelace config for dashboard proposals
       type: object
       required:
       - id
@@ -4527,6 +8187,40 @@ components:
           format: date-time
           title: Updated At
           description: Last update
+        original_yaml:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Original Yaml
+          description: Original YAML before review (present = review proposal)
+        review_notes:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Review Notes
+          description: Structured change annotations [{change, rationale, category}]
+        review_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Review Session Id
+          description: UUID grouping proposals from a batch review
+        parent_proposal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Proposal Id
+          description: Parent proposal ID for split reviews
+        dashboard_config:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Dashboard Config
+          description: Full Lovelace config for dashboard proposals
         yaml_content:
           type: string
           title: Yaml Content
@@ -4554,6 +8248,35 @@ components:
       - yaml_content
       title: ProposalYAMLResponse
       description: Schema for proposal with YAML content.
+    QuickModelSwitch:
+      properties:
+        model_name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Model Name
+      type: object
+      required:
+      - model_name
+      title: QuickModelSwitch
+      description: Request body for quick model switch (create + promote in one step).
+    RegisterVerifyRequest:
+      properties:
+        credential:
+          additionalProperties: true
+          type: object
+          title: Credential
+        device_name:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Device Name
+      type: object
+      required:
+      - credential
+      title: RegisterVerifyRequest
+      description: WebAuthn registration response from the browser.
     RegistrySyncResponse:
       properties:
         automations_synced:
@@ -4584,28 +8307,134 @@ components:
       properties:
         reason:
           type: string
+          maxLength: 2000
           title: Reason
           description: Why the proposal was rejected
         rejected_by:
           type: string
+          maxLength: 100
           title: Rejected By
           description: Who is rejecting
           default: user
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: MLflow trace ID from the conversation that generated this proposal
       type: object
       required:
       - reason
       title: RejectionRequest
       description: Schema for rejecting a proposal.
+    ReportListResponse:
+      properties:
+        reports:
+          items:
+            $ref: '#/components/schemas/ReportResponse'
+          type: array
+          title: Reports
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - reports
+      - total
+      title: ReportListResponse
+      description: Response schema for a list of reports.
+    ReportResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        analysis_type:
+          type: string
+          title: Analysis Type
+        depth:
+          type: string
+          title: Depth
+        strategy:
+          type: string
+          title: Strategy
+        status:
+          type: string
+          title: Status
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        insight_ids:
+          items:
+            type: string
+          type: array
+          title: Insight Ids
+        artifact_paths:
+          items:
+            type: string
+          type: array
+          title: Artifact Paths
+        communication_log:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Communication Log
+        communication_count:
+          type: integer
+          title: Communication Count
+          default: 0
+        conversation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Conversation Id
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        completed_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Completed At
+      type: object
+      required:
+      - id
+      - title
+      - analysis_type
+      - depth
+      - strategy
+      - status
+      title: ReportResponse
+      description: Response schema for an analysis report.
+    ResetRequest:
+      properties:
+        section:
+          type: string
+          title: Section
+      type: object
+      required:
+      - section
+      title: ResetRequest
+      description: Reset a section to defaults.
     ReviewRequest:
       properties:
         reviewed_by:
           type: string
+          maxLength: 100
           title: Reviewed By
           description: Who reviewed
           default: user
         comment:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Comment
           description: Review comment
@@ -4617,6 +8446,7 @@ components:
         reason:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Reason
           description: Why rolling back
@@ -4639,6 +8469,17 @@ components:
           - type: 'null'
           title: Ha Automation Id
           description: HA automation ID that was rolled back
+        ha_disabled:
+          type: boolean
+          title: Ha Disabled
+          description: Whether the automation was actually disabled in HA
+          default: false
+        ha_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha Error
+          description: Error message if HA disable failed
         rolled_back_at:
           type: string
           format: date-time
@@ -4705,7 +8546,7 @@ components:
             type: object
           - type: 'null'
           title: Entity States
-          description: Entity states in scene (null - MCP gap)
+          description: Entity states in scene (null - HA gap)
       type: object
       required:
       - entity_id
@@ -4713,6 +8554,44 @@ components:
       - id
       title: SceneResponse
       description: Scene response with all fields.
+    ScorerResult:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Scorer name
+        pass_count:
+          type: integer
+          title: Pass Count
+          description: Number of traces that passed
+          default: 0
+        fail_count:
+          type: integer
+          title: Fail Count
+          description: Number of traces that failed
+          default: 0
+        error_count:
+          type: integer
+          title: Error Count
+          description: Number of scorer errors
+          default: 0
+        pass_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Pass Rate
+          description: Pass rate (0-1)
+        avg_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Avg Value
+          description: Average numeric value
+      type: object
+      required:
+      - name
+      title: ScorerResult
+      description: Result for a single scorer across all evaluated traces.
     ScriptListResponse:
       properties:
         scripts:
@@ -4785,14 +8664,14 @@ components:
             type: array
           - type: 'null'
           title: Sequence
-          description: Script sequence (null - MCP gap)
+          description: Script sequence (null - HA gap)
         fields:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
           title: Fields
-          description: Script input fields (null - MCP gap)
+          description: Script input fields (null - HA gap)
       type: object
       required:
       - entity_id
@@ -4804,10 +8683,12 @@ components:
       properties:
         domain:
           type: string
+          maxLength: 100
           title: Domain
           description: Service domain
         service:
           type: string
+          maxLength: 100
           title: Service
           description: Service name
         data:
@@ -4929,6 +8810,96 @@ components:
       - id
       title: ServiceResponse
       description: Service response with all fields.
+    SettingsPatchRequest:
+      properties:
+        chat:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Chat
+        dashboard:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Dashboard
+        data_science:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Data Science
+      type: object
+      title: SettingsPatchRequest
+      description: Partial update — include only the sections you want to change.
+    SettingsResponse:
+      properties:
+        chat:
+          additionalProperties: true
+          type: object
+          title: Chat
+        dashboard:
+          additionalProperties: true
+          type: object
+          title: Dashboard
+        data_science:
+          additionalProperties: true
+          type: object
+          title: Data Science
+      type: object
+      required:
+      - chat
+      - dashboard
+      - data_science
+      title: SettingsResponse
+      description: Full settings response with all sections.
+    SetupRequest:
+      properties:
+        ha_url:
+          type: string
+          maxLength: 2048
+          title: Ha Url
+        ha_token:
+          type: string
+          maxLength: 1000
+          title: Ha Token
+        password:
+          anyOf:
+          - type: string
+            maxLength: 128
+          - type: 'null'
+          title: Password
+      type: object
+      required:
+      - ha_url
+      - ha_token
+      title: SetupRequest
+      description: First-time setup request body.
+    SetupResponse:
+      properties:
+        token:
+          type: string
+          title: Token
+        message:
+          type: string
+          title: Message
+          default: Setup complete
+      type: object
+      required:
+      - token
+      title: SetupResponse
+      description: Setup response with JWT.
+    SetupStatusResponse:
+      properties:
+        setup_complete:
+          type: boolean
+          title: Setup Complete
+      type: object
+      required:
+      - setup_complete
+      title: SetupStatusResponse
+      description: Setup status check response.
     SpanNode:
       properties:
         span_id:
@@ -4983,6 +8954,7 @@ components:
         comment:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Comment
           description: Optional comment
@@ -5012,6 +8984,7 @@ components:
         reason:
           anyOf:
           - type: string
+            maxLength: 2000
           - type: 'null'
           title: Reason
           description: Reason for rejection
@@ -5057,6 +9030,12 @@ components:
           - type: 'null'
           title: Uptime Seconds
           description: Application uptime in seconds
+        public_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Public Url
+          description: Externally reachable base URL (for webhook URLs, etc.)
       type: object
       required:
       - status
@@ -5074,6 +9053,11 @@ components:
         duration_ms:
           type: number
           title: Duration Ms
+        started_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Started At
         root_span:
           anyOf:
           - $ref: '#/components/schemas/SpanNode'
@@ -5134,6 +9118,389 @@ components:
       - message
       title: WebhookResponse
       description: Response after processing a webhook.
+    WorkflowCreateRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+        description:
+          type: string
+          maxLength: 2000
+          title: Description
+          default: ''
+        state_type:
+          type: string
+          maxLength: 100
+          title: State Type
+        nodes:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          maxItems: 100
+          minItems: 1
+          title: Nodes
+        edges:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          maxItems: 200
+          title: Edges
+        conditional_edges:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          maxItems: 50
+          title: Conditional Edges
+        intent_patterns:
+          items:
+            type: string
+          type: array
+          maxItems: 30
+          title: Intent Patterns
+      type: object
+      required:
+      - name
+      - state_type
+      - nodes
+      title: WorkflowCreateRequest
+      description: Request body for creating a workflow definition.
+    WorkflowListResponse:
+      properties:
+        definitions:
+          items:
+            $ref: '#/components/schemas/WorkflowResponse'
+          type: array
+          title: Definitions
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - definitions
+      - total
+      title: WorkflowListResponse
+      description: Response for listing workflow definitions.
+    WorkflowPresetResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+        agents:
+          items:
+            type: string
+          type: array
+          title: Agents
+        workflow_key:
+          type: string
+          title: Workflow Key
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Icon
+      type: object
+      required:
+      - id
+      - name
+      - description
+      - agents
+      - workflow_key
+      title: WorkflowPresetResponse
+      description: Response schema for a single workflow preset.
+    WorkflowPresetsListResponse:
+      properties:
+        presets:
+          items:
+            $ref: '#/components/schemas/WorkflowPresetResponse'
+          type: array
+          title: Presets
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - presets
+      - total
+      title: WorkflowPresetsListResponse
+      description: Response schema for listing workflow presets.
+    WorkflowResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+        state_type:
+          type: string
+          title: State Type
+        version:
+          type: integer
+          title: Version
+        status:
+          type: string
+          title: Status
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+        intent_patterns:
+          items:
+            type: string
+          type: array
+          title: Intent Patterns
+        created_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - description
+      - state_type
+      - version
+      - status
+      - config
+      - intent_patterns
+      - created_by
+      - created_at
+      - updated_at
+      title: WorkflowResponse
+      description: Response for a workflow definition.
+    ZoneCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          title: Name
+          description: Human-readable zone name
+        ha_url:
+          type: string
+          maxLength: 500
+          title: Ha Url
+          description: Primary/local HA URL
+        ha_url_remote:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Ha Url Remote
+          description: Public/remote HA URL
+        ha_token:
+          type: string
+          title: Ha Token
+          description: HA long-lived access token
+        is_default:
+          type: boolean
+          title: Is Default
+          default: false
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
+        icon:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Icon
+          description: MDI icon name
+        url_preference:
+          type: string
+          enum:
+          - auto
+          - local
+          - remote
+          title: Url Preference
+          description: 'Which URL to use: auto (local then remote), local, or remote'
+          default: auto
+      type: object
+      required:
+      - name
+      - ha_url
+      - ha_token
+      title: ZoneCreate
+      description: Request body for creating a new zone.
+    ZoneResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        slug:
+          type: string
+          title: Slug
+        ha_url:
+          type: string
+          title: Ha Url
+        ha_url_remote:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha Url Remote
+        is_default:
+          type: boolean
+          title: Is Default
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
+        icon:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Icon
+        url_preference:
+          type: string
+          title: Url Preference
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - slug
+      - ha_url
+      - ha_url_remote
+      - is_default
+      - latitude
+      - longitude
+      - icon
+      - url_preference
+      - created_at
+      - updated_at
+      title: ZoneResponse
+      description: Zone response (no token exposed).
+    ZoneTestResult:
+      properties:
+        local_ok:
+          type: boolean
+          title: Local Ok
+        remote_ok:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Remote Ok
+        local_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Local Version
+        remote_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Version
+        local_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Local Error
+        remote_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Error
+      type: object
+      required:
+      - local_ok
+      title: ZoneTestResult
+      description: Result of testing connectivity to a zone.
+    ZoneUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Name
+        ha_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Ha Url
+        ha_url_remote:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Ha Url Remote
+        ha_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha Token
+          description: New token (re-encrypted)
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
+        icon:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Icon
+        url_preference:
+          anyOf:
+          - type: string
+            enum:
+            - auto
+            - local
+            - remote
+          - type: 'null'
+          title: Url Preference
+          description: 'Which URL to use: auto, local, or remote'
+      type: object
+      title: ZoneUpdate
+      description: Request body for updating a zone. Only provided fields are changed.
   securitySchemes:
     APIKeyHeader:
       type: apiKey

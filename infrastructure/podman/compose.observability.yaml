@@ -1,0 +1,103 @@
+# =============================================================================
+# Project Aether - Observability Stack Override
+# =============================================================================
+#
+# Adds Prometheus, Grafana, Loki, and Promtail for centralized
+# metrics, dashboards, and log aggregation.
+#
+# Usage:
+#   make run-observed    # distributed + observability
+#
+# URLs:
+#   Prometheus: http://localhost:9090
+#   Grafana:    http://localhost:3001 (admin / admin)
+#   Loki:       http://localhost:3100 (internal, queried via Grafana)
+
+services:
+  # ===========================================================================
+  # Prometheus — metrics scraping
+  # ===========================================================================
+  prometheus:
+    image: docker.io/prom/prometheus:v2.53.0
+    container_name: aether-prometheus
+    restart: unless-stopped
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================================================
+  # Grafana — dashboards and visualization
+  # ===========================================================================
+  grafana:
+    image: docker.io/grafana/grafana:11.4.0
+    container_name: aether-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================================================
+  # Loki — log aggregation
+  # ===========================================================================
+  loki:
+    image: docker.io/grafana/loki:3.4.2
+    container_name: aether-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================================================
+  # Promtail — log shipping from containers to Loki
+  # ===========================================================================
+  promtail:
+    image: docker.io/grafana/promtail:3.4.2
+    container_name: aether-promtail
+    restart: unless-stopped
+    volumes:
+      - ../promtail/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+
+volumes:
+  prometheus_data:
+    name: aether-prometheus-data
+  grafana_data:
+    name: aether-grafana-data
+  loki_data:
+    name: aether-loki-data

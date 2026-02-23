@@ -164,6 +164,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Add exception handlers
     _register_exception_handlers(app)
 
+    # Prometheus metrics endpoint at /metrics
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator().instrument(app).expose(app, include_in_schema=False)
+
     return app
 
 

@@ -44,6 +44,25 @@ _log = logging.getLogger(__name__)
 _FALLBACK_STREAM_TIMEOUT = 900  # 15 minutes
 
 
+def _should_use_distributed() -> bool:
+    """Check if the gateway should delegate to remote A2A services."""
+    from src.settings import get_settings
+
+    return get_settings().deployment_mode == "distributed"
+
+
+def _create_distributed_client() -> A2ARemoteClient:
+    """Create an A2ARemoteClient pointing at the Architect service."""
+    from src.agents.a2a_client import A2ARemoteClient
+    from src.settings import get_settings
+
+    return A2ARemoteClient(base_url=get_settings().architect_service_url)
+
+
+if TYPE_CHECKING:
+    from src.agents.a2a_client import A2ARemoteClient
+
+
 async def _create_chat_completion(
     request: ChatCompletionRequest,
 ) -> ChatCompletionResponse | dict[str, Any]:
@@ -206,7 +225,25 @@ async def _stream_chat_completion(
             routing = resolve_agent_routing(agent=request.agent)
             apply_routing_to_state(state, routing)
 
-            # Propagate user's model selection to all delegated agents
+            # Distributed mode: delegate to remote Architect via A2A
+            if _should_use_distributed():
+                _log.info(
+                    "Distributed mode: delegating to remote Architect at %s",
+                    _create_distributed_client().base_url,
+                )
+                a2a_client = _create_distributed_client()
+                try:
+                    await a2a_client.invoke(state)
+                    yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'start', 'ts': time.time()})}\n\n"
+                    yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
+                    yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': ['architect'], 'ts': time.time()})}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    _log.exception("Distributed Architect call failed")
+                    yield _format_sse_error(f"Distributed call failed: {e}")
+                return
+
+            # Monolith mode: run Architect in-process
             with model_context(
                 model_name=request.model,
                 temperature=request.temperature,

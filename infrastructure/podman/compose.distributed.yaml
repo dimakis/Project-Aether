@@ -117,3 +117,117 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ===========================================================================
+  # Developer Agent
+  # ===========================================================================
+  developer:
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.service
+      args:
+        AETHER_SERVICE: developer
+    image: aether-developer:latest
+    container_name: aether-developer
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8004:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # Librarian Agent
+  # ===========================================================================
+  librarian:
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.service
+      args:
+        AETHER_SERVICE: librarian
+    image: aether-librarian:latest
+    container_name: aether-librarian
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8005:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # Dashboard Designer Agent
+  # ===========================================================================
+  dashboard-designer:
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.service
+      args:
+        AETHER_SERVICE: dashboard_designer
+    image: aether-dashboard-designer:latest
+    container_name: aether-dashboard-designer
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8006:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # Orchestrator Agent
+  # ===========================================================================
+  orchestrator-agent:
+    build:
+      context: ../..
+      dockerfile: infrastructure/podman/Containerfile.service
+      args:
+        AETHER_SERVICE: orchestrator
+    image: aether-orchestrator:latest
+    container_name: aether-orchestrator
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      DEPLOYMENT_MODE: distributed
+      ARCHITECT_SERVICE_URL: http://architect:8000
+      DATABASE_URL: postgresql+asyncpg://aether:aether@postgres:5432/aether
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8007:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -151,12 +151,65 @@ class TestDualModeChainResolution:
         assert invoker.mode == "remote"
         assert invoker.service_url == "http://ds-analysts:8000"
 
+    def test_developer_resolves_to_developer_url(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_s:
+            mock_s.return_value.deployment_mode = "distributed"
+            mock_s.return_value.developer_service_url = "http://developer:8000"
+            invoker = resolve_agent_invoker("developer")
+
+        assert invoker.mode == "remote"
+        assert invoker.service_url == "http://developer:8000"
+
+    def test_librarian_resolves_to_librarian_url(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_s:
+            mock_s.return_value.deployment_mode = "distributed"
+            mock_s.return_value.librarian_service_url = "http://librarian:8000"
+            invoker = resolve_agent_invoker("librarian")
+
+        assert invoker.mode == "remote"
+        assert invoker.service_url == "http://librarian:8000"
+
+    def test_dashboard_designer_resolves_to_url(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_s:
+            mock_s.return_value.deployment_mode = "distributed"
+            mock_s.return_value.dashboard_designer_service_url = "http://dashboard-designer:8000"
+            invoker = resolve_agent_invoker("dashboard_designer")
+
+        assert invoker.mode == "remote"
+        assert invoker.service_url == "http://dashboard-designer:8000"
+
+    def test_orchestrator_resolves_to_orchestrator_url(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_s:
+            mock_s.return_value.deployment_mode = "distributed"
+            mock_s.return_value.orchestrator_service_url = "http://orchestrator-agent:8000"
+            invoker = resolve_agent_invoker("orchestrator")
+
+        assert invoker.mode == "remote"
+        assert invoker.service_url == "http://orchestrator-agent:8000"
+
     def test_monolith_mode_all_local(self):
         from src.agents.dual_mode import resolve_agent_invoker
 
         with patch("src.settings.get_settings") as mock_s:
             mock_s.return_value.deployment_mode = "monolith"
 
-            for name in ["architect", "data_scientist", "energy_analyst"]:
+            all_agents = [
+                "architect",
+                "developer",
+                "librarian",
+                "dashboard_designer",
+                "orchestrator",
+                "data_scientist",
+                "energy_analyst",
+            ]
+            for name in all_agents:
                 invoker = resolve_agent_invoker(name)
                 assert invoker.mode == "local", f"{name} should be local in monolith"

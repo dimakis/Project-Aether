@@ -57,6 +57,7 @@ dependencies = [
     # YAML schema validation (Feature 26: YAML Schema Compiler/Validator)
     "jsonschema>=4.20.0,<5.0.0",
     "a2a-sdk[http-server]>=0.3.24",
+    "prometheus-fastapi-instrumentator>=7.1.0",
 ]
 
 [project.scripts]
