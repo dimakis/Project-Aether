@@ -62,7 +62,13 @@ def _translate_status(event: TaskStatusUpdateEvent) -> StreamEvent:
 
 
 def _translate_artifact(event: TaskArtifactUpdateEvent) -> StreamEvent:
-    """Translate a task artifact update."""
+    """Translate a task artifact update.
+
+    Handles three artifact formats:
+    - TextPart: token content from streaming LLM output
+    - DataPart with ``type`` key: forwarded StreamEvent (tool/agent/thinking events)
+    - DataPart without ``type``: legacy tool result
+    """
     if not event.artifact or not event.artifact.parts:
         return StreamEvent(type="status", content="Empty artifact received")
 
@@ -73,10 +79,13 @@ def _translate_artifact(event: TaskArtifactUpdateEvent) -> StreamEvent:
             return StreamEvent(type="token", content=str(inner.text))
 
         if hasattr(inner, "data") and isinstance(inner.data, dict):
+            data = inner.data
+            if "type" in data:
+                return StreamEvent(**{k: v for k, v in data.items() if v is not None})
             return StreamEvent(
                 type="_tool_result",
-                result=str(inner.data),
-                content=str(inner.data),
+                result=str(data),
+                content=str(data),
             )
 
     return StreamEvent(type="status", content="Unrecognized artifact format")

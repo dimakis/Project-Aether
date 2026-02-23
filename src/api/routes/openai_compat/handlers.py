@@ -44,6 +44,31 @@ _log = logging.getLogger(__name__)
 _FALLBACK_STREAM_TIMEOUT = 900  # 15 minutes
 
 
+def _make_token_chunk(
+    completion_id: str, created: int, model: str, tok: str
+) -> str:
+    """Build an SSE line for a single token delta."""
+    return (
+        "data: "
+        + json.dumps(
+            {
+                "id": completion_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": tok},
+                        "finish_reason": None,
+                    }
+                ],
+            }
+        )
+        + "\n\n"
+    )
+
+
 def _should_use_distributed() -> bool:
     """Check if the gateway should delegate to remote A2A services."""
     from src.settings import get_settings
@@ -225,40 +250,103 @@ async def _stream_chat_completion(
             routing = resolve_agent_routing(agent=request.agent)
             apply_routing_to_state(state, routing)
 
-            # Distributed mode: delegate to remote Architect via A2A
+            # Distributed mode: delegate to remote Architect via A2A streaming
             if _should_use_distributed():
-                _log.info(
-                    "Distributed mode: delegating to remote Architect at %s",
-                    _create_distributed_client().base_url,
-                )
                 a2a_client = _create_distributed_client()
+                _log.info(
+                    "Distributed mode: streaming from remote Architect at %s",
+                    a2a_client.base_url,
+                )
                 try:
-                    result = await a2a_client.invoke(state)
+                    tag_filter = _StreamingTagFilter()
+                    agents_seen: list[str] = ["architect"]
+                    stream_started = False
 
-                    yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'start', 'ts': time.time()})}\n\n"
+                    async for event in a2a_client.stream(state):
+                        event_type = event.get("type")
 
-                    # Extract response content from the result
-                    response_text = ""
-                    if isinstance(result, dict):
-                        # Check common result keys for content
-                        for key in ("content", "response", "active_agent", "user_intent"):
-                            if result.get(key):
-                                response_text += str(result[key]) + " "
-                        if not response_text:
-                            response_text = json.dumps(result)
+                        if not stream_started:
+                            stream_started = True
+                            yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'start', 'ts': time.time()})}\n\n"
 
-                    # Stream the response as token chunks
-                    if response_text.strip():
-                        chunk = {
-                            "id": completion_id,
-                            "object": "chat.completion.chunk",
-                            "created": created,
-                            "model": request.model,
-                            "choices": [{"index": 0, "delta": {"content": response_text.strip()}, "finish_reason": None}],
-                        }
-                        yield f"data: {json.dumps(chunk)}\n\n"
+                        if event_type == "token":
+                            raw = event.get("content", "")
+                            for ft in tag_filter.feed(raw):
+                                if not ft.text:
+                                    continue
+                                if ft.is_thinking:
+                                    yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
+                                else:
+                                    yield _make_token_chunk(completion_id, created, request.model, ft.text)
 
-                    # Final chunk with finish_reason
+                        elif event_type == "tool_start":
+                            tool_name = event.get("tool", "")
+                            agent_name = event.get("agent", "architect")
+                            if agent_name not in agents_seen:
+                                agents_seen.append(agent_name)
+                            trace_ev: dict[str, object] = {
+                                "type": "trace",
+                                "agent": agent_name,
+                                "event": "tool_call",
+                                "tool": tool_name,
+                                "ts": time.time(),
+                            }
+                            yield f"data: {json.dumps(trace_ev)}\n\n"
+                            yield f"data: {json.dumps({'type': 'status', 'content': f'Running {tool_name}...'})}\n\n"
+
+                        elif event_type == "tool_end":
+                            tool_name = event.get("tool", "")
+                            agent_name = event.get("agent", "architect")
+                            result_text = event.get("result", "")
+                            if result_text:
+                                yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'tool_result', 'tool': tool_name, 'tool_result': result_text[:200], 'ts': time.time()})}\n\n"
+                            yield f"data: {json.dumps({'type': 'status', 'content': ''})}\n\n"
+
+                        elif event_type in ("agent_start", "agent_end"):
+                            agent_name = event.get("agent", "")
+                            if agent_name:
+                                if agent_name not in agents_seen:
+                                    agents_seen.append(agent_name)
+                                a2a_ev = "start" if event_type == "agent_start" else "end"
+                                yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': a2a_ev, 'ts': time.time()})}\n\n"
+
+                        elif event_type == "delegation":
+                            yield f"data: {json.dumps({'type': 'delegation', 'from': event.get('agent', ''), 'to': event.get('target', ''), 'content': event.get('content', ''), 'ts': time.time()})}\n\n"
+
+                        elif event_type == "thinking":
+                            yield f"data: {json.dumps({'type': 'thinking', 'content': event.get('content', '')})}\n\n"
+
+                        elif event_type == "status":
+                            content = event.get("content", "")
+                            if content:
+                                yield f"data: {json.dumps({'type': 'status', 'content': content})}\n\n"
+
+                        elif event_type == "trace_id":
+                            tid = event.get("content", "")
+                            if tid:
+                                yield f"data: {json.dumps({'type': 'metadata', 'trace_id': tid})}\n\n"
+
+                        elif event_type == "approval_required":
+                            yield _make_token_chunk(
+                                completion_id, created, request.model,
+                                event.get("content", "Approval required"),
+                            )
+
+                        elif event_type == "error":
+                            yield _format_sse_error(event.get("content", "Agent error"))
+
+                    for ft in tag_filter.flush():
+                        if not ft.text:
+                            continue
+                        if ft.is_thinking:
+                            yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
+                        else:
+                            yield _make_token_chunk(completion_id, created, request.model, ft.text)
+
+                    if stream_started:
+                        yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
+                        yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': agents_seen, 'ts': time.time()})}\n\n"
+
                     final_chunk = {
                         "id": completion_id,
                         "object": "chat.completion.chunk",
@@ -267,15 +355,13 @@ async def _stream_chat_completion(
                         "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
                     }
                     yield f"data: {json.dumps(final_chunk)}\n\n"
-
-                    yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
-                    yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': ['architect'], 'ts': time.time()})}\n\n"
+                    yield f"data: {json.dumps({'type': 'metadata', 'conversation_id': conversation_id})}\n\n"
 
                     await session.commit()
                     yield "data: [DONE]\n\n"
                 except Exception as e:
-                    _log.exception("Distributed Architect call failed")
-                    yield _format_sse_error(f"Distributed call failed: {e}")
+                    _log.exception("Distributed streaming failed")
+                    yield _format_sse_error(f"Distributed streaming failed: {e}")
                 return
 
             # Monolith mode: run Architect in-process
@@ -297,30 +383,8 @@ async def _stream_chat_completion(
                 # --- Agent lifecycle tracking for the activity panel ---
                 # Use a stack to support nested agents (e.g. DS team -> energy_analyst)
                 agent_stack: list[str] = []
-                agents_seen: list[str] = ["architect"]
+                agents_seen: list[str] = ["architect"]  # type: ignore[no-redef]
                 stream_started = False
-
-                def _make_token_chunk(tok: str) -> str:
-                    """Build an SSE line for a single token delta."""
-                    return (
-                        "data: "
-                        + json.dumps(
-                            {
-                                "id": completion_id,
-                                "object": "chat.completion.chunk",
-                                "created": created,
-                                "model": request.model,
-                                "choices": [
-                                    {
-                                        "index": 0,
-                                        "delta": {"content": tok},
-                                        "finish_reason": None,
-                                    }
-                                ],
-                            }
-                        )
-                        + "\n\n"
-                    )
 
                 # --- Real token-by-token streaming ---
                 async for event in workflow.stream_conversation(
@@ -344,7 +408,7 @@ async def _stream_chat_completion(
                             if ft.is_thinking:
                                 yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
                             else:
-                                yield _make_token_chunk(ft.text)
+                                yield _make_token_chunk(completion_id, created, request.model, ft.text)
 
                     elif event_type == "trace_id":
                         # Early trace_id — emit immediately so
@@ -373,18 +437,17 @@ async def _stream_chat_completion(
                                 if target not in agents_seen:
                                     agents_seen.append(target)
 
-                            trace_ev: dict[str, object] = {
+                            tool_trace: dict[str, object] = {
                                 "type": "trace",
                                 "agent": target,
                                 "event": "tool_call",
                                 "tool": tool_name,
                                 "ts": time.time(),
                             }
-                            # Include tool args summary for the activity feed
                             tool_args = event.get("args", "")
                             if tool_args:
-                                trace_ev["tool_args"] = tool_args[:200]
-                            yield f"data: {json.dumps(trace_ev)}\n\n"
+                                tool_trace["tool_args"] = tool_args[:200]
+                            yield f"data: {json.dumps(tool_trace)}\n\n"
                             # Status event for UI
                             status_ev = {
                                 "type": "status",
@@ -489,7 +552,7 @@ async def _stream_chat_completion(
                     if ft.is_thinking:
                         yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
                     else:
-                        yield _make_token_chunk(ft.text)
+                        yield _make_token_chunk(completion_id, created, request.model, ft.text)
 
             # --- Agent lifecycle: complete event ---
             if stream_started and not is_background:
