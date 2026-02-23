@@ -98,6 +98,10 @@ class AgentResponse(BaseModel):
     description: str
     version: str
     status: str
+    domain: str | None = None
+    is_routable: bool = False
+    intent_patterns: list[str] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
     active_config_version_id: str | None
     active_prompt_version_id: str | None
     active_config: ConfigVersionResponse | None = None

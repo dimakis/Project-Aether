@@ -13,6 +13,9 @@ import {
   Ban,
   Copy,
   BarChart3,
+  Globe,
+  Route,
+  ExternalLink,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +86,21 @@ export function AgentCard({
               {agent.status}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">{agent.description}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <p className="text-xs text-muted-foreground">{agent.description}</p>
+            {agent.is_routable && (
+              <Badge variant="outline" className="text-[9px] text-cyan-400 border-cyan-400/30">
+                <Route className="mr-0.5 h-2.5 w-2.5" />
+                Routable
+              </Badge>
+            )}
+            {agent.domain && (
+              <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-400/30">
+                <Globe className="mr-0.5 h-2.5 w-2.5" />
+                {agent.domain}
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           {agent.active_config?.model_name && !showModelPicker && (

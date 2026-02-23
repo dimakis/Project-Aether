@@ -1,6 +1,7 @@
-import { Power, PowerOff, Star } from "lucide-react";
+import { Power, PowerOff, Star, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type { AgentDetail, AgentStatusValue } from "@/lib/types";
 
 export function OverviewTab({
@@ -47,6 +48,59 @@ export function OverviewTab({
           </Button>
         </div>
       </div>
+
+      {/* Routing metadata */}
+      {(agent.domain || agent.is_routable || (agent.intent_patterns && agent.intent_patterns.length > 0) || (agent.capabilities && agent.capabilities.length > 0)) && (
+        <Card className="bg-card/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium">Routing Metadata</CardTitle>
+              <a
+                href="/.well-known/agent-card.json"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Agent Card <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Domain</span>
+              <span>{agent.domain ?? "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Routable</span>
+              <span>{agent.is_routable ? "Yes" : "No"}</span>
+            </div>
+            {agent.intent_patterns && agent.intent_patterns.length > 0 && (
+              <div>
+                <span className="text-xs text-muted-foreground">Intent Patterns</span>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {agent.intent_patterns.map((p) => (
+                    <Badge key={p} variant="outline" className="text-[9px] font-normal">
+                      {p}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            {agent.capabilities && agent.capabilities.length > 0 && (
+              <div>
+                <span className="text-xs text-muted-foreground">Capabilities</span>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {agent.capabilities.map((c) => (
+                    <Badge key={c} variant="outline" className="text-[9px] font-normal text-emerald-400 border-emerald-400/30">
+                      {c}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Current config summary */}
       <div className="grid gap-4 sm:grid-cols-2">
