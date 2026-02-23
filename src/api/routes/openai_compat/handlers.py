@@ -233,10 +233,45 @@ async def _stream_chat_completion(
                 )
                 a2a_client = _create_distributed_client()
                 try:
-                    await a2a_client.invoke(state)
+                    result = await a2a_client.invoke(state)
+
                     yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'start', 'ts': time.time()})}\n\n"
+
+                    # Extract response content from the result
+                    response_text = ""
+                    if isinstance(result, dict):
+                        # Check common result keys for content
+                        for key in ("content", "response", "active_agent", "user_intent"):
+                            if result.get(key):
+                                response_text += str(result[key]) + " "
+                        if not response_text:
+                            response_text = json.dumps(result)
+
+                    # Stream the response as token chunks
+                    if response_text.strip():
+                        chunk = {
+                            "id": completion_id,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": request.model,
+                            "choices": [{"index": 0, "delta": {"content": response_text.strip()}, "finish_reason": None}],
+                        }
+                        yield f"data: {json.dumps(chunk)}\n\n"
+
+                    # Final chunk with finish_reason
+                    final_chunk = {
+                        "id": completion_id,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": request.model,
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                    }
+                    yield f"data: {json.dumps(final_chunk)}\n\n"
+
                     yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
                     yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': ['architect'], 'ts': time.time()})}\n\n"
+
+                    await session.commit()
                     yield "data: [DONE]\n\n"
                 except Exception as e:
                     _log.exception("Distributed Architect call failed")
