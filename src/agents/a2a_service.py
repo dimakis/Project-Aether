@@ -312,4 +312,9 @@ def create_a2a_service(
     app.add_route("/health", _health, methods=["GET"])
     app.add_route("/ready", _ready, methods=["GET"])
 
+    # Prometheus metrics endpoint at /metrics
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator().instrument(app).expose(app, include_in_schema=False)
+
     return app

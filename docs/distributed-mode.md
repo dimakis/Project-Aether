@@ -5,20 +5,29 @@ Aether can run agents as separate containers communicating via the [A2A protocol
 ## Architecture
 
 ```
-User  -->  API Gateway (:8000)  -->  Architect (:8001)  -->  DS Orchestrator (:8002)  -->  DS Analysts (:8003)
-               |                        |                        |                            |
-               v                        v                        v                            v
-           PostgreSQL              PostgreSQL              PostgreSQL                    gVisor Sandbox
-           MLflow                  MLflow                  MLflow
+User  -->  API Gateway (:8000)  -->  Orchestrator (:8007)  -->  Architect (:8001)
+                                                                     |
+                                         +---------------------------+---------------------------+
+                                         |                           |                           |
+                                   DS Orchestrator (:8002)    Developer (:8004)        Dashboard Designer (:8006)
+                                         |
+                                   DS Analysts (:8003)           Librarian (:8005)
+                                         |
+                                    gVisor Sandbox
 ```
 
-**API Gateway** (monolith app) handles HTTP routing, auth, and SSE streaming. When `DEPLOYMENT_MODE=distributed`, it delegates to the Architect container via A2A instead of running the agent in-process.
+**7 agent service containers** + API Gateway + infrastructure:
 
-**Architect** is the primary conversational agent. It handles user intent, generates proposals, and delegates analysis to the DS Orchestrator.
-
-**DS Orchestrator** coordinates the Data Science team. It decides which analysts to run, manages confidence-based retry loops, and synthesizes findings.
-
-**DS Analysts** contains Energy, Behavioral, and Diagnostic analysts in a single container. They share analysis state in-process and execute sequentially.
+| Container | Port | Agent(s) | Pattern |
+|-----------|------|----------|---------|
+| API Gateway | 8000 | None (routing) | Gateway |
+| Architect | 8001 | ArchitectAgent | Single-agent |
+| DS Orchestrator | 8002 | DataScientistAgent | Single-agent |
+| DS Analysts | 8003 | Energy + Behavioral + Diagnostic | Multi-agent |
+| Developer | 8004 | DeveloperAgent | Single-agent |
+| Librarian | 8005 | LibrarianAgent | Single-agent |
+| Dashboard Designer | 8006 | DashboardDesignerAgent | Single-agent |
+| Orchestrator | 8007 | OrchestratorAgent | Single-agent |
 
 ## Prerequisites
 
@@ -51,24 +60,17 @@ Check that all containers are healthy:
 # Gateway
 curl http://localhost:8000/api/v1/health
 
-# Architect
-curl http://localhost:8001/health
-
-# DS Orchestrator
-curl http://localhost:8002/health
-
-# DS Analysts
-curl http://localhost:8003/health
+# All agent services
+for port in 8001 8002 8003 8004 8005 8006 8007; do
+  echo "Port $port: $(curl -s http://localhost:$port/health)"
+done
 ```
 
 Check Agent Cards:
 
 ```bash
-# Architect capabilities
+# Any agent service
 curl http://localhost:8001/.well-known/agent-card.json | python -m json.tool
-
-# DS Analysts capabilities
-curl http://localhost:8003/.well-known/agent-card.json | python -m json.tool
 ```
 
 ## Send a Test Request
@@ -151,7 +153,7 @@ podman logs aether-ds-analysts
 Common causes:
 - Database not ready (check Postgres health first)
 - Missing `.env` file (LLM API key needed for agent initialization)
-- Port conflict (8001-8003 already in use)
+- Port conflict (8001-8007 already in use)
 
 ### Connection refused between services
 
@@ -172,14 +174,34 @@ podman exec aether-app env | grep DEPLOYMENT_MODE
 
 If it shows `monolith`, the gateway runs agents in-process and ignores the service containers.
 
-## Comparison: Monolith vs Distributed
+## Observability Stack
 
-| Aspect | Monolith | Distributed |
-|--------|----------|-------------|
-| Containers | 1 (app) + infra | 4 (gateway + 3 agents) + infra |
-| Latency | In-process calls | HTTP round-trips (~5-20ms/hop) |
-| Scaling | Single process | Independent per agent |
-| Debugging | Single log stream | Per-container logs |
-| Resource isolation | Shared | Per-container limits |
-| Development | Hot-reload friendly | Requires rebuild on code change |
-| Command | `make run` | `make run-distributed` |
+Add Prometheus, Grafana, and Loki for metrics, dashboards, and centralized logs:
+
+```bash
+make run-observed    # distributed + observability
+make down-observed   # stop everything
+```
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Prometheus | http://localhost:9090 | Metrics scraping (every 15s from all containers) |
+| Grafana | http://localhost:3001 | Dashboards (login: admin/admin) |
+| Loki | http://localhost:3100 | Log aggregation (queried via Grafana) |
+
+Grafana comes pre-provisioned with:
+- Prometheus and Loki data sources
+- **Agent Health** dashboard: request rate, p95 latency, error rate, active requests
+
+To view logs in Grafana: go to Explore, select Loki data source, and query by container label.
+
+## Comparison: Deployment Modes
+
+| Aspect | Monolith | Distributed | Observed |
+|--------|----------|-------------|----------|
+| Containers | 1 (app) + infra | 8 (gateway + 7 agents) + infra | 8 agents + 4 observability + infra |
+| Latency | In-process calls | HTTP round-trips (~5-20ms/hop) | Same as distributed |
+| Scaling | Single process | Independent per agent | Same + metrics visibility |
+| Debugging | Single log stream | Per-container logs | Centralized in Grafana |
+| Metrics | MLflow traces only | MLflow + /metrics endpoints | Full Prometheus + Grafana |
+| Command | `make run` | `make run-distributed` | `make run-observed` |

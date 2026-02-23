@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 _AGENT_CLASS_MAP: dict[str, str] = {
     "architect": "src.agents.architect.ArchitectAgent",
+    "developer": "src.agents.developer.DeveloperAgent",
+    "librarian": "src.agents.librarian.LibrarianAgent",
+    "dashboard_designer": "src.agents.dashboard_designer.DashboardDesignerAgent",
+    "orchestrator": "src.agents.orchestrator.OrchestratorAgent",
     "energy_analyst": "src.agents.energy_analyst.EnergyAnalyst",
     "behavioral_analyst": "src.agents.behavioral_analyst.BehavioralAnalyst",
     "diagnostic_analyst": "src.agents.diagnostic_analyst.DiagnosticAnalyst",
@@ -31,6 +35,10 @@ _DISTRIBUTED_AGENTS = frozenset(_AGENT_CLASS_MAP.keys())
 
 _AGENT_URL_MAP: dict[str, str] = {
     "architect": "architect_service_url",
+    "developer": "developer_service_url",
+    "librarian": "librarian_service_url",
+    "dashboard_designer": "dashboard_designer_service_url",
+    "orchestrator": "orchestrator_service_url",
     "data_scientist": "ds_orchestrator_url",
     "energy_analyst": "ds_analysts_url",
     "behavioral_analyst": "ds_analysts_url",

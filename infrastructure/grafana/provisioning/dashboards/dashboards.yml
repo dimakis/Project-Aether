@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: "Aether"
+    orgId: 1
+    folder: "Aether"
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

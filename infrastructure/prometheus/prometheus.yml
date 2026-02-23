@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "aether-gateway"
+    static_configs:
+      - targets: ["app:8000"]
+    metrics_path: /metrics
+
+  - job_name: "aether-architect"
+    static_configs:
+      - targets: ["architect:8000"]
+    metrics_path: /metrics
+
+  - job_name: "aether-ds-orchestrator"
+    static_configs:
+      - targets: ["ds-orchestrator:8000"]
+    metrics_path: /metrics
+
+  - job_name: "aether-ds-analysts"
+    static_configs:
+      - targets: ["ds-analysts:8000"]
+    metrics_path: /metrics
+
+  - job_name: "aether-developer"
+    static_configs:
+      - targets: ["developer:8000"]
+    metrics_path: /metrics
+
+  - job_name: "aether-librarian"
+    static_configs:
+      - targets: ["librarian:8000"]
+    metrics_path: /metrics
+
+  - job_name: "aether-dashboard-designer"
+    static_configs:
+      - targets: ["dashboard-designer:8000"]
+    metrics_path: /metrics
+
+  - job_name: "aether-orchestrator"
+    static_configs:
+      - targets: ["orchestrator-agent:8000"]
+    metrics_path: /metrics

@@ -217,6 +217,22 @@ class Settings(BaseSettings):
         default="http://ds-analysts:8000",
         description="URL of the DS Analysts A2A service (distributed mode)",
     )
+    developer_service_url: str = Field(
+        default="http://developer:8000",
+        description="URL of the Developer A2A service (distributed mode)",
+    )
+    librarian_service_url: str = Field(
+        default="http://librarian:8000",
+        description="URL of the Librarian A2A service (distributed mode)",
+    )
+    dashboard_designer_service_url: str = Field(
+        default="http://dashboard-designer:8000",
+        description="URL of the Dashboard Designer A2A service (distributed mode)",
+    )
+    orchestrator_service_url: str = Field(
+        default="http://orchestrator-agent:8000",
+        description="URL of the Orchestrator A2A service (distributed mode)",
+    )
     ds_service_url: str = Field(
         default="http://ds-orchestrator:8000",
         description="Legacy alias for ds_orchestrator_url",

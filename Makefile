@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod run-distributed up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
+.PHONY: help install dev run run-ui run-prod run-distributed run-distributed-build down-distributed run-observed down-observed up up-full up-ui up-all down migrate test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -61,8 +61,14 @@ help:
 	@echo "  make build-sandbox - Build sandbox image for Data Scientist analysis"
 	@echo ""
 	@echo "Distributed Mode (A2A agent services):"
-	@echo "  make run-distributed - Start distributed stack (gateway + 3 agent containers)"
-	@echo "  make build-services  - Build all agent service container images"
+	@echo "  make run-distributed       - Start distributed stack (gateway + UI + agent containers)"
+	@echo "  make run-distributed-build - Same but rebuilds images first"
+	@echo "  make down-distributed      - Stop distributed services"
+	@echo "  make build-services        - Build all agent service container images"
+	@echo ""
+	@echo "Observability (distributed + metrics/logs):"
+	@echo "  make run-observed          - Distributed + Prometheus + Grafana + Loki"
+	@echo "  make down-observed         - Stop everything including observability"
 	@echo ""
 	@echo "Docs:"
 	@echo "  make openapi       - Regenerate OpenAPI spec from FastAPI"
@@ -73,9 +79,13 @@ help:
 	@echo "  MLflow:     http://localhost:$(MLFLOW_PORT)"
 	@echo ""
 	@echo "URLs (distributed mode):"
-	@echo "  Architect:       http://localhost:8001"
-	@echo "  DS Orchestrator: http://localhost:8002"
-	@echo "  DS Analysts:     http://localhost:8003"
+	@echo "  Architect:          http://localhost:8001"
+	@echo "  DS Orchestrator:    http://localhost:8002"
+	@echo "  DS Analysts:        http://localhost:8003"
+	@echo "  Developer:          http://localhost:8004"
+	@echo "  Librarian:          http://localhost:8005"
+	@echo "  Dashboard Designer: http://localhost:8006"
+	@echo "  Orchestrator:       http://localhost:8007"
 
 # ============================================================================
 # Setup
@@ -146,6 +156,7 @@ migrate-container:
 # Stop all services
 down:
 	@echo "Stopping all Aether services..."
+	-$(COMPOSE_DIST) --profile full --profile ui down 2>/dev/null
 	$(COMPOSE) --profile full --profile ui down
 	@echo "All services stopped."
 
@@ -363,20 +374,59 @@ build-sandbox:
 COMPOSE_DIST := $(COMPOSE) -f infrastructure/podman/compose.distributed.yaml
 
 run-distributed: migrate-container
-	$(COMPOSE_DIST) --profile full up -d --build
+	$(COMPOSE_DIST) --profile full --profile ui up -d
 	@echo ""
 	@echo "Distributed mode started:"
-	@echo "  Gateway:        http://localhost:8000"
-	@echo "  Architect:      http://localhost:8001"
-	@echo "  DS Orchestrator: http://localhost:8002"
-	@echo "  DS Analysts:    http://localhost:8003"
+	@echo "  Gateway:           http://localhost:$(API_PORT)"
+	@echo "  UI:                http://localhost:$(WEBUI_PORT)"
+	@echo "  Architect:         http://localhost:8001"
+	@echo "  DS Orchestrator:   http://localhost:8002"
+	@echo "  DS Analysts:       http://localhost:8003"
+	@echo "  Developer:         http://localhost:8004"
+	@echo "  Librarian:         http://localhost:8005"
+	@echo "  Dashboard Designer: http://localhost:8006"
+	@echo "  Orchestrator:      http://localhost:8007"
+	@echo ""
+	@echo "Tip: run 'make build-services' first if images are stale"
+
+run-distributed-build: migrate-container
+	$(COMPOSE_DIST) --profile full --profile ui up -d --build
+	@echo ""
+	@echo "Distributed mode started (with rebuild)"
+
+down-distributed:
+	@echo "Stopping distributed services..."
+	-$(COMPOSE_DIST) -f infrastructure/podman/compose.observability.yaml --profile full --profile ui down 2>/dev/null
+	$(COMPOSE_DIST) --profile full --profile ui down
+	@echo "All distributed services stopped."
+
+COMPOSE_OBS := $(COMPOSE_DIST) -f infrastructure/podman/compose.observability.yaml
+
+run-observed: migrate-container
+	$(COMPOSE_OBS) --profile full --profile ui up -d
+	@echo ""
+	@echo "Distributed + Observability mode started:"
+	@echo "  Gateway:           http://localhost:$(API_PORT)"
+	@echo "  UI:                http://localhost:$(WEBUI_PORT)"
+	@echo "  Prometheus:        http://localhost:9090"
+	@echo "  Grafana:           http://localhost:3001 (admin/admin)"
+	@echo "  Agent services:    :8001-:8007"
+
+down-observed:
+	@echo "Stopping all services (distributed + observability)..."
+	$(COMPOSE_OBS) --profile full --profile ui down
+	@echo "All services stopped."
 
 build-services:
 	@echo "Building all agent service images..."
 	podman build --build-arg AETHER_SERVICE=architect -t aether-architect:latest -f infrastructure/podman/Containerfile.service .
 	podman build --build-arg AETHER_SERVICE=ds_orchestrator -t aether-ds-orchestrator:latest -f infrastructure/podman/Containerfile.service .
 	podman build --build-arg AETHER_SERVICE=ds_analysts -t aether-ds-analysts:latest -f infrastructure/podman/Containerfile.service .
-	@echo "Built: aether-architect, aether-ds-orchestrator, aether-ds-analysts"
+	podman build --build-arg AETHER_SERVICE=developer -t aether-developer:latest -f infrastructure/podman/Containerfile.service .
+	podman build --build-arg AETHER_SERVICE=librarian -t aether-librarian:latest -f infrastructure/podman/Containerfile.service .
+	podman build --build-arg AETHER_SERVICE=dashboard_designer -t aether-dashboard-designer:latest -f infrastructure/podman/Containerfile.service .
+	podman build --build-arg AETHER_SERVICE=orchestrator -t aether-orchestrator:latest -f infrastructure/podman/Containerfile.service .
+	@echo "Built all 7 agent service images"
 
 # ============================================================================
 # Docs

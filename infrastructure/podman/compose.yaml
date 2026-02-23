@@ -109,8 +109,9 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
-      # Mount podman socket for sandbox container creation
-      - /run/user/1000/podman/podman.sock:/run/podman/podman.sock:ro
+      # Mount podman socket for sandbox container creation (platform-specific)
+      # Set PODMAN_SOCKET_PATH to your local socket, or leave empty to skip
+      - ${PODMAN_SOCKET_PATH:-/dev/null}:/run/podman/podman.sock:ro
     depends_on:
       postgres:
         condition: service_healthy
