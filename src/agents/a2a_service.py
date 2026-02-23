@@ -76,6 +76,11 @@ class AetherAgentExecutor(AgentExecutor):
     On ``execute()``, extracts the user message from the A2A request
     context, constructs a minimal state, invokes the agent, and
     pushes the result onto the event queue.
+
+    Supports both ``SendMessage`` (request/response) and
+    ``SendStreamingMessage`` (real-time SSE) modes. In streaming
+    mode, token and tool events from ``stream_conversation()`` are
+    pushed to the event queue as they arrive.
     """
 
     def __init__(
@@ -87,13 +92,34 @@ class AetherAgentExecutor(AgentExecutor):
         self.state_type = state_type
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
-        """Handle an A2A SendMessage request."""
+        """Handle an A2A SendMessage or SendStreamingMessage request.
+
+        Checks whether the agent supports ``stream_conversation()``.
+        If so, streams events incrementally; otherwise falls back to
+        the single-invoke path.
+        """
         state = _extract_state_from_context(context, self.state_type)
+        task_id = context.task_id or "unknown"
+        context_id = context.context_id or "unknown"
 
+        has_streaming = hasattr(self.agent, "stream_conversation") and callable(
+            getattr(self.agent, "stream_conversation", None)
+        )
+
+        if has_streaming:
+            await self._execute_streaming(state, task_id, context_id, event_queue)
+        else:
+            await self._execute_invoke(state, task_id, context_id, event_queue)
+
+    async def _execute_invoke(
+        self,
+        state: Any,
+        task_id: str,
+        context_id: str,
+        event_queue: EventQueue,
+    ) -> None:
+        """Non-streaming path: invoke agent and return single artifact."""
         try:
-            task_id = context.task_id or "unknown"
-            context_id = context.context_id or "unknown"
-
             await event_queue.enqueue_event(
                 TaskStatusUpdateEvent(
                     task_id=task_id,
@@ -137,8 +163,119 @@ class AetherAgentExecutor(AgentExecutor):
             logger.exception("Agent execution failed")
             await event_queue.enqueue_event(
                 TaskStatusUpdateEvent(
-                    task_id=context.task_id or "unknown",
-                    context_id=context.context_id or "unknown",
+                    task_id=task_id,
+                    context_id=context_id,
+                    final=True,
+                    status=TaskStatus(state=TaskState.failed),
+                )
+            )
+
+    async def _execute_streaming(
+        self,
+        state: Any,
+        task_id: str,
+        context_id: str,
+        event_queue: EventQueue,
+    ) -> None:
+        """Streaming path: forward stream_conversation() events as A2A artifacts."""
+        from a2a.types import (
+            Artifact,
+            DataPart,
+            Part,
+            TaskArtifactUpdateEvent,
+            TextPart,
+        )
+
+        user_message = _extract_user_text_from_state(state)
+
+        try:
+            await event_queue.enqueue_event(
+                TaskStatusUpdateEvent(
+                    task_id=task_id,
+                    context_id=context_id,
+                    final=False,
+                    status=TaskStatus(state=TaskState.working),
+                )
+            )
+
+            async for event in self.agent.stream_conversation(  # type: ignore[attr-defined]
+                state=state,
+                user_message=user_message,
+            ):
+                event_type = event.get("type")
+                if not event_type:
+                    continue
+
+                if event_type == "token":
+                    content = event.get("content", "")
+                    if content:
+                        artifact = Artifact(
+                            artifact_id=f"tok-{task_id}",
+                            parts=[Part(root=TextPart(text=content))],
+                        )
+                        await event_queue.enqueue_event(
+                            TaskArtifactUpdateEvent(
+                                task_id=task_id,
+                                context_id=context_id,
+                                artifact=artifact,
+                            )
+                        )
+
+                elif event_type == "state":
+                    final_state = event.get("state")
+                    if final_state is not None:
+                        from src.agents.a2a_service import pack_state_to_data
+
+                        artifact = Artifact(
+                            artifact_id="final-state",
+                            parts=[Part(root=DataPart(data=pack_state_to_data(final_state)))],
+                        )
+                        await event_queue.enqueue_event(
+                            TaskArtifactUpdateEvent(
+                                task_id=task_id,
+                                context_id=context_id,
+                                artifact=artifact,
+                            )
+                        )
+
+                elif event_type in (
+                    "tool_start",
+                    "tool_end",
+                    "status",
+                    "agent_start",
+                    "agent_end",
+                    "delegation",
+                    "thinking",
+                    "approval_required",
+                    "trace_id",
+                ):
+                    artifact = Artifact(
+                        artifact_id=f"evt-{task_id}",
+                        parts=[Part(root=DataPart(data=dict(event)))],
+                    )
+                    await event_queue.enqueue_event(
+                        TaskArtifactUpdateEvent(
+                            task_id=task_id,
+                            context_id=context_id,
+                            artifact=artifact,
+                        )
+                    )
+
+            await event_queue.enqueue_event(
+                TaskStatusUpdateEvent(
+                    task_id=task_id,
+                    context_id=context_id,
+                    final=True,
+                    status=TaskStatus(state=TaskState.completed),
+                )
+            )
+
+        except Exception:
+            logger.exception("Streaming agent execution failed")
+            await event_queue.enqueue_event(
+                TaskStatusUpdateEvent(
+                    task_id=task_id,
+                    context_id=context_id,
                     final=True,
                     status=TaskStatus(state=TaskState.failed),
                 )
@@ -163,6 +300,20 @@ def _extract_user_text(context: RequestContext) -> str:
             inner = part.root if hasattr(part, "root") else part
             if hasattr(inner, "text"):
                 return str(inner.text)
+    return ""
+
+
+def _extract_user_text_from_state(state: Any) -> str:
+    """Extract the last user message from a state object.
+
+    Walks ``state.messages`` in reverse looking for an ``HumanMessage``.
+    """
+    from langchain_core.messages import HumanMessage
+
+    messages = getattr(state, "messages", None) or []
+    for msg in reversed(list(messages)):
+        if isinstance(msg, HumanMessage):
+            return str(msg.content)[:_MAX_USER_MESSAGE_LEN]
     return ""
 
 
