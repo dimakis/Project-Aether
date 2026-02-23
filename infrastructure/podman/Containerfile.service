@@ -1,82 +1,36 @@
 # =============================================================================
-# Project Aether - Agent Service Container (Parameterized)
+# Project Aether - Agent Service Container (Lightweight)
 # =============================================================================
-# Build any agent service from a single Containerfile using AETHER_SERVICE:
+# Depends on aether-base:latest (built via make build-base).
+# Only copies application code + sets the service entrypoint.
+# Build time: ~5 seconds (vs ~3-5 min without shared base).
 #
-#   podman build --build-arg AETHER_SERVICE=architect -t aether-architect:latest \
-#     -f infrastructure/podman/Containerfile.service .
+# Build:  podman build --build-arg AETHER_SERVICE=architect -t aether-architect:latest \
+#           -f infrastructure/podman/Containerfile.service .
 #
-#   podman build --build-arg AETHER_SERVICE=ds_orchestrator -t aether-ds-orchestrator:latest \
-#     -f infrastructure/podman/Containerfile.service .
-#
-#   podman build --build-arg AETHER_SERVICE=ds_analysts -t aether-ds-analysts:latest \
-#     -f infrastructure/podman/Containerfile.service .
+# Requires: make build-base (run once, or when pyproject.toml changes)
 
-FROM python:3.11-slim-bookworm AS base
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONFAULTHANDLER=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+FROM aether-base:latest
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Copy application code (this is the only layer that changes per build)
+COPY --chown=aether:aether src/ ./src/
+COPY --chown=aether:aether alembic/ ./alembic/
+COPY --chown=aether:aether alembic.ini ./
 
-# =============================================================================
-# Builder stage - install dependencies
-# =============================================================================
-FROM base AS builder
-
-# Install uv for fast, reproducible installs
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
-
-# Create venv and install dependencies (frozen = reproducible)
-RUN uv venv /app/.venv && \
-    uv pip install --python /app/.venv/bin/python -r pyproject.toml
-
-# =============================================================================
-# Runtime stage - minimal image
-# =============================================================================
-FROM base AS runtime
-
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
-
-# Add venv to PATH
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Copy application code
-COPY src/ ./src/
-COPY alembic/ ./alembic/
-COPY alembic.ini ./
-
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash aether && \
-    chown -R aether:aether /app
 USER aether
 
-# Service name — set via --build-arg AETHER_SERVICE=<name>
-# Valid: architect, ds_orchestrator, ds_analysts
+# Service name — set via --build-arg or at runtime
 ARG AETHER_SERVICE=architect
 ENV AETHER_SERVICE=${AETHER_SERVICE}
 
-# Health check (A2A services use /health, not /api/v1/health)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Expose service port
 EXPOSE 8000
 
-# Shell form CMD so ${AETHER_SERVICE} is expanded at runtime
 CMD uvicorn "src.services.${AETHER_SERVICE}:app" \
     --host 0.0.0.0 \
     --port 8000 \
