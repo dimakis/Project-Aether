@@ -2,9 +2,28 @@ import { request } from "./core";
 
 // ─── Agents (Feature 23) ─────────────────────────────────────────────────────
 
+// ─── Available / Routable Agents (Feature 30) ────────────────────────────────
+
+export interface AvailableAgent {
+  name: string;
+  description: string;
+  domain: string | null;
+  is_routable: boolean;
+  intent_patterns: string[];
+  capabilities: string[];
+}
+
+export interface AvailableAgentsResponse {
+  agents: AvailableAgent[];
+  total: number;
+}
+
 export const agents = {
   list: () =>
     request<import("@/lib/types").AgentList>(`/agents`),
+
+  listAvailable: () =>
+    request<AvailableAgentsResponse>(`/agents/available`),
 
   get: (name: string) =>
     request<import("@/lib/types").AgentDetail>(`/agents/${name}`),

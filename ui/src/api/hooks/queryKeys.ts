@@ -66,6 +66,7 @@ export const queryKeys = {
   // ── Agents ──────────────────────────────────────────────────────────────
   agents: {
     all: ["agents"] as const,
+    available: ["agents", "available"] as const,
     detail: (name: string) => ["agents", name] as const,
     configVersions: (name: string) =>
       ["agents", name, "config", "versions"] as const,

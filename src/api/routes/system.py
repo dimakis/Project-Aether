@@ -156,6 +156,7 @@ async def system_status() -> SystemStatus:
         components=components,
         uptime_seconds=time.time() - _start_time,
         public_url=settings.public_url,
+        deployment_mode=settings.deployment_mode,
     )
 
 

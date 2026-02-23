@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowDown, ArrowLeftRight } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -157,6 +157,12 @@ export function ArchitectureGraph({
 
       {/* Flow indicators */}
       <div className="flex flex-col items-center gap-2 py-2">
+        {(edgeFilter === "all" || edgeFilter === "a2a") && (
+          <div className="flex items-center gap-2 text-[11px] text-cyan-400/60">
+            <Layers className="h-3.5 w-3.5" />
+            <span>Orchestrator routes requests to Architect via A2A protocol</span>
+          </div>
+        )}
         {(edgeFilter === "all" || edgeFilter === "delegation") && (
           <div className="flex items-center gap-2 text-[11px] text-blue-400/60">
             <ArrowDown className="h-3.5 w-3.5" />
