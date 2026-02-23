@@ -374,7 +374,7 @@ build-sandbox:
 
 COMPOSE_DIST := $(COMPOSE) -f infrastructure/podman/compose.distributed.yaml
 
-run-distributed: migrate-container
+run-distributed: migrate-container build-base
 	$(COMPOSE_DIST) --profile full --profile ui up -d
 	@echo ""
 	@echo "Distributed mode started:"
@@ -390,7 +390,7 @@ run-distributed: migrate-container
 	@echo ""
 	@echo "Tip: run 'make build-services' first if images are stale"
 
-run-distributed-build: migrate-container
+run-distributed-build: migrate-container build-services
 	$(COMPOSE_DIST) --profile full --profile ui up -d --build
 	@echo ""
 	@echo "Distributed mode started (with rebuild)"
@@ -403,7 +403,7 @@ down-distributed:
 
 COMPOSE_OBS := $(COMPOSE_DIST) -f infrastructure/podman/compose.observability.yaml
 
-run-observed: migrate-container
+run-observed: migrate-container build-base
 	$(COMPOSE_OBS) --profile full --profile ui up -d
 	@echo ""
 	@echo "Distributed + Observability mode started:"
