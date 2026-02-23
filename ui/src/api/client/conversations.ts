@@ -88,6 +88,7 @@ export async function* streamChat(
   messages: import("@/lib/types").ChatMessage[],
   conversationId?: string,
   signal?: AbortSignal,
+  agent?: string,
 ): AsyncGenerator<StreamChunk> {
   const url = `${env.API_URL}/v1/chat/completions`;
   const response = await fetch(url, {
@@ -100,6 +101,7 @@ export async function* streamChat(
       messages,
       stream: true,
       ...(conversationId && { conversation_id: conversationId }),
+      ...(agent && { agent }),
     }),
   });
 
