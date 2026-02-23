@@ -15,6 +15,10 @@
 #   podman-compose --profile ui up -d       # Infra + Open WebUI
 #   podman-compose --profile full --profile ui up -d  # All services + UI
 #
+# Distributed (A2A agent services):
+#   make run-distributed                    # Gateway + 3 agent containers
+#   Uses compose.distributed.yaml override. See docs/distributed-mode.md.
+#
 # Stop:
 #   podman-compose down                     # Stop and remove
 #   podman-compose down -v                  # Stop and remove with volumes

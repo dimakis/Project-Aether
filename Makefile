@@ -60,6 +60,10 @@ help:
 	@echo "Sandbox:"
 	@echo "  make build-sandbox - Build sandbox image for Data Scientist analysis"
 	@echo ""
+	@echo "Distributed Mode (A2A agent services):"
+	@echo "  make run-distributed - Start distributed stack (gateway + 3 agent containers)"
+	@echo "  make build-services  - Build all agent service container images"
+	@echo ""
 	@echo "Docs:"
 	@echo "  make openapi       - Regenerate OpenAPI spec from FastAPI"
 	@echo ""
@@ -67,6 +71,11 @@ help:
 	@echo "  API:        http://localhost:$(API_PORT)"
 	@echo "  UI:         http://localhost:$(WEBUI_PORT)"
 	@echo "  MLflow:     http://localhost:$(MLFLOW_PORT)"
+	@echo ""
+	@echo "URLs (distributed mode):"
+	@echo "  Architect:       http://localhost:8001"
+	@echo "  DS Orchestrator: http://localhost:8002"
+	@echo "  DS Analysts:     http://localhost:8003"
 
 # ============================================================================
 # Setup

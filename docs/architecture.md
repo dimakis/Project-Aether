@@ -609,9 +609,67 @@ See `docs/architecture-review.md` for the full assessment, gap analysis, and ris
 
 ---
 
+## Distributed Architecture (A2A Protocol)
+
+When `DEPLOYMENT_MODE=distributed`, agents run as separate containers communicating via the [A2A protocol](https://google.github.io/A2A/):
+
+```
+                    +-----------------+
+User  -->  API Gateway (:8000)  -->  | Architect (:8001) |
+                                     +-----------------+
+                                            |
+                                            | A2A SendMessage
+                                            v
+                                     +---------------------+
+                                     | DS Orchestrator     |
+                                     | (:8002)             |
+                                     +---------------------+
+                                            |
+                                            | A2A SendMessage (confidence loops)
+                                            v
+                                     +---------------------+
+                                     | DS Analysts (:8003) |
+                                     | Energy + Behavioral |
+                                     | + Diagnostic        |
+                                     +---------------------+
+                                            |
+                                            v
+                                      gVisor Sandbox
+```
+
+### Container Responsibilities
+
+| Container | Agent(s) | Pattern | Description |
+|-----------|----------|---------|-------------|
+| API Gateway | None (routing only) | Gateway | HTTP, auth, SSE streaming, delegates to Architect via A2A |
+| Architect | ArchitectAgent | Single-agent | Conversational agent, proposals, delegates to DS Orchestrator |
+| DS Orchestrator | DataScientistAgent | Single-agent | Coordinates analysts, confidence loops, synthesis |
+| DS Analysts | Energy + Behavioral + Diagnostic | Multi-agent | Analysts share AnalysisState in-process |
+
+### A2A Protocol
+
+Each agent container exposes:
+- `POST /` — JSON-RPC endpoint for `SendMessage` / `SendStreamingMessage`
+- `GET /.well-known/agent-card.json` — Agent Card describing skills and capabilities
+- `GET /health` — Liveness probe
+- `GET /ready` — Readiness probe
+
+State is serialized into A2A `DataPart` using `pack_state_to_data()` which handles LangChain message serialization via `dumpd()`/`load()`.
+
+### Dual-Mode Switch
+
+The `resolve_agent_invoker()` function in `src/agents/dual_mode.py` checks `DEPLOYMENT_MODE`:
+- `monolith`: instantiates agent classes in-process (default)
+- `distributed`: uses `A2ARemoteClient` to call the agent's service URL
+
+See [Distributed Mode Guide](distributed-mode.md) for the full runbook.
+
+---
+
 ## See Also
 
 - [API Reference](api-reference.md) — all ~120 REST API endpoints
+- [Distributed Mode](distributed-mode.md) — running agents as A2A services
 - [Development](development.md) — project structure and code organization
 - [Configuration](configuration.md) — environment variables and LLM setup
 - [User Flows](user-flows.md) — step-by-step interaction sequences
