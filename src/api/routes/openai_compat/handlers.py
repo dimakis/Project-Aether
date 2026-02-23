@@ -44,9 +44,7 @@ _log = logging.getLogger(__name__)
 _FALLBACK_STREAM_TIMEOUT = 900  # 15 minutes
 
 
-def _make_token_chunk(
-    completion_id: str, created: int, model: str, tok: str
-) -> str:
+def _make_token_chunk(completion_id: str, created: int, model: str, tok: str) -> str:
     """Build an SSE line for a single token delta."""
     return (
         "data: "
@@ -277,7 +275,9 @@ async def _stream_chat_completion(
                                 if ft.is_thinking:
                                     yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
                                 else:
-                                    yield _make_token_chunk(completion_id, created, request.model, ft.text)
+                                    yield _make_token_chunk(
+                                        completion_id, created, request.model, ft.text
+                                    )
 
                         elif event_type == "tool_start":
                             tool_name = event.get("tool", "")
@@ -328,7 +328,9 @@ async def _stream_chat_completion(
 
                         elif event_type == "approval_required":
                             yield _make_token_chunk(
-                                completion_id, created, request.model,
+                                completion_id,
+                                created,
+                                request.model,
                                 event.get("content", "Approval required"),
                             )
 
@@ -408,7 +410,9 @@ async def _stream_chat_completion(
                             if ft.is_thinking:
                                 yield f"data: {json.dumps({'type': 'thinking', 'content': ft.text})}\n\n"
                             else:
-                                yield _make_token_chunk(completion_id, created, request.model, ft.text)
+                                yield _make_token_chunk(
+                                    completion_id, created, request.model, ft.text
+                                )
 
                     elif event_type == "trace_id":
                         # Early trace_id — emit immediately so
