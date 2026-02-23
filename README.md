@@ -160,11 +160,44 @@ That's it. The UI connects to the API at `localhost:8000`, which talks to your H
 
 ---
 
+## Deployment Modes
+
+Aether supports two deployment modes:
+
+### Monolith (default)
+
+All agents run in a single Python process. This is the simplest setup for development and single-user deployments.
+
+```bash
+make run       # Dev: infra in containers, API on host with hot-reload
+make run-ui    # Dev + React UI
+make run-prod  # Everything containerized
+```
+
+### Distributed (A2A agent services)
+
+Agents run as separate containers communicating via the [A2A protocol](https://google.github.io/A2A/). The monolith acts as an API gateway, delegating to agent services.
+
+```bash
+make run-distributed   # Gateway + Architect + DS Orchestrator + DS Analysts
+```
+
+```
+API Gateway :8000  -->  Architect :8001  -->  DS Orchestrator :8002  -->  DS Analysts :8003
+```
+
+Each agent container serves an A2A Agent Card at `/.well-known/agent-card.json` and health probes at `/health`.
+
+See [Distributed Mode Guide](docs/distributed-mode.md) for the full runbook.
+
+---
+
 ## Documentation
 
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/getting-started.md) | Authentication, deployment modes, remote access |
+| [Distributed Mode](docs/distributed-mode.md) | Running agents as A2A services in separate containers |
 | [Configuration](docs/configuration.md) | LLM providers, per-agent overrides, failover, usage tracking, environment variables |
 | [Architecture](docs/architecture.md) | System design, agent roles, data flows, observability, security model |
 | [User Flows](docs/user-flows.md) | Step-by-step interaction sequences for all major features |
