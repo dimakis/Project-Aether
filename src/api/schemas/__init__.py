@@ -179,6 +179,10 @@ class SystemStatus(BaseModel):
         default=None,
         description="Externally reachable base URL (for webhook URLs, etc.)",
     )
+    deployment_mode: str = Field(
+        default="monolith",
+        description="Deployment mode: monolith or distributed",
+    )
 
 
 class PaginationMeta(BaseModel):

@@ -42,6 +42,7 @@ export {
 } from "./schedules";
 export {
   useAgents,
+  useAvailableAgents,
   useAgent,
   useAgentConfigVersions,
   useAgentPromptVersions,

@@ -6,6 +6,8 @@ import {
   LayoutDashboard,
   BookOpen,
   Wrench,
+  Brain,
+  Route,
 } from "lucide-react";
 
 // ─── Agent Node Definitions ───────────────────────────────────────────────────
@@ -23,6 +25,17 @@ export interface AgentNodeDef {
 
 export const AGENT_NODES: AgentNodeDef[] = [
   {
+    id: "orchestrator",
+    label: "Orchestrator",
+    icon: Route,
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-400/10",
+    borderColor: "border-cyan-400/30",
+    group: "orchestration",
+    description:
+      "Intent-based router. Classifies user requests and routes to the appropriate specialist agent via A2A protocol.",
+  },
+  {
     id: "architect",
     label: "Architect",
     icon: Bot,
@@ -31,7 +44,7 @@ export const AGENT_NODES: AgentNodeDef[] = [
     borderColor: "border-blue-400/30",
     group: "orchestration",
     description:
-      "Primary orchestrator. Delegates to specialists, manages conversation, coordinates multi-agent workflows.",
+      "Primary conversational agent. Delegates to specialists, manages conversation, coordinates multi-agent workflows.",
   },
   {
     id: "energy_analyst",
@@ -99,11 +112,22 @@ export const AGENT_NODES: AgentNodeDef[] = [
     description:
       "Discovers and catalogs HA entities, infers devices and areas, syncs entity database.",
   },
+  {
+    id: "knowledge",
+    label: "Knowledge",
+    icon: Brain,
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-400/10",
+    borderColor: "border-emerald-400/30",
+    group: "discovery",
+    description:
+      "Answers general questions, explains concepts, and provides domain knowledge for other agents.",
+  },
 ];
 
 // ─── Edge Definitions ─────────────────────────────────────────────────────────
 
-export type EdgeType = "delegation" | "consultation";
+export type EdgeType = "delegation" | "consultation" | "a2a";
 
 export interface EdgeDef {
   from: string;
@@ -113,12 +137,19 @@ export interface EdgeDef {
 }
 
 export const EDGES: EdgeDef[] = [
+  // Orchestrator routes to Architect via A2A
+  { from: "orchestrator", to: "architect", type: "a2a", label: "routes" },
+
+  // Architect delegates to specialists
   { from: "architect", to: "energy_analyst", type: "delegation" },
   { from: "architect", to: "behavioral_analyst", type: "delegation" },
   { from: "architect", to: "diagnostic_analyst", type: "delegation" },
   { from: "architect", to: "developer", type: "delegation" },
   { from: "architect", to: "dashboard_designer", type: "delegation" },
   { from: "architect", to: "librarian", type: "delegation" },
+  { from: "architect", to: "knowledge", type: "delegation" },
+
+  // DS team cross-consultation
   { from: "energy_analyst", to: "behavioral_analyst", type: "consultation" },
   { from: "energy_analyst", to: "diagnostic_analyst", type: "consultation" },
   { from: "behavioral_analyst", to: "diagnostic_analyst", type: "consultation" },
@@ -144,7 +175,7 @@ export const GROUPS: Record<
 > = {
   orchestration: {
     label: "Orchestration",
-    description: "Central coordination and user interaction",
+    description: "Central coordination, routing, and user interaction",
     color: "bg-blue-400/5",
     borderColor: "border-blue-400/20",
   },
@@ -162,7 +193,7 @@ export const GROUPS: Record<
   },
   discovery: {
     label: "Discovery",
-    description: "Entity discovery and cataloging",
+    description: "Entity discovery, knowledge, and cataloging",
     color: "bg-purple-400/5",
     borderColor: "border-purple-400/20",
   },

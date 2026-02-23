@@ -11,6 +11,13 @@ export function useAgents() {
   });
 }
 
+export function useAvailableAgents() {
+  return useQuery({
+    queryKey: queryKeys.agents.available,
+    queryFn: () => agents.listAvailable(),
+  });
+}
+
 export function useAgent(name: string) {
   return useQuery({
     queryKey: queryKeys.agents.detail(name),
