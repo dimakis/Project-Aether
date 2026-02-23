@@ -86,6 +86,20 @@ class AgentRepository:
         result = await self.session.execute(select(Agent).order_by(Agent.name))
         return list(result.scalars().all())
 
+    async def list_routable(self) -> list[Agent]:
+        """List routable, non-disabled agents (filtered at DB level).
+
+        Returns:
+            Agents where is_routable=True and status != 'disabled'.
+        """
+        result = await self.session.execute(
+            select(Agent)
+            .where(Agent.is_routable.is_(True))
+            .where(Agent.status != AgentStatus.DISABLED.value)
+            .order_by(Agent.name)
+        )
+        return list(result.scalars().all())
+
     async def update_status(
         self,
         name: str,

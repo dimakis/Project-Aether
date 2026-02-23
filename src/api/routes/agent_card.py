@@ -67,8 +67,7 @@ async def _fetch_routable_agents() -> list[Agent]:
 
         async with get_session() as session:
             repo = AgentRepository(session)
-            all_agents = await repo.list_all()
-            return [a for a in all_agents if a.is_routable and a.status != "disabled"]
+            return await repo.list_routable()
     except Exception:
         logger.warning("Failed to fetch agents for Agent Card", exc_info=True)
         return []

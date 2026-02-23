@@ -36,7 +36,7 @@ async def list_available_agents() -> AvailableAgentsListResponse:
     """
     async with get_session() as session:
         repo = AgentRepository(session)
-        all_agents = await repo.list_all()
+        agents = await repo.list_routable()
 
         items = [
             AvailableAgentResponse(
@@ -47,8 +47,7 @@ async def list_available_agents() -> AvailableAgentsListResponse:
                 intent_patterns=a.intent_patterns or [],
                 capabilities=a.capabilities or [],
             )
-            for a in all_agents
-            if a.is_routable and a.status != AgentStatus.DISABLED.value
+            for a in agents
         ]
 
         return AvailableAgentsListResponse(agents=items, total=len(items))

@@ -28,6 +28,48 @@ WORKFLOW_REGISTRY = {
 }
 
 
+def register_dynamic_workflow(name: str, builder: object) -> None:
+    """Register a dynamic workflow builder at runtime.
+
+    Args:
+        name: Workflow name (used as lookup key).
+        builder: A callable that returns a StateGraph when called.
+    """
+    WORKFLOW_REGISTRY[name] = builder  # type: ignore[assignment]
+
+
+def unregister_dynamic_workflow(name: str) -> None:
+    """Remove a dynamic workflow from the registry."""
+    WORKFLOW_REGISTRY.pop(name, None)
+
+
+def compile_and_register(
+    defn: object,
+    manifest: object,
+) -> None:
+    """Compile a WorkflowDefinition and register it in the registry.
+
+    Args:
+        defn: A WorkflowDefinition instance.
+        manifest: A NodeManifest instance for resolving node functions.
+
+    Raises:
+        TypeError: If arguments are not the expected types.
+    """
+    from src.graph.workflows.compiler import WorkflowCompiler
+    from src.graph.workflows.definition import WorkflowDefinition
+    from src.graph.workflows.manifest import NodeManifest
+
+    if not isinstance(defn, WorkflowDefinition):
+        raise TypeError(f"Expected WorkflowDefinition, got {type(defn).__name__}")
+    if not isinstance(manifest, NodeManifest):
+        raise TypeError(f"Expected NodeManifest, got {type(manifest).__name__}")
+
+    compiler = WorkflowCompiler(manifest)
+    graph = compiler.compile(defn)
+    register_dynamic_workflow(defn.name, lambda _defn=defn, _g=graph: _g)
+
+
 def get_workflow(name: str, **kwargs: object) -> StateGraph:
     """Get a workflow graph by name.
 

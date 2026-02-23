@@ -82,14 +82,13 @@ class TestAvailableAgentsEndpoint:
             intent_patterns=["home_automation"],
             capabilities=["control_devices"],
         )
-        non_routable = _make_agent("developer", domain=None, is_routable=False)
 
-        mock_list = AsyncMock(return_value=[routable, non_routable])
+        mock_list = AsyncMock(return_value=[routable])
 
         with patch("src.api.routes.agents.core.get_session") as mock_session:
             mock_session.return_value = _mock_session_ctx()
             with patch("src.api.routes.agents.core.AgentRepository") as mock_repo_cls:
-                mock_repo_cls.return_value.list_all = mock_list
+                mock_repo_cls.return_value.list_routable = mock_list
                 resp = await client.get("/api/v1/agents/available")
 
         assert resp.status_code == 200
@@ -112,7 +111,7 @@ class TestAvailableAgentsEndpoint:
         with patch("src.api.routes.agents.core.get_session") as mock_session:
             mock_session.return_value = _mock_session_ctx()
             with patch("src.api.routes.agents.core.AgentRepository") as mock_repo_cls:
-                mock_repo_cls.return_value.list_all = mock_list
+                mock_repo_cls.return_value.list_routable = mock_list
                 resp = await client.get("/api/v1/agents/available")
 
         assert resp.status_code == 200
@@ -124,19 +123,12 @@ class TestAvailableAgentsEndpoint:
 
     @pytest.mark.asyncio()
     async def test_excludes_disabled_agents(self, client):
-        disabled = _make_agent(
-            "knowledge",
-            domain="knowledge",
-            is_routable=True,
-            status=AgentStatus.DISABLED.value,
-        )
-
-        mock_list = AsyncMock(return_value=[disabled])
+        mock_list = AsyncMock(return_value=[])
 
         with patch("src.api.routes.agents.core.get_session") as mock_session:
             mock_session.return_value = _mock_session_ctx()
             with patch("src.api.routes.agents.core.AgentRepository") as mock_repo_cls:
-                mock_repo_cls.return_value.list_all = mock_list
+                mock_repo_cls.return_value.list_routable = mock_list
                 resp = await client.get("/api/v1/agents/available")
 
         assert resp.status_code == 200
@@ -149,7 +141,7 @@ class TestAvailableAgentsEndpoint:
         with patch("src.api.routes.agents.core.get_session") as mock_session:
             mock_session.return_value = _mock_session_ctx()
             with patch("src.api.routes.agents.core.AgentRepository") as mock_repo_cls:
-                mock_repo_cls.return_value.list_all = mock_list
+                mock_repo_cls.return_value.list_routable = mock_list
                 resp = await client.get("/api/v1/agents/available")
 
         assert resp.status_code == 200
