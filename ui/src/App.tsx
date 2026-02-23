@@ -64,6 +64,11 @@ const DashboardEditorPage = lazy(() =>
     default: m.DashboardEditorPage,
   })),
 );
+const WorkflowDefinitionsPage = lazy(() =>
+  import("@/pages/workflows").then((m) => ({
+    default: m.WorkflowDefinitionsPage,
+  })),
+);
 
 // ── Shared loading fallback ────────────────────────────────────────────────
 
@@ -160,6 +165,7 @@ export default function App() {
                     <Route path="reports" element={<ReportsPage />} />
                     <Route path="reports/:id" element={<ReportDetailPage />} />
                     <Route path="dashboard-editor" element={<DashboardEditorPage />} />
+                    <Route path="workflows" element={<WorkflowDefinitionsPage />} />
                   </Route>
                 </Route>
               </Route>

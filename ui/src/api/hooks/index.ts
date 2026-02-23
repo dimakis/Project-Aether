@@ -61,7 +61,12 @@ export {
   usePromoteBoth,
   useGeneratePrompt,
 } from "./agents";
-export { useWorkflowPresets } from "./workflows";
+export {
+  useWorkflowPresets,
+  useWorkflowDefinitions,
+  useCreateWorkflowDefinition,
+  useDeleteWorkflowDefinition,
+} from "./workflows";
 export {
   useModels,
   useSystemStatus,
