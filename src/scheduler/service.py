@@ -100,6 +100,9 @@ class SchedulerService:
         # Schedule nightly trace evaluation (MLflow 3.x)
         self._schedule_trace_evaluation(settings)
 
+        # Schedule nightly data retention cleanup
+        self._schedule_data_cleanup(settings)
+
         logger.info("Scheduler started")
 
     async def stop(self) -> None:
@@ -143,6 +146,21 @@ class SchedulerService:
             misfire_grace_time=600,  # 10 min grace for misfires
         )
         logger.info("Nightly trace evaluation scheduled: %s", cron_expr)
+
+    def _schedule_data_cleanup(self, settings: object) -> None:
+        """Register a nightly data retention cleanup job."""
+        if self._scheduler is None or CronTrigger is None:
+            return
+
+        self._scheduler.add_job(
+            _execute_data_cleanup,
+            trigger=CronTrigger(hour=3, minute=30),
+            id="retention:nightly_cleanup",
+            replace_existing=True,
+            name="retention:nightly_data_cleanup",
+            misfire_grace_time=600,
+        )
+        logger.info("Nightly data retention cleanup scheduled at 03:30")
 
     def _schedule_discovery_sync(self, settings: object) -> None:
         """Register a periodic delta sync job if enabled.
@@ -389,3 +407,67 @@ async def _execute_discovery_sync() -> None:
         )
     except Exception as e:
         logger.exception("Periodic discovery sync failed: %s", e)
+
+
+async def _execute_data_cleanup() -> None:
+    """Delete old records from unbounded tables based on retention settings.
+
+    Runs nightly to prevent database bloat from llm_usage, messages,
+    analysis_reports, and dismissed/actioned insights.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import delete
+
+    from src.settings import get_settings
+    from src.storage import get_session
+
+    settings = get_settings()
+    logger.info("Starting nightly data retention cleanup")
+
+    try:
+        async with get_session() as session:
+            total_deleted = 0
+
+            # LLM usage (high-volume)
+            llm_cutoff = datetime.now(UTC) - timedelta(days=settings.llm_usage_retention_days)
+            from src.storage.entities.llm_usage import LLMUsage
+
+            result = await session.execute(delete(LLMUsage).where(LLMUsage.created_at < llm_cutoff))
+            llm_count = result.rowcount or 0
+            total_deleted += llm_count
+
+            # Analysis reports
+            report_cutoff = datetime.now(UTC) - timedelta(days=settings.data_retention_days)
+            from src.storage.entities.analysis_report import AnalysisReport
+
+            result = await session.execute(
+                delete(AnalysisReport).where(AnalysisReport.created_at < report_cutoff)
+            )
+            report_count = result.rowcount or 0
+            total_deleted += report_count
+
+            # Dismissed/actioned insights
+            from src.storage.entities.insight import Insight
+
+            result = await session.execute(
+                delete(Insight).where(
+                    Insight.created_at < report_cutoff,
+                    Insight.status.in_(["dismissed", "actioned"]),
+                )
+            )
+            insight_count = result.rowcount or 0
+            total_deleted += insight_count
+
+            await session.commit()
+
+            logger.info(
+                "Data retention cleanup complete: llm_usage=%d, reports=%d, insights=%d, total=%d",
+                llm_count,
+                report_count,
+                insight_count,
+                total_deleted,
+            )
+
+    except Exception as e:
+        logger.exception("Data retention cleanup failed: %s", e)
