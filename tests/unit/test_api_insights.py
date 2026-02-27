@@ -103,6 +103,15 @@ def mock_insight_repo(mock_insight):
     repo.count = AsyncMock(return_value=1)
     repo.count_by_type = AsyncMock(return_value={"energy_optimization": 1})
     repo.count_by_status = AsyncMock(return_value={"pending": 1})
+    repo.get_summary = AsyncMock(
+        return_value={
+            "total": 1,
+            "by_type": {"energy_optimization": 1},
+            "by_status": {"pending": 1},
+            "pending_count": 1,
+            "high_impact_count": 0,
+        }
+    )
     return repo
 
 

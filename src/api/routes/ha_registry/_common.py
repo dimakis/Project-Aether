@@ -1,11 +1,10 @@
 """Shared utilities for HA Registry routes."""
 
 import uuid as _uuid
-from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from src.api.deps import get_db
 
-from src.storage import get_session
+__all__ = ["_is_valid_uuid", "get_db"]
 
 
 def _is_valid_uuid(value: str) -> bool:
@@ -15,9 +14,3 @@ def _is_valid_uuid(value: str) -> bool:
         return True
     except (ValueError, AttributeError):
         return False
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with get_session() as session:
-        yield session

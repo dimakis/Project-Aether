@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from src import __version__
 from src.api.auth import verify_api_key
 from src.api.rate_limit import limiter
 from src.api.routes import api_router
@@ -96,7 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Aether",
         description="Agentic Home Automation System for Home Assistant",
-        version="0.1.0",
+        version=__version__,
         docs_url="/api/docs" if settings.debug else None,
         redoc_url="/api/redoc" if settings.debug else None,
         openapi_url="/api/openapi.json" if settings.debug else None,

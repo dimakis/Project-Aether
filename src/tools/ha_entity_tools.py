@@ -96,16 +96,11 @@ async def get_domain_summary(domain: str) -> str:
     """
     async with get_session() as session:
         repo = EntityRepository(session)
-        total = await repo.count(domain=domain)
-        if total == 0:
+        state_counts = await repo.get_state_distribution(domain)
+        if not state_counts:
             return f"No entities found for domain '{domain}'."
 
-        entities = await repo.list_all(domain=domain)
-        state_counts: dict[str, int] = {}
-        for e in entities:
-            s = e.state or "unknown"
-            state_counts[s] = state_counts.get(s, 0) + 1
-
+        total = sum(state_counts.values())
     return f"Domain '{domain}' has {total} entities. States: {state_counts}"
 
 

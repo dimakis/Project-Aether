@@ -48,7 +48,7 @@ def add_span_event(
         event = SpanEvent(name=name, attributes=attributes or {})  # type: ignore[abstract]
         span.add_event(event)
     except (ImportError, TypeError, Exception) as e:
-        _logger.debug(f"Failed to add span event: {e}")
+        _logger.debug("Failed to add span event: %s", e)
 
 
 def _is_async(func: Callable[..., Any]) -> bool:
@@ -122,7 +122,7 @@ def trace_with_uri(
                 return result  # type: ignore[no-any-return]
             except Exception as e:
                 _disable_traces("span creation failed; backend rejected traces")
-                _logger.debug(f"Span creation failed, running without trace: {e}")
+                _logger.debug("Span creation failed, running without trace: %s", e)
                 return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
 
         @functools.wraps(func)
@@ -141,7 +141,7 @@ def trace_with_uri(
                 return result  # type: ignore[no-any-return]
             except Exception as e:
                 _disable_traces("span creation failed; backend rejected traces")
-                _logger.debug(f"Span creation failed, running without trace: {e}")
+                _logger.debug("Span creation failed, running without trace: %s", e)
                 return func(*args, **kwargs)
 
         if _is_async(func):

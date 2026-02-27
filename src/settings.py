@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1, le=20)
     database_max_overflow: int = Field(default=10, ge=0, le=50)
     database_pool_timeout: int = Field(default=30, ge=5)
+    database_pool_recycle: int = Field(
+        default=1800,
+        ge=-1,
+        description="Seconds before a connection is recycled (-1 to disable)",
+    )
 
     # Home Assistant MCP
     ha_url: str = Field(

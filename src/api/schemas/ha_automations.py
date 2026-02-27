@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # =============================================================================
 # AUTOMATION SCHEMAS
@@ -32,8 +32,7 @@ class AutomationResponse(AutomationBase):
     last_triggered: str | None = None
     last_synced_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AutomationListResponse(BaseModel):
@@ -77,8 +76,7 @@ class ScriptResponse(ScriptBase):
         description="Script input fields (null - HA gap)",
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ScriptListResponse(BaseModel):
@@ -113,8 +111,7 @@ class SceneResponse(SceneBase):
         description="Entity states in scene (null - HA gap)",
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SceneListResponse(BaseModel):
@@ -161,8 +158,7 @@ class ServiceResponse(ServiceBase):
     )
     is_seeded: bool = Field(False, description="Whether this is a seeded common service")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @property
     def full_name(self) -> str:

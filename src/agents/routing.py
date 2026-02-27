@@ -28,7 +28,7 @@ DEFAULT_AGENT = "architect"
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RoutingDecision:
     """Result of resolving the ``agent`` field from a request."""
 

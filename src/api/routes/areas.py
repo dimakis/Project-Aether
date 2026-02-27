@@ -1,21 +1,13 @@
 """Area API routes."""
 
-from collections.abc import AsyncGenerator
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_db
 from src.api.schemas.areas import AreaListResponse, AreaResponse
 from src.dal.areas import AreaRepository
-from src.storage import get_session
 
 router = APIRouter(prefix="/areas", tags=["Areas"])
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with get_session() as session:
-        yield session
 
 
 @router.get("", response_model=AreaListResponse)

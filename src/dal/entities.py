@@ -159,6 +159,29 @@ class EntityRepository(BaseRepository[HAEntity]):
         """
         return await super().count(domain=domain)
 
+    async def get_state_distribution(self, domain: str) -> dict[str, int]:
+        """Get entity count grouped by state for a domain.
+
+        Args:
+            domain: HA domain to query
+
+        Returns:
+            Dictionary of state -> count
+        """
+        from sqlalchemy import func
+
+        query = (
+            select(
+                func.coalesce(HAEntity.state, "unknown"),
+                func.count(HAEntity.id),
+            )
+            .where(HAEntity.domain == domain)
+            .group_by(func.coalesce(HAEntity.state, "unknown"))
+        )
+
+        result = await self.session.execute(query)
+        return {row[0]: row[1] for row in result.fetchall()}
+
     async def get_domain_counts(self) -> dict[str, int]:
         """Get entity count per domain.
 

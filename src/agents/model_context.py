@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ModelContext:
     """Immutable model context propagated through agent delegation.
 

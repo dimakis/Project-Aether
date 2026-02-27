@@ -127,16 +127,7 @@ class TestGetDomainSummaryDB:
         from src.tools.ha_entity_tools import get_domain_summary
 
         mock_repo = AsyncMock()
-        mock_repo.count = AsyncMock(return_value=5)
-        mock_repo.list_all = AsyncMock(
-            return_value=[
-                _mock_entity("light.a", "light", "A", "on"),
-                _mock_entity("light.b", "light", "B", "on"),
-                _mock_entity("light.c", "light", "C", "off"),
-                _mock_entity("light.d", "light", "D", "off"),
-                _mock_entity("light.e", "light", "E", "on"),
-            ]
-        )
+        mock_repo.get_state_distribution = AsyncMock(return_value={"on": 3, "off": 2})
 
         with (
             patch("src.tools.ha_entity_tools.get_session") as mock_get_session,

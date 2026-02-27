@@ -92,7 +92,7 @@ def _ensure_mlflow_initialized() -> bool:
         if not uri or uri.startswith("/mlflow"):
             # Fall back to HTTP server (matches containerized MLflow in compose.yaml)
             uri = "http://localhost:5002"
-            _logger.debug(f"Using fallback MLflow URI: {uri}")
+            _logger.debug("Using fallback MLflow URI: %s", uri)
 
         mlflow.set_tracking_uri(uri)
         _check_trace_backend(uri)
@@ -100,7 +100,7 @@ def _ensure_mlflow_initialized() -> bool:
         return True
     except Exception as e:
         _mlflow_available = False
-        _logger.debug(f"MLflow initialization failed: {e}")
+        _logger.debug("MLflow initialization failed: %s", e)
         return False
 
 
@@ -216,7 +216,7 @@ def enable_autolog() -> None:
     except AttributeError:
         _logger.debug("MLflow OpenAI autolog not available (mlflow.openai missing)")
     except Exception as e:
-        _logger.debug(f"Failed to enable OpenAI autolog: {e}")
+        _logger.debug("Failed to enable OpenAI autolog: %s", e)
 
     # Enable LangChain autolog only when the optional dependency is installed
     if importlib.util.find_spec("langchain") is not None:
@@ -234,7 +234,7 @@ def enable_autolog() -> None:
         except AttributeError:
             _logger.debug("MLflow LangChain autolog not available (mlflow.langchain missing)")
         except Exception as e:
-            _logger.debug(f"Failed to enable LangChain autolog: {e}")
+            _logger.debug("Failed to enable LangChain autolog: %s", e)
     else:
         _logger.debug("LangChain not installed; skipping MLflow LangChain autolog")
 
@@ -264,9 +264,9 @@ def init_mlflow() -> object:
         experiment_name = settings.mlflow_experiment_name
         get_or_create_experiment(experiment_name)
         mlflow.set_experiment(experiment_name)
-        _logger.debug(f"MLflow active experiment set to '{experiment_name}'")
+        _logger.debug("MLflow active experiment set to '%s'", experiment_name)
     except Exception as e:
-        _logger.debug(f"Failed to set MLflow experiment: {e}")
+        _logger.debug("Failed to set MLflow experiment: %s", e)
 
     # Enable autolog when initializing
     enable_autolog()
@@ -277,7 +277,7 @@ def init_mlflow() -> object:
         settings = get_settings()
         return MlflowClient(tracking_uri=settings.mlflow_tracking_uri)
     except Exception as e:
-        _logger.debug(f"Failed to create MLflow client: {e}")
+        _logger.debug("Failed to create MLflow client: %s", e)
         return None
 
 
@@ -309,5 +309,5 @@ def get_or_create_experiment(name: str | None = None) -> str | None:
 
         return cast("str", experiment_id)
     except Exception as e:
-        _logger.debug(f"Failed to get/create experiment: {e}")
+        _logger.debug("Failed to get/create experiment: %s", e)
         return None

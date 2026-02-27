@@ -94,7 +94,7 @@ def _log_usage_async(result: Any, provider: str, model: str, latency_ms: int) ->
             )
         )
     except Exception as e:
-        logger.debug(f"Failed to log LLM usage: {e}")
+        logger.debug("Failed to log LLM usage: %s", e)
 
 
 async def _write_usage_record(**kwargs: Any) -> None:
@@ -107,4 +107,4 @@ async def _write_usage_record(**kwargs: Any) -> None:
             repo = LLMUsageRepository(session)
             await repo.record(**kwargs)
     except Exception as e:
-        logger.debug(f"Failed to write usage record: {e}")
+        logger.debug("Failed to write usage record: %s", e)

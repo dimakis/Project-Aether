@@ -54,7 +54,7 @@ def log_human_feedback(
         )
         _logger.debug("Logged human feedback '%s' on trace %s", name, trace_id[:12])
     except Exception as e:
-        _logger.debug(f"Failed to log human feedback: {e}")
+        _logger.debug("Failed to log human feedback: %s", e)
 
 
 def log_code_feedback(
@@ -98,7 +98,7 @@ def log_code_feedback(
         )
         _logger.debug("Logged code feedback '%s' on trace %s", name, trace_id[:12])
     except Exception as e:
-        _logger.debug(f"Failed to log code feedback: {e}")
+        _logger.debug("Failed to log code feedback: %s", e)
 
 
 def log_expectation(
@@ -139,7 +139,7 @@ def log_expectation(
         )
         _logger.debug("Logged expectation '%s' on trace %s", name, trace_id[:12])
     except Exception as e:
-        _logger.debug(f"Failed to log expectation: {e}")
+        _logger.debug("Failed to log expectation: %s", e)
 
 
 def search_traces(
@@ -172,5 +172,5 @@ def search_traces(
             max_results=max_results,
         )
     except Exception as e:
-        _logger.debug(f"Failed to search traces: {e}")
+        _logger.debug("Failed to search traces: %s", e)
         return None

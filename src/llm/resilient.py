@@ -71,7 +71,7 @@ class ResilientLLM:
         for attempt in range(MAX_RETRIES):
             # Check circuit breaker
             if not self._circuit_breaker.can_attempt():
-                logger.info(f"Circuit breaker open for {self.provider}, skipping attempt")
+                logger.info("Circuit breaker open for %s, skipping attempt", self.provider)
                 break
 
             try:
@@ -88,16 +88,19 @@ class ResilientLLM:
                 if attempt < MAX_RETRIES - 1:
                     delay = RETRY_DELAYS[attempt]
                     logger.warning(
-                        f"LLM call failed (attempt {attempt + 1}/{MAX_RETRIES}): {e}. "
-                        f"Retrying in {delay}s..."
+                        "LLM call failed (attempt %d/%d): %s. Retrying in %ds...",
+                        attempt + 1,
+                        MAX_RETRIES,
+                        e,
+                        delay,
                     )
                     await asyncio.sleep(delay)
                 else:
-                    logger.error(f"All retries exhausted for {self.provider}: {e}")
+                    logger.error("All retries exhausted for %s: %s", self.provider, e)
 
         # Try fallback if available
         if self.fallback_llm:
-            logger.info(f"Attempting fallback provider: {self.fallback_provider}")
+            logger.info("Attempting fallback provider: %s", self.fallback_provider)
             fallback_cb = _get_circuit_breaker(self.fallback_provider or "fallback")
 
             if not fallback_cb.can_attempt():
@@ -113,7 +116,7 @@ class ResilientLLM:
                 return result
             except Exception as e:
                 fallback_cb.record_failure()
-                logger.error(f"Fallback provider also failed: {e}")
+                logger.error("Fallback provider also failed: %s", e)
                 if last_error:
                     raise last_error from e
                 raise

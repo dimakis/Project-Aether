@@ -56,8 +56,9 @@ def get_engine(settings: Settings | None = None) -> AsyncEngine:
                     pool_size=settings.database_pool_size,
                     max_overflow=settings.database_max_overflow,
                     pool_timeout=settings.database_pool_timeout,
-                    pool_pre_ping=True,  # Verify connections before use
-                    echo=settings.debug,  # Log SQL in debug mode
+                    pool_recycle=settings.database_pool_recycle,
+                    pool_pre_ping=True,
+                    echo=settings.debug,
                 )
 
     return _engine

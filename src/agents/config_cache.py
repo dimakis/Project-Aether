@@ -14,24 +14,20 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL in seconds (configs are rarely changed; 60s is reasonable)
 _CACHE_TTL = 60
+_CACHE_MAX_SIZE = 100
 
-# In-memory cache: agent_name -> CachedAgentConfig
-_cache: dict[str, _CacheEntry] = {}
+_cache: OrderedDict[str, _CacheEntry] = OrderedDict()
 
 
-@dataclass
+@dataclass(slots=True)
 class AgentRuntimeConfig:
-    """Resolved runtime configuration for an agent.
-
-    Contains the active model settings and prompt template
-    loaded from the database.
-    """
+    """Resolved runtime configuration for an agent."""
 
     agent_id: str
     agent_name: str
@@ -43,7 +39,7 @@ class AgentRuntimeConfig:
     prompt_template: str | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class _CacheEntry:
     """Internal cache entry with TTL tracking."""
 
@@ -67,12 +63,11 @@ async def get_agent_runtime_config(agent_name: str) -> AgentRuntimeConfig | None
     Returns:
         AgentRuntimeConfig or None if agent not found in DB
     """
-    # Check cache
     entry = _cache.get(agent_name)
     if entry and not entry.is_expired:
+        _cache.move_to_end(agent_name)
         return entry.config
 
-    # Cache miss or expired — fetch from DB
     try:
         from src.dal.agents import (
             AgentConfigVersionRepository,
@@ -105,11 +100,15 @@ async def get_agent_runtime_config(agent_name: str) -> AgentRuntimeConfig | None
             )
 
             _cache[agent_name] = _CacheEntry(config=runtime_config)
+            _cache.move_to_end(agent_name)
+
+            while len(_cache) > _CACHE_MAX_SIZE:
+                _cache.popitem(last=False)
+
             return runtime_config
 
     except Exception:
         logger.exception("Failed to load agent config for %s", agent_name)
-        # Return stale cache entry if available
         if entry:
             return entry.config
         return None
@@ -146,7 +145,7 @@ async def is_agent_enabled(agent_name: str) -> bool:
     """
     config = await get_agent_runtime_config(agent_name)
     if config is None:
-        return True  # Agent not in DB yet — fail open
+        return True
     return config.status != "disabled"
 
 

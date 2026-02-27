@@ -17,6 +17,8 @@ import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src import __version__
+
 
 def _make_test_app():
     """Create a minimal FastAPI app with the system router."""
@@ -27,6 +29,16 @@ def _make_test_app():
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
     return app
+
+
+@pytest.fixture(autouse=True)
+def _clear_status_cache():
+    """Reset the /status TTL cache between tests."""
+    from src.api.routes.system import invalidate_status_cache
+
+    invalidate_status_cache()
+    yield
+    invalidate_status_cache()
 
 
 @pytest.fixture
@@ -57,7 +69,7 @@ class TestHealthCheck:
         data = response.json()
         assert data["status"] == "healthy"
         assert "timestamp" in data
-        assert data["version"] == "0.1.0"
+        assert data["version"] == __version__
         # Verify timestamp is valid ISO format
         datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
 
@@ -81,7 +93,7 @@ class TestReadinessCheck:
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "healthy"
-            assert data["version"] == "0.1.0"
+            assert data["version"] == __version__
             assert "timestamp" in data
 
     async def test_ready_check_returns_503_when_db_unavailable(self, system_client):
@@ -195,7 +207,7 @@ class TestSystemStatus:
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "healthy"
-            assert data["version"] == "0.1.0"
+            assert data["version"] == __version__
             assert data["environment"] == mock_settings.environment
             assert "timestamp" in data
             assert "uptime_seconds" in data

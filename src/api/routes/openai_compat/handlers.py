@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from langchain_core.messages import AIMessage
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.agents import ArchitectWorkflow
 from src.agents.model_context import model_context
@@ -607,7 +608,7 @@ async def _stream_chat_completion(
             # the stream-level timeout (both raise TimeoutError).
             try:
                 await session.commit()
-            except Exception as commit_err:
+            except (OSError, SQLAlchemyError) as commit_err:
                 _log.warning("session.commit() failed: %s", commit_err)
                 yield _format_sse_error(f"Database error: {commit_err}")
 

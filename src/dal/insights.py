@@ -401,6 +401,47 @@ class InsightRepository:
         result = await self.session.execute(query)
         return {row[0].value: row[1] for row in result.all()}
 
+    async def count_by_impact(self, *impacts: str) -> int:
+        """Count insights matching any of the given impact levels.
+
+        Args:
+            impacts: Impact level strings (e.g. "high", "critical")
+
+        Returns:
+            Total count across all specified levels
+        """
+        query = select(func.count(Insight.id)).where(Insight.impact.in_(impacts))
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+
+    async def get_summary(self) -> dict[str, Any]:
+        """Get aggregated insight summary in a single DB round-trip.
+
+        Returns a dict with total, by_type, by_status, pending_count,
+        and high_impact_count.
+        """
+        total_q = select(func.count(Insight.id))
+        type_q = select(Insight.type, func.count(Insight.id)).group_by(Insight.type)
+        status_q = select(Insight.status, func.count(Insight.id)).group_by(Insight.status)
+        impact_q = select(func.count(Insight.id)).where(Insight.impact.in_(("high", "critical")))
+
+        total_r, type_r, status_r, impact_r = (
+            await self.session.execute(total_q),
+            await self.session.execute(type_q),
+            await self.session.execute(status_q),
+            await self.session.execute(impact_q),
+        )
+
+        by_status = {row[0].value: row[1] for row in status_r.all()}
+
+        return {
+            "total": total_r.scalar() or 0,
+            "by_type": {row[0].value: row[1] for row in type_r.all()},
+            "by_status": by_status,
+            "pending_count": by_status.get(InsightStatus.PENDING.value, 0),
+            "high_impact_count": impact_r.scalar() or 0,
+        }
+
     async def delete(self, insight_id: str) -> bool:
         """Delete an insight.
 
