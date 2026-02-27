@@ -98,4 +98,9 @@ from src.api.routes.hitl import router as hitl_router
 
 api_router.include_router(hitl_router)
 
+# Jobs — MLflow-backed job list for the activity panel
+from src.api.routes.jobs import router as jobs_router
+
+api_router.include_router(jobs_router)
+
 __all__ = ["api_router"]
