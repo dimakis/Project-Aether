@@ -24,10 +24,40 @@ class TestA2ARemoteClientStream:
         from src.agents.a2a_client import A2ARemoteClient
 
         sse_events = [
-            _make_sse({"kind": "status-update", "taskId": "t1", "contextId": "c1", "final": False, "status": {"state": "working"}}),
-            _make_sse({"kind": "artifact-update", "taskId": "t1", "contextId": "c1", "artifact": {"artifactId": "a1", "parts": [{"kind": "text", "text": "Hello "}]}}),
-            _make_sse({"kind": "artifact-update", "taskId": "t1", "contextId": "c1", "artifact": {"artifactId": "a2", "parts": [{"kind": "text", "text": "world"}]}}),
-            _make_sse({"kind": "status-update", "taskId": "t1", "contextId": "c1", "final": True, "status": {"state": "completed"}}),
+            _make_sse(
+                {
+                    "kind": "status-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "final": False,
+                    "status": {"state": "working"},
+                }
+            ),
+            _make_sse(
+                {
+                    "kind": "artifact-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "artifact": {"artifactId": "a1", "parts": [{"kind": "text", "text": "Hello "}]},
+                }
+            ),
+            _make_sse(
+                {
+                    "kind": "artifact-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "artifact": {"artifactId": "a2", "parts": [{"kind": "text", "text": "world"}]},
+                }
+            ),
+            _make_sse(
+                {
+                    "kind": "status-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "final": True,
+                    "status": {"state": "completed"},
+                }
+            ),
         ]
 
         client = A2ARemoteClient("http://test:8000")
@@ -49,8 +79,26 @@ class TestA2ARemoteClientStream:
             "agent": "architect",
         }
         sse_events = [
-            _make_sse({"kind": "artifact-update", "taskId": "t1", "contextId": "c1", "artifact": {"artifactId": "e1", "parts": [{"kind": "data", "data": tool_event}]}}),
-            _make_sse({"kind": "status-update", "taskId": "t1", "contextId": "c1", "final": True, "status": {"state": "completed"}}),
+            _make_sse(
+                {
+                    "kind": "artifact-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "artifact": {
+                        "artifactId": "e1",
+                        "parts": [{"kind": "data", "data": tool_event}],
+                    },
+                }
+            ),
+            _make_sse(
+                {
+                    "kind": "status-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "final": True,
+                    "status": {"state": "completed"},
+                }
+            ),
         ]
 
         client = A2ARemoteClient("http://test:8000")
@@ -66,7 +114,15 @@ class TestA2ARemoteClientStream:
         from src.agents.a2a_client import A2ARemoteClient
 
         sse_events = [
-            _make_sse({"kind": "status-update", "taskId": "t1", "contextId": "c1", "final": True, "status": {"state": "failed"}}),
+            _make_sse(
+                {
+                    "kind": "status-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "final": True,
+                    "status": {"state": "failed"},
+                }
+            ),
         ]
 
         client = A2ARemoteClient("http://test:8000")
@@ -82,8 +138,23 @@ class TestA2ARemoteClientStream:
 
         sse_events = [
             _make_sse_raw("not-valid-json"),
-            _make_sse({"kind": "artifact-update", "taskId": "t1", "contextId": "c1", "artifact": {"artifactId": "a1", "parts": [{"kind": "text", "text": "ok"}]}}),
-            _make_sse({"kind": "status-update", "taskId": "t1", "contextId": "c1", "final": True, "status": {"state": "completed"}}),
+            _make_sse(
+                {
+                    "kind": "artifact-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "artifact": {"artifactId": "a1", "parts": [{"kind": "text", "text": "ok"}]},
+                }
+            ),
+            _make_sse(
+                {
+                    "kind": "status-update",
+                    "taskId": "t1",
+                    "contextId": "c1",
+                    "final": True,
+                    "status": {"state": "completed"},
+                }
+            ),
         ]
 
         client = A2ARemoteClient("http://test:8000")
