@@ -113,6 +113,7 @@ export function useInsights(type?: string, status?: string) {
   return useQuery({
     queryKey: [...queryKeys.insights.all, type, status],
     queryFn: () => insights.list(type, status),
+    refetchInterval: 15_000,
   });
 }
 

@@ -273,6 +273,20 @@ class Settings(BaseSettings):
         description="Max traces to evaluate per run",
     )
 
+    # Data retention (nightly cleanup of unbounded tables)
+    data_retention_days: int = Field(
+        default=90,
+        ge=7,
+        le=365,
+        description="Days to keep analysis reports, messages, and actioned insights",
+    )
+    llm_usage_retention_days: int = Field(
+        default=30,
+        ge=7,
+        le=365,
+        description="Days to keep LLM usage records (high-volume table)",
+    )
+
     # Discovery sync (periodic + webhook-triggered)
     discovery_sync_enabled: bool = Field(
         default=True,
