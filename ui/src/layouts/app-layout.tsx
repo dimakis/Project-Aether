@@ -19,7 +19,9 @@ import {
   FileBarChart,
   PanelLeft,
   Settings,
+  Sparkles,
   Workflow,
+  Bell,
 } from "lucide-react";
 import { lazy, Suspense, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -43,6 +45,7 @@ const navItems = [
   { to: "/proposals", icon: FileCheck, label: "Proposals" },
   { to: "/insights", icon: Lightbulb, label: "Insights" },
   { to: "/reports", icon: FileBarChart, label: "Reports" },
+  { to: "/optimization", icon: Sparkles, label: "Optimization" },
   { to: "/entities", icon: Cpu, label: "Entities" },
   { to: "/registry", icon: BookOpen, label: "Registry" },
   { to: "/schedules", icon: Clock, label: "Schedules" },
@@ -56,6 +59,7 @@ const navItems = [
   { to: "/dashboard-editor", icon: PanelLeft, label: "Dashboard Editor" },
   { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/settings/zones", icon: MapPin, label: "HA Zones" },
+  { to: "/settings/hitl", icon: Bell, label: "Push Notifications" },
 ];
 
 export function AppLayout() {

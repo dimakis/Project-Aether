@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.api.deps import get_db
 from src.api.main import create_app
 from src.settings import get_settings
 from tests.helpers.auth import make_test_jwt, make_test_settings
@@ -22,11 +23,16 @@ async def usage_client(monkeypatch):
 
     monkeypatch.setattr(settings_module, "get_settings", lambda: settings)
     app = create_app(settings)
+
+    mock_session = AsyncMock()
+    app.dependency_overrides[get_db] = lambda: mock_session
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
         yield client
+    app.dependency_overrides.clear()
     get_settings.cache_clear()
 
 
@@ -89,14 +95,11 @@ class TestUsageSummary:
         mock_repo = AsyncMock()
         mock_repo.get_summary = AsyncMock(return_value=MOCK_SUMMARY)
 
-        with patch("src.api.routes.usage.get_session") as mock_session:
-            mock_session.return_value.__aenter__ = AsyncMock()
-            mock_session.return_value.__aexit__ = AsyncMock()
-            with patch("src.api.routes.usage.LLMUsageRepository", return_value=mock_repo):
-                response = await usage_client.get(
-                    "/api/v1/usage/summary?days=7",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+        with patch("src.api.routes.usage.LLMUsageRepository", return_value=mock_repo):
+            response = await usage_client.get(
+                "/api/v1/usage/summary?days=7",
+                headers={"Authorization": f"Bearer {token}"},
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -120,14 +123,11 @@ class TestDailyUsage:
         mock_repo = AsyncMock()
         mock_repo.get_daily = AsyncMock(return_value=MOCK_DAILY)
 
-        with patch("src.api.routes.usage.get_session") as mock_session:
-            mock_session.return_value.__aenter__ = AsyncMock()
-            mock_session.return_value.__aexit__ = AsyncMock()
-            with patch("src.api.routes.usage.LLMUsageRepository", return_value=mock_repo):
-                response = await usage_client.get(
-                    "/api/v1/usage/daily?days=7",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+        with patch("src.api.routes.usage.LLMUsageRepository", return_value=mock_repo):
+            response = await usage_client.get(
+                "/api/v1/usage/daily?days=7",
+                headers={"Authorization": f"Bearer {token}"},
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -150,14 +150,11 @@ class TestUsageByModel:
         mock_repo = AsyncMock()
         mock_repo.get_by_model = AsyncMock(return_value=MOCK_MODELS)
 
-        with patch("src.api.routes.usage.get_session") as mock_session:
-            mock_session.return_value.__aenter__ = AsyncMock()
-            mock_session.return_value.__aexit__ = AsyncMock()
-            with patch("src.api.routes.usage.LLMUsageRepository", return_value=mock_repo):
-                response = await usage_client.get(
-                    "/api/v1/usage/models?days=7",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+        with patch("src.api.routes.usage.LLMUsageRepository", return_value=mock_repo):
+            response = await usage_client.get(
+                "/api/v1/usage/models?days=7",
+                headers={"Authorization": f"Bearer {token}"},
+            )
 
         assert response.status_code == 200
         data = response.json()

@@ -146,6 +146,20 @@ export const queryKeys = {
     communication: (id: string) => ["reports", id, "communication"] as const,
   },
 
+  // ── Optimization ────────────────────────────────────────────────────────
+  optimization: {
+    all: ["optimization"] as const,
+    job: (jobId: string) => ["optimization", "job", jobId] as const,
+    suggestions: ["optimization", "suggestions"] as const,
+  },
+
+  // ── Evaluations ────────────────────────────────────────────────────────
+  evaluations: {
+    all: ["evaluations"] as const,
+    summary: ["evaluations", "summary"] as const,
+    scorers: ["evaluations", "scorers"] as const,
+  },
+
   // ── System ──────────────────────────────────────────────────────────────
   system: {
     status: ["system", "status"] as const,

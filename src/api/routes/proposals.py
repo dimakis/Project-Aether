@@ -332,6 +332,160 @@ async def reject_proposal(
         return _proposal_to_response(proposal)
 
 
+@router.patch(
+    "/{proposal_id}/yaml",
+    summary="Edit proposal YAML",
+    description="Update the YAML content of a proposal before deployment.",
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+)
+@limiter.limit("10/minute")
+async def update_proposal_yaml(
+    request: Request,
+    proposal_id: str,
+    body: dict[str, Any] = {},  # noqa: B006
+) -> dict[str, Any]:
+    """Update the YAML content of a proposal.
+
+    Only allowed for proposals in proposed or approved status.
+    Parses the YAML and updates trigger/actions/conditions fields.
+    """
+    yaml_content = body.get("yaml_content", "")
+    if not yaml_content or not isinstance(yaml_content, str):
+        raise HTTPException(status_code=400, detail="yaml_content is required")
+
+    import yaml as _yaml
+
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        editable = {
+            ProposalStatus.DRAFT,
+            ProposalStatus.PROPOSED,
+            ProposalStatus.APPROVED,
+            ProposalStatus.REJECTED,
+        }
+        if proposal.status not in editable:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot edit proposal in status {proposal.status.value}. "
+                "Must be draft, proposed, approved, or rejected.",
+            )
+
+        try:
+            parsed = _yaml.safe_load(yaml_content)
+        except _yaml.YAMLError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid YAML: {exc}") from exc
+
+        if not isinstance(parsed, dict):
+            raise HTTPException(status_code=400, detail="YAML must be a mapping")
+
+        if "trigger" in parsed:
+            proposal.trigger = parsed["trigger"]
+        if "action" in parsed:
+            proposal.actions = parsed["action"]
+        elif "actions" in parsed:
+            proposal.actions = parsed["actions"]
+        if "condition" in parsed:
+            proposal.conditions = parsed["condition"]
+        elif "conditions" in parsed:
+            proposal.conditions = parsed["conditions"]
+        if "mode" in parsed:
+            proposal.mode = parsed["mode"]
+        if "alias" in parsed:
+            proposal.name = parsed["alias"]
+        if "description" in parsed:
+            proposal.description = parsed["description"]
+
+        await session.commit()
+
+        return {
+            "success": True,
+            "proposal_id": proposal_id,
+            "updated_fields": [
+                k
+                for k in parsed
+                if k
+                in (
+                    "trigger",
+                    "action",
+                    "actions",
+                    "condition",
+                    "conditions",
+                    "mode",
+                    "alias",
+                    "description",
+                )
+            ],
+        }
+
+
+@router.post(
+    "/{proposal_id}/validate",
+    summary="Validate proposal YAML",
+    description="Run HA schema validation on the proposal's YAML content.",
+    responses={404: {"model": ErrorResponse}},
+)
+@limiter.limit("20/minute")
+async def validate_proposal(
+    request: Request,
+    proposal_id: str,
+) -> dict[str, Any]:
+    """Validate a proposal's YAML against HA schema rules.
+
+    Runs structural validation (trigger/action/condition schema)
+    and returns any errors or warnings.
+    """
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        yaml_content = _generate_yaml(proposal)
+        if not yaml_content:
+            return {"valid": True, "errors": [], "warnings": []}
+
+        from src.schema import validate_yaml
+
+        ptype = proposal.proposal_type_enum.value
+        schema_map = {
+            "automation": "ha.automation",
+            "script": "ha.script",
+            "scene": "ha.scene",
+            "dashboard": "ha.dashboard",
+        }
+        schema_name = schema_map.get(ptype)
+        if not schema_name:
+            return {
+                "valid": True,
+                "errors": [],
+                "warnings": [],
+                "note": f"No schema for type {ptype}",
+            }
+
+        result = validate_yaml(yaml_content, schema_name)
+
+        return {
+            "valid": result.is_valid,
+            "errors": [
+                {"path": str(e.path), "message": e.message, "severity": e.severity}
+                for e in result.errors
+            ],
+            "warnings": [
+                {"path": str(w.path), "message": w.message, "severity": w.severity}
+                for w in result.warnings
+            ],
+        }
+
+
 @router.post(
     "/{proposal_id}/deploy",
     response_model=DeploymentResponse,
@@ -473,6 +627,79 @@ async def rollback_proposal(
                 status_code=500,
                 detail=sanitize_error(e, context="Rollback proposal"),
             ) from e
+
+
+@router.get(
+    "/{proposal_id}/verify",
+    summary="Verify deployment",
+    description="Check whether a deployed proposal's automation actually exists and is active in HA.",
+    responses={
+        404: {"model": ErrorResponse},
+    },
+)
+@limiter.limit("10/minute")
+async def verify_deployment(
+    request: Request,
+    proposal_id: str,
+) -> dict[str, Any]:
+    """Verify that a deployed proposal is live in HA."""
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        if proposal.status != ProposalStatus.DEPLOYED:
+            return {
+                "verified": False,
+                "proposal_id": proposal_id,
+                "reason": f"Proposal is not deployed (status: {proposal.status.value})",
+            }
+
+        ha_automation_id = proposal.ha_automation_id
+        if not ha_automation_id:
+            return {
+                "verified": False,
+                "proposal_id": proposal_id,
+                "reason": "No HA automation ID recorded",
+            }
+
+        try:
+            from src.ha import get_ha_client
+
+            ha = get_ha_client()
+            entity_id = f"automation.{ha_automation_id}"
+            states = await ha._request("GET", f"/api/states/{entity_id}")
+
+            if states and isinstance(states, dict):
+                return {
+                    "verified": True,
+                    "proposal_id": proposal_id,
+                    "ha_automation_id": ha_automation_id,
+                    "entity_id": entity_id,
+                    "state": states.get("state"),
+                    "friendly_name": states.get("attributes", {}).get("friendly_name"),
+                    "last_triggered": states.get("attributes", {}).get("last_triggered"),
+                }
+
+            return {
+                "verified": False,
+                "proposal_id": proposal_id,
+                "ha_automation_id": ha_automation_id,
+                "reason": "Automation entity not found in HA",
+            }
+
+        except Exception:
+            logger.warning(
+                "Failed to verify deployment for proposal %s", proposal_id[:8], exc_info=True
+            )
+            return {
+                "verified": False,
+                "proposal_id": proposal_id,
+                "ha_automation_id": ha_automation_id,
+                "reason": "Failed to check HA state; see server logs for details.",
+            }
 
 
 @router.delete(

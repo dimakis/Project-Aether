@@ -1,0 +1,41 @@
+---
+description: Continuous improvement — leave every file better than you found it. Triggered on every code change.
+alwaysApply: true
+---
+
+# Boy Scout Rule (Principle VII)
+
+When modifying ANY file, improve what you see. Small fixes compound into a high-quality codebase without cleanup sprints.
+
+## On Every Change, Check For
+
+1. **Broad exceptions** → narrow to specific types (`SQLAlchemyError`, `TimeoutError`, `httpx.HTTPError`). Reserve bare `except Exception` for top-level boundaries only.
+2. **f-string log calls** → convert to lazy `%s`-style: `logger.info("Found %d items", count)`.
+3. **Sequential I/O** → use `asyncio.gather()` for independent calls; `asyncio.to_thread()` for sync-in-async.
+4. **Duplicated utilities** → centralize (e.g. shared `get_db` in `src/api/deps.py`).
+5. **Unbounded caches** → add LRU eviction or TTL expiry.
+6. **Hardcoded values** → extract to settings or constants.
+7. **Missing type hints** → add them.
+8. **Dead code / stale TODO comments** → remove if the fix is tractable now.
+
+## Health Check Awareness
+
+- Liveness (`/health`): lightweight, no dependency checks.
+- Readiness (`/ready`): critical deps only with timeouts.
+- Status (`/status`): concurrent checks, TTL-cached, explicit timeouts.
+- Container health check paths MUST match actual API routes.
+- Application version: dynamic from package metadata, never hardcoded.
+
+## Anti-Patterns
+
+- Do NOT defer improvements to "a future sprint" when the fix is tractable now.
+- Do NOT add code that repeats patterns already flagged as inefficient.
+- Do NOT ignore linter/type-checker warnings in files you're modifying.
+
+## Performance Review Skill
+
+For deeper audits (new features, large refactors), invoke the `performance-review` skill. See `.cursor/skills/performance-review/SKILL.md`.
+
+## Reference
+
+Full governance: `.specify/memory/constitution.md` § VII. Performance & Continuous Improvement.

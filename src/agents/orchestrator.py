@@ -1,13 +1,15 @@
-"""OrchestratorAgent for intent classification and agent routing.
+"""OrchestratorAgent for intent classification, task planning, and routing.
 
 Feature 30: Domain-Agnostic Orchestration.
 
 The Orchestrator is the default entry point for all user messages when
-agent selection is set to "auto". It classifies the user's intent via
-a lightweight LLM call and routes to the appropriate domain agent.
+agent selection is set to "auto".  It:
+1. Classifies the user's intent via a lightweight LLM call.
+2. Plans the response strategy (direct, clarify, or multi-step).
+3. Routes to the appropriate domain agent with the right config.
 
 When confidence is below threshold, it asks the user for clarification
-rather than guessing. Falls back to the Knowledge agent when no domain
+rather than guessing.  Falls back to the Knowledge agent when no domain
 agent matches.
 """
 
@@ -15,7 +17,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -25,6 +28,8 @@ from src.llm import get_llm
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
+
+    from src.llm.model_tiers import ModelTier
 
 logger = logging.getLogger(__name__)
 
@@ -190,13 +195,14 @@ class OrchestratorAgent(BaseAgent):
         state: ConversationState,  # type: ignore[override]
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Classify intent and return routing decision as state updates.
+        """Classify intent, plan response, and return routing decision.
 
         Args:
             state: Current conversation state.
 
         Returns:
-            State updates: active_agent, current_agent, and user_intent.
+            State updates: active_agent, current_agent, user_intent,
+            and optionally a task_plan with clarification options.
         """
         user_message = ""
         if state.messages:
@@ -208,11 +214,160 @@ class OrchestratorAgent(BaseAgent):
         async with self.trace_span("invoke", state) as span:
             available_agents = await self._get_available_agents()
             classification = await self.classify_intent(user_message, available_agents)
+            plan = await self.plan_response(user_message, classification)
 
-            span["outputs"] = classification
+            span["outputs"] = {
+                "classification": classification,
+                "plan": {
+                    "response_type": plan.response_type,
+                    "model_tier": plan.model_tier,
+                    "target_agent": plan.target_agent,
+                },
+            }
 
-            return {
-                "active_agent": classification["agent"],
+            result: dict[str, Any] = {
+                "active_agent": plan.target_agent,
                 "current_agent": AgentRole.ORCHESTRATOR,
                 "user_intent": classification.get("reasoning", ""),
             }
+
+            if plan.response_type == "clarify" and plan.clarification_options:
+                result["clarification_options"] = plan.clarification_options
+
+            return result
+
+    async def plan_response(
+        self,
+        user_message: str,
+        classification: dict[str, Any],
+    ) -> TaskPlan:
+        """Plan the response strategy based on the classified intent.
+
+        Evaluates task complexity and decides whether to:
+        - Route directly to a single agent (``direct``)
+        - Present clarification options (``clarify``)
+        - Compose a multi-step workflow (``multi_step``)
+
+        Also selects a model tier appropriate for the task.
+        """
+        agent = classification.get("agent", FALLBACK_AGENT)
+        confidence = classification.get("confidence", 0.0)
+        needs_clarification = classification.get("needs_clarification", False)
+
+        if needs_clarification:
+            options = await self._generate_clarification_options(user_message)
+            return TaskPlan(
+                response_type="clarify",
+                target_agent=agent,
+                model_tier="fast",
+                clarification_options=options,
+            )
+
+        model_tier = self._assess_model_tier(user_message, agent)
+
+        return TaskPlan(
+            response_type="direct",
+            target_agent=agent,
+            model_tier=model_tier,
+            confidence=confidence,
+        )
+
+    def _assess_model_tier(self, user_message: str, agent: str) -> ModelTier:
+        """Heuristic model tier selection based on task signals."""
+        msg_lower = user_message.lower()
+
+        if agent == "knowledge" and len(user_message) < 100:
+            return "fast"
+
+        complexity_signals = [
+            "analyze",
+            "compare",
+            "research",
+            "optimize",
+            "design",
+            "explain in detail",
+            "step by step",
+            "comprehensive",
+        ]
+        if any(sig in msg_lower for sig in complexity_signals):
+            return "frontier"
+
+        return "standard"
+
+    async def _generate_clarification_options(
+        self,
+        user_message: str,
+    ) -> list[ClarificationOption]:
+        """Use LLM to generate contextual clarification options."""
+        llm = self._get_classification_llm()
+
+        prompt = (
+            f'The user said: "{user_message[:500]}"\n\n'
+            "This is ambiguous.  Generate 3-5 clarification options the user "
+            "can choose from.  Return a JSON array of objects with "
+            '"title" (short action label) and "description" (one sentence).\n'
+            "Only return valid JSON, nothing else."
+        )
+
+        try:
+            response = await llm.ainvoke(
+                [
+                    SystemMessage(
+                        content="You are a helpful assistant that generates clarification options."
+                    ),
+                    HumanMessage(content=prompt),
+                ]
+            )
+            raw = str(response.content or "")
+            items = json.loads(raw)
+            if isinstance(items, list):
+                return [
+                    ClarificationOption(
+                        title=str(item.get("title", "")),
+                        description=str(item.get("description", "")),
+                    )
+                    for item in items[:5]
+                    if item.get("title")
+                ]
+        except Exception:
+            logger.warning("Failed to generate clarification options", exc_info=True)
+
+        return [
+            ClarificationOption(
+                title="Tell me more",
+                description="Provide more details about what you need.",
+            ),
+            ClarificationOption(
+                title="General help",
+                description="Get a general answer to your question.",
+            ),
+        ]
+
+
+@dataclass
+class ClarificationOption:
+    """A single option in a clarification prompt."""
+
+    title: str
+    description: str = ""
+
+
+@dataclass
+class TaskPlan:
+    """The Orchestrator's response plan.
+
+    Attributes:
+        response_type: How to handle the request.
+        target_agent: Which agent should process the request.
+        model_tier: Recommended model capability tier.
+        confidence: Classification confidence (0-1).
+        clarification_options: Options to present when clarifying.
+        workflow_definition: Workflow spec for multi-step tasks.
+    """
+
+    response_type: Literal["direct", "clarify", "multi_step"] = "direct"
+    target_agent: str = FALLBACK_AGENT
+    model_tier: ModelTier = "standard"
+    confidence: float = 0.0
+    clarification_options: list[ClarificationOption] = field(default_factory=list)
+    workflow_definition: dict[str, Any] | None = None

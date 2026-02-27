@@ -33,6 +33,11 @@ export function storageRemove(key: string): void {
 
 // ─── Chat Session Types ──────────────────────────────────────────────────────
 
+export interface ClarificationOption {
+  title: string;
+  description: string;
+}
+
 export interface DisplayMessage {
   role: "user" | "assistant";
   content: string;
@@ -41,6 +46,9 @@ export interface DisplayMessage {
   traceId?: string; // MLflow trace ID for feedback
   feedback?: "positive" | "negative"; // User sentiment feedback
   thinkingContent?: string; // Accumulated reasoning/thinking tokens
+  clarificationOptions?: ClarificationOption[]; // Interactive options from Orchestrator
+  routedAgent?: string; // Which agent handled this message
+  routingConfidence?: number; // Intent classification confidence
 }
 
 export interface ChatSession {
@@ -71,7 +79,9 @@ export const STORAGE_KEYS = {
 
 /** Generate a short unique ID for sessions */
 export function generateSessionId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const random = crypto.getRandomValues(new Uint8Array(5));
+  const hex = Array.from(random, (b) => b.toString(36)).join("").slice(0, 7);
+  return `${Date.now().toString(36)}-${hex}`;
 }
 
 /**

@@ -34,6 +34,7 @@ def _make_workflow():
 
     workflow = ArchitectWorkflow.__new__(ArchitectWorkflow)
     workflow.agent = mock_agent
+    workflow.session_factory = None
     return workflow
 
 

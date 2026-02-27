@@ -7,9 +7,10 @@ info:
     ## Architecture
 
 
-    Aether uses a multi-agent system (Architect, Data Scientist, Librarian, Developer) orchestrated via LangGraph workflows
-    and traced via MLflow. The Architect agent handles user conversations, delegates to specialists, and proposes Home Assistant
-    automations.
+    Aether uses a multi-agent system orchestrated via LangGraph workflows and traced via MLflow. An Orchestrator agent classifies
+    user intent, selects the appropriate domain agent (Architect, Data Science team, Food, Research, Knowledge, Dashboard Designer),
+    and dynamically configures each agent with the right model, tools, and prompt. Mutating actions require HITL approval via
+    the web UI or push notifications (iPhone/Apple Watch).
 
 
     ## Constitution Compliance

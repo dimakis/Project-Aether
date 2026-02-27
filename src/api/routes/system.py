@@ -10,12 +10,14 @@ Endpoints:
 - /metrics — Operational metrics (rate-limit exempt, auth-gated in production)
 """
 
+import asyncio
 import logging
 import time
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
 
+from src import __version__
 from src.api.metrics import get_metrics_collector
 from src.api.rate_limit import limiter
 from src.api.schemas import (
@@ -32,6 +34,12 @@ router = APIRouter()
 
 # Track application start time for uptime calculation
 _start_time: float = time.time()
+
+_HEALTH_CHECK_TIMEOUT_S = 5.0
+_STATUS_CACHE_TTL_S = 10.0
+
+_cached_status: SystemStatus | None = None
+_cached_status_at: float = 0.0
 
 
 @router.get(
@@ -53,7 +61,7 @@ async def health_check() -> HealthResponse:
     return HealthResponse(
         status=HealthStatus.HEALTHY,
         timestamp=datetime.now(UTC),
-        version="0.1.0",
+        version=__version__,
     )
 
 
@@ -83,7 +91,7 @@ async def readiness_check() -> HealthResponse:
     return HealthResponse(
         status=HealthStatus.HEALTHY,
         timestamp=datetime.now(UTC),
-        version="0.1.0",
+        version=__version__,
     )
 
 
@@ -126,32 +134,34 @@ async def system_status() -> SystemStatus:
 
     Performs health checks on all system components and returns
     their individual statuses along with overall system health.
+    Results are cached for _STATUS_CACHE_TTL_S to reduce load
+    from frequent polling (Prometheus, Grafana, UI).
 
     Returns:
         SystemStatus with component-level health information
     """
+    global _cached_status, _cached_status_at
+
+    now = time.monotonic()
+    if _cached_status is not None and (now - _cached_status_at) < _STATUS_CACHE_TTL_S:
+        return _cached_status
+
     settings = get_settings()
-    components: list[ComponentHealth] = []
 
-    # Check database connectivity
-    db_health = await _check_database()
-    components.append(db_health)
+    components = list(
+        await asyncio.gather(
+            _check_database(),
+            _check_mlflow(),
+            _check_home_assistant(),
+        )
+    )
 
-    # Check MLflow connectivity
-    mlflow_health = await _check_mlflow()
-    components.append(mlflow_health)
-
-    # Check Home Assistant connectivity
-    ha_health = await _check_home_assistant()
-    components.append(ha_health)
-
-    # Determine overall status
     overall_status = _determine_overall_status(components)
 
-    return SystemStatus(
+    result = SystemStatus(
         status=overall_status,
         timestamp=datetime.now(UTC),
-        version="0.1.0",
+        version=__version__,
         environment=settings.environment,
         components=components,
         uptime_seconds=time.time() - _start_time,
@@ -159,22 +169,27 @@ async def system_status() -> SystemStatus:
         deployment_mode=settings.deployment_mode,
     )
 
+    _cached_status = result
+    _cached_status_at = time.monotonic()
+    return result
+
 
 async def _check_database() -> ComponentHealth:
-    """Check database connectivity.
-
-    Returns:
-        ComponentHealth for the database
-    """
+    """Check database connectivity with timeout."""
     start = time.perf_counter()
+
+    from sqlalchemy.exc import SQLAlchemyError
 
     try:
         from sqlalchemy import text
 
         from src.storage import get_session
 
-        async with get_session() as session:
-            await session.execute(text("SELECT 1"))
+        async def _ping_db() -> None:
+            async with get_session() as session:
+                await session.execute(text("SELECT 1"))
+
+        await asyncio.wait_for(_ping_db(), timeout=_HEALTH_CHECK_TIMEOUT_S)
 
         latency = (time.perf_counter() - start) * 1000
         return ComponentHealth(
@@ -184,9 +199,28 @@ async def _check_database() -> ComponentHealth:
             latency_ms=latency,
         )
 
+    except TimeoutError:
+        latency = (time.perf_counter() - start) * 1000
+        logger.error("Database health check timed out after %.1fs", _HEALTH_CHECK_TIMEOUT_S)
+        return ComponentHealth(
+            name="database",
+            status=HealthStatus.UNHEALTHY,
+            message="Database health check timed out",
+            latency_ms=latency,
+        )
+    except SQLAlchemyError as e:
+        latency = (time.perf_counter() - start) * 1000
+        logger.error("Database health check failed: %s", e, exc_info=True)
+        settings = get_settings()
+        message = f"Database error: {e!s}" if settings.debug else "Database unavailable"
+        return ComponentHealth(
+            name="database",
+            status=HealthStatus.UNHEALTHY,
+            message=message,
+            latency_ms=latency,
+        )
     except Exception as e:
         latency = (time.perf_counter() - start) * 1000
-        # Log the real error server-side; return a sanitized message to clients
         logger.error("Database health check failed: %s", e, exc_info=True)
         settings = get_settings()
         message = f"Database error: {e!s}" if settings.debug else "Database unavailable"
@@ -199,24 +233,24 @@ async def _check_database() -> ComponentHealth:
 
 
 async def _check_mlflow() -> ComponentHealth:
-    """Check MLflow tracking server connectivity.
+    """Check MLflow tracking server connectivity with timeout.
 
-    Returns:
-        ComponentHealth for MLflow
+    MLflow's Python SDK is synchronous, so the call is offloaded to
+    a thread to avoid blocking the event loop.
     """
     start = time.perf_counter()
 
     try:
         import mlflow
 
-        from src.settings import get_settings
-
         settings = get_settings()
         mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
 
-        # Try to list experiments (lightweight check)
         client = mlflow.tracking.MlflowClient()
-        client.search_experiments(max_results=1)
+        await asyncio.wait_for(
+            asyncio.to_thread(client.search_experiments, max_results=1),
+            timeout=_HEALTH_CHECK_TIMEOUT_S,
+        )
 
         latency = (time.perf_counter() - start) * 1000
         return ComponentHealth(
@@ -226,9 +260,17 @@ async def _check_mlflow() -> ComponentHealth:
             latency_ms=latency,
         )
 
+    except TimeoutError:
+        latency = (time.perf_counter() - start) * 1000
+        logger.warning("MLflow health check timed out after %.1fs", _HEALTH_CHECK_TIMEOUT_S)
+        return ComponentHealth(
+            name="mlflow",
+            status=HealthStatus.DEGRADED,
+            message="MLflow health check timed out",
+            latency_ms=latency,
+        )
     except Exception as e:
         latency = (time.perf_counter() - start) * 1000
-        # MLflow is not critical - mark as degraded, not unhealthy
         logger.warning("MLflow health check failed: %s", e)
         settings = get_settings()
         message = f"MLflow unavailable: {e!s}" if settings.debug else "MLflow unavailable"
@@ -344,6 +386,13 @@ async def _check_home_assistant() -> ComponentHealth:
             message=message,
             latency_ms=latency,
         )
+
+
+def invalidate_status_cache() -> None:
+    """Clear the cached /status response. Used in tests."""
+    global _cached_status, _cached_status_at
+    _cached_status = None
+    _cached_status_at = 0.0
 
 
 def _determine_overall_status(components: list[ComponentHealth]) -> HealthStatus:

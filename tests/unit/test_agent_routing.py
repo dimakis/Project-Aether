@@ -5,7 +5,7 @@ into a concrete active_agent on the ConversationState and determines which
 workflow to use.
 
 Covers:
-- "auto" defaults to "architect" (backward compatible)
+- "auto" routes to "orchestrator" (needs_orchestrator=True)
 - Explicit agent name is passed through
 - State gets active_agent and channel populated
 - Unknown agent names fall back gracefully
@@ -19,12 +19,12 @@ from src.graph.state import ConversationState
 class TestResolveAgentRouting:
     """resolve_agent_routing() determines the active agent and workflow."""
 
-    def test_auto_defaults_to_architect(self):
+    def test_auto_routes_to_orchestrator(self):
         from src.agents.routing import resolve_agent_routing
 
         result = resolve_agent_routing(agent="auto")
-        assert result.active_agent == "architect"
-        assert result.workflow_agent == "architect"
+        assert result.active_agent == "orchestrator"
+        assert result.workflow_agent == "orchestrator"
 
     def test_explicit_architect_bypasses_orchestrator(self):
         from src.agents.routing import resolve_agent_routing
@@ -93,11 +93,11 @@ class TestApplyRoutingToState:
 
         assert state.channel == "api"
 
-    def test_auto_routing_sets_architect_as_active(self):
+    def test_auto_routing_sets_orchestrator_as_active(self):
         from src.agents.routing import apply_routing_to_state, resolve_agent_routing
 
         state = ConversationState(conversation_id="conv-1")
         routing = resolve_agent_routing(agent="auto")
         apply_routing_to_state(state, routing)
 
-        assert state.active_agent == "architect"
+        assert state.active_agent == "orchestrator"

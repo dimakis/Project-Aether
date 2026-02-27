@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useReport } from "@/api/hooks/reports";
 import { env } from "@/lib/env";
+import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import type { AnalysisReport, CommunicationEntry } from "@/lib/types";
 
 // ─── Agent config for avatars ───────────────────────────────────────────────
@@ -224,9 +225,7 @@ function SummaryCard({ summary }: { summary: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-          {summary}
-        </p>
+        <MarkdownRenderer content={summary} className="text-sm" />
       </CardContent>
     </Card>
   );
@@ -365,9 +364,10 @@ function CommunicationTimeline({
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {entry.content}
-                  </p>
+                  <MarkdownRenderer
+                    content={entry.content}
+                    className="text-xs text-muted-foreground"
+                  />
                 </div>
               </div>
             );

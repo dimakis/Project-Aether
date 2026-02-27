@@ -153,9 +153,11 @@ class ModelDiscovery:
             self._cache.last_updated = time.time()
 
             logger.info(
-                f"Discovered {len(models)} models: "
-                f"{len(ollama_models)} local, "
-                f"{len(models) - len(ollama_models)} from {provider}"
+                "Discovered %d models: %d local, %d from %s",
+                len(models),
+                len(ollama_models),
+                len(models) - len(ollama_models),
+                provider,
             )
 
             return models
@@ -187,14 +189,14 @@ class ModelDiscovery:
                         )
                     )
 
-                logger.debug(f"Discovered {len(models)} Ollama models")
+                logger.debug("Discovered %d Ollama models", len(models))
                 return models
 
         except httpx.ConnectError:
             logger.debug("Ollama not running or not reachable")
             return []
         except Exception as e:
-            logger.warning(f"Failed to discover Ollama models: {e}")
+            logger.warning("Failed to discover Ollama models: %s", e)
             return []
 
     def _get_openrouter_models(self) -> list[DiscoveredModel]:

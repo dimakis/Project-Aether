@@ -1,10 +1,9 @@
 """Entity API routes."""
 
-from collections.abc import AsyncGenerator
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_db
 from src.api.rate_limit import limiter
 from src.api.schemas.entities import (
     EntityListResponse,
@@ -16,15 +15,8 @@ from src.api.schemas.entities import (
 )
 from src.dal.entities import EntityRepository
 from src.dal.sync import run_discovery
-from src.storage import get_session
 
 router = APIRouter(prefix="/entities", tags=["Entities"])
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with get_session() as session:
-        yield session
 
 
 @router.get("", response_model=EntityListResponse)

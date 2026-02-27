@@ -28,6 +28,11 @@ AgentName = Literal[
     "orchestrator",
     "knowledge",
     "dashboard_designer",
+    "energy_analyst",
+    "behavioral_analyst",
+    "diagnostic_analyst",
+    "food",
+    "research",
 ]
 
 

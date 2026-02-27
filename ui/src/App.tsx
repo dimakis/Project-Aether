@@ -69,6 +69,12 @@ const WorkflowDefinitionsPage = lazy(() =>
     default: m.WorkflowDefinitionsPage,
   })),
 );
+const HITLTestPage = lazy(() => import("@/pages/settings/hitl-test"));
+const OptimizationPage = lazy(() =>
+  import("@/pages/optimization").then((m) => ({
+    default: m.OptimizationPage,
+  })),
+);
 
 // ── Shared loading fallback ────────────────────────────────────────────────
 
@@ -162,10 +168,12 @@ export default function App() {
                     <Route path="webhooks" element={<WebhooksPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="settings/zones" element={<ZonesPage />} />
+                    <Route path="settings/hitl" element={<HITLTestPage />} />
                     <Route path="reports" element={<ReportsPage />} />
                     <Route path="reports/:id" element={<ReportDetailPage />} />
                     <Route path="dashboard-editor" element={<DashboardEditorPage />} />
                     <Route path="workflows" element={<WorkflowDefinitionsPage />} />
+                    <Route path="optimization" element={<OptimizationPage />} />
                   </Route>
                 </Route>
               </Route>

@@ -18,7 +18,10 @@ from src.agents.streaming.events import StreamEvent
 from src.settings import ANALYSIS_TOOLS, get_settings
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Callable
+    from contextlib import AbstractAsyncContextManager
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
     from src.agents.streaming.parser import ParsedToolCall
 
@@ -30,6 +33,7 @@ async def dispatch_tool_calls(
     tool_calls: list[ParsedToolCall],
     tool_lookup: dict[str, Any],
     conversation_id: str,
+    session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None,
 ) -> AsyncGenerator[StreamEvent, None]:
     """Execute parsed tool calls, yielding streaming events.
 
@@ -47,6 +51,9 @@ async def dispatch_tool_calls(
         tool_calls: Parsed tool calls from ToolCallParser.
         tool_lookup: Map of tool name to tool object (must have ``ainvoke``).
         conversation_id: Conversation ID for execution context.
+        session_factory: Optional callable returning an async session context
+            manager.  Threaded into :class:`ExecutionContext` so tools like
+            ``consult_data_science_team`` can persist reports/insights.
 
     Yields:
         StreamEvent dicts during execution and one ``_dispatch_result`` at end.
@@ -85,6 +92,7 @@ async def dispatch_tool_calls(
             tool_call_id=tc.id,
             args=tc.args,
             conversation_id=conversation_id,
+            session_factory=session_factory,
         ):
             if event["type"] == "_tool_result":
                 # Internal event — collect result
@@ -123,6 +131,7 @@ async def _execute_single_tool(
     tool_call_id: str,
     args: dict[str, Any],
     conversation_id: str,
+    session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None,
 ) -> AsyncGenerator[StreamEvent, None]:
     """Execute a single tool with progress queue draining and timeout.
 
@@ -139,6 +148,7 @@ async def _execute_single_tool(
         tool_call_id: ID of the tool call.
         args: Arguments to pass to the tool.
         conversation_id: Conversation ID for execution context.
+        session_factory: Optional session factory for execution context.
 
     Yields:
         StreamEvent dicts.
@@ -153,6 +163,7 @@ async def _execute_single_tool(
     progress_queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
     async with execution_context(
         progress_queue=progress_queue,
+        session_factory=session_factory,
         conversation_id=conversation_id,
         tool_timeout=float(settings.tool_timeout_seconds),
         analysis_timeout=float(settings.analysis_tool_timeout_seconds),

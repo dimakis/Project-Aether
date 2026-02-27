@@ -33,6 +33,15 @@ class ChatCompletionRequest(BaseModel):
         max_length=50,
         description='Agent to handle the request: "auto" (Orchestrator routes) or a specific agent name',
     )
+    workflow_preset: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Workflow preset ID from /workflows/presets (e.g. 'full-analysis', 'energy-only')",
+    )
+    disabled_agents: list[str] | None = Field(
+        default=None,
+        description="Agent names to exclude from the selected workflow preset",
+    )
 
 
 class ChatChoice(BaseModel):

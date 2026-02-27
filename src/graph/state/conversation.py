@@ -166,6 +166,8 @@ class ConversationState(MessageState):
     # Orchestration (Feature 30: Domain-Agnostic Orchestration)
     channel: str | None = None  # "voice", "text", or "api"
     active_agent: str | None = None  # Agent handling the current turn
+    workflow_preset: str | None = None  # Workflow preset ID (e.g. "full-analysis")
+    disabled_agents: list[str] = Field(default_factory=list)  # Agents excluded from preset
 
     # Trace context — populated by @mlflow.trace() wrapper for frontend activity panel
     last_trace_id: str | None = None

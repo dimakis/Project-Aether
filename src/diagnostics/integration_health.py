@@ -69,6 +69,8 @@ async def find_unhealthy_integrations(ha: Any) -> list[IntegrationHealth]:
 async def diagnose_integration(
     ha: Any,
     entry_id: str,
+    *,
+    entries: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """Run a full diagnosis on a specific integration.
 
@@ -78,12 +80,14 @@ async def diagnose_integration(
     Args:
         ha: HAClient instance
         entry_id: The config entry ID to diagnose
+        entries: Pre-fetched config entries to avoid a redundant HA call.
+                 If None, entries are fetched from HA.
 
     Returns:
         Diagnosis dict, or None if entry not found
     """
-    # Find the config entry
-    entries = await ha.list_config_entries()
+    if entries is None:
+        entries = await ha.list_config_entries()
     entry = next((e for e in entries if e.get("entry_id") == entry_id), None)
 
     if entry is None:

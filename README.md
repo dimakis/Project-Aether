@@ -10,13 +10,17 @@
 
 Project Aether is an intelligent home automation system that connects AI agents to your Home Assistant instance. Instead of writing YAML by hand or clicking through dashboards, you have a conversation — describe what you want, and Aether's agents discover your devices, analyze your energy data, diagnose problems, and design automations for you.
 
-**Key idea**: A team of specialized AI agents (Architect, Data Science team, Librarian, Developer, Dashboard Designer) collaborate to understand your smart home and act on your behalf — with human approval required for any changes.
+**Key idea**: An Orchestrator agent classifies user intent and dynamically routes requests to specialized domain agents (Architect, Data Science team, Food, Research, Knowledge, Dashboard Designer, and more). Each agent is configured with the right model, tools, and prompt at runtime. All mutating actions require human approval via the web UI or push notifications (iPhone/Apple Watch).
 
 ---
 
 ## Features
 
-- **Conversational Home Control** — chat with your smart home in natural language; all mutating actions require explicit approval (HITL)
+- **Intelligent Orchestration** — an Orchestrator agent classifies intent, selects the right domain agent and model tier (fast/standard/frontier), and presents clarification options for ambiguous requests
+- **Conversational Home Control** — chat with your smart home in natural language; all mutating actions require explicit approval (HITL) via web UI or push notification
+- **Push Notification Approval** — mutating actions can be approved/rejected from iPhone or Apple Watch via HA actionable notifications
+- **Web Search** — domain agents can search the web for recipes, prices, documentation, and more via DuckDuckGo
+- **Dynamic Agent Composition** — agents are configured at runtime with DB-backed prompts, tools, and model selection; workflows can be composed on-the-fly
 - **Entity Discovery** — the Librarian agent catalogs all HA entities, devices, and areas into a searchable database
 - **Automation Design** — describe automations in plain English; the Architect designs YAML and presents it for approval before deploying
 - **Energy Analysis** — the DS team's Energy Analyst analyzes consumption patterns via sandboxed Python scripts
@@ -56,8 +60,8 @@ Project Aether is an intelligent home automation system that connects AI agents 
 │                       Agent Layer                                           │
 │                             ▼                                               │
 │              ┌─────────────────────────────┐                                │
-│              │      Architect Agent        │  ◄── Unified entry point       │
-│              │   (Routes + Orchestrates)   │      for all user requests     │
+│              │    Orchestrator Agent       │  ◄── Classifies intent,        │
+│              │  (classify → plan → route)  │      routes to domain agents   │
 │              └──────────────┬──────────────┘                                │
 │                             │ delegates via tools                           │
 │         ┌──────────┬────────┼────────┬──────────┐                          │

@@ -17,7 +17,7 @@ def log_param(key: str, value: object) -> None:
         if mlflow.active_run():
             mlflow.log_param(key, value)
     except Exception as e:
-        _logger.debug(f"Failed to log param {key}: {e}")
+        _logger.debug("Failed to log param %s: %s", key, e)
 
 
 def log_params(params: dict[str, object]) -> None:
@@ -30,7 +30,7 @@ def log_params(params: dict[str, object]) -> None:
         if mlflow.active_run():
             mlflow.log_params(params)
     except Exception as e:
-        _logger.debug(f"Failed to log params: {e}")
+        _logger.debug("Failed to log params: %s", e)
 
 
 def log_metric(key: str, value: float, step: int | None = None) -> None:
@@ -43,7 +43,7 @@ def log_metric(key: str, value: float, step: int | None = None) -> None:
         if mlflow.active_run():
             mlflow.log_metric(key, value, step=step)
     except Exception as e:
-        _logger.debug(f"Failed to log metric {key}: {e}")
+        _logger.debug("Failed to log metric %s: %s", key, e)
 
 
 def log_metrics(metrics: dict[str, float], step: int | None = None) -> None:
@@ -56,7 +56,7 @@ def log_metrics(metrics: dict[str, float], step: int | None = None) -> None:
         if mlflow.active_run():
             mlflow.log_metrics(metrics, step=step)
     except Exception as e:
-        _logger.debug(f"Failed to log metrics: {e}")
+        _logger.debug("Failed to log metrics: %s", e)
 
 
 def log_dict(data: dict[str, object], filename: str) -> None:
@@ -69,4 +69,4 @@ def log_dict(data: dict[str, object], filename: str) -> None:
         if mlflow.active_run():
             mlflow.log_dict(data, filename)
     except Exception as e:
-        _logger.debug(f"Failed to log dict to {filename}: {e}")
+        _logger.debug("Failed to log dict to %s: %s", filename, e)

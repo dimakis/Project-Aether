@@ -43,8 +43,10 @@ class SemanticValidator:
     ) -> ValidationResult:
         """Run all semantic rules against parsed YAML data.
 
-        Expects data that has already been normalized (plural keys → singular,
-        trigger → platform, action → service) by core._normalize_ha_automation().
+        Supports automations, scripts, and scenes:
+        - Automations: checks triggers, actions, conditions
+        - Scripts: checks sequence (same as actions)
+        - Scenes: checks entity IDs in entities dict
 
         Args:
             data: Parsed YAML dict (already structurally validated and normalized).
@@ -56,14 +58,20 @@ class SemanticValidator:
         errors: list[ValidationError] = []
         warnings: list[ValidationError] = []
 
-        # Extract and check entities, services, and areas from triggers
-        await self._check_triggers(data.get("trigger", []), errors)
-
-        # Check actions
-        await self._check_actions(data.get("action", []), errors, warnings)
-
-        # Check conditions
-        await self._check_conditions(data.get("condition", []), errors)
+        if schema_name == "ha.script":
+            await self._check_actions(data.get("sequence", []), errors, warnings)
+        elif schema_name == "ha.scene":
+            entities = data.get("entities", {})
+            if isinstance(entities, dict):
+                await self._check_entity_ids(
+                    list(entities.keys()),
+                    "entities",
+                    errors,
+                )
+        else:
+            await self._check_triggers(data.get("trigger", []), errors)
+            await self._check_actions(data.get("action", []), errors, warnings)
+            await self._check_conditions(data.get("condition", []), errors)
 
         return ValidationResult(
             valid=len(errors) == 0,
@@ -131,6 +139,11 @@ class SemanticValidator:
                         )
                     )
 
+                # Check service parameters
+                data = action.get("data")
+                if data and isinstance(data, dict):
+                    await self._check_service_params(data, service, i, warnings)
+
                 # Check target entity domain consistency
                 target = action.get("target", {})
                 if isinstance(target, dict):
@@ -141,6 +154,36 @@ class SemanticValidator:
                         errors,
                         warnings,
                     )
+
+    async def _check_service_params(
+        self,
+        data: dict[str, Any],
+        service: str,
+        action_idx: int,
+        warnings: list[ValidationError],
+    ) -> None:
+        """Check that action.data keys are valid parameters for the service."""
+        if not data or not isinstance(data, dict):
+            return
+
+        fields = await self._cache.get_service_fields(service)
+        if fields is None:
+            return
+
+        known_fields = set(fields.keys())
+        if not known_fields:
+            return
+
+        provided = set(data.keys())
+        unknown = provided - known_fields
+        for key in sorted(unknown):
+            warnings.append(
+                ValidationError(
+                    path=f"action[{action_idx}].data.{key}",
+                    message=f"Unknown parameter '{key}' for service '{service}'",
+                    severity="warning",
+                )
+            )
 
     async def _check_action_target(
         self,

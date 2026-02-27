@@ -10,7 +10,8 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Callable
+    from contextlib import AbstractAsyncContextManager
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,16 +39,24 @@ class ArchitectWorkflow:
     4. Hand off to Developer for deployment
     """
 
-    def __init__(self, model_name: str | None = None, temperature: float | None = None):
+    def __init__(
+        self,
+        model_name: str | None = None,
+        temperature: float | None = None,
+        session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None,
+    ):
         """Initialize the Architect workflow.
 
         Args:
             model_name: LLM model to use (e.g., 'gpt-4o', 'gpt-4o-mini')
             temperature: LLM temperature for response generation
+            session_factory: Optional session factory for execution context
+                so tools can persist reports/insights to the DB.
         """
         from src.agents.architect.agent import ArchitectAgent
 
         self.agent = ArchitectAgent(model_name=model_name, temperature=temperature)
+        self.session_factory = session_factory
 
     async def start_conversation(
         self,
@@ -292,6 +301,7 @@ class ArchitectWorkflow:
                     tool_calls=parsed,
                     tool_lookup=tool_lookup,
                     conversation_id=state.conversation_id,
+                    session_factory=self.session_factory,
                 ):
                     if event["type"] == "_dispatch_result":
                         tool_results = event["tool_results"]

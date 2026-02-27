@@ -4,22 +4,15 @@ Provides endpoints for querying LLM usage statistics, costs, and
 daily/model breakdowns.
 """
 
-from collections.abc import AsyncGenerator
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_db
 from src.dal.llm_usage import LLMUsageRepository
-from src.storage import get_session
 
 router = APIRouter(prefix="/usage", tags=["Usage"])
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with get_session() as session:
-        yield session
 
 
 @router.get("/summary")
