@@ -69,7 +69,7 @@ class TestAetherAgentExecutor:
 
         from src.agents.a2a_service import AetherAgentExecutor
 
-        mock_agent = MagicMock()
+        mock_agent = MagicMock(spec=[])
         mock_agent.invoke = AsyncMock(
             return_value={"active_agent": "architect", "user_intent": "test"}
         )
