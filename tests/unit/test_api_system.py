@@ -155,6 +155,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -222,6 +223,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.debug = False
         mock_settings.public_url = None
@@ -275,6 +277,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -330,6 +333,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -373,6 +377,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -427,6 +432,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -481,6 +487,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -535,6 +542,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -575,6 +583,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -646,6 +655,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
@@ -683,6 +693,7 @@ class TestSystemStatus:
             yield mock_session
 
         mock_settings = MagicMock()
+        mock_settings.deployment_mode = "monolith"
         mock_settings.environment = "testing"
         mock_settings.mlflow_tracking_uri = "http://localhost:5000"
         mock_settings.debug = False
