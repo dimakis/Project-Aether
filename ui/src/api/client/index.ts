@@ -21,6 +21,7 @@ export { workflows } from "./workflows";
 export { flowGrades } from "./flow-grades";
 export { optimization } from "./optimization";
 export { evaluations } from "./evaluations";
+export { jobs } from "./jobs";
 export type { FlowGradePayload, FlowGradeItem, FlowGradeSummary } from "./flow-grades";
 export type { WorkflowPreset, WorkflowPresetsResponse } from "./workflows";
 export type {
