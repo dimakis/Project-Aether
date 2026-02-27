@@ -27,13 +27,21 @@ import { lazy, Suspense, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { agentLabel } from "@/lib/agent-registry";
 import { useAuth } from "@/contexts/auth-context";
-import { useSystemStatus, usePendingProposals } from "@/api/hooks";
+import { useSystemStatus, usePendingProposals, useJobs } from "@/api/hooks";
 import { useGlobalActivityStream } from "@/lib/useGlobalActivityStream";
 import {
   useAgentActivity,
   useActivityPanel,
   toggleActivityPanel,
+  hydrateJobs,
 } from "@/lib/agent-activity-store";
+
+function useJobHydration() {
+  const { data } = useJobs(20);
+  useEffect(() => {
+    if (data?.jobs) hydrateJobs(data.jobs);
+  }, [data]);
+}
 import { AgentActivityPanel } from "@/components/chat/agent-activity-panel";
 import { Loader2 } from "lucide-react";
 
@@ -73,6 +81,10 @@ export function AppLayout() {
 
   // Global SSE subscription for system-wide LLM activity
   useGlobalActivityStream();
+
+  // Hydrate the job registry from MLflow traces so the activity panel
+  // shows recent jobs on page load (survives refresh).
+  useJobHydration();
 
   // Fetch pending proposal count for the sidebar badge (polls every 30s)
   const { data: pendingProposals } = usePendingProposals();

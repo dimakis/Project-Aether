@@ -223,3 +223,66 @@ export function agentLabel(agentId: string): string {
 export function agentMeta(agentId: string): AgentMeta {
   return AGENTS[agentId] ?? AGENTS.system;
 }
+
+// ─── Dynamic Topology ─────────────────────────────────────────────────────────
+
+const DYNAMIC_PALETTE = [
+  { hex: "#f59e0b", color: "text-amber-400", glowRgb: "245 158 11" },
+  { hex: "#10b981", color: "text-emerald-400", glowRgb: "16 185 129" },
+  { hex: "#8b5cf6", color: "text-violet-400", glowRgb: "139 92 246" },
+  { hex: "#ec4899", color: "text-pink-400", glowRgb: "236 72 153" },
+  { hex: "#14b8a6", color: "text-teal-400", glowRgb: "20 184 166" },
+  { hex: "#f97316", color: "text-orange-400", glowRgb: "249 115 22" },
+  { hex: "#06b6d4", color: "text-cyan-400", glowRgb: "6 182 212" },
+  { hex: "#a855f7", color: "text-purple-400", glowRgb: "168 85 247" },
+  { hex: "#84cc16", color: "text-lime-400", glowRgb: "132 204 22" },
+  { hex: "#e11d48", color: "text-rose-500", glowRgb: "225 29 72" },
+  { hex: "#0ea5e9", color: "text-sky-400", glowRgb: "14 165 233" },
+  { hex: "#d97706", color: "text-yellow-600", glowRgb: "217 119 6" },
+];
+
+function hashCode(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i);
+  }
+  return Math.abs(h);
+}
+
+/** Generate metadata for an unknown agent using a deterministic color. */
+export function dynamicAgentMeta(agentId: string): AgentMeta {
+  if (AGENTS[agentId]) return AGENTS[agentId];
+  const palette = DYNAMIC_PALETTE[hashCode(agentId) % DYNAMIC_PALETTE.length];
+  return {
+    label: agentId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    icon: Server,
+    color: palette.color,
+    hex: palette.hex,
+    glowRgb: palette.glowRgb,
+  };
+}
+
+/**
+ * Build the agent list for the topology, merging seen agents with known agents.
+ *
+ * Always includes "aether" as root. Adds all agents from `agentsSeen` (runtime),
+ * then fills in known agents from TOPOLOGY_AGENT_IDS that haven't been seen.
+ */
+export function buildTopologyAgents(agentsSeen: string[]): string[] {
+  const result = new Set<string>(["aether"]);
+  for (const a of agentsSeen) result.add(a);
+  for (const a of TOPOLOGY_AGENT_IDS) result.add(a);
+  return [...result];
+}
+
+/**
+ * Get a position for an agent, falling back to a circular layout for unknowns.
+ */
+export function agentPosition(agentId: string, unknownIndex: number, totalUnknown: number): { x: number; y: number } {
+  if (BRAIN_LAYOUT[agentId]) return BRAIN_LAYOUT[agentId];
+  const angle = (2 * Math.PI * unknownIndex) / Math.max(totalUnknown, 1) - Math.PI / 2;
+  return {
+    x: 0.5 + 0.35 * Math.cos(angle),
+    y: 0.5 + 0.35 * Math.sin(angle),
+  };
+}

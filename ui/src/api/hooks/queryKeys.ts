@@ -146,6 +146,11 @@ export const queryKeys = {
     communication: (id: string) => ["reports", id, "communication"] as const,
   },
 
+  // ── Jobs ────────────────────────────────────────────────────────────────
+  jobs: {
+    all: ["jobs"] as const,
+  },
+
   // ── Optimization ────────────────────────────────────────────────────────
   optimization: {
     all: ["optimization"] as const,

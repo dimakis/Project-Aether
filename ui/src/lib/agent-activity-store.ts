@@ -31,6 +31,87 @@ export interface LiveTimelineEntry {
   ts: number;
 }
 
+// ─── Job Tracking ────────────────────────────────────────────────────────────
+
+export type JobType = "chat" | "optimization" | "analysis" | "schedule" | "webhook" | "evaluation" | "discovery" | "other";
+
+export interface JobInfo {
+  jobId: string;
+  jobType: JobType;
+  title: string;
+  status: "running" | "completed" | "failed";
+  startedAt: number;
+}
+
+const MAX_TRACKED_JOBS = 30;
+
+/** Map of jobId -> JobInfo for all known jobs (live + recent). */
+const jobRegistry = new Map<string, JobInfo>();
+const jobListeners = new Set<() => void>();
+let _jobListSnapshot: JobInfo[] = [];
+
+function _rebuildJobListSnapshot() {
+  _jobListSnapshot = [...jobRegistry.values()].sort(
+    (a, b) => b.startedAt - a.startedAt,
+  );
+}
+
+function notifyJobList() {
+  _rebuildJobListSnapshot();
+  for (const listener of jobListeners) listener();
+}
+
+export function registerJob(info: JobInfo) {
+  jobRegistry.set(info.jobId, info);
+  while (jobRegistry.size > MAX_TRACKED_JOBS) {
+    const oldest = _jobListSnapshot[_jobListSnapshot.length - 1];
+    if (oldest) jobRegistry.delete(oldest.jobId);
+  }
+  notifyJobList();
+}
+
+export function updateJobStatus(jobId: string, status: JobInfo["status"]) {
+  const existing = jobRegistry.get(jobId);
+  if (existing) {
+    jobRegistry.set(jobId, { ...existing, status });
+    notifyJobList();
+  }
+}
+
+export function getJobList(): JobInfo[] {
+  return _jobListSnapshot;
+}
+
+function subscribeJobList(listener: () => void) {
+  jobListeners.add(listener);
+  return () => jobListeners.delete(listener);
+}
+
+/** React hook to read the tracked job list (sorted most recent first). */
+export function useJobList(): JobInfo[] {
+  return useSyncExternalStore(subscribeJobList, getJobList, getJobList);
+}
+
+/** Hydrate the job registry from API data (e.g. GET /jobs on mount). */
+export function hydrateJobs(apiJobs: Array<{ job_id: string; job_type: string; status: string; title: string; started_at: number }>) {
+  for (const j of apiJobs) {
+    if (!jobRegistry.has(j.job_id)) {
+      jobRegistry.set(j.job_id, {
+        jobId: j.job_id,
+        jobType: j.job_type as JobType,
+        title: j.title,
+        status: j.status as JobInfo["status"],
+        startedAt: j.started_at,
+      });
+    }
+  }
+  while (jobRegistry.size > MAX_TRACKED_JOBS) {
+    const sorted = [...jobRegistry.values()].sort((a, b) => a.startedAt - b.startedAt);
+    if (sorted[0]) jobRegistry.delete(sorted[0].jobId);
+  }
+  notifyJobList();
+}
+
 // ─── Activity State (streaming indicator) ────────────────────────────────────
 
 /** A captured inter-agent delegation message. */

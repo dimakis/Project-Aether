@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Brain, ChevronDown, ChevronLeft, ChevronRight, Loader2, Cpu, Clock } from "lucide-react";
+import { X, Brain, ChevronDown, ChevronLeft, ChevronRight, Loader2, Cpu, Clock, MessageSquare, Sparkles, BarChart3, Calendar, Webhook, FlaskConical, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentTopology } from "./agent-topology";
-import { TOPOLOGY_AGENT_IDS, agentColor } from "@/lib/agent-registry";
+import { TOPOLOGY_AGENT_IDS, agentColor, buildTopologyAgents } from "@/lib/agent-registry";
 import { TraceTimeline } from "./trace-timeline";
 import { SectionErrorBoundary } from "@/components/ui/section-error-boundary";
 import {
@@ -13,6 +13,7 @@ import {
   setActivityPanelWidth,
   setActivitySession,
   useSessionCache,
+  useJobList,
   PANEL_MIN_WIDTH,
   PANEL_MAX_WIDTH,
 } from "@/lib/agent-activity-store";
@@ -315,6 +316,71 @@ function NarrativeFeed({ entries }: { entries: NarrativeFeedEntry[] }) {
   );
 }
 
+// ─── Job List ────────────────────────────────────────────────────────────────
+
+const JOB_TYPE_ICONS: Record<string, typeof MessageSquare> = {
+  chat: MessageSquare,
+  optimization: Sparkles,
+  analysis: BarChart3,
+  schedule: Calendar,
+  webhook: Webhook,
+  evaluation: FlaskConical,
+  discovery: Compass,
+  other: Cpu,
+};
+
+function JobListSection() {
+  const jobList = useJobList();
+  if (jobList.length === 0) return null;
+
+  const running = jobList.filter((j) => j.status === "running");
+  const recent = jobList.filter((j) => j.status !== "running").slice(0, 5);
+  const display = [...running, ...recent];
+
+  return (
+    <div className="px-1 pb-1">
+      <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+        Jobs{" "}
+        {running.length > 0 && (
+          <span className="font-normal text-primary">
+            ({running.length} running)
+          </span>
+        )}
+      </p>
+      <div className="space-y-0.5 max-h-32 overflow-y-auto">
+        {display.map((job) => {
+          const Icon = JOB_TYPE_ICONS[job.jobType] ?? Cpu;
+          return (
+            <div
+              key={job.jobId}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-2 py-1 text-[11px]",
+                job.status === "running"
+                  ? "bg-primary/5 text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50",
+              )}
+            >
+              <Icon className="h-3 w-3 shrink-0" />
+              <span className="flex-1 truncate">{job.title}</span>
+              {job.status === "running" ? (
+                <motion.div
+                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                  animate={{ scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                />
+              ) : job.status === "completed" ? (
+                <span className="text-[9px] text-emerald-500">done</span>
+              ) : (
+                <span className="text-[9px] text-red-500">failed</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Session Cycler ──────────────────────────────────────────────────────────
 
 function SessionCycler() {
@@ -402,14 +468,18 @@ export function AgentActivityPanel() {
   const hasLiveData =
     activity.agentsSeen.length > 0 || activity.liveTimeline.length > 0;
 
-  // Build full agent states: unseen agents are "dormant"
+  const topologyAgents = useMemo(
+    () => buildTopologyAgents(activity.agentsSeen),
+    [activity.agentsSeen],
+  );
+
   const fullAgentStates = useMemo(() => {
     const states: Record<string, import("@/lib/agent-activity-store").AgentNodeState> = {};
-    for (const agent of TOPOLOGY_AGENT_IDS) {
+    for (const agent of topologyAgents) {
       states[agent] = activity.agentStates[agent] ?? "dormant";
     }
     return states;
-  }, [activity.agentStates]);
+  }, [activity.agentStates, topologyAgents]);
 
   const hasThinking = !!activity.thinkingStream;
 
@@ -477,6 +547,9 @@ export function AgentActivityPanel() {
             </div>
           </div>
 
+          {/* Job list */}
+          <JobListSection />
+
           {/* Content */}
           <div className="flex-1 overflow-auto p-3 space-y-3">
             {/* ── Neural graph — ALWAYS rendered ─────────────────── */}
@@ -486,14 +559,14 @@ export function AgentActivityPanel() {
                 {isStreaming || hasLiveData ? "Neural Activity" : "Agent Network"}
               </p>
               <AgentTopology
-                agents={TOPOLOGY_AGENT_IDS}
+                agents={topologyAgents}
                 activeAgent={isStreaming ? activeAgent : null}
                 isLive={isStreaming || hasLiveData}
                 agentStates={
                   isStreaming || hasLiveData
                     ? fullAgentStates
                     : Object.fromEntries(
-                        TOPOLOGY_AGENT_IDS.map((a) => [a, "dormant" as const]),
+                        topologyAgents.map((a) => [a, "dormant" as const]),
                       )
                 }
                 activeEdges={
