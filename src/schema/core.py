@@ -30,11 +30,13 @@ class ValidationError(BaseModel):
         path: JSONPath-style location of the error (e.g., "trigger[0].platform").
         message: Human-readable error description.
         schema_path: JSON Schema path that triggered the error.
+        severity: "error" (blocks deployment) or "warning" (advisory).
     """
 
     path: str
     message: str
     schema_path: str = ""
+    severity: str = "error"
 
     def __str__(self) -> str:
         """Human-readable representation."""
@@ -234,6 +236,36 @@ def validate_yaml(
                 valid=False,
                 errors=result.errors + content_errors,
                 warnings=result.warnings,
+                schema_name=schema_name,
+            )
+
+    # Step 6: Jinja2 template syntax validation
+    if schema_name.startswith("ha."):
+        from src.schema.ha.template_validator import validate_templates
+
+        template_errors = validate_templates(data)
+        if template_errors:
+            hard_errors = [e for e in template_errors if e.severity == "error"]
+            all_warnings = result.warnings + [e for e in template_errors if e.severity == "warning"]
+            result = ValidationResult(
+                valid=result.valid and len(hard_errors) == 0,
+                errors=result.errors + hard_errors,
+                warnings=all_warnings,
+                schema_name=schema_name,
+            )
+
+    # Step 7: Cross-field consistency rules (HA automations)
+    if schema_name == "ha.automation":
+        from src.schema.ha.cross_field import validate_cross_field
+
+        cross_errors = validate_cross_field(data)
+        if cross_errors:
+            hard = [e for e in cross_errors if e.severity == "error"]
+            warns = [e for e in cross_errors if e.severity == "warning"]
+            result = ValidationResult(
+                valid=result.valid and len(hard) == 0,
+                errors=result.errors + hard,
+                warnings=result.warnings + warns,
                 schema_name=schema_name,
             )
 

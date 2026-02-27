@@ -105,6 +105,43 @@ AGENT_DEFS: list[dict[str, Any]] = [
         "status": AgentStatus.ENABLED.value,
         "prompt_name": None,
     },
+    {
+        "name": "food",
+        "description": "Cooking, recipes, meal planning, and kitchen appliance control.",
+        "status": AgentStatus.ENABLED.value,
+        "prompt_name": None,
+        "domain": "food",
+        "is_routable": True,
+        "intent_patterns": ["hungry", "recipe", "cooking", "meal", "food", "order_food", "preheat"],
+        "capabilities": ["search_recipes", "control_kitchen_appliances", "order_food"],
+        "tools_enabled": [
+            "web_search",
+            "get_entity_state",
+            "list_entities_by_domain",
+            "search_entities",
+            "seek_approval",
+        ],
+        "model_tier": "standard",
+    },
+    {
+        "name": "research",
+        "description": "Web research, information gathering, and summarization.",
+        "status": AgentStatus.ENABLED.value,
+        "prompt_name": None,
+        "domain": "research",
+        "is_routable": True,
+        "intent_patterns": [
+            "research",
+            "search",
+            "find_information",
+            "look_up",
+            "compare",
+            "review",
+        ],
+        "capabilities": ["web_search", "summarize", "compare_options"],
+        "tools_enabled": ["web_search"],
+        "model_tier": "standard",
+    },
 ]
 
 
@@ -148,12 +185,15 @@ async def seed_agents(request: Request) -> dict[str, Any]:
 
             existing_config = await config_repo.get_active(agent.id)
             if not existing_config and model:
-                config = await config_repo.create_draft(
-                    agent_id=agent.id,
-                    model_name=model,
-                    temperature=temperature,
-                    change_summary="Initial seed from environment settings",
-                )
+                config_kwargs: dict[str, Any] = {
+                    "agent_id": agent.id,
+                    "model_name": model,
+                    "temperature": temperature,
+                    "change_summary": "Initial seed from environment settings",
+                }
+                if defn.get("tools_enabled"):
+                    config_kwargs["tools_enabled"] = defn["tools_enabled"]
+                config = await config_repo.create_draft(**config_kwargs)
                 await config_repo.promote(config.id)
                 created_configs += 1
 
@@ -193,7 +233,7 @@ async def seed_agents(request: Request) -> dict[str, Any]:
 
 
 _DS_AGENTS = {"data_scientist", "energy_analyst", "behavioral_analyst", "diagnostic_analyst"}
-_LLM_AGENTS = {"architect", "orchestrator", "dashboard_designer", "knowledge"}
+_LLM_AGENTS = {"architect", "orchestrator", "dashboard_designer", "knowledge", "food", "research"}
 
 
 def _resolve_model(agent_name: str, settings: Any) -> str | None:

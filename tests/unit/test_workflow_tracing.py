@@ -20,6 +20,7 @@ def _make_workflow():
 
     w = ArchitectWorkflow.__new__(ArchitectWorkflow)
     w.agent = MagicMock()
+    w.session_factory = None
     w.agent.model_name = "test-model"
     w.agent._build_messages.return_value = [HumanMessage(content="test")]
     w.agent._get_entity_context = AsyncMock(return_value=(None, None))

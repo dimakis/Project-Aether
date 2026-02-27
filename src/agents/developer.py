@@ -130,6 +130,9 @@ class DeveloperAgent(BaseAgent):
         # Generate unique automation ID
         ha_automation_id = f"aether_{proposal.id.replace('-', '_')[:8]}"
 
+        # Snapshot existing config before overwriting (for rollback)
+        await self._snapshot_existing_config(proposal, ha_automation_id)
+
         # Deploy via HA REST API (with fallback to manual instructions)
         result = await self._deploy_via_ha(ha_automation_id, automation_yaml)
 
@@ -177,6 +180,33 @@ class DeveloperAgent(BaseAgent):
 # ---
 """
         return header + yaml_str
+
+    async def _snapshot_existing_config(
+        self,
+        proposal: AutomationProposal,
+        ha_automation_id: str,
+    ) -> None:
+        """Snapshot the existing HA automation config before overwriting.
+
+        If the automation already exists in HA, its current config is
+        stored in ``proposal.previous_config`` so rollback can restore
+        it instead of just disabling.
+        """
+        try:
+            config = await self.ha._request(
+                "GET", f"/api/config/automation/config/{ha_automation_id}"
+            )
+            if config and isinstance(config, dict):
+                proposal.previous_config = config
+                logger.info(
+                    "Snapshot: saved existing config for automation.%s",
+                    ha_automation_id,
+                )
+        except Exception:
+            logger.debug(
+                "No existing config to snapshot for automation.%s (new automation)",
+                ha_automation_id,
+            )
 
     async def _deploy_via_ha(
         self,
@@ -291,47 +321,87 @@ class DeveloperAgent(BaseAgent):
         proposal_id: str,
         repo: ProposalRepository,
     ) -> dict[str, object]:
-        """Disable an automation entity in Home Assistant."""
+        """Rollback an automation/script/scene in Home Assistant.
+
+        If ``previous_config`` was snapshotted before deployment, restores
+        the original config.  Otherwise falls back to disabling the entity.
+        """
         ha_automation_id = proposal.ha_automation_id
+        ha_restored = False
         ha_disabled = False
         ha_error: str | None = None
 
         if ha_automation_id:
-            entity_id = f"automation.{ha_automation_id}"
-            try:
-                await self.ha.call_service(
-                    domain="automation",
-                    service="turn_off",
-                    data={"entity_id": entity_id},
-                )
-                ha_disabled = True
-                logger.info(
-                    "Rollback: disabled HA automation %s for proposal %s",
-                    entity_id,
-                    proposal_id,
-                )
-            except Exception as exc:
-                ha_error = str(exc)
-                logger.warning(
-                    "Rollback: failed to disable HA automation %s for proposal %s: %s",
-                    entity_id,
-                    proposal_id,
-                    exc,
-                )
+            # Try to restore previous config first (full rollback)
+            if proposal.previous_config:
+                try:
+                    deployer = AutomationDeployer(self.ha)
+                    yaml_str = yaml.dump(
+                        proposal.previous_config,
+                        default_flow_style=False,
+                        sort_keys=False,
+                    )
+                    result = await deployer.deploy_automation(yaml_str, ha_automation_id)
+                    if result.get("success"):
+                        ha_restored = True
+                        logger.info(
+                            "Rollback: restored previous config for automation.%s (proposal %s)",
+                            ha_automation_id,
+                            proposal_id,
+                        )
+                except Exception as exc:
+                    ha_error = f"Restore failed: {exc}"
+                    logger.warning(
+                        "Rollback: failed to restore config for automation.%s, "
+                        "falling back to disable: %s",
+                        ha_automation_id,
+                        exc,
+                    )
 
-        # Always update DB status regardless of HA result
+            # Fallback: disable if restore failed or no snapshot available
+            if not ha_restored:
+                entity_id = f"automation.{ha_automation_id}"
+                try:
+                    await self.ha.call_service(
+                        domain="automation",
+                        service="turn_off",
+                        data={"entity_id": entity_id},
+                    )
+                    ha_disabled = True
+                    logger.info(
+                        "Rollback: disabled HA automation %s for proposal %s",
+                        entity_id,
+                        proposal_id,
+                    )
+                except Exception as exc:
+                    if not ha_error:
+                        ha_error = str(exc)
+                    logger.warning(
+                        "Rollback: failed to disable HA automation %s: %s",
+                        entity_id,
+                        exc,
+                    )
+
         await repo.rollback(proposal_id)
 
-        result: dict[str, object] = {
+        if ha_restored:
+            note = "Previous automation config restored."
+        elif ha_disabled:
+            note = "Automation disabled (no previous config available to restore)."
+        else:
+            note = "Rolled back in DB. HA entity may need manual cleanup."
+
+        result_dict: dict[str, object] = {
             "rolled_back": True,
+            "ha_restored": ha_restored,
             "ha_disabled": ha_disabled,
             "ha_automation_id": ha_automation_id,
             "rolled_back_at": datetime.now(UTC).isoformat(),
-            "note": "Automation disabled. Manual removal from automations.yaml may be needed.",
+            "note": note,
         }
         if ha_error:
-            result["ha_error"] = ha_error
-        return result
+            result_dict["ha_error"] = ha_error
+        return result_dict
 
     async def enable_automation(self, ha_automation_id: str) -> dict[str, Any]:
         """Enable a deployed automation.

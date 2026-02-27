@@ -1,18 +1,27 @@
-"""Tool loading and mutation classification for the Architect agent."""
+"""Tool loading and mutation classification for the Architect agent.
+
+Mutation classification delegates to the centralized
+``src.tools.mutation_registry`` module so that HITL enforcement is
+consistent across all agents (Constitution Principle I: Safety).
+"""
 
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
 
+from src.tools.mutation_registry import READ_ONLY_TOOLS, is_mutating_tool
+
 if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["READ_ONLY_TOOLS", "get_ha_tools", "is_mutating_tool"]
+
 
 def get_ha_tools() -> list[BaseTool]:
-    """Get the curated Architect tool set (12 tools).
+    """Get the curated Architect tool set (16 tools).
 
     The Architect is a lean router -- it delegates analysis to the
     DS team via ``consult_data_science_team`` and mutations via
@@ -30,45 +39,3 @@ def get_ha_tools() -> list[BaseTool]:
             exc_info=True,
         )
         return []
-
-
-# Read-only tools that can execute without HITL approval.
-# Every tool in get_architect_tools() is read-only except seek_approval,
-# which is the approval mechanism itself (creating proposals, not mutations).
-READ_ONLY_TOOLS: frozenset[str] = frozenset(
-    {
-        # HA query tools (10)
-        "get_entity_state",
-        "list_entities_by_domain",
-        "search_entities",
-        "get_domain_summary",
-        "list_automations",
-        "get_automation_config",
-        "get_script_config",
-        "render_template",
-        "get_ha_logs",
-        "check_ha_config",
-        # Discovery (1)
-        "discover_entities",
-        # Specialist delegation (2) — read-only analysis
-        "consult_data_science_team",
-        "consult_dashboard_designer",
-        # Scheduling (1) — creates config, no HA mutation
-        "create_insight_schedule",
-        # Approval (1) — creating proposals IS the approval mechanism
-        "seek_approval",
-        # Review (1) — creates review proposals for HITL approval
-        "review_config",
-    }
-)
-
-
-def is_mutating_tool(tool_name: str) -> bool:
-    """Check if a tool call can mutate Home Assistant state.
-
-    Uses a whitelist of known read-only tools. Any tool not in the
-    whitelist is treated as mutating and requires HITL approval.
-    This fail-safe approach ensures newly registered tools default
-    to requiring approval rather than silently bypassing it.
-    """
-    return tool_name not in READ_ONLY_TOOLS

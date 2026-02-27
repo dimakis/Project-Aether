@@ -39,11 +39,16 @@ export function ChatInput({
     }
   }, [value]);
 
+  // Autofocus on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   return (
     <div className="border-t border-border p-4">
       <div className="mx-auto max-w-3xl">
         <motion.div
-          className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 transition-colors focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20"
+          className="flex items-end gap-2 rounded-xl border border-border bg-card px-3 py-2 transition-colors focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20"
         >
           <textarea
             ref={inputRef}
@@ -52,7 +57,7 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder="Message Aether..."
             rows={1}
-            className="flex-1 resize-none border-0 bg-transparent px-2 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none"
+            className="flex-1 resize-none border-0 bg-transparent py-1 text-sm placeholder:text-muted-foreground focus:outline-none"
             disabled={disabled}
           />
           <Button

@@ -46,22 +46,6 @@ def _derive_fernet_key(secret: str) -> bytes:
     return base64.urlsafe_b64encode(dk)
 
 
-def _derive_fernet_key_legacy(secret: str) -> bytes:
-    """Legacy key derivation using raw SHA-256 (for migration only).
-
-    Used to decrypt tokens that were encrypted before the PBKDF2 upgrade.
-    Will be removed in a future version.
-
-    Args:
-        secret: The secret to derive the key from.
-
-    Returns:
-        A valid Fernet key (44 bytes, url-safe base64).
-    """
-    digest = hashlib.sha256(secret.encode()).digest()
-    return base64.urlsafe_b64encode(digest)
-
-
 def encrypt_token(token: str, secret: str) -> str:
     """Encrypt a token using Fernet with a key derived from the secret.
 
@@ -80,9 +64,6 @@ def encrypt_token(token: str, secret: str) -> str:
 def decrypt_token(encrypted: str, secret: str) -> str:
     """Decrypt a Fernet-encrypted token.
 
-    Tries PBKDF2-derived key first. Falls back to legacy SHA-256
-    derivation for tokens encrypted before the KDF upgrade.
-
     Args:
         encrypted: The encrypted token string (base64).
         secret: The secret used to derive the decryption key.
@@ -91,20 +72,10 @@ def decrypt_token(encrypted: str, secret: str) -> str:
         The decrypted plaintext token.
 
     Raises:
-        cryptography.fernet.InvalidToken: If decryption fails with both keys.
+        cryptography.fernet.InvalidToken: If decryption fails.
     """
-    from cryptography.fernet import InvalidToken
-
-    # Try current PBKDF2 key first
     key = _derive_fernet_key(secret)
-    try:
-        return Fernet(key).decrypt(encrypted.encode()).decode()
-    except InvalidToken:
-        pass
-
-    # Fall back to legacy SHA-256 derivation for pre-upgrade tokens
-    legacy_key = _derive_fernet_key_legacy(secret)
-    return Fernet(legacy_key).decrypt(encrypted.encode()).decode()
+    return Fernet(key).decrypt(encrypted.encode()).decode()
 
 
 class SystemConfigRepository:

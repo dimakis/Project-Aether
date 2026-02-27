@@ -103,3 +103,15 @@ export {
 } from "./reports";
 export { useDashboards, useDashboardConfig } from "./dashboards";
 export { useAppSettings, usePatchSettings, useResetSettings } from "./settings";
+export {
+  useOptimizationJob,
+  useSuggestions,
+  useRunOptimization,
+  useAcceptSuggestion,
+  useRejectSuggestion,
+} from "./optimization";
+export {
+  useEvaluationSummary,
+  useScorers,
+  useRunEvaluation,
+} from "./evaluations";

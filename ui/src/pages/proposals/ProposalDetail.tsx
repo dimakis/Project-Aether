@@ -13,12 +13,15 @@ import {
   Trash2,
   Search,
   AlertTriangle,
+  Pencil,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YamlViewer } from "@/components/ui/data-viewer";
 import { YamlDiffViewer } from "@/components/ui/yaml-diff-viewer";
+import { YamlEditor } from "@/components/ui/yaml-editor";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import {
   useProposal,
@@ -28,6 +31,7 @@ import {
   useRollbackProposal,
   useDeleteProposal,
 } from "@/api/hooks";
+import { proposals as proposalsApi } from "@/api/client";
 import type { Proposal, ProposalWithYAML, ReviewNote } from "@/lib/types";
 import { STATUS_CONFIG, TYPE_ICONS } from "./types";
 
@@ -122,7 +126,7 @@ function ReviewNotesPanel({ notes }: { notes: ReviewNote[] }) {
 
 export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
-  const { data: detail, isLoading } = useProposal(proposalId);
+  const { data: detail, isLoading, refetch: queryRefetch } = useProposal(proposalId);
   const approveMut = useApproveProposal();
   const rejectMut = useRejectProposal();
   const deployMut = useDeployProposal();
@@ -135,6 +139,20 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
     error?: string;
   } | null>(null);
   const [confirmingDeploy, setConfirmingDeploy] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [verification, setVerification] = useState<{
+    verified?: boolean;
+    state?: string;
+    reason?: string;
+    loading?: boolean;
+  } | null>(null);
+  const [validation, setValidation] = useState<{
+    valid?: boolean;
+    errors?: Array<{ path: string; message: string; severity: string }>;
+    warnings?: Array<{ path: string; message: string; severity: string }>;
+    loading?: boolean;
+  } | null>(null);
 
   const isDashboard = (detail as Proposal)?.proposal_type === "dashboard";
 
@@ -286,22 +304,131 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
             </div>
           ) : detail.yaml_content ? (
             <div>
-              <h4 className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                <Code className="h-3 w-3" />
-                {(detail as Proposal).proposal_type === "entity_command"
-                  ? "Service Call"
-                  : (detail as Proposal).proposal_type === "dashboard"
-                    ? "Dashboard Config"
-                    : "Automation YAML"}
-              </h4>
-              <div className="overflow-hidden rounded-lg border border-border">
-                <YamlViewer
-                  content={detail.yaml_content}
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <Code className="h-3 w-3" />
+                  {(detail as Proposal).proposal_type === "entity_command"
+                    ? "Service Call"
+                    : (detail as Proposal).proposal_type === "dashboard"
+                      ? "Dashboard Config"
+                      : "Automation YAML"}
+                </h4>
+                {!isEditing && detail.status !== "deployed" && detail.status !== "rolled_back" && detail.status !== "archived" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="h-7 text-xs"
+                  >
+                    <Pencil className="mr-1 h-3 w-3" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+              {isEditing ? (
+                <YamlEditor
+                  originalYaml={detail.yaml_content}
+                  isEditing
+                  submitLabel="Save Changes"
+                  isSaving={editSaving}
+                  onSubmitEdit={async (editedYaml) => {
+                    setEditSaving(true);
+                    try {
+                      await proposalsApi.updateYaml(detail.id, editedYaml);
+                      setIsEditing(false);
+                      await queryRefetch();
+                      // Auto-validate after edit
+                      setValidation({ loading: true });
+                      try {
+                        const vResult = await proposalsApi.validate(detail.id);
+                        setValidation(vResult);
+                      } catch {
+                        setValidation(null);
+                      }
+                    } catch {
+                      // YamlEditor shows validation errors inline
+                    } finally {
+                      setEditSaving(false);
+                    }
+                  }}
+                  onCancelEdit={() => setIsEditing(false)}
                   maxHeight={400}
                 />
-              </div>
+              ) : (
+                <div className="overflow-hidden rounded-lg border border-border">
+                  <YamlViewer
+                    content={detail.yaml_content}
+                    maxHeight={400}
+                  />
+                </div>
+              )}
             </div>
           ) : null}
+
+          {/* YAML Validation */}
+          {detail.yaml_content && (
+            <div>
+              <div className="flex items-center justify-between">
+                <h4 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <Search className="h-3 w-3" />
+                  Schema Validation
+                </h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={validation?.loading}
+                  onClick={async () => {
+                    setValidation({ loading: true });
+                    try {
+                      const result = await proposalsApi.validate(detail.id);
+                      setValidation(result);
+                    } catch {
+                      setValidation({ valid: false, errors: [{ path: "", message: "Validation request failed", severity: "error" }] });
+                    }
+                  }}
+                >
+                  {validation?.loading ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Search className="mr-1 h-3 w-3" />
+                  )}
+                  Validate
+                </Button>
+              </div>
+              {validation && !validation.loading && (
+                <div className="mt-2 space-y-1.5">
+                  {validation.valid ? (
+                    <div className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+                      <Check className="h-3.5 w-3.5" />
+                      YAML is valid — no schema errors
+                    </div>
+                  ) : (
+                    <>
+                      {(validation.errors || []).map((err, i) => (
+                        <div key={`e-${i}`} className="flex items-start gap-1.5 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            {err.path && <code className="mr-1">{err.path}:</code>}
+                            {err.message}
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {(validation.warnings || []).map((warn, i) => (
+                    <div key={`w-${i}`} className="flex items-start gap-1.5 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {warn.path && <code className="mr-1">{warn.path}:</code>}
+                        {warn.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Review Notes */}
           {(detail as ProposalWithYAML).review_notes &&
@@ -517,6 +644,47 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                 )}
                 Rollback
               </Button>
+            )}
+            {detail.status === "deployed" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setVerification({ loading: true });
+                  try {
+                    const result = await proposalsApi.verify(detail.id);
+                    setVerification({
+                      verified: result.verified,
+                      state: result.state,
+                      reason: result.reason,
+                    });
+                  } catch {
+                    setVerification({ verified: false, reason: "Verification request failed" });
+                  }
+                }}
+                disabled={verification?.loading}
+              >
+                {verification?.loading ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <ShieldCheck className="mr-1 h-3 w-3" />
+                )}
+                Verify
+              </Button>
+            )}
+            {verification && !verification.loading && (
+              <div
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium",
+                  verification.verified
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "bg-red-500/10 text-red-400",
+                )}
+              >
+                {verification.verified
+                  ? `Live in HA (state: ${verification.state})`
+                  : verification.reason ?? "Not found in HA"}
+              </div>
             )}
             {/* Rollback result feedback */}
             {rollbackMut.isSuccess && rollbackMut.data && (

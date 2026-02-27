@@ -28,6 +28,10 @@ export interface YamlEditorProps {
   maxHeight?: number;
   /** Whether the code block is collapsible (view mode only) */
   collapsible?: boolean;
+  /** Label for the submit button (default: "Save Changes") */
+  submitLabel?: string;
+  /** Whether the submit is in progress */
+  isSaving?: boolean;
   /** Additional class names */
   className?: string;
 }
@@ -53,6 +57,8 @@ export function YamlEditor({
   onCancelEdit,
   maxHeight = 400,
   collapsible = false,
+  submitLabel = "Save Changes",
+  isSaving = false,
   className,
 }: YamlEditorProps) {
   const [editedContent, setEditedContent] = useState(originalYaml);
@@ -137,11 +143,15 @@ export function YamlEditor({
           <Button
             size="sm"
             onClick={() => onSubmitEdit(editedContent)}
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSaving}
             className="h-7 gap-1.5 text-xs"
           >
-            <Send className="h-3 w-3" />
-            Send to Architect
+            {isSaving ? (
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Send className="h-3 w-3" />
+            )}
+            {submitLabel}
           </Button>
         </div>
       </div>

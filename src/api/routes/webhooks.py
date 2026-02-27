@@ -102,6 +102,28 @@ async def receive_ha_webhook(
             detail="Webhook secret not configured. Set WEBHOOK_SECRET for production use.",
         )
 
+    # HITL push notification: handle HA Companion App actionable notification callbacks.
+    # The Companion App fires event type "mobile_app_notification_action" with the
+    # action identifier in event_data.action.
+    if payload.event_type == "mobile_app_notification_action":
+        action_id = payload.data.get("action", "")
+        if action_id.startswith(("APPROVE_", "REJECT_")):
+            from src.hitl.action_log import record_action
+            from src.hitl.push_notification import handle_notification_action
+
+            result = await handle_notification_action(action_id)
+            record_action(
+                proposal_id=result.get("proposal_id", ""),
+                action=result.get("action", "unknown"),
+                status=result.get("status", "error"),
+            )
+            logger.info("Push notification action handled: %s", result)
+            return WebhookResponse(
+                status=result.get("status", "error"),
+                matched_schedules=0,
+                message=f"Proposal {result.get('action', 'unknown')}: {result.get('proposal_id', '')[:8]}",
+            )
+
     # Entity registry sync: trigger immediate sync on registry changes
     if payload.event_type == "entity_registry_updated":
         background_tasks.add_task(_run_registry_sync)

@@ -53,10 +53,8 @@ class AnalystPersistenceMixin:
         ids = []
 
         for finding in findings:
-            # Map finding_type to InsightType
             mapped_type = self._map_finding_type(finding.finding_type)
 
-            # Derive impact from confidence
             if finding.confidence >= 0.8:
                 impact = "high"
             elif finding.confidence >= 0.5:
@@ -76,6 +74,9 @@ class AnalystPersistenceMixin:
                 task_label=task_label,
             )
             ids.append(str(insight.id))
+
+        if ids and ctx:
+            ctx.persisted_insight_ids.extend(ids)
 
         return ids
 

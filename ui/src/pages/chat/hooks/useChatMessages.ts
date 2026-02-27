@@ -327,6 +327,9 @@ export function useChatMessages(): UseChatMessagesReturn {
       const fullContentRef = streamContentRef;
       const thinkingRef = streamThinkingRef;
       const rafPending = { current: false };
+      const routedAgentRef = { current: undefined as string | undefined };
+      const routingConfidenceRef = { current: undefined as number | undefined };
+      const clarificationRef = { current: undefined as import("@/lib/storage").ClarificationOption[] | undefined };
 
       // Bug 2 fix: track the assistant timestamp separately.
       // Set it on the first flush (when the first token arrives) so the
@@ -353,6 +356,9 @@ export function useChatMessages(): UseChatMessagesReturn {
               isStreaming: true,
               timestamp: ts,
               thinkingContent: thinkingSnapshot || undefined,
+              routedAgent: routedAgentRef.current,
+              routingConfidence: routingConfidenceRef.current,
+              clarificationOptions: clarificationRef.current,
             };
             return updated;
           });
@@ -368,6 +374,10 @@ export function useChatMessages(): UseChatMessagesReturn {
         const ownsPanel = () => getActivitySessionId() === sessionId;
 
         const agentArg = selectedAgent === "auto" ? undefined : selectedAgent;
+        const presetArg = workflowSelection.preset?.id;
+        const disabledArg = workflowSelection.disabledAgents.size > 0
+          ? [...workflowSelection.disabledAgents]
+          : undefined;
 
         for await (const chunk of streamChat(
           selectedModel,
@@ -375,6 +385,8 @@ export function useChatMessages(): UseChatMessagesReturn {
           sessionId,
           controller.signal,
           agentArg,
+          presetArg,
+          disabledArg,
         )) {
           if (typeof chunk === "object" && "type" in chunk) {
             if (chunk.type === "metadata") {
@@ -425,6 +437,23 @@ export function useChatMessages(): UseChatMessagesReturn {
                   ],
                 });
               }
+              continue;
+            }
+            if (chunk.type === "routing") {
+              routedAgentRef.current = chunk.agent;
+              routingConfidenceRef.current = chunk.confidence;
+              if (ownsPanel()) {
+                setAgentActivity({
+                  routedAgent: chunk.agent,
+                  routingConfidence: chunk.confidence,
+                  routingReasoning: chunk.reasoning,
+                });
+              }
+              continue;
+            }
+            if (chunk.type === "clarification_options") {
+              clarificationRef.current = chunk.options;
+              scheduleFlush();
               continue;
             }
             if (chunk.type === "error") {

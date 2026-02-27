@@ -301,7 +301,7 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/webhooks/ha` | Receive HA webhook events |
+| `POST` | `/api/v1/webhooks/ha` | Receive HA webhook events (including `ios.notification_action_fired` for push notification HITL approval/rejection) |
 
 ---
 

@@ -312,6 +312,7 @@ class TestStreamEmitsTraceEvents:
             model="test-model",
             messages=[ChatMessage(role="user", content="Hello world")],
             stream=True,
+            agent="architect",
         )
 
         completed_state = MagicMock()
@@ -356,6 +357,7 @@ class TestStreamEmitsTraceEvents:
                 ChatMessage(role="user", content="Hello world"),
             ],
             stream=True,
+            agent="architect",
         )
 
         completed_state = MagicMock()
@@ -386,6 +388,7 @@ class TestStreamEmitsTraceEvents:
             model="test-model",
             messages=[ChatMessage(role="user", content="Analyze energy")],
             stream=True,
+            agent="architect",
         )
 
         completed_state = MagicMock()

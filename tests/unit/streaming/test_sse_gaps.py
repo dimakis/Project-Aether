@@ -43,6 +43,7 @@ async def _collect_sse_lines(
         model="test",
         messages=[{"role": "user", "content": "test"}],
         stream=True,
+        agent="architect",
     )
 
     # Mock mlflow at the module level to prevent real MLflow calls
@@ -285,6 +286,7 @@ class TestMidStreamError:
             model="test",
             messages=[{"role": "user", "content": "test"}],
             stream=True,
+            agent="architect",
         )
 
         lines = []
@@ -313,7 +315,8 @@ class TestMidStreamError:
 
         parsed = _parse_sse_data(lines)
 
-        # Should have an error event
+        # Should have a generic error event (not leaking exception details)
         error_events = [p for p in parsed if isinstance(p, dict) and p.get("error")]
         assert len(error_events) >= 1
-        assert "connection lost" in str(error_events[0]).lower()
+        error_msg = str(error_events[0]).lower()
+        assert "internal error" in error_msg or "server logs" in error_msg

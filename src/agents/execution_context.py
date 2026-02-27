@@ -82,6 +82,7 @@ class ExecutionContext:
     analysis_timeout: float = 180.0
     team_analysis: Any = None
     communication_log: list[dict[str, Any]] = field(default_factory=list)
+    persisted_insight_ids: list[str] = field(default_factory=list)
 
 
 # Context variable holding the active execution context

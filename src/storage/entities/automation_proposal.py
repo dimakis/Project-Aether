@@ -142,6 +142,12 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         nullable=True,
         doc="Snapshot of the existing Lovelace config taken before deployment (for rollback).",
     )
+    previous_config: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        doc="Snapshot of the existing HA config (automation/script/scene YAML as dict) "
+        "taken before deployment.  Enables full rollback (restore, not just disable).",
+    )
     status: Mapped[ProposalStatus] = mapped_column(
         default=ProposalStatus.DRAFT,
         nullable=False,

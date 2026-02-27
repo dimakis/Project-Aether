@@ -42,7 +42,12 @@ from src.tools.insight_schedule_tools import (
     create_insight_schedule,
     get_insight_schedule_tools,
 )
-from src.tools.registry import get_all_tools, get_architect_tools
+from src.tools.mutation_registry import (
+    READ_ONLY_TOOLS,
+    is_mutating_tool,
+    register_read_only_tool,
+)
+from src.tools.registry import get_all_tools, get_architect_tools, get_tools_for_agent
 from src.tools.specialist_tools import (
     consult_behavioral_analyst,
     consult_dashboard_designer,
@@ -52,11 +57,11 @@ from src.tools.specialist_tools import (
     get_specialist_tools,
     request_synthesis_review,
 )
+from src.tools.web_search import get_web_search_tools, web_search
 
 __all__ = [
-    # Agent Delegation Tools
+    "READ_ONLY_TOOLS",
     "analyze_energy",
-    # Diagnostic Tools
     "analyze_error_log",
     "check_ha_config",
     "check_integration_health",
@@ -64,17 +69,14 @@ __all__ = [
     "consult_dashboard_designer",
     "consult_data_science_team",
     "consult_diagnostic_analyst",
-    # Specialist Tools
     "consult_energy_analyst",
     "control_entity",
-    # Insight Schedule Tools
     "create_insight_schedule",
     "diagnose_entity",
     "diagnose_issue",
     "discover_entities",
     "find_unavailable_entities_tool",
     "get_agent_tools",
-    # Combined
     "get_all_tools",
     "get_analysis_tools",
     "get_approval_tools",
@@ -83,21 +85,23 @@ __all__ = [
     "get_diagnostic_tools",
     "get_domain_summary",
     "get_entity_history",
-    # HA Tools
     "get_entity_state",
     "get_ha_logs",
     "get_ha_tools",
     "get_insight_schedule_tools",
     "get_script_config",
     "get_specialist_tools",
+    "get_tools_for_agent",
+    "get_web_search_tools",
+    "is_mutating_tool",
     "list_automations",
     "list_entities_by_domain",
+    "register_read_only_tool",
     "render_template",
     "request_synthesis_review",
-    # Custom Analysis Tools
     "run_custom_analysis",
     "search_entities",
-    # Approval Tools
     "seek_approval",
     "validate_config",
+    "web_search",
 ]

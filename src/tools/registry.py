@@ -1,9 +1,13 @@
 """Tool registry for assembling tool sets per agent role.
 
-Canonical location for get_all_tools() and get_architect_tools().
-These are re-exported from src.tools.__init__ for backward compatibility.
+Canonical location for get_all_tools(), get_architect_tools(), and
+get_tools_for_agent().  Re-exported from src.tools.__init__ for
+backward compatibility.
 """
 
+from __future__ import annotations
+
+import logging
 from typing import Any
 
 from src.tools.agent_tools import (
@@ -28,6 +32,8 @@ from src.tools.specialist_tools import (
     get_specialist_tools,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def get_all_tools() -> list[Any]:
     """Return every registered tool (superset for backward compat / testing).
@@ -41,6 +47,7 @@ def get_all_tools() -> list[Any]:
     and specialist tools (individual + team delegation).
     """
     from src.tools.review_tools import review_config as _review_config
+    from src.tools.web_search import get_web_search_tools
 
     return (
         get_ha_tools()
@@ -50,6 +57,7 @@ def get_all_tools() -> list[Any]:
         + get_insight_schedule_tools()
         + get_analysis_tools()
         + get_specialist_tools()
+        + get_web_search_tools()
         + [_review_config]
     )
 
@@ -142,3 +150,54 @@ def get_architect_tools() -> list[Any]:
         _review_config,
     ]
     return _cached_architect_tools
+
+
+def _build_tool_name_map() -> dict[str, Any]:
+    """Build a name -> tool object mapping from the full tool set.
+
+    Lazily imports and caches the mapping.  Used by
+    ``get_tools_for_agent`` to resolve ``tools_enabled`` lists.
+    """
+    return {getattr(t, "name", ""): t for t in get_all_tools() if getattr(t, "name", "")}
+
+
+_cached_tool_name_map: dict[str, Any] | None = None
+
+
+def get_tools_for_agent(
+    agent_name: str,
+    tools_enabled: list[str] | None = None,
+) -> list[Any]:
+    """Resolve the tool set for an agent using its ``tools_enabled`` config.
+
+    Resolution order:
+        1. If ``tools_enabled`` is provided and non-empty, filter the
+           full tool catalogue to exactly those tools.
+        2. If agent_name == ``"architect"``, use the curated Architect set.
+        3. Otherwise return an empty list (pure-LLM agent).
+
+    Args:
+        agent_name: Agent identifier (e.g. ``"architect"``, ``"research"``).
+        tools_enabled: Explicit list of tool names from AgentConfigVersion.
+
+    Returns:
+        List of tool objects the agent should be bound to.
+    """
+    global _cached_tool_name_map
+
+    if tools_enabled:
+        if _cached_tool_name_map is None:
+            _cached_tool_name_map = _build_tool_name_map()
+
+        resolved = [
+            _cached_tool_name_map[name] for name in tools_enabled if name in _cached_tool_name_map
+        ]
+        missing = set(tools_enabled) - set(_cached_tool_name_map.keys())
+        if missing:
+            logger.warning("tools_enabled references unknown tools for %s: %s", agent_name, missing)
+        return resolved
+
+    if agent_name == "architect":
+        return get_architect_tools()
+
+    return []

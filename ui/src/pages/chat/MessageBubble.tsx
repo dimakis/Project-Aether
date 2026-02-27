@@ -1,12 +1,12 @@
 import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Bot, User, Copy, Check, RotateCw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Bot, User, Copy, Check, RotateCw, ThumbsUp, ThumbsDown, Sparkles } from "lucide-react";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { ThinkingIndicator } from "@/components/ui/thinking-indicator";
 import { ThinkingDisclosure } from "@/components/chat/thinking-disclosure";
 import { parseThinkingContent } from "@/lib/thinking-parser";
 import { cn } from "@/lib/utils";
-import type { DisplayMessage } from "@/lib/storage";
+import type { DisplayMessage, ClarificationOption } from "@/lib/storage";
 
 const messageVariants = {
   hidden: { opacity: 0, y: 12 },
@@ -28,6 +28,7 @@ interface MessageBubbleProps {
   onRetry: () => void;
   onFeedback: (index: number, sentiment: "positive" | "negative") => void;
   onCreateProposal?: (yamlContent: string) => void;
+  onSelectClarification?: (option: ClarificationOption) => void;
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -40,6 +41,7 @@ export const MessageBubble = memo(function MessageBubble({
   onRetry,
   onFeedback,
   onCreateProposal,
+  onSelectClarification,
 }: MessageBubbleProps) {
   // Parse thinking content for assistant messages.
   // Prefer the separately-streamed thinkingContent (from SSE thinking events)
@@ -125,6 +127,44 @@ export const MessageBubble = memo(function MessageBubble({
             ) : msg.isStreaming ? (
               <ThinkingIndicator statusMessage={statusMessage} />
             ) : null}
+
+            {/* Routed agent indicator */}
+            {msg.routedAgent && msg.routedAgent !== "architect" && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                <Sparkles className="h-3 w-3" />
+                <span>
+                  Handled by <span className="font-medium text-primary/70">{msg.routedAgent}</span>
+                  {msg.routingConfidence != null && (
+                    <span className="ml-1 opacity-50">
+                      ({Math.round(msg.routingConfidence * 100)}% confident)
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* Clarification option cards */}
+            {msg.clarificationOptions && msg.clarificationOptions.length > 0 && !msg.isStreaming && (
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {msg.clarificationOptions.map((opt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onSelectClarification?.(opt)}
+                    className={cn(
+                      "group/card rounded-lg border border-border/50 bg-accent/20 px-3 py-2.5 text-left transition-all",
+                      "hover:border-primary/30 hover:bg-accent/40 hover:shadow-sm",
+                    )}
+                  >
+                    <div className="text-sm font-medium">{opt.title}</div>
+                    {opt.description && (
+                      <div className="mt-0.5 text-xs text-muted-foreground/70">
+                        {opt.description}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Feedback buttons (thumbs up/down) */}
             {!msg.isStreaming && visibleContent && (

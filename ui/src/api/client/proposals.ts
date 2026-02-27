@@ -63,6 +63,32 @@ export const proposals = {
 
   delete: (id: string) =>
     request<void>(`/proposals/${id}`, { method: "DELETE" }),
+
+  validate: (id: string) =>
+    request<{
+      valid: boolean;
+      errors: Array<{ path: string; message: string; severity: string }>;
+      warnings: Array<{ path: string; message: string; severity: string }>;
+      note?: string;
+    }>(`/proposals/${id}/validate`, { method: "POST", body: JSON.stringify({}) }),
+
+  verify: (id: string) =>
+    request<{
+      verified: boolean;
+      proposal_id: string;
+      ha_automation_id?: string;
+      entity_id?: string;
+      state?: string;
+      friendly_name?: string;
+      last_triggered?: string;
+      reason?: string;
+    }>(`/proposals/${id}/verify`),
+
+  updateYaml: (id: string, yamlContent: string) =>
+    request<{ success: boolean; proposal_id: string; updated_fields: string[] }>(
+      `/proposals/${id}/yaml`,
+      { method: "PATCH", body: JSON.stringify({ yaml_content: yamlContent }) },
+    ),
 };
 
 // ─── Insights ───────────────────────────────────────────────────────────────

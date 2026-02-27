@@ -314,16 +314,16 @@ All changes are additive (nullable columns + new table). No existing data migrat
 
 These items should be addressed **before** starting Feature 30 implementation:
 
-| # | Item | Why | Effort | Priority |
-|---|------|-----|--------|----------|
-| R1 | **Centralize HITL enforcement** -- move mutation detection from Architect to shared `MutatingToolRegistry` | Security: new agents would bypass HITL without this | Medium | P0 |
-| R2 | **Wire Feature 23 to runtime** -- agents consume `AgentRuntimeConfig` for model, temperature, prompt, tools | Feature 30 depends on DB-driven agent configuration | Medium | P0 |
-| R3 | **Implement `get_tools_for_agent()`** -- generic tool resolution using `tools_enabled` config | Blocks adding new domain agents with per-agent tool sets | Medium | P0 |
-| R4 | **Split `workflows.py`** into `workflows/discovery.py`, `workflows/conversation.py`, etc. | 1161 lines; will grow with Orchestrator and dynamic compilation | Low | P1 |
-| R5 | **Add `channel` and `active_agent` to ConversationState** | Required by Feature 30 FR-006 | Low | P1 |
-| R6 | **Add agent registry/factory** -- `AGENT_REGISTRY: dict[str, type[BaseAgent]]` | Enables instantiating agents by name from DB/config | Low | P1 |
-| R7 | **Fix stale `src/mcp/` references in docs** | 27 references in healthcheck + architecture docs | Low | P2 |
-| R8 | **Update `AgentName` literal** or remove in favor of `str` | Outdated, missing specialist agents | Low | P2 |
+| # | Item | Why | Effort | Priority | Status |
+|---|------|-----|--------|----------|--------|
+| R1 | **Centralize HITL enforcement** -- move mutation detection from Architect to shared `MutatingToolRegistry` | Security: new agents would bypass HITL without this | Medium | P0 | **DONE** — `src/tools/mutation_registry.py` |
+| R2 | **Wire Feature 23 to runtime** -- agents consume `AgentRuntimeConfig` for model, temperature, prompt, tools | Feature 30 depends on DB-driven agent configuration | Medium | P0 | **DONE** — `src/agents/registry.py` `create_agent_from_config()` |
+| R3 | **Implement `get_tools_for_agent()`** -- generic tool resolution using `tools_enabled` config | Blocks adding new domain agents with per-agent tool sets | Medium | P0 | **DONE** — `src/tools/registry.py` |
+| R4 | **Split `workflows.py`** into `workflows/discovery.py`, `workflows/conversation.py`, etc. | 1161 lines; will grow with Orchestrator and dynamic compilation | Low | P1 | **DONE** (prior) |
+| R5 | **Add `channel` and `active_agent` to ConversationState** | Required by Feature 30 FR-006 | Low | P1 | **DONE** (prior) |
+| R6 | **Add agent registry/factory** -- `AGENT_REGISTRY: dict[str, type[BaseAgent]]` | Enables instantiating agents by name from DB/config | Low | P1 | **DONE** — `src/agents/registry.py` |
+| R7 | **Fix stale `src/mcp/` references in docs** | 27 references in healthcheck + architecture docs | Low | P2 | Pending |
+| R8 | **Update `AgentName` literal** or remove in favor of `str` | Outdated, missing specialist agents | Low | P2 | **DONE** — added all agents to literal |
 
 ---
 

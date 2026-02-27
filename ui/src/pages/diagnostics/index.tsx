@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Activity,
+  BarChart3,
   Heart,
   FileWarning,
   Workflow,
@@ -12,6 +13,7 @@ import { HAHealthTab } from "./HAHealthTab";
 import { LogsTab } from "./LogsTab";
 import { TracingTab } from "./TracingTab";
 import { ConfigCheckTab } from "./ConfigCheckTab";
+import { EvaluationsTab } from "./EvaluationsTab";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -20,7 +22,8 @@ export type DiagTab =
   | "ha-health"
   | "error-log"
   | "traces"
-  | "config";
+  | "config"
+  | "evaluations";
 
 const TABS: Array<{ id: DiagTab; label: string; icon: typeof Activity }> = [
   { id: "overview", label: "Overview", icon: Activity },
@@ -28,6 +31,7 @@ const TABS: Array<{ id: DiagTab; label: string; icon: typeof Activity }> = [
   { id: "error-log", label: "Error Log", icon: FileWarning },
   { id: "traces", label: "Agent Traces", icon: Workflow },
   { id: "config", label: "Config Check", icon: Shield },
+  { id: "evaluations", label: "Evaluations", icon: BarChart3 },
 ];
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -72,6 +76,7 @@ export function DiagnosticsPage() {
       {activeTab === "error-log" && <LogsTab />}
       {activeTab === "traces" && <TracingTab />}
       {activeTab === "config" && <ConfigCheckTab />}
+      {activeTab === "evaluations" && <EvaluationsTab />}
     </div>
   );
 }

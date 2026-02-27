@@ -27,15 +27,18 @@ from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.dual_mode import AgentInvoker, resolve_agent_invoker
 from src.agents.energy_analyst import EnergyAnalyst
 from src.agents.execution_context import emit_progress  # noqa: F401
+from src.agents.knowledge import KnowledgeAgent
 
 # Librarian agent (canonical: src.agents.librarian)
 from src.agents.librarian import LibrarianAgent
 from src.agents.orchestrator import OrchestratorAgent
+from src.agents.registry import AGENT_REGISTRY, create_agent_from_config, get_agent_class
 from src.graph.state import AgentRole, BaseState  # noqa: F401
 from src.tracing import add_span_event, get_active_span, log_dict, log_param  # noqa: F401
 
 # Exports
 __all__ = [
+    "AGENT_REGISTRY",
     "A2AClientError",
     "A2ARemoteClient",
     "AgentContext",
@@ -51,9 +54,12 @@ __all__ = [
     "DeveloperWorkflow",
     "DiagnosticAnalyst",
     "EnergyAnalyst",
+    "KnowledgeAgent",
     "LibrarianAgent",
     "OrchestratorAgent",
     "StreamEvent",
     "create_a2a_service",
+    "create_agent_from_config",
+    "get_agent_class",
     "resolve_agent_invoker",
 ]

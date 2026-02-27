@@ -189,11 +189,13 @@ async def consult_data_science_team(
             try:
                 _ctx = _get_ctx()
                 comm_log = _ctx.communication_log if _ctx else []
+                insight_ids = _ctx.persisted_insight_ids if _ctx else []
                 async with session_factory() as _session:
                     await complete_analysis_report(
                         session=_session,
                         report_id=str(report_obj.id),
                         summary=report[:2000],
+                        insight_ids=insight_ids,
                         communication_log=comm_log,
                     )
             except Exception as e:

@@ -240,13 +240,21 @@ async def _stream_chat_completion(
                 return
 
             # Create state and apply agent routing (Feature 30)
-            from src.agents.routing import apply_routing_to_state, resolve_agent_routing
+            from src.agents.routing import (
+                DEFAULT_AGENT,
+                apply_routing_to_state,
+                resolve_agent_routing,
+            )
 
             state = ConversationState(
                 conversation_id=conversation_id,
                 messages=lc_messages[:-1],  # type: ignore[arg-type]
             )
-            routing = resolve_agent_routing(agent=request.agent)
+            routing = resolve_agent_routing(
+                agent=request.agent,
+                workflow_preset=request.workflow_preset,
+                disabled_agents=request.disabled_agents,
+            )
             apply_routing_to_state(state, routing)
 
             # Distributed mode: delegate to remote Architect via A2A streaming
@@ -362,19 +370,54 @@ async def _stream_chat_completion(
 
                     await session.commit()
                     yield "data: [DONE]\n\n"
-                except Exception as e:
+                except Exception:
                     _log.exception("Distributed streaming failed")
-                    yield _format_sse_error(f"Distributed streaming failed: {e}")
+                    yield _format_sse_error(
+                        "Distributed streaming failed. Check server logs for details."
+                    )
                 return
 
-            # Monolith mode: run Architect in-process
+            # Monolith mode: resolve agent and run in-process
+            # When needs_orchestrator is True, classify intent and plan response.
+            effective_agent = routing.active_agent
+            if routing.needs_orchestrator:
+                from src.agents.orchestrator import OrchestratorAgent
+
+                orchestrator = OrchestratorAgent(model_name=request.model)
+                classification = await orchestrator.classify_intent(
+                    user_message,
+                    await orchestrator._get_available_agents(),
+                )
+                plan = await orchestrator.plan_response(user_message, classification)
+
+                effective_agent = plan.target_agent
+                state.active_agent = effective_agent
+                yield f"data: {json.dumps({'type': 'routing', 'agent': effective_agent, 'confidence': classification.get('confidence', 0), 'reasoning': classification.get('reasoning', '')})}\n\n"
+
+                if plan.response_type == "clarify" and plan.clarification_options:
+                    options_data = [
+                        {"title": opt.title, "description": opt.description}
+                        for opt in plan.clarification_options
+                    ]
+                    yield f"data: {json.dumps({'type': 'clarification_options', 'options': options_data})}\n\n"
+
+                # For now, only the architect has a full streaming workflow.
+                # Other agents fall back to the architect workflow until they
+                # have their own streaming implementation.
+                if effective_agent != "architect":
+                    effective_agent = DEFAULT_AGENT
+                    state.active_agent = effective_agent
+
             with model_context(
                 model_name=request.model,
                 temperature=request.temperature,
             ):
+                from src.storage import get_committing_session
+
                 workflow = ArchitectWorkflow(
                     model_name=request.model,
                     temperature=request.temperature,
+                    session_factory=get_committing_session,
                 )
 
                 is_background = _is_background_request(request.messages)
@@ -620,6 +663,6 @@ async def _stream_chat_completion(
             f"Stream timed out after {stream_timeout}s. "
             "You can increase this in Settings > Chat & Streaming."
         )
-    except Exception as e:
+    except Exception:
         _log.exception("Unhandled error in streaming handler")
-        yield _format_sse_error(str(e))
+        yield _format_sse_error("An internal error occurred. Check server logs for details.")

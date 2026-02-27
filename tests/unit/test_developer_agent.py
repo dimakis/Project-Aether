@@ -168,6 +168,8 @@ class TestDeveloperAgent:
         mock_proposal.id = "test-id"
         mock_proposal.status = ProposalStatus.DEPLOYED
         mock_proposal.ha_automation_id = "test_auto"
+        mock_proposal.previous_config = None
+        mock_proposal.proposal_type = "automation"
 
         mock_session = MagicMock()
         mock_repo = MagicMock()
@@ -195,6 +197,8 @@ class TestDeveloperAgent:
         mock_proposal.id = "test-id"
         mock_proposal.status = ProposalStatus.DEPLOYED
         mock_proposal.ha_automation_id = "aether_abc12345"
+        mock_proposal.previous_config = None
+        mock_proposal.proposal_type = "automation"
 
         mock_session = MagicMock()
         mock_repo = MagicMock()
@@ -222,6 +226,8 @@ class TestDeveloperAgent:
         mock_proposal.id = "test-id"
         mock_proposal.status = ProposalStatus.DEPLOYED
         mock_proposal.ha_automation_id = None
+        mock_proposal.previous_config = None
+        mock_proposal.proposal_type = "automation"
 
         mock_session = MagicMock()
         mock_repo = MagicMock()

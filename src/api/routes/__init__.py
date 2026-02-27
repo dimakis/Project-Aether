@@ -93,5 +93,9 @@ api_router.include_router(settings_router)
 from src.api.routes.workflow_definitions import router as workflow_defs_router
 
 api_router.include_router(workflow_defs_router)
+# HITL push notification testing (Feature 30)
+from src.api.routes.hitl import router as hitl_router
+
+api_router.include_router(hitl_router)
 
 __all__ = ["api_router"]

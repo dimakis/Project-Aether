@@ -89,6 +89,8 @@ export async function* streamChat(
   conversationId?: string,
   signal?: AbortSignal,
   agent?: string,
+  workflowPreset?: string,
+  disabledAgents?: string[],
 ): AsyncGenerator<StreamChunk> {
   const url = `${env.API_URL}/v1/chat/completions`;
   const response = await fetch(url, {
@@ -102,6 +104,8 @@ export async function* streamChat(
       stream: true,
       ...(conversationId && { conversation_id: conversationId }),
       ...(agent && { agent }),
+      ...(workflowPreset && { workflow_preset: workflowPreset }),
+      ...(disabledAgents?.length && { disabled_agents: disabledAgents }),
     }),
   });
 

@@ -113,6 +113,29 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @asynccontextmanager
+async def get_committing_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a session that auto-commits on successful exit.
+
+    Wraps :func:`get_session` and calls ``session.commit()`` before
+    closing when no exception occurred.  On exception the session is
+    closed without committing, allowing the caller to handle rollback.
+
+    Designed for use as ``session_factory`` in :class:`ExecutionContext`
+    so that tools (e.g. DS team report lifecycle) persist their changes
+    without requiring each call-site to commit explicitly.
+
+    Usage:
+        async with get_committing_session() as session:
+            session.add(entity)
+            await session.flush()
+            # commit happens automatically on exit
+    """
+    async with get_session() as session:
+        yield session
+        await session.commit()
+
+
+@asynccontextmanager
 async def get_connection() -> AsyncGenerator["AsyncConnection", None]:
     """Provide a raw async database connection.
 
@@ -155,6 +178,7 @@ async def close_db() -> None:
 # Public API
 __all__ = [
     "close_db",
+    "get_committing_session",
     "get_connection",
     "get_engine",
     "get_session",
