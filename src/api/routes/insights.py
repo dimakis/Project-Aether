@@ -336,16 +336,20 @@ async def _run_analysis_job(
     """
     from src.agents import DataScientistWorkflow
     from src.graph.state import AnalysisType
+    from src.jobs import emit_job_agent, emit_job_complete, emit_job_failed, emit_job_start
     from src.storage import get_session
 
+    title = f"Analysis: {analysis_type} ({hours}h)"
+    emit_job_start(job_id, "analysis", title)
+
     try:
-        # Map string to enum
         try:
             analysis_enum = AnalysisType(analysis_type)
         except ValueError:
             analysis_enum = AnalysisType.ENERGY_OPTIMIZATION
 
         workflow = DataScientistWorkflow()
+        emit_job_agent(job_id, "data_scientist", "start")
 
         async with get_session() as session:
             await workflow.run_analysis(
@@ -357,5 +361,9 @@ async def _run_analysis_job(
             )
             await session.commit()
 
+        emit_job_agent(job_id, "data_scientist", "end")
+        emit_job_complete(job_id)
+
     except Exception:
         logger.exception("Analysis job %s failed", job_id)
+        emit_job_failed(job_id, f"Analysis {analysis_type} failed")

@@ -9,6 +9,7 @@ the insight_schedules DB table on startup and after any CRUD operation.
 from __future__ import annotations
 
 import logging
+import time
 
 from src.settings import get_settings
 
@@ -245,6 +246,7 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
     """
     from src.dal.insight_schedules import InsightScheduleRepository
     from src.graph.workflows import run_analysis_workflow
+    from src.jobs import emit_job_agent, emit_job_complete, emit_job_failed, emit_job_start
     from src.storage import get_session
 
     logger.info("Executing scheduled analysis: %s", schedule_id)
@@ -257,37 +259,40 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
             logger.warning("Schedule %s not found or disabled, skipping", schedule_id)
             return
 
+        job_id = f"schedule:{schedule_id}:{int(time.time())}"
+        emit_job_start(job_id, "schedule", schedule.name)
+
         try:
-            # Run the analysis workflow
-            # Options are passed via custom_query as a context hint
             custom_query = None
             if schedule.options:
                 import json
 
                 custom_query = f"Scheduled analysis options: {json.dumps(schedule.options)}"
 
+            emit_job_agent(job_id, "data_scientist", "start")
             await run_analysis_workflow(
                 analysis_type=schedule.analysis_type,
                 entity_ids=schedule.entity_ids,
                 hours=schedule.hours,
                 custom_query=custom_query,
             )
+            emit_job_agent(job_id, "data_scientist", "end")
 
-            # Record success
             schedule.record_run(success=True)
             logger.info(
                 "Scheduled analysis %s completed successfully (run #%d)",
                 schedule.name,
                 schedule.run_count,
             )
+            emit_job_complete(job_id)
         except Exception as e:
-            # Record failure
             schedule.record_run(success=False, error=str(e))
             logger.exception(
                 "Scheduled analysis %s failed: %s",
                 schedule.name,
                 e,
             )
+            emit_job_failed(job_id, str(e))
 
         await session.commit()
 
@@ -298,6 +303,10 @@ async def _execute_trace_evaluation() -> None:
     Called by APScheduler. Searches recent traces and runs all
     custom scorers, logging results back to MLflow.
     """
+    from src.jobs import emit_job_complete, emit_job_failed, emit_job_start, emit_job_status
+
+    job_id = f"evaluation:{int(time.time())}"
+    emit_job_start(job_id, "evaluation", "Nightly trace evaluation")
     logger.info("Starting nightly trace evaluation")
 
     try:
@@ -308,19 +317,19 @@ async def _execute_trace_evaluation() -> None:
         from src.tracing import init_mlflow
         from src.tracing.scorers import get_all_scorers
 
-        # Initialize MLflow
         client = init_mlflow()
         if client is None:
             logger.warning("MLflow not available, skipping trace evaluation")
+            emit_job_failed(job_id, "MLflow not available")
             return
 
         settings = get_settings()
         scorers = get_all_scorers()
         if not scorers:
             logger.warning("No scorers available, skipping trace evaluation")
+            emit_job_failed(job_id, "No scorers available")
             return
 
-        # Search traces from the last 24 hours
         trace_df = mlflow.search_traces(
             experiment_names=[settings.mlflow_experiment_name],
             max_results=settings.trace_eval_max_traces,
@@ -328,13 +337,10 @@ async def _execute_trace_evaluation() -> None:
 
         if trace_df is None or len(trace_df) == 0:
             logger.info("No traces found for evaluation")
+            emit_job_complete(job_id)
             return
 
-        logger.info(
-            "Evaluating %d traces with %d scorers",
-            len(trace_df),
-            len(scorers),
-        )
+        emit_job_status(job_id, f"Evaluating {len(trace_df)} traces with {len(scorers)} scorers")
 
         eval_result = mlflow.genai.evaluate(
             data=trace_df,
@@ -347,9 +353,11 @@ async def _execute_trace_evaluation() -> None:
             run_id,
             len(trace_df),
         )
+        emit_job_complete(job_id)
 
     except Exception as e:
         logger.exception("Nightly trace evaluation failed: %s", e)
+        emit_job_failed(job_id, str(e))
 
 
 async def _execute_discovery_sync() -> None:

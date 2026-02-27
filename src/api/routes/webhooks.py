@@ -237,8 +237,11 @@ async def _run_webhook_analysis(
     payload: HAWebhookPayload,
 ) -> None:
     """Execute an insight analysis triggered by a webhook event."""
+    import time as _time
+
     from src.dal.insight_schedules import InsightScheduleRepository
     from src.graph.workflows import run_analysis_workflow
+    from src.jobs import emit_job_complete, emit_job_failed, emit_job_start
     from src.storage import get_session
 
     logger.info("Running webhook-triggered analysis: schedule=%s", schedule_id)
@@ -251,8 +254,11 @@ async def _run_webhook_analysis(
             logger.warning("Schedule %s not found or disabled", schedule_id)
             return
 
+        job_id = f"webhook:{schedule_id}:{int(_time.time())}"
+        trigger_label = payload.webhook_event or payload.event_type or "event"
+        emit_job_start(job_id, "webhook", f"Webhook: {schedule.name} ({trigger_label})")
+
         try:
-            # Build context from webhook trigger and schedule options
             import json
 
             context_parts = []
@@ -285,9 +291,11 @@ async def _run_webhook_analysis(
                 schedule.name,
                 schedule.run_count,
             )
+            emit_job_complete(job_id)
         except Exception as e:
             schedule.record_run(success=False, error=str(e))
             logger.exception("Webhook analysis %s failed: %s", schedule.name, e)
+            emit_job_failed(job_id, str(e))
 
         await session.commit()
 
