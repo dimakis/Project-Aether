@@ -426,8 +426,13 @@ async def _stream_chat_completion(
                 trace_id: str | None = None
                 tag_filter = _StreamingTagFilter()
 
+                # --- Emit job start for the global activity panel ---
+                if not is_background:
+                    from src.jobs import emit_job_start as _emit_job_start
+
+                    _emit_job_start(conversation_id, "chat", user_message[:80])
+
                 # --- Agent lifecycle tracking for the activity panel ---
-                # Use a stack to support nested agents (e.g. DS team -> energy_analyst)
                 agent_stack: list[str] = []
                 agents_seen: list[str] = ["architect"]  # type: ignore[no-redef]
                 stream_started = False
@@ -553,6 +558,9 @@ async def _stream_chat_completion(
                             agent_stack.append(agent_name)
                             if agent_name not in agents_seen:
                                 agents_seen.append(agent_name)
+                            from src.jobs import emit_job_agent as _eja
+
+                            _eja(conversation_id, agent_name, "start")
 
                     elif event_type == "agent_end":
                         agent_name = event.get("agent", "")
@@ -560,6 +568,9 @@ async def _stream_chat_completion(
                             yield f"data: {json.dumps({'type': 'trace', 'agent': agent_name, 'event': 'end', 'ts': time.time()})}\n\n"
                             if agent_stack and agent_stack[-1] == agent_name:
                                 agent_stack.pop()
+                            from src.jobs import emit_job_agent as _eja
+
+                            _eja(conversation_id, agent_name, "end")
 
                     elif event_type == "delegation":
                         if not is_background:
@@ -609,6 +620,9 @@ async def _stream_chat_completion(
                     yield f"data: {json.dumps({'type': 'trace', 'agent': popped, 'event': 'end', 'ts': time.time()})}\n\n"
                 yield f"data: {json.dumps({'type': 'trace', 'agent': 'architect', 'event': 'end', 'ts': time.time()})}\n\n"
                 yield f"data: {json.dumps({'type': 'trace', 'event': 'complete', 'agents': agents_seen, 'ts': time.time()})}\n\n"
+                from src.jobs import emit_job_complete as _ejc
+
+                _ejc(conversation_id)
 
             # Use final state from stream, or fall back to original
             state = final_state or state
@@ -633,10 +647,10 @@ async def _stream_chat_completion(
             }
             yield f"data: {json.dumps(final_chunk)}\n\n"
 
-            # Send metadata event with trace_id and tool calls before DONE
             metadata: dict[str, object] = {
                 "type": "metadata",
                 "conversation_id": conversation_id,
+                "job_id": conversation_id,
             }
             if trace_id:
                 metadata["trace_id"] = trace_id

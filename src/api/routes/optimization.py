@@ -178,7 +178,17 @@ async def _run_optimization_background(
 ) -> None:
     """Run optimization analysis in the background."""
     from src.graph.workflows import run_optimization_workflow
+    from src.jobs import (
+        emit_job_agent,
+        emit_job_complete,
+        emit_job_failed,
+        emit_job_start,
+        emit_job_status,
+    )
     from src.storage import get_session
+
+    title = f"Optimization ({', '.join(t.value for t in data.analysis_types)}, {data.hours}h)"
+    emit_job_start(job_id, "optimization", title)
 
     job = _optimization_jobs[job_id]
     job.status = "running"
@@ -186,6 +196,9 @@ async def _run_optimization_background(
     try:
         async with get_session() as session:
             for analysis_type in data.analysis_types:
+                emit_job_status(job_id, f"Running {analysis_type.value}...")
+                emit_job_agent(job_id, "data_scientist", "start")
+
                 state = await run_optimization_workflow(
                     analysis_type=analysis_type.value,
                     entity_ids=data.entity_ids,
@@ -194,12 +207,13 @@ async def _run_optimization_background(
                 )
                 await session.commit()
 
-                # Collect results
+                emit_job_agent(job_id, "data_scientist", "end")
+
                 job.insights.extend(state.insights or [])
                 job.recommendations.extend(state.recommendations or [])
 
-                # Store suggestion if generated
                 if state.automation_suggestion:
+                    emit_job_agent(job_id, "architect", "start")
                     suggestion_id = str(uuid4())
                     _suggestions[suggestion_id] = {
                         "pattern": state.automation_suggestion.pattern,
@@ -213,12 +227,15 @@ async def _run_optimization_background(
                         "created_at": datetime.now(UTC),
                     }
                     job.suggestion_count += 1
+                    emit_job_agent(job_id, "architect", "end")
 
         job.insight_count = len(job.insights)
         job.status = "completed"
         job.completed_at = datetime.now(UTC)
+        emit_job_complete(job_id)
 
     except Exception as e:
         job.status = "failed"
         job.error = str(e)
         job.completed_at = datetime.now(UTC)
+        emit_job_failed(job_id, str(e))
