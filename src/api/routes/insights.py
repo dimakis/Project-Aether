@@ -4,6 +4,7 @@ User Story 3: Energy Optimization Suggestions.
 """
 
 import contextlib
+import logging
 from datetime import UTC
 from typing import Any
 
@@ -25,6 +26,8 @@ from src.api.schemas import (
 from src.dal import InsightRepository
 from src.storage import get_session
 from src.storage.entities.insight import InsightStatus, InsightType
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/insights", tags=["Insights"])
 
@@ -131,24 +134,8 @@ async def get_insights_summary() -> InsightSummary:
     """Get insights summary with counts by type and status."""
     async with get_session() as session:
         repo = InsightRepository(session)
-
-        total = await repo.count()
-        by_type = await repo.count_by_type()
-        by_status = await repo.count_by_status()
-        pending_count = await repo.count(status=InsightStatus.PENDING)
-
-        # Count high impact (high + critical)
-        high_impact = await repo.list_by_impact("high", limit=100)
-        critical_impact = await repo.list_by_impact("critical", limit=100)
-        high_impact_count = len(high_impact) + len(critical_impact)
-
-        return InsightSummary(
-            total=total,
-            by_type=by_type,
-            by_status=by_status,
-            pending_count=pending_count,
-            high_impact_count=high_impact_count,
-        )
+        summary = await repo.get_summary()
+        return InsightSummary(**summary)
 
 
 @router.get(
@@ -370,8 +357,5 @@ async def _run_analysis_job(
             )
             await session.commit()
 
-    except Exception as e:
-        # Log error but don't raise (background task)
-        import logging
-
-        logging.getLogger(__name__).error(f"Analysis job {job_id} failed: {e}")
+    except Exception:
+        logger.exception("Analysis job %s failed", job_id)

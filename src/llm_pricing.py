@@ -88,9 +88,9 @@ def _load_pricing() -> dict[str, ModelPricing]:
                 with path.open() as f:
                     overrides = json.load(f)
                 pricing.update(overrides)
-                logger.info(f"Loaded {len(overrides)} pricing overrides from {override_path}")
+                logger.info("Loaded %d pricing overrides from %s", len(overrides), override_path)
             except Exception as e:
-                logger.warning(f"Failed to load pricing overrides: {e}")
+                logger.warning("Failed to load pricing overrides: %s", e)
 
     _pricing_cache = pricing
     return pricing

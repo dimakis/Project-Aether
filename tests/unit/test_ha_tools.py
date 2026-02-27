@@ -128,19 +128,6 @@ class TestGetDomainSummaryTool:
         """Test getting summary of light domain."""
         from src.tools.ha_entity_tools import get_domain_summary
 
-        entities = [
-            MagicMock(state="on"),
-            MagicMock(state="on"),
-            MagicMock(state="on"),
-            MagicMock(state="off"),
-            MagicMock(state="off"),
-            MagicMock(state="off"),
-            MagicMock(state="off"),
-            MagicMock(state="off"),
-            MagicMock(state="off"),
-            MagicMock(state="off"),
-        ]
-
         with (
             patch("src.tools.ha_entity_tools.get_session") as mock_gs,
             patch("src.tools.ha_entity_tools.EntityRepository") as MockRepo,
@@ -148,8 +135,9 @@ class TestGetDomainSummaryTool:
             mock_session = AsyncMock()
             mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
-            MockRepo.return_value.count = AsyncMock(return_value=10)
-            MockRepo.return_value.list_all = AsyncMock(return_value=entities)
+            MockRepo.return_value.get_state_distribution = AsyncMock(
+                return_value={"on": 3, "off": 7}
+            )
 
             result = await get_domain_summary.ainvoke({"domain": "light"})
 

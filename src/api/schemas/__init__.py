@@ -154,7 +154,7 @@ class HealthResponse(BaseModel):
         default_factory=lambda: datetime.now(UTC),
         description="Health check timestamp",
     )
-    version: str = Field(default="0.1.0", description="Application version")
+    version: str = Field(description="Application version")
 
 
 class SystemStatus(BaseModel):
@@ -165,7 +165,7 @@ class SystemStatus(BaseModel):
         default_factory=lambda: datetime.now(UTC),
         description="Status check timestamp",
     )
-    version: str = Field(default="0.1.0", description="Application version")
+    version: str = Field(description="Application version")
     environment: str = Field(..., description="Current environment")
     components: list[ComponentHealth] = Field(
         default_factory=list,

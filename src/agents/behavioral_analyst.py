@@ -380,7 +380,8 @@ class BehavioralAnalyst(BaseAnalyst):
         entity_count = data.get("entity_count", 0)
         hours = state.time_range_hours
 
-        prompt = f"""
+        parts = [
+            f"""
 Analyze behavioral data from {entity_count} entities over {hours} hours.
 Analysis type: {state.analysis_type.value}
 
@@ -400,14 +401,17 @@ Produce a JSON object with an "insights" array. Each insight must have:
 Focus on: repetitive manual patterns (automation candidates), automation
 effectiveness, script/scene usage efficiency, and behavioral anomalies.
 """
+        ]
+
         # Include prior findings if available
         prior = data.get("prior_specialist_findings", [])
         if prior:
-            prompt += "\nPrior findings from other specialists:\n"
+            parts.append("\nPrior findings from other specialists:\n")
             for pf in prior:
-                prompt += f"- [{pf['specialist']}] {pf['title']}: {pf['description']}\n"
-            prompt += "\nConsider these when analyzing behavioral patterns.\n"
+                parts.append(f"- [{pf['specialist']}] {pf['title']}: {pf['description']}\n")
+            parts.append("\nConsider these when analyzing behavioral patterns.\n")
 
+        prompt = "".join(parts)
         return self._append_depth_fragment(prompt, state.depth)
 
     def _extract_code_from_response(self, content: str) -> str:

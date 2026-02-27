@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.storage.entities.app_settings import AppSettings
 
@@ -233,7 +234,7 @@ async def get_app_settings_merged() -> dict[str, dict[str, Any]]:
         _settings_cache = merged
         _cache_ts = now
         return merged
-    except Exception:
+    except (OSError, SQLAlchemyError):
         logger.debug("Failed to load app settings from DB, using defaults", exc_info=True)
         return {s: {**d} for s, d in SECTION_DEFAULTS.items()}
     finally:

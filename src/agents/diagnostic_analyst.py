@@ -269,7 +269,8 @@ class DiagnosticAnalyst(BaseAnalyst):
         config_valid = data.get("config_check", {}).get("valid", True)
         hours = state.time_range_hours
 
-        prompt = f"""
+        parts = [
+            f"""
 Perform a diagnostic analysis of the Home Assistant system.
 Time range: {hours} hours.
 
@@ -291,16 +292,18 @@ Produce a JSON object with an "insights" array. Each insight must have:
 Focus on: entity unavailability causes, integration health issues,
 sensor drift detection, error log patterns, and corrective actions.
 """
+        ]
 
         if state.diagnostic_context:
-            prompt += f"\nArchitect's diagnostic context:\n{state.diagnostic_context}\n"
+            parts.append(f"\nArchitect's diagnostic context:\n{state.diagnostic_context}\n")
 
         prior = data.get("prior_specialist_findings", [])
         if prior:
-            prompt += "\nPrior findings from other specialists:\n"
+            parts.append("\nPrior findings from other specialists:\n")
             for pf in prior:
-                prompt += f"- [{pf['specialist']}] {pf['title']}: {pf['description']}\n"
+                parts.append(f"- [{pf['specialist']}] {pf['title']}: {pf['description']}\n")
 
+        prompt = "".join(parts)
         return self._append_depth_fragment(prompt, state.depth)
 
     def _extract_code_from_response(self, content: str) -> str:
