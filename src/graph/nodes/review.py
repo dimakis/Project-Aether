@@ -52,9 +52,9 @@ async def resolve_targets_node(
     for target in state.targets:
         if target in batch_specifiers:
             if ha_client is None:
-                from src.ha import get_ha_client
+                from src.ha import get_ha_client_async
 
-                ha_client = get_ha_client()
+                ha_client = await get_ha_client_async()
 
             if target == "all_automations":
                 entities = await ha_client.list_entities(domain="automation")
@@ -95,9 +95,9 @@ async def fetch_configs_node(
         State updates with entity_id -> YAML config mapping
     """
     if ha_client is None:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha_client = get_ha_client()
+        ha_client = await get_ha_client_async()
 
     configs: dict[str, str] = {}
 
@@ -143,9 +143,9 @@ async def gather_context_node(
         State updates with entity_context dict
     """
     if ha_client is None:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha_client = get_ha_client()
+        ha_client = await get_ha_client_async()
 
     context: dict[str, Any] = {}
 

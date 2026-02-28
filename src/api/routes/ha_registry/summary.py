@@ -71,9 +71,9 @@ async def get_registry_summary(
     # Count helpers from HA (live)
     helpers_count = 0
     try:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         helpers_list = await ha.list_helpers()
         helpers_count = len(helpers_list)
     except Exception:

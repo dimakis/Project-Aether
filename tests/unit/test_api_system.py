@@ -190,7 +190,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response for Home Assistant check
@@ -256,7 +260,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response for Home Assistant check
@@ -313,7 +321,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client_instance),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response for Home Assistant check
@@ -366,7 +378,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await system_client.get("/api/v1/status")
 
@@ -411,7 +427,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx to raise TimeoutException
@@ -466,7 +486,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response with 401 status
@@ -521,7 +545,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             # Mock httpx response with 500 status
@@ -575,7 +603,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await system_client.get("/api/v1/status")
 
@@ -621,7 +653,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             mock_response = MagicMock()
@@ -687,7 +723,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await system_client.get("/api/v1/status")
 
@@ -725,7 +765,11 @@ class TestSystemStatus:
             patch("src.api.routes.system.get_settings", return_value=mock_settings),
             patch("src.settings.get_settings", return_value=mock_settings),
             patch("mlflow.tracking.MlflowClient", return_value=mock_mlflow_client),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await system_client.get("/api/v1/status")
 

@@ -47,7 +47,6 @@ class SystemConfig(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return (
             f"<SystemConfig(ha_url={self.ha_url!r}, "
             f"setup_completed_at={self.setup_completed_at!r})>"

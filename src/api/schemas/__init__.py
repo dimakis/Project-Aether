@@ -218,16 +218,13 @@ __all__ = [
     "AnalysisRequest",
     "ApprovalRequest",
     "AreaListResponse",
-    # Areas
     "AreaResponse",
     "AutomationListResponse",
-    # Automations, Scripts, Scenes
     "AutomationResponse",
     "AutomationSuggestionResponse",
     "ChatRequest",
     "ChatResponse",
     "ComponentHealth",
-    # Conversations (US2)
     "ConversationCreate",
     "ConversationDetailResponse",
     "ConversationListResponse",
@@ -235,7 +232,6 @@ __all__ = [
     "DeploymentRequest",
     "DeploymentResponse",
     "DeviceListResponse",
-    # Devices
     "DeviceResponse",
     "DismissRequest",
     "EnergyOverviewResponse",
@@ -243,20 +239,15 @@ __all__ = [
     "EntityListResponse",
     "EntityQueryRequest",
     "EntityQueryResult",
-    # Entities
     "EntityResponse",
     "EntitySyncRequest",
     "EntitySyncResponse",
     "ErrorDetail",
     "ErrorResponse",
-    # Error types
     "ErrorType",
-    # HA Registry
     "HARegistrySummary",
     "HealthResponse",
-    # Health
     "HealthStatus",
-    # Helpers
     "HelperCreateRequest",
     "HelperCreateResponse",
     "HelperDeleteResponse",
@@ -268,18 +259,14 @@ __all__ = [
     "InsightResponse",
     "InsightStatus",
     "InsightSummary",
-    # Insights (US3)
     "InsightType",
     "MessageCreate",
     "MessageResponse",
-    # Optimization (Feature 03)
     "OptimizationAnalysisType",
     "OptimizationRequest",
     "OptimizationResult",
     "PaginatedResponse",
-    # Pagination
     "PaginationMeta",
-    # Proposals (US2)
     "ProposalCreate",
     "ProposalListResponse",
     "ProposalResponse",
@@ -295,7 +282,6 @@ __all__ = [
     "ServiceCallRequest",
     "ServiceCallResponse",
     "ServiceListResponse",
-    # Services
     "ServiceResponse",
     "StreamChunk",
     "SuccessResponse",

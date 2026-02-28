@@ -42,7 +42,6 @@ from src.tools.ha_utility_tools import (
 
 
 def get_ha_tools() -> list[Any]:
-    """Return all Home Assistant tools."""
     return [
         # Entity queries (DB-backed)
         get_entity_state,

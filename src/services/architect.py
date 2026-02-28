@@ -36,7 +36,6 @@ _SKILLS = [
 
 
 def create_architect_service() -> Starlette:
-    """Create the Architect A2A service."""
     from src.agents.architect import ArchitectAgent
 
     agent = ArchitectAgent()

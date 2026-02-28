@@ -5,7 +5,7 @@ Tests GET/POST/DELETE /registry/helpers endpoints with mocked HA client.
 
 from unittest.mock import AsyncMock, patch
 
-HA_CLIENT_PATCH = "src.ha.get_ha_client"
+HA_CLIENT_ASYNC_PATCH = "src.ha.get_ha_client_async"
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -67,7 +67,11 @@ class TestListHelpers:
     @pytest.mark.asyncio
     async def test_list_helpers_empty(self, helpers_client, mock_ha_client):
         """Test listing helpers when none exist."""
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.get("/registry/helpers")
 
         assert resp.status_code == 200
@@ -96,7 +100,11 @@ class TestListHelpers:
             },
         ]
 
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.get("/registry/helpers")
 
         assert resp.status_code == 200
@@ -113,7 +121,11 @@ class TestCreateHelper:
     @pytest.mark.asyncio
     async def test_create_input_boolean(self, helpers_client, mock_ha_client):
         """Test creating an input_boolean helper."""
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.post(
                 "/registry/helpers",
                 json={
@@ -142,7 +154,11 @@ class TestCreateHelper:
             }
         )
 
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.post(
                 "/registry/helpers",
                 json={
@@ -165,7 +181,11 @@ class TestCreateHelper:
             return_value={"success": True, "input_id": "visitors", "entity_id": "counter.visitors"}
         )
 
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.post(
                 "/registry/helpers",
                 json={
@@ -187,7 +207,11 @@ class TestCreateHelper:
             return_value={"success": True, "input_id": "cooking", "entity_id": "timer.cooking"}
         )
 
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.post(
                 "/registry/helpers",
                 json={
@@ -236,7 +260,11 @@ class TestDeleteHelper:
     @pytest.mark.asyncio
     async def test_delete_helper_success(self, helpers_client, mock_ha_client):
         """Test successful helper deletion."""
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.delete("/registry/helpers/input_boolean/test")
 
         assert resp.status_code == 200
@@ -253,7 +281,11 @@ class TestDeleteHelper:
             "error": "Not found",
         }
 
-        with patch(HA_CLIENT_PATCH, return_value=mock_ha_client):
+        with patch(
+            HA_CLIENT_ASYNC_PATCH,
+            new_callable=AsyncMock,
+            return_value=mock_ha_client,
+        ):
             resp = await helpers_client.delete("/registry/helpers/input_boolean/nonexistent")
 
         assert resp.status_code == 200

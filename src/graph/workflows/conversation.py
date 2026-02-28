@@ -142,8 +142,13 @@ def compile_conversation_graph(
     Returns:
         Compiled graph with checkpointing and HITL interrupts
     """
-    # Create checkpointer for state persistence
-    checkpointer = MemorySaver()
+    # Use PostgresCheckpointer when session is provided so state survives restarts
+    if session is not None:
+        from src.storage.checkpoints import PostgresCheckpointer
+
+        checkpointer = PostgresCheckpointer(session)
+    else:
+        checkpointer = MemorySaver()
 
     # Build graph
     graph = build_conversation_graph(session=session)

@@ -26,11 +26,6 @@ class ConversationRepository:
     """
 
     def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
         self.session = session
 
     async def create(
@@ -40,9 +35,7 @@ class ConversationRepository:
         title: str | None = None,
         context: dict | None = None,
     ) -> Conversation:
-        """Create a new conversation.
-
-        Args:
+        """Args:
             agent_id: ID of the agent handling this conversation
             user_id: User identifier
             title: Optional conversation title
@@ -69,9 +62,7 @@ class ConversationRepository:
         include_messages: bool = True,
         include_proposals: bool = False,
     ) -> Conversation | None:
-        """Get conversation by ID.
-
-        Args:
+        """Args:
             conversation_id: Conversation UUID
             include_messages: Load messages eagerly
             include_proposals: Load proposals eagerly
@@ -96,9 +87,7 @@ class ConversationRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[Conversation]:
-        """List conversations for a user.
-
-        Args:
+        """Args:
             user_id: User identifier
             status: Optional status filter
             limit: Max results
@@ -118,14 +107,6 @@ class ConversationRepository:
         return list(result.scalars().all())
 
     async def list_active(self, limit: int = 50) -> list[Conversation]:
-        """List all active conversations.
-
-        Args:
-            limit: Max results
-
-        Returns:
-            List of active conversations
-        """
         query = (
             select(Conversation)
             .where(Conversation.status == ConversationStatus.ACTIVE)
@@ -140,9 +121,7 @@ class ConversationRepository:
         conversation_id: str,
         status: ConversationStatus,
     ) -> Conversation | None:
-        """Update conversation status.
-
-        Args:
+        """Args:
             conversation_id: Conversation UUID
             status: New status
 
@@ -161,9 +140,7 @@ class ConversationRepository:
         context: dict,
         merge: bool = True,
     ) -> Conversation | None:
-        """Update conversation context.
-
-        Args:
+        """Args:
             conversation_id: Conversation UUID
             context: New context data
             merge: If True, merge with existing context; if False, replace
@@ -185,9 +162,7 @@ class ConversationRepository:
         conversation_id: str,
         title: str,
     ) -> Conversation | None:
-        """Update conversation title.
-
-        Args:
+        """Args:
             conversation_id: Conversation UUID
             title: New title
 
@@ -225,14 +200,6 @@ class ConversationRepository:
         return result.scalar() or 0
 
     async def delete(self, conversation_id: str) -> bool:
-        """Delete a conversation and its messages.
-
-        Args:
-            conversation_id: Conversation UUID
-
-        Returns:
-            True if deleted, False if not found
-        """
         conversation = await self.get_by_id(conversation_id, include_messages=False)
         if conversation:
             await self.session.delete(conversation)
@@ -248,11 +215,6 @@ class MessageRepository:
     """
 
     def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
         self.session = session
 
     async def create(
@@ -267,9 +229,7 @@ class MessageRepository:
         mlflow_span_id: str | None = None,
         metadata: dict | None = None,
     ) -> Message:
-        """Create a new message.
-
-        Args:
+        """Args:
             conversation_id: Parent conversation ID
             role: Message role (user, assistant, system)
             content: Message content
@@ -405,11 +365,6 @@ class ProposalRepository:
     """
 
     def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
         self.session = session
 
     async def create(
@@ -428,9 +383,7 @@ class ProposalRepository:
         review_notes: list | None = None,
         dashboard_config: dict | None = None,
     ) -> AutomationProposal:
-        """Create a new automation proposal.
-
-        Args:
+        """Args:
             name: Automation name
             trigger: HA trigger config
             actions: HA action config
@@ -650,14 +603,6 @@ class ProposalRepository:
         return proposal
 
     async def delete(self, proposal_id: str) -> bool:
-        """Delete a proposal.
-
-        Args:
-            proposal_id: Proposal UUID
-
-        Returns:
-            True if deleted, False if not found
-        """
         proposal = await self.get_by_id(proposal_id)
         if proposal:
             await self.session.delete(proposal)

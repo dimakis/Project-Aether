@@ -27,7 +27,6 @@ class LibrarianAgent(BaseAgent):
     """
 
     def __init__(self) -> None:
-        """Initialize Librarian agent."""
         super().__init__(
             role=AgentRole.LIBRARIAN,
             name="Librarian",

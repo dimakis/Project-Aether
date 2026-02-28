@@ -29,7 +29,6 @@ _SKILLS = [
 
 
 def create_dashboard_designer_service() -> Starlette:
-    """Create the Dashboard Designer A2A service."""
     from src.agents.dashboard_designer import DashboardDesignerAgent
 
     return create_a2a_service(

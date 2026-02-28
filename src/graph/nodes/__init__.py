@@ -62,18 +62,13 @@ __all__ = [
     "analysis_error_node",
     "analyze_and_suggest_node",
     "approval_gate_node",
-    # Conversation nodes
     "architect_propose_node",
     "architect_refine_node",
     "architect_review_node",
-    # Automation builder nodes
     "check_duplicates_node",
-    # Optimization nodes
     "collect_behavioral_data_node",
-    # Analysis nodes
     "collect_energy_data_node",
     "conversation_error_node",
-    # Review nodes
     "create_review_proposals_node",
     "developer_deploy_node",
     "developer_rollback_node",
@@ -89,7 +84,6 @@ __all__ = [
     "generate_yaml_node",
     "infer_areas_node",
     "infer_devices_node",
-    # Discovery nodes
     "initialize_discovery_node",
     "persist_entities_node",
     "present_recommendations_node",

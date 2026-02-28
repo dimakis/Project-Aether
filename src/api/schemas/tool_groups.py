@@ -5,13 +5,12 @@ Feature 34: Dynamic Tool Registry.
 
 from __future__ import annotations
 
+from datetime import datetime  # noqa: TC003 — required at runtime for Pydantic model fields
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from src.storage.entities.tool_group import ToolGroup
 
 

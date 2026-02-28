@@ -65,5 +65,4 @@ class PasskeyCredential(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return f"<PasskeyCredential(device={self.device_name!r}, username={self.username!r})>"

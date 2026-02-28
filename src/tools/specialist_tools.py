@@ -45,7 +45,6 @@ from src.tools.specialist_routing import (  # noqa: F401
 
 
 def get_specialist_tools() -> list:
-    """Return all specialist delegation tools (including team tool)."""
     return [
         consult_energy_analyst,
         consult_behavioral_analyst,
