@@ -118,5 +118,4 @@ async def web_search(
 
 
 def get_web_search_tools() -> list[Any]:
-    """Return web search tools for agent binding."""
     return [web_search]

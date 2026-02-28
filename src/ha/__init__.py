@@ -14,7 +14,7 @@ from src.ha.automation_deploy import (
     build_time_trigger,
 )
 from src.ha.behavioral import BehavioralAnalysisClient
-from src.ha.client import HAClient, get_ha_client
+from src.ha.client import HAClient, get_ha_client, get_ha_client_async
 from src.ha.constants import COMMON_SERVICES
 from src.ha.dashboards import DashboardMixin
 from src.ha.event_handler import EventHandler
@@ -45,24 +45,17 @@ from src.ha.parsers import (
 from src.ha.workarounds import infer_areas_from_entities, infer_devices_from_entities
 
 __all__ = [
-    # Constants
     "COMMON_SERVICES",
-    # Automation Deployment
     "AutomationDeployer",
-    # Behavioral Analysis (US5 / Feature 03)
     "BehavioralAnalysisClient",
-    # Client
     "DashboardMixin",
     "EnergyDataPoint",
     "EnergyHistory",
-    # Energy History (US3)
     "EnergyHistoryClient",
     "EnergyStats",
-    # Event Stream (Feature 35)
     "EventHandler",
     "HAClient",
     "HAEventStream",
-    # Logbook (US5 / Feature 03)
     "LogbookHistoryClient",
     "LogbookStats",
     "ParsedLogbookEntry",
@@ -75,9 +68,9 @@ __all__ = [
     "discover_energy_sensors",
     "get_energy_history",
     "get_ha_client",
+    "get_ha_client_async",
     "get_logbook_stats",
     "infer_areas_from_entities",
-    # Workarounds
     "infer_devices_from_entities",
     "parse_automation_list",
     "parse_domain_summary",
@@ -85,6 +78,5 @@ __all__ = [
     "parse_entity_list",
     "parse_logbook_entry",
     "parse_logbook_list",
-    # Parsers
     "parse_system_overview",
 ]

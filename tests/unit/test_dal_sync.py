@@ -326,14 +326,18 @@ class TestConvenienceFunctions:
 
         with (
             patch("src.dal.sync.DiscoverySyncService") as MockService,
-            patch("src.ha.get_ha_client", return_value=mock_ha) as get_ha,
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha,
+            ) as get_ha_async,
         ):
             mock_instance = MockService.return_value
             mock_instance.run_discovery = AsyncMock()
 
             await run_discovery(mock_session, ha_client=None, triggered_by="test")
 
-            get_ha.assert_called_once()
+            get_ha_async.assert_called_once()
             MockService.assert_called_once_with(mock_session, mock_ha)
 
     @pytest.mark.asyncio

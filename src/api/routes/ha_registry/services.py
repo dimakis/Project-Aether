@@ -107,7 +107,7 @@ async def call_service(
         Service call result
     """
     from src.api.utils import sanitize_error
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
 
     # Block dangerous domains that must go through HITL approval
     BLOCKED_DOMAINS = frozenset(
@@ -126,7 +126,7 @@ async def call_service(
         )
 
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         await ha.call_service(
             domain=body.domain,
             service=body.service,

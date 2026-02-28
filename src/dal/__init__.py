@@ -32,33 +32,23 @@ from src.dal.tool_groups import ToolGroupRepository
 __all__ = [
     "AgentConfigVersionRepository",
     "AgentPromptVersionRepository",
-    # Agent configuration (Feature 23)
     "AgentRepository",
     "AreaRepository",
-    # HA registry repositories
     "AutomationRepository",
-    # Feature 38: Optimization Persistence
     "AutomationSuggestionRepository",
-    # Conversation repositories (US2)
     "ConversationRepository",
     "DeviceRepository",
-    # Services
     "DiscoverySyncService",
-    # Entity repositories
     "EntityRepository",
-    # Insight repositories (US3)
     "InsightRepository",
-    # Insight schedules (Feature 10)
     "InsightScheduleRepository",
     "MessageRepository",
     "NaturalLanguageQueryEngine",
-    # Feature 38: Optimization Persistence
     "OptimizationJobRepository",
     "ProposalRepository",
     "SceneRepository",
     "ScriptRepository",
     "ServiceRepository",
-    # Feature 34: Dynamic Tool Registry
     "ToolGroupRepository",
     "query_entities",
     "seed_services",

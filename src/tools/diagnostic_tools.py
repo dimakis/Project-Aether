@@ -243,7 +243,6 @@ async def validate_config() -> str:
 
 
 def get_diagnostic_tools() -> list:
-    """Return all diagnostic tools for agent registration."""
     return [
         analyze_error_log,
         find_unavailable_entities_tool,

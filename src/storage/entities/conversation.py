@@ -86,7 +86,6 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return f"<Conversation(id={self.id!r}, status={self.status.value!r})>"
 
     def complete(self) -> None:

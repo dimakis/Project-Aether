@@ -444,14 +444,15 @@ async def _execute_discovery_sync() -> None:
     Runs run_delta_sync which only upserts changed entities.
     """
     from src.dal.sync import DiscoverySyncService
-    from src.ha import get_ha_client
     from src.storage import get_session
 
     logger.info("Starting periodic discovery delta sync")
 
     try:
         async with get_session() as session:
-            ha_client = get_ha_client()
+            from src.ha import get_ha_client_async
+
+            ha_client = await get_ha_client_async()
             service = DiscoverySyncService(session, ha_client)
             stats = await service.run_delta_sync()
 
