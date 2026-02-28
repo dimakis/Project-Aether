@@ -32,6 +32,8 @@ def _enum_column(enum_cls: type[_E]) -> TypeDecorator[_E]:
         def process_result_value(self, value: Any, dialect: Any) -> _E | None:
             if value is None:
                 return None
+            if isinstance(value, enum_cls):
+                return value
             s = str(value).strip()
             for member in enum_cls:
                 if s in (member.value, member.name):

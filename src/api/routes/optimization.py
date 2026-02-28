@@ -10,6 +10,7 @@ automation suggestions, and accepting/rejecting suggestions.
 import logging
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -198,6 +199,18 @@ async def _run_accept_suggestion_background(suggestion_id: str) -> None:
             await session.commit()
 
 
+def _parse_suggestion_id(suggestion_id: str) -> str:
+    """Validate suggestion_id is a valid UUID; return 404 for invalid format."""
+    try:
+        UUID(suggestion_id)
+    except ValueError as err:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Suggestion not found: {suggestion_id}",
+        ) from err
+    return suggestion_id
+
+
 @router.post("/suggestions/{suggestion_id}/accept", status_code=202)
 @limiter.limit("10/minute")
 async def accept_suggestion(
@@ -208,6 +221,7 @@ async def accept_suggestion(
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Queue acceptance of an automation suggestion; proposal is created in the background."""
+    suggestion_id = _parse_suggestion_id(suggestion_id)
     repo = AutomationSuggestionRepository(session)
     entity = await repo.get_by_id(suggestion_id)
     if entity is None:
@@ -237,6 +251,7 @@ async def reject_suggestion(
     session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Reject an automation suggestion."""
+    suggestion_id = _parse_suggestion_id(suggestion_id)
     repo = AutomationSuggestionRepository(session)
     entity = await repo.get_by_id(suggestion_id)
     if entity is None:

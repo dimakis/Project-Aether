@@ -217,6 +217,65 @@ def integration_settings(postgres_url: str) -> Any:
 
 
 # =============================================================================
+# API CLIENT WITH MOCKED DB (no real connection for repo-mock tests)
+# =============================================================================
+
+
+def _make_mock_session():
+    """Build a mock session whose execute() return value supports .scalars().all(), .scalar(), .all()."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    mock_session = MagicMock()
+    mock_session.commit = AsyncMock()
+    mock_session.rollback = AsyncMock()
+    mock_session.close = AsyncMock()
+    mock_session.add = MagicMock()
+    mock_session.delete = MagicMock()
+    mock_session.flush = AsyncMock()
+
+    def _mock_result():
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = []
+        result.scalar.return_value = 0
+        result.all.return_value = []
+        result.fetchall.return_value = []
+        return result
+
+    mock_session.execute = AsyncMock(side_effect=lambda _: _mock_result())
+
+    return mock_session
+
+
+@pytest.fixture
+async def async_client(test_app: Any) -> AsyncGenerator[Any, None]:
+    """Async HTTP client with get_db overridden so API tests need no real DB.
+
+    Integration API tests (entities, insights, chat, etc.) that patch only
+    repositories would otherwise trigger get_db -> get_session() and attempt
+    a real Postgres connection. Overriding get_db here avoids connection
+    errors when no container is running or URL is wrong.
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    from src.api.deps import get_db
+    from src.api.routes.ha_registry import get_db as ha_registry_get_db
+
+    mock_session = _make_mock_session()
+
+    async def _mock_get_db():
+        yield mock_session
+
+    test_app.dependency_overrides[get_db] = _mock_get_db
+    test_app.dependency_overrides[ha_registry_get_db] = _mock_get_db
+
+    async with AsyncClient(
+        transport=ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        yield client
+
+
+# =============================================================================
 # DB SINGLETON CLEANUP
 # =============================================================================
 

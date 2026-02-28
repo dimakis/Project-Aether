@@ -56,6 +56,15 @@ def mock_insight_repo(mock_insight):
     repo.mark_actioned = AsyncMock(return_value=mock_insight)
     repo.dismiss = AsyncMock(return_value=mock_insight)
     repo.delete = AsyncMock(return_value=True)
+    repo.get_summary = AsyncMock(
+        return_value={
+            "total": 1,
+            "by_type": {"energy_optimization": 1},
+            "by_status": {"pending": 1},
+            "pending_count": 1,
+            "high_impact_count": 0,
+        }
+    )
     return repo
 
 
