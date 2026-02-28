@@ -19,6 +19,12 @@ from src.tools.approval_tools import (
     get_approval_tools,
     seek_approval,
 )
+from src.tools.automation_builder_tools import (
+    check_entity_exists,
+    find_similar_automations,
+    get_automation_builder_tools,
+    validate_automation_draft,
+)
 from src.tools.diagnostic_tools import (
     analyze_error_log,
     check_integration_health,
@@ -63,6 +69,7 @@ __all__ = [
     "READ_ONLY_TOOLS",
     "analyze_energy",
     "analyze_error_log",
+    "check_entity_exists",
     "check_ha_config",
     "check_integration_health",
     "consult_behavioral_analyst",
@@ -75,12 +82,14 @@ __all__ = [
     "diagnose_entity",
     "diagnose_issue",
     "discover_entities",
+    "find_similar_automations",
     "find_unavailable_entities_tool",
     "get_agent_tools",
     "get_all_tools",
     "get_analysis_tools",
     "get_approval_tools",
     "get_architect_tools",
+    "get_automation_builder_tools",
     "get_automation_config",
     "get_diagnostic_tools",
     "get_domain_summary",
@@ -102,6 +111,7 @@ __all__ = [
     "run_custom_analysis",
     "search_entities",
     "seek_approval",
+    "validate_automation_draft",
     "validate_config",
     "web_search",
 ]

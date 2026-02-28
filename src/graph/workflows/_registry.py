@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from langgraph.graph import StateGraph
 
 from src.graph.workflows.analysis import build_analysis_graph
+from src.graph.workflows.automation_builder import build_automation_builder_graph
 from src.graph.workflows.conversation import build_conversation_graph
 from src.graph.workflows.dashboard import build_dashboard_graph
 from src.graph.workflows.discovery import build_discovery_graph, build_simple_discovery_graph
@@ -20,6 +21,7 @@ WORKFLOW_REGISTRY = {
     "discovery": build_discovery_graph,
     "discovery_simple": build_simple_discovery_graph,
     "conversation": build_conversation_graph,
+    "automation_builder": build_automation_builder_graph,
     "analysis": build_analysis_graph,
     "optimization": build_optimization_graph,
     "team_analysis": build_team_analysis_graph,

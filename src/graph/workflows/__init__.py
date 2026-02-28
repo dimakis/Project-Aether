@@ -9,6 +9,10 @@ This package re-exports every public name so that existing consumers
 
 from src.graph.workflows._registry import WORKFLOW_REGISTRY, get_workflow
 from src.graph.workflows.analysis import build_analysis_graph, run_analysis_workflow
+from src.graph.workflows.automation_builder import (
+    build_automation_builder_graph,
+    compile_automation_builder_graph,
+)
 from src.graph.workflows.compiler import CompilationError, WorkflowCompiler
 from src.graph.workflows.conversation import (
     build_conversation_graph,
@@ -52,6 +56,7 @@ __all__ = [
     "WorkflowCompiler",
     "WorkflowDefinition",
     "build_analysis_graph",
+    "build_automation_builder_graph",
     "build_conversation_graph",
     "build_dashboard_graph",
     "build_discovery_graph",
@@ -59,6 +64,7 @@ __all__ = [
     "build_review_graph",
     "build_simple_discovery_graph",
     "build_team_analysis_graph",
+    "compile_automation_builder_graph",
     "compile_conversation_graph",
     "get_default_manifest",
     "get_workflow",

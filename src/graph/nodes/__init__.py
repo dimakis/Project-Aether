@@ -7,6 +7,7 @@ This module re-exports all node functions from domain-specific modules
 for backward compatibility with existing imports.
 """
 
+# Automation builder nodes
 # Discovery workflow nodes
 # Analysis workflow nodes
 from src.graph.nodes.analysis import (
@@ -19,6 +20,14 @@ from src.graph.nodes.analysis import (
     extract_insights_node,
     generate_script_node,
     present_recommendations_node,
+)
+from src.graph.nodes.automation_builder import (
+    check_duplicates_node,
+    gather_intent_node,
+    generate_yaml_node,
+    preview_node,
+    validate_entities_node,
+    validate_yaml_node,
 )
 
 # Conversation workflow nodes
@@ -57,6 +66,8 @@ __all__ = [
     "architect_propose_node",
     "architect_refine_node",
     "architect_review_node",
+    # Automation builder nodes
+    "check_duplicates_node",
     # Optimization nodes
     "collect_behavioral_data_node",
     # Analysis nodes
@@ -73,15 +84,20 @@ __all__ = [
     "fetch_entities_node",
     "finalize_discovery_node",
     "gather_context_node",
+    "gather_intent_node",
     "generate_script_node",
+    "generate_yaml_node",
     "infer_areas_node",
     "infer_devices_node",
     # Discovery nodes
     "initialize_discovery_node",
     "persist_entities_node",
     "present_recommendations_node",
+    "preview_node",
     "process_approval_node",
     "resolve_targets_node",
     "run_discovery_node",
     "sync_automations_node",
+    "validate_entities_node",
+    "validate_yaml_node",
 ]
