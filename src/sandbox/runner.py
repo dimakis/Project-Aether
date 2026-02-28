@@ -351,11 +351,13 @@ class SandboxRunner:
                     f"{output_dir}:/workspace/output:rw",
                 ]
             )
+            cmd.extend(["--env", "OUTDIR=/workspace/output"])
 
         # Suppress Python deprecation warnings so they don't pollute stdout.
         # The DS Team agent parses JSON from stdout; stray warnings
         # (e.g. pandas pyarrow DeprecationWarning) break extraction.
         cmd.extend(["--env", "PYTHONWARNINGS=ignore::DeprecationWarning"])
+        cmd.extend(["--env", "MPLCONFIGDIR=/tmp"])
 
         # Environment variables
         if environment:

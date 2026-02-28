@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePersistedState } from "@/hooks/use-persisted-state";
 import {
   Sparkles,
   Play,
@@ -44,7 +45,7 @@ export function OptimizationPage() {
     "behavior_analysis",
   ]);
   const [hours, setHours] = useState(168);
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activeJobId, setActiveJobId] = usePersistedState<string | null>("optimization:activeJobId", null);
 
   const runOpt = useRunOptimization();
   const { data: jobData } = useOptimizationJob(activeJobId);
