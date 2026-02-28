@@ -23,6 +23,7 @@ from src.dal.insights import InsightRepository
 from src.dal.queries import NaturalLanguageQueryEngine, query_entities
 from src.dal.services import ServiceRepository, seed_services
 from src.dal.sync import DiscoverySyncService
+from src.dal.tool_groups import ToolGroupRepository
 
 __all__ = [
     "AgentConfigVersionRepository",
@@ -49,6 +50,8 @@ __all__ = [
     "SceneRepository",
     "ScriptRepository",
     "ServiceRepository",
+    # Feature 34: Dynamic Tool Registry
+    "ToolGroupRepository",
     "query_entities",
     "seed_services",
 ]
