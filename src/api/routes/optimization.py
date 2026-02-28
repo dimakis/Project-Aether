@@ -377,12 +377,18 @@ async def _run_optimization_background(
             logger.exception("Optimization job %s failed", job_id)
             if _active_agent:
                 emit_job_agent(job_id, _active_agent, "end")
+            # Roll back the tainted transaction so we can write the failure status.
+            # Without this, a PendingRollbackError prevents the status update.
+            await session.rollback()
             now = datetime.now(UTC)
-            await repo.update_status(
-                job_id,
-                "failed",
-                error=str(e),
-                completed_at=now,
-            )
-            await session.commit()
+            try:
+                await repo.update_status(
+                    job_id,
+                    "failed",
+                    error=str(e)[:2000],
+                    completed_at=now,
+                )
+                await session.commit()
+            except Exception:
+                logger.warning("Could not persist failure status for job %s", job_id)
             emit_job_failed(job_id, str(e))
