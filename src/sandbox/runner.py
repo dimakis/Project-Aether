@@ -138,10 +138,10 @@ class SandboxRunner:
             policy_enabled=policy.artifacts_enabled,
         )
 
-        # Create temp output dir for artifacts (only when both gates are True)
-        output_dir: Path | None = None
-        if artifacts_active:
-            output_dir = Path(tempfile.mkdtemp(prefix="aether-artifacts-"))
+        # Always create an output dir so LLM-generated scripts that write to
+        # /workspace/output don't crash on the read-only root filesystem.
+        # Artifacts are only collected when both gates are True.
+        output_dir = Path(tempfile.mkdtemp(prefix="aether-artifacts-"))
 
         # Create temp file for the script
         with tempfile.NamedTemporaryFile(
@@ -217,7 +217,7 @@ class SandboxRunner:
             # Collect and validate artifacts from the output directory
             artifacts_list: list[Any] = []
             artifacts_rejected = 0
-            if output_dir is not None and output_dir.exists():
+            if artifacts_active and output_dir.exists():
                 from src.sandbox.artifact_validator import validate_artifacts
 
                 artifacts_list, artifacts_rejected = validate_artifacts(output_dir)
