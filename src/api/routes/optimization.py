@@ -244,6 +244,8 @@ async def reject_suggestion(
     }
 
 
+# (agent_id, status_message) — agent_id must match frontend agent registry (e.g. data_science_team,
+# architect) so the activity panel topology shows Aether → DS Team / Architect with correct edges.
 _NODE_LABELS: dict[str, tuple[str, str]] = {
     "collect_behavioral_data": ("data_scientist", "Collecting behavioral data from HA..."),
     "analyze_and_suggest": ("data_scientist", "Running analysis & generating script..."),
