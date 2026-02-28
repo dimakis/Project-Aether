@@ -35,22 +35,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/optimize", tags=["Optimization"])
 
 
-def _job_to_result(job: Any) -> OptimizationResult:
-    """Map an OptimizationJob entity to the API response schema."""
-    suggestions = [
-        AutomationSuggestionResponse(
-            id=s.id,
-            pattern=s.pattern,
-            entities=s.entities or [],
-            proposed_trigger=s.proposed_trigger or "",
-            proposed_action=s.proposed_action or "",
-            confidence=s.confidence or 0.0,
-            source_insight_type=s.source_insight_type or "",
-            status=SuggestionStatus(s.status),
-            created_at=s.created_at,
-        )
-        for s in (job.suggestions or [])
-    ]
+def _job_to_result(job: Any, suggestions_loaded: bool = True) -> OptimizationResult:
+    """Map an OptimizationJob entity to the API response schema.
+
+    Args:
+        job: OptimizationJob entity.
+        suggestions_loaded: If False, skip accessing the suggestions
+            relationship to avoid lazy-load errors on expired instances.
+    """
+    suggestions = []
+    if suggestions_loaded:
+        try:
+            suggestions = [
+                AutomationSuggestionResponse(
+                    id=s.id,
+                    pattern=s.pattern,
+                    entities=s.entities or [],
+                    proposed_trigger=s.proposed_trigger or "",
+                    proposed_action=s.proposed_action or "",
+                    confidence=s.confidence or 0.0,
+                    source_insight_type=s.source_insight_type or "",
+                    status=SuggestionStatus(s.status),
+                    created_at=s.created_at,
+                )
+                for s in (job.suggestions or [])
+            ]
+        except Exception:
+            suggestions = []
     return OptimizationResult(
         job_id=job.id,
         status=job.status,
@@ -96,7 +107,7 @@ async def start_optimization(
 
     background_tasks.add_task(_run_optimization_background, job.id, data)
 
-    return _job_to_result(job)
+    return _job_to_result(job, suggestions_loaded=False)
 
 
 @router.get("/jobs", response_model=list[OptimizationResult])
