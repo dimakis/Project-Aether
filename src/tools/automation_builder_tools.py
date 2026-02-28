@@ -168,7 +168,7 @@ async def validate_automation_draft(yaml_content: str) -> str:
     )
 
 
-def get_automation_builder_tools() -> list:
+def get_automation_builder_tools() -> list[Any]:
     """Return all automation builder tools."""
     return [
         check_entity_exists,
