@@ -330,6 +330,24 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
                 schedule.run_count,
             )
             emit_job_complete(job_id)
+
+            # Feature 37: notify user of actionable insights from this run
+            try:
+                from src.dal.insights import InsightRepository
+                from src.hitl.insight_notifier import InsightNotifier
+
+                notifier = await InsightNotifier.from_settings()
+                insight_repo = InsightRepository(session)
+                recent_insights = await insight_repo.list_recent(hours=1)
+                sent = await notifier.notify_if_actionable(recent_insights)
+                if sent:
+                    logger.info(
+                        "Sent %d insight notification(s) for schedule %s", sent, schedule.name
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Insight notification failed for schedule %s: %s", schedule.name, exc
+                )
         except Exception as e:
             schedule.record_run(success=False, error=str(e))
             logger.exception(

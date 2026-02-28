@@ -48,6 +48,17 @@ class AppSettings(Base, UUIDMixin, TimestampMixin):
         server_default="{}",
         doc="Data Science settings (sandbox timeouts, memory limits, etc.)",
     )
+    notifications: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+        doc=(
+            "Insight notification preferences (Feature 37). "
+            "Keys: enabled (bool), min_impact (str: low|medium|high|critical), "
+            "quiet_hours_start (str: HH:MM), quiet_hours_end (str: HH:MM)."
+        ),
+    )
 
     def __repr__(self) -> str:
         return f"<AppSettings(id={self.id})>"
