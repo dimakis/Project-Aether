@@ -167,6 +167,11 @@ class SchedulerService:
 
         Uses an IntervalTrigger so the first run happens after one interval,
         and subsequent runs repeat at the configured frequency.
+
+        When the real-time event stream (Feature 35) is active, entity states
+        are kept current via WebSocket push.  The polling sync then only needs
+        to catch structural changes (new/removed entities), so we widen the
+        interval to 360 min (6 h) to reduce redundant DB churn.
         """
         if self._scheduler is None or IntervalTrigger is None:
             return
@@ -176,6 +181,28 @@ class SchedulerService:
             return
 
         interval = getattr(settings, "discovery_sync_interval_minutes", 30)
+
+        # When the event stream (Feature 35) is active, entity state updates
+        # arrive in real-time via WebSocket push. The polling sync only needs
+        # to catch structural changes (new/removed entities), so we widen the
+        # interval to 6 h to reduce redundant DB churn.
+        event_stream_available = False
+        try:
+            import importlib.util
+
+            event_stream_available = importlib.util.find_spec("src.ha.event_stream") is not None
+        except (ImportError, ValueError):
+            pass
+
+        if event_stream_available:
+            event_stream_interval = 360  # 6 hours in minutes
+            if interval < event_stream_interval:
+                logger.info(
+                    "Event stream active — widening discovery sync from %d to %d minutes",
+                    interval,
+                    event_stream_interval,
+                )
+                interval = event_stream_interval
 
         self._scheduler.add_job(
             _execute_discovery_sync,

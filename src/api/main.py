@@ -69,6 +69,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         scheduler = SchedulerService()
         await scheduler.start()
 
+    # Start real-time event stream (Feature 35)
+    if settings.environment != "testing":
+        try:
+            from src.ha import get_ha_client
+            from src.ha.event_handler import EventHandler
+            from src.ha.event_stream import HAEventStream
+
+            ha_client = get_ha_client()
+            ws_url = ha_client._get_ws_url()
+            token = ha_client.config.ha_token
+            event_handler = EventHandler()
+            await event_handler.start()
+            event_stream = HAEventStream(ws_url, token, handler=event_handler.handle_event)
+            event_stream.start_task()
+            app.state.event_stream = event_stream
+            app.state.event_handler = event_handler
+        except Exception as exc:
+            import logging as _logging
+
+            _logging.getLogger(__name__).warning("Event stream not started: %s", exc)
+
     yield
 
     # Shutdown
@@ -76,6 +97,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from src.api.routes.activity_stream import signal_shutdown
 
     signal_shutdown()
+
+    # Stop event stream (Feature 35)
+    if hasattr(app.state, "event_stream"):
+        await app.state.event_stream.stop()
+    if hasattr(app.state, "event_handler"):
+        await app.state.event_handler.stop()
 
     if scheduler:
         await scheduler.stop()
