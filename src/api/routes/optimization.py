@@ -244,12 +244,21 @@ async def reject_suggestion(
     }
 
 
+_NODE_LABELS: dict[str, tuple[str, str]] = {
+    "collect_behavioral_data": ("data_scientist", "Collecting behavioral data from HA..."),
+    "analyze_and_suggest": ("data_scientist", "Running analysis & generating script..."),
+    "architect_review": ("architect", "Architect reviewing suggestions..."),
+    "present_recommendations": ("data_scientist", "Compiling recommendations..."),
+}
+
+
 async def _run_optimization_background(
     job_id: str,
     data: OptimizationRequest,
 ) -> None:
-    """Run optimization analysis in the background."""
-    from src.graph.workflows import run_optimization_workflow
+    """Run optimization analysis in the background with granular events."""
+    from src.graph.state import AgentRole, AnalysisState, AnalysisType
+    from src.graph.workflows.optimization import build_optimization_graph
     from src.jobs import (
         emit_job_agent,
         emit_job_complete,
@@ -258,6 +267,15 @@ async def _run_optimization_background(
         emit_job_status,
     )
     from src.storage import get_session
+
+    type_map = {
+        "behavior_analysis": AnalysisType.BEHAVIOR_ANALYSIS,
+        "automation_analysis": AnalysisType.AUTOMATION_ANALYSIS,
+        "automation_gap_detection": AnalysisType.AUTOMATION_GAP_DETECTION,
+        "correlation_discovery": AnalysisType.CORRELATION_DISCOVERY,
+        "device_health": AnalysisType.DEVICE_HEALTH,
+        "cost_optimization": AnalysisType.COST_OPTIMIZATION,
+    }
 
     types_str = ", ".join(t.value for t in data.analysis_types)
     title = f"Optimization ({types_str}, {data.hours}h)"
@@ -273,36 +291,70 @@ async def _run_optimization_background(
         insights: list[dict[str, Any]] = []
         recommendations: list[str] = []
         suggestion_count = 0
+        _active_agent: str | None = None
 
         try:
             for analysis_type in data.analysis_types:
                 emit_job_status(job_id, f"Running {analysis_type.value}...")
-                emit_job_agent(job_id, "data_scientist", "start")
 
-                state = await run_optimization_workflow(
-                    analysis_type=analysis_type.value,
-                    entity_ids=data.entity_ids,
-                    hours=data.hours,
-                    session=session,
+                analysis_enum = type_map.get(analysis_type.value, AnalysisType.BEHAVIOR_ANALYSIS)
+                graph = build_optimization_graph(session=session)
+                compiled = graph.compile()
+
+                initial_state = AnalysisState(
+                    current_agent=AgentRole.DATA_SCIENTIST,
+                    analysis_type=analysis_enum,
+                    entity_ids=data.entity_ids or [],
+                    time_range_hours=data.hours,
                 )
+
+                result_state: dict[str, object] = {}
+                async for event in compiled.astream(
+                    initial_state,
+                    stream_mode="updates",  # type: ignore[arg-type]
+                ):
+                    for node_name, node_output in event.items():
+                        agent, label = _NODE_LABELS.get(node_name, ("data_scientist", node_name))
+                        if agent and agent != _active_agent:
+                            if _active_agent:
+                                emit_job_agent(job_id, _active_agent, "end")
+                            emit_job_agent(job_id, agent, "start")
+                            _active_agent = agent
+                        emit_job_status(job_id, label)
+                        if isinstance(node_output, dict):
+                            result_state.update(node_output)
+
+                if _active_agent:
+                    emit_job_agent(job_id, _active_agent, "end")
+                    _active_agent = None
+
                 await session.commit()
 
-                emit_job_agent(job_id, "data_scientist", "end")
+                final = AnalysisState(
+                    current_agent=AgentRole.DATA_SCIENTIST,
+                    analysis_type=analysis_enum,
+                    entity_ids=data.entity_ids or [],
+                    time_range_hours=data.hours,
+                    insights=result_state.get("insights", []),  # type: ignore[arg-type]
+                    recommendations=result_state.get("recommendations", []),  # type: ignore[arg-type]
+                    automation_suggestion=result_state.get("automation_suggestion"),  # type: ignore[arg-type]
+                )
 
-                insights.extend(state.insights or [])
-                recommendations.extend(state.recommendations or [])
+                insights.extend(final.insights or [])
+                recommendations.extend(final.recommendations or [])
 
-                if state.automation_suggestion:
+                if final.automation_suggestion:
                     emit_job_agent(job_id, "architect", "start")
+                    emit_job_status(job_id, "Saving automation suggestion...")
                     await suggestion_repo.create(
                         {
                             "job_id": job_id,
-                            "pattern": state.automation_suggestion.pattern,
-                            "entities": state.automation_suggestion.entities,
-                            "proposed_trigger": state.automation_suggestion.proposed_trigger,
-                            "proposed_action": state.automation_suggestion.proposed_action,
-                            "confidence": state.automation_suggestion.confidence,
-                            "source_insight_type": state.automation_suggestion.source_insight_type,
+                            "pattern": final.automation_suggestion.pattern,
+                            "entities": final.automation_suggestion.entities,
+                            "proposed_trigger": final.automation_suggestion.proposed_trigger,
+                            "proposed_action": final.automation_suggestion.proposed_action,
+                            "confidence": final.automation_suggestion.confidence,
+                            "source_insight_type": final.automation_suggestion.source_insight_type,
                             "status": "pending",
                         }
                     )
@@ -323,6 +375,8 @@ async def _run_optimization_background(
 
         except Exception as e:
             logger.exception("Optimization job %s failed", job_id)
+            if _active_agent:
+                emit_job_agent(job_id, _active_agent, "end")
             now = datetime.now(UTC)
             await repo.update_status(
                 job_id,
