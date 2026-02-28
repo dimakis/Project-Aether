@@ -163,15 +163,51 @@ async def get_optimization_status(
     return _job_to_result(job)
 
 
-@router.post("/suggestions/{suggestion_id}/accept")
+async def _run_accept_suggestion_background(suggestion_id: str) -> None:
+    """Run suggestion acceptance (Architect proposal creation) in background.
+
+    Uses its own session; marks suggestion as accepted first so the UI can refetch
+    without blocking. On proposal creation failure, resets status to pending.
+    """
+    from src.graph.state import AutomationSuggestion
+    from src.storage import get_session
+
+    async with get_session() as session:
+        repo = AutomationSuggestionRepository(session)
+        entity = await repo.get_by_id(suggestion_id)
+        if entity is None or entity.status != "accepted":
+            return
+
+        try:
+            from src.agents import ArchitectAgent
+
+            suggestion = AutomationSuggestion(
+                pattern=entity.pattern,
+                entities=entity.entities or [],
+                proposed_trigger=entity.proposed_trigger or "",
+                proposed_action=entity.proposed_action or "",
+                confidence=entity.confidence or 0.0,
+                source_insight_type=entity.source_insight_type or "",
+            )
+            architect = ArchitectAgent()
+            await architect.receive_suggestion(suggestion, session)
+            await session.commit()
+        except Exception:
+            logger.exception("Background accept failed for suggestion %s", suggestion_id)
+            await repo.update_status(suggestion_id, "pending")
+            await session.commit()
+
+
+@router.post("/suggestions/{suggestion_id}/accept", status_code=202)
 @limiter.limit("10/minute")
 async def accept_suggestion(
     request: Request,
     suggestion_id: str,
     data: SuggestionAcceptRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Accept an automation suggestion and create a proposal."""
+    """Queue acceptance of an automation suggestion; proposal is created in the background."""
     repo = AutomationSuggestionRepository(session)
     entity = await repo.get_by_id(suggestion_id)
     if entity is None:
@@ -182,38 +218,14 @@ async def accept_suggestion(
     if entity.status != "pending":
         raise HTTPException(status_code=409, detail="Suggestion already processed")
 
-    try:
-        from src.agents import ArchitectAgent
-        from src.graph.state import AutomationSuggestion
+    await repo.update_status(suggestion_id, "accepted")
+    await session.commit()
+    background_tasks.add_task(_run_accept_suggestion_background, suggestion_id)
 
-        suggestion = AutomationSuggestion(
-            pattern=entity.pattern,
-            entities=entity.entities or [],
-            proposed_trigger=entity.proposed_trigger or "",
-            proposed_action=entity.proposed_action or "",
-            confidence=entity.confidence or 0.0,
-            source_insight_type=entity.source_insight_type or "",
-        )
-
-        architect = ArchitectAgent()
-        result = await architect.receive_suggestion(suggestion, session)
-        await repo.update_status(suggestion_id, "accepted")
-        await session.commit()
-
-        return {
-            "status": "accepted",
-            "proposal_id": result.get("proposal_id"),
-            "proposal_name": result.get("proposal_name"),
-            "message": "Suggestion accepted. Proposal created for approval.",
-        }
-
-    except Exception as e:
-        from src.api.utils import sanitize_error
-
-        raise HTTPException(
-            status_code=500,
-            detail=sanitize_error(e, context="Create proposal from suggestion"),
-        ) from e
+    return {
+        "status": "accepted",
+        "message": "Acceptance in progress. The proposal will appear in Proposals when ready.",
+    }
 
 
 @router.post("/suggestions/{suggestion_id}/reject")

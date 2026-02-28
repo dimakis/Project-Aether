@@ -19,7 +19,7 @@ interface SuggestionDetailProps {
 }
 
 const ACCEPT_EXPLANATION =
-  "Accept creates an automation proposal from this suggestion. You can then review and edit the YAML in Proposals, and deploy it to Home Assistant when ready.";
+  "Accept runs in the background: the suggestion is marked accepted immediately, and a proposal is created shortly. You can then review and deploy it from Proposals.";
 
 const REJECT_EXPLANATION =
   "Reject dismisses this suggestion. No proposal is created and no automation will be added. Use this when the suggestion is not relevant or you don't want to automate this pattern.";
@@ -183,7 +183,7 @@ export function SuggestionDetail({ suggestion, onClose }: SuggestionDetailProps)
           {suggestion.status === "accepted" && (
             <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span>Accepted. Check Proposals to review and deploy the automation.</span>
+              <span>Accepted. The proposal will appear in Proposals shortly (or is already there). Review and deploy from Proposals.</span>
             </div>
           )}
 
