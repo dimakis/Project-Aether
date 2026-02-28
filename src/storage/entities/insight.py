@@ -8,12 +8,39 @@ from __future__ import annotations
 
 import enum
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeVar
 
-from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, func
+from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, TypeDecorator, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.storage.models import Base
+
+_E = TypeVar("_E", bound=enum.Enum)
+
+
+def _enum_column(enum_cls: type[_E]) -> TypeDecorator[_E]:
+    """Enum column that persists by value and loads by value or name (legacy)."""
+    base = Enum(
+        enum_cls,
+        values_callable=lambda x: [e.value for e in x],
+    )
+
+    class _EnumByNameOrValue(TypeDecorator[_E]):
+        impl = base
+        cache_ok = True
+
+        def process_result_value(self, value: Any, dialect: Any) -> _E | None:
+            if value is None:
+                return None
+            s = str(value).strip()
+            for member in enum_cls:
+                if s in (member.value, member.name):
+                    return member
+            raise LookupError(
+                f"{value!r} is not among the defined enum values. Enum: {enum_cls.__name__}. Possible: {[e.value for e in enum_cls]}"
+            )
+
+    return _EnumByNameOrValue()
 
 
 class InsightType(str, enum.Enum):
@@ -58,9 +85,9 @@ class Insight(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
 
-    # Insight classification
+    # Insight classification: persist by value; load by value or name (legacy rows)
     type: Mapped[InsightType] = mapped_column(
-        Enum(InsightType),
+        _enum_column(InsightType),
         nullable=False,
         index=True,
     )
@@ -107,9 +134,9 @@ class Insight(Base):
         doc="Output from script execution",
     )
 
-    # Status tracking
+    # Status tracking: persist by value; load by value or name (legacy rows)
     status: Mapped[InsightStatus] = mapped_column(
-        Enum(InsightStatus),
+        _enum_column(InsightStatus),
         nullable=False,
         default=InsightStatus.PENDING,
         index=True,
