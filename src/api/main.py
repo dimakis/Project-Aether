@@ -55,6 +55,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Initialize database (Constitution: State)
         await init_db()
 
+    # Reconcile stale optimization jobs (Feature 38)
+    if settings.environment != "testing":
+        try:
+            from src.dal.optimization import OptimizationJobRepository
+            from src.storage import get_session as _get_session
+
+            async with _get_session() as session:
+                repo = OptimizationJobRepository(session)
+                reconciled = await repo.reconcile_stale_jobs()
+                await session.commit()
+                if reconciled:
+                    import logging as _log
+
+                    _log.getLogger(__name__).info(
+                        "Reconciled %d stale optimization jobs", reconciled
+                    )
+        except Exception as exc:
+            import logging as _log
+
+            _log.getLogger(__name__).debug("Optimization job reconciliation skipped: %s", exc)
+
     # Start scheduler (Feature 10: Scheduled & Event-Driven Insights)
     # Respects AETHER_ROLE to prevent duplicate jobs in multi-replica deployments
     scheduler = None

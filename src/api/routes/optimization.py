@@ -1,31 +1,69 @@
 """Optimization API routes for intelligent analysis.
 
 Feature 03: Intelligent Optimization & Multi-Agent Collaboration.
+Feature 38: Optimization Persistence — jobs and suggestions stored in DB.
 
 Provides endpoints for running behavioral analysis, viewing
 automation suggestions, and accepting/rejecting suggestions.
 """
 
+import logging
 from datetime import UTC, datetime
-from uuid import uuid4
+from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_db
 from src.api.rate_limit import limiter
 from src.api.schemas.optimization import (
+    AutomationSuggestionResponse,
     OptimizationRequest,
     OptimizationResult,
     SuggestionAcceptRequest,
     SuggestionListResponse,
     SuggestionRejectRequest,
+    SuggestionStatus,
 )
+from src.dal.optimization import (
+    AutomationSuggestionRepository,
+    OptimizationJobRepository,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/optimize", tags=["Optimization"])
 
-# In-memory store for optimization jobs and suggestions
-# (In production, these would be persisted to the database)
-_optimization_jobs: dict[str, OptimizationResult] = {}
-_suggestions: dict[str, dict] = {}
+
+def _job_to_result(job: Any) -> OptimizationResult:
+    """Map an OptimizationJob entity to the API response schema."""
+    suggestions = [
+        AutomationSuggestionResponse(
+            id=s.id,
+            pattern=s.pattern,
+            entities=s.entities or [],
+            proposed_trigger=s.proposed_trigger or "",
+            proposed_action=s.proposed_action or "",
+            confidence=s.confidence or 0.0,
+            source_insight_type=s.source_insight_type or "",
+            status=SuggestionStatus(s.status),
+            created_at=s.created_at,
+        )
+        for s in (job.suggestions or [])
+    ]
+    return OptimizationResult(
+        job_id=job.id,
+        status=job.status,
+        analysis_types=job.analysis_types or [],
+        hours_analyzed=job.hours_analyzed or 0,
+        insight_count=job.insight_count,
+        suggestion_count=job.suggestion_count,
+        suggestions=suggestions,
+        recommendations=job.recommendations or [],
+        started_at=job.started_at or job.created_at,
+        completed_at=job.completed_at,
+        error=job.error,
+    )
 
 
 @router.post("", response_model=OptimizationResult, status_code=202)
@@ -34,64 +72,84 @@ async def start_optimization(
     request: Request,
     data: OptimizationRequest,
     background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
 ) -> OptimizationResult:
     """Run a full optimization analysis.
 
     Triggers behavioral analysis in the background. Returns a job
     that can be polled for completion.
     """
-    job_id = str(uuid4())
+    repo = OptimizationJobRepository(session)
+    now = datetime.now(UTC)
 
-    result = OptimizationResult(
-        job_id=job_id,
-        status="pending",
-        analysis_types=[t.value for t in data.analysis_types],
-        hours_analyzed=data.hours,
-        insight_count=0,
-        suggestion_count=0,
-        started_at=datetime.now(UTC),
+    job = await repo.create(
+        {
+            "status": "pending",
+            "analysis_types": [t.value for t in data.analysis_types],
+            "hours_analyzed": data.hours,
+            "insight_count": 0,
+            "suggestion_count": 0,
+            "started_at": now,
+        }
     )
+    await session.commit()
 
-    _optimization_jobs[job_id] = result
-    background_tasks.add_task(
-        _run_optimization_background,
-        job_id,
-        data,
-    )
+    background_tasks.add_task(_run_optimization_background, job.id, data)
 
-    return result
+    return _job_to_result(job)
 
 
-@router.get("/{job_id}", response_model=OptimizationResult)
-async def get_optimization_status(job_id: str) -> OptimizationResult:
-    """Get the status of an optimization job."""
-    if job_id not in _optimization_jobs:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
-    return _optimization_jobs[job_id]
+@router.get("/jobs", response_model=list[OptimizationResult])
+async def list_jobs(
+    status: str | None = Query(None, description="Filter by job status"),
+    limit: int = Query(50, ge=1, le=200),
+    session: AsyncSession = Depends(get_db),
+) -> list[OptimizationResult]:
+    """List optimization job history."""
+    repo = OptimizationJobRepository(session)
+    jobs = await repo.list_all(status=status, limit=limit)
+    return [_job_to_result(j) for j in jobs]
 
 
 @router.get("/suggestions/list", response_model=SuggestionListResponse)
-async def list_suggestions() -> SuggestionListResponse:
-    """List all pending automation suggestions."""
-    from src.api.schemas.optimization import AutomationSuggestionResponse, SuggestionStatus
+async def list_suggestions(
+    job_id: str | None = Query(None, description="Filter by job ID"),
+    status: str | None = Query(None, description="Filter by suggestion status"),
+    session: AsyncSession = Depends(get_db),
+) -> SuggestionListResponse:
+    """List automation suggestions."""
+    repo = AutomationSuggestionRepository(session)
+    entities = await repo.list_all(status=status, job_id=job_id)
 
-    items = []
-    for sid, data in _suggestions.items():
-        items.append(
-            AutomationSuggestionResponse(
-                id=sid,
-                pattern=data.get("pattern", ""),
-                entities=data.get("entities", []),
-                proposed_trigger=data.get("proposed_trigger", ""),
-                proposed_action=data.get("proposed_action", ""),
-                confidence=data.get("confidence", 0.0),
-                source_insight_type=data.get("source_insight_type", ""),
-                status=SuggestionStatus(data.get("status", "pending")),
-                created_at=data.get("created_at", datetime.now(UTC)),
-            )
+    items = [
+        AutomationSuggestionResponse(
+            id=s.id,
+            pattern=s.pattern,
+            entities=s.entities or [],
+            proposed_trigger=s.proposed_trigger or "",
+            proposed_action=s.proposed_action or "",
+            confidence=s.confidence or 0.0,
+            source_insight_type=s.source_insight_type or "",
+            status=SuggestionStatus(s.status),
+            created_at=s.created_at,
         )
+        for s in entities
+    ]
 
     return SuggestionListResponse(items=items, total=len(items))
+
+
+@router.get("/{job_id}", response_model=OptimizationResult)
+async def get_optimization_status(
+    job_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> OptimizationResult:
+    """Get the status of an optimization job."""
+    repo = OptimizationJobRepository(session)
+    job = await repo.get_by_id(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    return _job_to_result(job)
 
 
 @router.post("/suggestions/{suggestion_id}/accept")
@@ -100,37 +158,36 @@ async def accept_suggestion(
     request: Request,
     suggestion_id: str,
     data: SuggestionAcceptRequest,
+    session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Accept an automation suggestion and create a proposal."""
-    if suggestion_id not in _suggestions:
-        raise HTTPException(status_code=404, detail=f"Suggestion not found: {suggestion_id}")
-
-    suggestion_data = _suggestions[suggestion_id]
-    if suggestion_data.get("status") != "pending":
+    repo = AutomationSuggestionRepository(session)
+    entity = await repo.get_by_id(suggestion_id)
+    if entity is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Suggestion not found: {suggestion_id}",
+        )
+    if entity.status != "pending":
         raise HTTPException(status_code=409, detail="Suggestion already processed")
 
-    # Create proposal via Architect
     try:
         from src.agents import ArchitectAgent
         from src.graph.state import AutomationSuggestion
-        from src.storage import get_session
 
         suggestion = AutomationSuggestion(
-            pattern=suggestion_data["pattern"],
-            entities=suggestion_data.get("entities", []),
-            proposed_trigger=suggestion_data.get("proposed_trigger", ""),
-            proposed_action=suggestion_data.get("proposed_action", ""),
-            confidence=suggestion_data.get("confidence", 0.0),
-            evidence=suggestion_data.get("evidence", {}),
-            source_insight_type=suggestion_data.get("source_insight_type", ""),
+            pattern=entity.pattern,
+            entities=entity.entities or [],
+            proposed_trigger=entity.proposed_trigger or "",
+            proposed_action=entity.proposed_action or "",
+            confidence=entity.confidence or 0.0,
+            source_insight_type=entity.source_insight_type or "",
         )
 
         architect = ArchitectAgent()
-        async with get_session() as session:
-            result = await architect.receive_suggestion(suggestion, session)
-            await session.commit()
-
-        suggestion_data["status"] = "accepted"
+        result = await architect.receive_suggestion(suggestion, session)
+        await repo.update_status(suggestion_id, "accepted")
+        await session.commit()
 
         return {
             "status": "accepted",
@@ -154,17 +211,21 @@ async def reject_suggestion(
     request: Request,
     suggestion_id: str,
     data: SuggestionRejectRequest,
+    session: AsyncSession = Depends(get_db),
 ) -> dict:
     """Reject an automation suggestion."""
-    if suggestion_id not in _suggestions:
-        raise HTTPException(status_code=404, detail=f"Suggestion not found: {suggestion_id}")
-
-    suggestion_data = _suggestions[suggestion_id]
-    if suggestion_data.get("status") != "pending":
+    repo = AutomationSuggestionRepository(session)
+    entity = await repo.get_by_id(suggestion_id)
+    if entity is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Suggestion not found: {suggestion_id}",
+        )
+    if entity.status != "pending":
         raise HTTPException(status_code=409, detail="Suggestion already processed")
 
-    suggestion_data["status"] = "rejected"
-    suggestion_data["rejection_reason"] = data.reason
+    await repo.update_status(suggestion_id, "rejected")
+    await session.commit()
 
     return {
         "status": "rejected",
@@ -187,14 +248,22 @@ async def _run_optimization_background(
     )
     from src.storage import get_session
 
-    title = f"Optimization ({', '.join(t.value for t in data.analysis_types)}, {data.hours}h)"
+    types_str = ", ".join(t.value for t in data.analysis_types)
+    title = f"Optimization ({types_str}, {data.hours}h)"
     emit_job_start(job_id, "optimization", title)
 
-    job = _optimization_jobs[job_id]
-    job.status = "running"
+    async with get_session() as session:
+        repo = OptimizationJobRepository(session)
+        suggestion_repo = AutomationSuggestionRepository(session)
 
-    try:
-        async with get_session() as session:
+        await repo.update_status(job_id, "running")
+        await session.commit()
+
+        insights: list[dict[str, Any]] = []
+        recommendations: list[str] = []
+        suggestion_count = 0
+
+        try:
             for analysis_type in data.analysis_types:
                 emit_job_status(job_id, f"Running {analysis_type.value}...")
                 emit_job_agent(job_id, "data_scientist", "start")
@@ -209,33 +278,46 @@ async def _run_optimization_background(
 
                 emit_job_agent(job_id, "data_scientist", "end")
 
-                job.insights.extend(state.insights or [])
-                job.recommendations.extend(state.recommendations or [])
+                insights.extend(state.insights or [])
+                recommendations.extend(state.recommendations or [])
 
                 if state.automation_suggestion:
                     emit_job_agent(job_id, "architect", "start")
-                    suggestion_id = str(uuid4())
-                    _suggestions[suggestion_id] = {
-                        "pattern": state.automation_suggestion.pattern,
-                        "entities": state.automation_suggestion.entities,
-                        "proposed_trigger": state.automation_suggestion.proposed_trigger,
-                        "proposed_action": state.automation_suggestion.proposed_action,
-                        "confidence": state.automation_suggestion.confidence,
-                        "evidence": state.automation_suggestion.evidence,
-                        "source_insight_type": state.automation_suggestion.source_insight_type,
-                        "status": "pending",
-                        "created_at": datetime.now(UTC),
-                    }
-                    job.suggestion_count += 1
+                    await suggestion_repo.create(
+                        {
+                            "job_id": job_id,
+                            "pattern": state.automation_suggestion.pattern,
+                            "entities": state.automation_suggestion.entities,
+                            "proposed_trigger": state.automation_suggestion.proposed_trigger,
+                            "proposed_action": state.automation_suggestion.proposed_action,
+                            "confidence": state.automation_suggestion.confidence,
+                            "source_insight_type": state.automation_suggestion.source_insight_type,
+                            "status": "pending",
+                        }
+                    )
+                    suggestion_count += 1
                     emit_job_agent(job_id, "architect", "end")
 
-        job.insight_count = len(job.insights)
-        job.status = "completed"
-        job.completed_at = datetime.now(UTC)
-        emit_job_complete(job_id)
+            now = datetime.now(UTC)
+            await repo.update_status(
+                job_id,
+                "completed",
+                insight_count=len(insights),
+                suggestion_count=suggestion_count,
+                recommendations=recommendations or None,
+                completed_at=now,
+            )
+            await session.commit()
+            emit_job_complete(job_id)
 
-    except Exception as e:
-        job.status = "failed"
-        job.error = str(e)
-        job.completed_at = datetime.now(UTC)
-        emit_job_failed(job_id, str(e))
+        except Exception as e:
+            logger.exception("Optimization job %s failed", job_id)
+            now = datetime.now(UTC)
+            await repo.update_status(
+                job_id,
+                "failed",
+                error=str(e),
+                completed_at=now,
+            )
+            await session.commit()
+            emit_job_failed(job_id, str(e))
