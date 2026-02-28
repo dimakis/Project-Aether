@@ -100,10 +100,14 @@ def _make_mock_job(**kwargs):
     return job
 
 
+# Valid UUID for suggestion IDs (route validates UUID before DB)
+SUGGESTION_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+
+
 def _make_mock_suggestion(**kwargs):
     """Build a mock AutomationSuggestionEntity-like object."""
     s = MagicMock()
-    s.id = kwargs.get("id", "suggestion-uuid-1")
+    s.id = kwargs.get("id", SUGGESTION_ID)
     s.pattern = kwargs.get("pattern", "Power spike detected")
     s.entities = kwargs.get("entities", ["sensor.power"])
     s.proposed_trigger = kwargs.get("proposed_trigger", "sensor.power > 1000")
@@ -381,8 +385,8 @@ class TestAcceptSuggestion:
         mock_get_session,
     ):
         """Should return 202 and mark suggestion accepted; proposal is created in background."""
-        mock_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="pending")
-        accepted_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="accepted")
+        mock_entity = _make_mock_suggestion(id=SUGGESTION_ID, status="pending")
+        accepted_entity = _make_mock_suggestion(id=SUGGESTION_ID, status="accepted")
         mock_repo = MagicMock()
         # Request path: pending; background: accepted so proposal creation runs
         mock_repo.get_by_id = AsyncMock(side_effect=[mock_entity, accepted_entity])
@@ -405,7 +409,7 @@ class TestAcceptSuggestion:
         ):
             mock_architect_cls.return_value.receive_suggestion = AsyncMock(return_value=None)
             response = await optimization_client.post(
-                "/api/v1/optimize/suggestions/suggestion-uuid-1/accept",
+                f"/api/v1/optimize/suggestions/{SUGGESTION_ID}/accept",
                 json={"comment": "Looks good"},
             )
         assert response.status_code == 202
@@ -413,7 +417,7 @@ class TestAcceptSuggestion:
         assert data["status"] == "accepted"
         assert "message" in data
         assert "proposal" in data["message"].lower() or "ready" in data["message"].lower()
-        mock_repo.update_status.assert_called_once_with("suggestion-uuid-1", "accepted")
+        mock_repo.update_status.assert_called_once_with(SUGGESTION_ID, "accepted")
         mock_session.commit.assert_called_once()
         optimization_app.dependency_overrides.pop(get_db, None)
 
@@ -445,7 +449,7 @@ class TestAcceptSuggestion:
         mock_get_db,
     ):
         """Should return 409 when suggestion already processed."""
-        mock_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="accepted")
+        mock_entity = _make_mock_suggestion(id=SUGGESTION_ID, status="accepted")
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(return_value=mock_entity)
         optimization_app.dependency_overrides[get_db] = mock_get_db
@@ -453,7 +457,7 @@ class TestAcceptSuggestion:
             "src.api.routes.optimization.AutomationSuggestionRepository", return_value=mock_repo
         ):
             response = await optimization_client.post(
-                "/api/v1/optimize/suggestions/suggestion-uuid-1/accept",
+                f"/api/v1/optimize/suggestions/{SUGGESTION_ID}/accept",
                 json={},
             )
         assert response.status_code == 409
@@ -468,7 +472,7 @@ class TestAcceptSuggestion:
         mock_get_session,
     ):
         """Accept returns 202 immediately; proposal creation runs in background."""
-        mock_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="pending")
+        mock_entity = _make_mock_suggestion(id=SUGGESTION_ID, status="pending")
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(return_value=mock_entity)
         mock_repo.update_status = AsyncMock(return_value=True)
@@ -480,7 +484,7 @@ class TestAcceptSuggestion:
             patch("src.storage.get_session", mock_get_session),
         ):
             response = await optimization_client.post(
-                "/api/v1/optimize/suggestions/suggestion-uuid-1/accept",
+                f"/api/v1/optimize/suggestions/{SUGGESTION_ID}/accept",
                 json={},
             )
         assert response.status_code == 202
@@ -501,7 +505,7 @@ class TestRejectSuggestion:
         mock_session,
     ):
         """Should reject suggestion."""
-        mock_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="pending")
+        mock_entity = _make_mock_suggestion(id=SUGGESTION_ID, status="pending")
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(return_value=mock_entity)
         mock_repo.update_status = AsyncMock(return_value=True)
@@ -510,14 +514,14 @@ class TestRejectSuggestion:
             "src.api.routes.optimization.AutomationSuggestionRepository", return_value=mock_repo
         ):
             response = await optimization_client.post(
-                "/api/v1/optimize/suggestions/suggestion-uuid-1/reject",
+                f"/api/v1/optimize/suggestions/{SUGGESTION_ID}/reject",
                 json={"reason": "Not needed"},
             )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "rejected"
         assert data["reason"] == "Not needed"
-        mock_repo.update_status.assert_called_once_with("suggestion-uuid-1", "rejected")
+        mock_repo.update_status.assert_called_once_with(SUGGESTION_ID, "rejected")
         mock_session.commit.assert_called_once()
         optimization_app.dependency_overrides.pop(get_db, None)
 
@@ -549,7 +553,7 @@ class TestRejectSuggestion:
         mock_get_db,
     ):
         """Should return 409 when suggestion already processed."""
-        mock_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="rejected")
+        mock_entity = _make_mock_suggestion(id=SUGGESTION_ID, status="rejected")
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(return_value=mock_entity)
         optimization_app.dependency_overrides[get_db] = mock_get_db
@@ -557,7 +561,7 @@ class TestRejectSuggestion:
             "src.api.routes.optimization.AutomationSuggestionRepository", return_value=mock_repo
         ):
             response = await optimization_client.post(
-                "/api/v1/optimize/suggestions/suggestion-uuid-1/reject",
+                f"/api/v1/optimize/suggestions/{SUGGESTION_ID}/reject",
                 json={"reason": "Not needed"},
             )
         assert response.status_code == 409
