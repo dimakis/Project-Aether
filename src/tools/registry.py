@@ -164,40 +164,74 @@ def _build_tool_name_map() -> dict[str, Any]:
 _cached_tool_name_map: dict[str, Any] | None = None
 
 
-def get_tools_for_agent(
+async def get_tools_for_agent(
     agent_name: str,
     tools_enabled: list[str] | None = None,
+    tool_groups_enabled: list[str] | None = None,
 ) -> list[Any]:
-    """Resolve the tool set for an agent using its ``tools_enabled`` config.
+    """Resolve the tool set for an agent using its config.
 
     Resolution order:
-        1. If ``tools_enabled`` is provided and non-empty, filter the
-           full tool catalogue to exactly those tools.
-        2. If agent_name == ``"architect"``, use the curated Architect set.
-        3. Otherwise return an empty list (pure-LLM agent).
+        1. If ``tool_groups_enabled`` is provided, expand group names to
+           tool names via DB lookup and merge with ``tools_enabled``.
+        2. If the merged set (or ``tools_enabled`` alone) is non-empty,
+           filter the full tool catalogue to exactly those tools.
+        3. If agent_name == ``"architect"``, use the curated Architect set.
+        4. Otherwise return an empty list (pure-LLM agent).
 
     Args:
         agent_name: Agent identifier (e.g. ``"architect"``, ``"research"``).
         tools_enabled: Explicit list of tool names from AgentConfigVersion.
+        tool_groups_enabled: Named tool groups to expand from DB.
 
     Returns:
         List of tool objects the agent should be bound to.
     """
     global _cached_tool_name_map
 
-    if tools_enabled:
+    merged_tool_names: set[str] = set(tools_enabled) if tools_enabled else set()
+
+    if tool_groups_enabled:
+        merged_tool_names |= await _expand_tool_groups(agent_name, tool_groups_enabled)
+
+    if merged_tool_names:
         if _cached_tool_name_map is None:
             _cached_tool_name_map = _build_tool_name_map()
 
         resolved = [
-            _cached_tool_name_map[name] for name in tools_enabled if name in _cached_tool_name_map
+            _cached_tool_name_map[n] for n in merged_tool_names if n in _cached_tool_name_map
         ]
-        missing = set(tools_enabled) - set(_cached_tool_name_map.keys())
+        missing = merged_tool_names - set(_cached_tool_name_map.keys())
         if missing:
-            logger.warning("tools_enabled references unknown tools for %s: %s", agent_name, missing)
+            logger.warning(
+                "Resolved tool names reference unknown tools for %s: %s", agent_name, missing
+            )
         return resolved
 
     if agent_name == "architect":
         return get_architect_tools()
 
     return []
+
+
+async def _expand_tool_groups(agent_name: str, group_names: list[str]) -> set[str]:
+    """Expand tool group names to individual tool names via DB lookup."""
+    from src.dal.tool_groups import ToolGroupRepository
+    from src.storage import get_session
+
+    try:
+        async with get_session() as session:
+            groups = await ToolGroupRepository(session).get_by_names(group_names)
+    except Exception:
+        logger.warning("Failed to expand tool groups for %s, skipping group expansion", agent_name)
+        return set()
+
+    found_names = {g.name for g in groups}
+    unknown = set(group_names) - found_names
+    if unknown:
+        logger.warning("Unknown tool group names for %s: %s", agent_name, unknown)
+
+    tool_names: set[str] = set()
+    for group in groups:
+        tool_names.update(group.tool_names or [])
+    return tool_names
