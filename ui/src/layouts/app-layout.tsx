@@ -22,6 +22,7 @@ import {
   Sparkles,
   Workflow,
   Bell,
+  ListChecks,
 } from "lucide-react";
 import { lazy, Suspense, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/architecture", icon: Network, label: "Architecture" },
   { to: "/workflows", icon: Workflow, label: "Workflows" },
+  { to: "/jobs", icon: ListChecks, label: "Jobs" },
   { to: "/agents/registry", icon: Star, label: "Model Performance" },
   { to: "/dashboard-editor", icon: PanelLeft, label: "Dashboard Editor" },
   { to: "/settings", icon: Settings, label: "Settings" },
