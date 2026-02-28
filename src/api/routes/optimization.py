@@ -377,8 +377,6 @@ async def _run_optimization_background(
             logger.exception("Optimization job %s failed", job_id)
             if _active_agent:
                 emit_job_agent(job_id, _active_agent, "end")
-            # Roll back the tainted transaction so we can write the failure status.
-            # Without this, a PendingRollbackError prevents the status update.
             await session.rollback()
             now = datetime.now(UTC)
             try:
