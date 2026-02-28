@@ -51,6 +51,9 @@ from src.storage.entities.passkey_credential import PasskeyCredential
 # System Configuration
 from src.storage.entities.system_config import SystemConfig
 
+# Tool Groups (Feature 34: Dynamic Tool Registry)
+from src.storage.entities.tool_group import ToolGroup
+
 # User Profiles
 from src.storage.entities.user_profile import UserProfile
 
@@ -89,6 +92,7 @@ __all__ = [
     "Script",
     "Service",
     "SystemConfig",
+    "ToolGroup",
     "TriggerType",
     "UserProfile",
     "VersionStatus",
