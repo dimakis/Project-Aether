@@ -143,9 +143,12 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 |--------|----------|-------------|
 | `POST` | `/api/v1/optimize` | Run optimization analysis |
 | `GET` | `/api/v1/optimize/{job_id}` | Get optimization status |
-| `GET` | `/api/v1/optimize/suggestions/list` | List automation suggestions |
+| `GET` | `/api/v1/optimize/jobs` | List job history (Feature 38, `?status=`, `?limit=`) |
+| `GET` | `/api/v1/optimize/suggestions/list` | List automation suggestions (`?job_id=` filter) |
 | `POST` | `/api/v1/optimize/suggestions/{id}/accept` | Accept suggestion |
 | `POST` | `/api/v1/optimize/suggestions/{id}/reject` | Reject suggestion |
+
+> **Feature 38**: Jobs and suggestions are now persisted to PostgreSQL. Data survives server restarts. Stale "running" jobs are reconciled to "failed" on startup.
 
 ---
 
@@ -297,11 +300,24 @@ These endpoints allow any OpenAI-compatible client to work with Aether:
 
 ---
 
+## Tool Groups
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/tool-groups` | List all tool groups with tool counts (Feature 34) |
+| `GET` | `/api/v1/tool-groups/{name}` | Get tool group details |
+| `POST` | `/api/v1/tool-groups` | Create a new tool group |
+| `PUT` | `/api/v1/tool-groups/{name}` | Update tool group (validates tool names against registry) |
+
+> **Feature 34**: Tool groups organize tools by domain (e.g., "ha_entity_query", "diagnostics"). Agents reference groups via `tool_groups_enabled` in their config version instead of listing individual tool names. 12 groups are seeded by default.
+
+---
+
 ## Webhooks
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/webhooks/ha` | Receive HA webhook events (including `ios.notification_action_fired` for push notification HITL approval/rejection) |
+| `POST` | `/api/v1/webhooks/ha` | Receive HA webhook events (approval, insight notification actions, registry changes) |
 
 ---
 

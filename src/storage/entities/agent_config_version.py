@@ -47,6 +47,7 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
         temperature: Generation temperature (0.0-2.0)
         fallback_model: Optional fallback model when primary is unavailable
         tools_enabled: JSON array of tool names assigned to this agent
+        tool_groups_enabled: JSON array of tool group names assigned to this agent
         change_summary: Optional human-readable description of the change
         promoted_at: When this version was promoted to active
     """
@@ -97,6 +98,11 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
         nullable=True,
         doc="JSON array of tool names assigned to this agent",
     )
+    tool_groups_enabled: Mapped[list[str] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        doc="JSON array of tool group names assigned to this agent",
+    )
     change_summary: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -134,6 +140,7 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
         temperature: float | None = None,
         fallback_model: str | None = None,
         tools_enabled: list[str] | None = None,
+        tool_groups_enabled: list[str] | None = None,
         change_summary: str | None = None,
         status: str = VersionStatus.DRAFT.value,
     ) -> "AgentConfigVersion":
@@ -147,6 +154,7 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
             temperature: Generation temperature
             fallback_model: Fallback model name
             tools_enabled: List of enabled tool names
+            tool_groups_enabled: List of enabled tool group names
             change_summary: Description of the change
             status: Initial status (default: draft)
 
@@ -162,5 +170,6 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
             temperature=temperature,
             fallback_model=fallback_model,
             tools_enabled=tools_enabled,
+            tool_groups_enabled=tool_groups_enabled,
             change_summary=change_summary,
         )

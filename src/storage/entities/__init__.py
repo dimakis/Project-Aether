@@ -23,6 +23,12 @@ from src.storage.entities.automation_proposal import (
     ProposalStatus,
     ProposalType,
 )
+
+# Automation Suggestions (Feature 38: Optimization Persistence)
+from src.storage.entities.automation_suggestion import (
+    AutomationSuggestionEntity,
+    SuggestionStatus,
+)
 from src.storage.entities.conversation import Conversation, ConversationStatus
 from src.storage.entities.device import Device
 from src.storage.entities.discovery_session import DiscoverySession, DiscoveryStatus
@@ -45,11 +51,17 @@ from src.storage.entities.message import Message
 # Model Ratings
 from src.storage.entities.model_rating import ModelRating
 
+# Optimization Jobs (Feature 38: Optimization Persistence)
+from src.storage.entities.optimization_job import JobStatus, OptimizationJob
+
 # Authentication
 from src.storage.entities.passkey_credential import PasskeyCredential
 
 # System Configuration
 from src.storage.entities.system_config import SystemConfig
+
+# Tool Groups (Feature 34: Dynamic Tool Registry)
+from src.storage.entities.tool_group import ToolGroup
 
 # User Profiles
 from src.storage.entities.user_profile import UserProfile
@@ -66,6 +78,7 @@ __all__ = [
     "AppSettings",
     "Area",
     "AutomationProposal",
+    "AutomationSuggestionEntity",
     "Conversation",
     "ConversationStatus",
     "Device",
@@ -78,9 +91,11 @@ __all__ = [
     "InsightSchedule",
     "InsightStatus",
     "InsightType",
+    "JobStatus",
     "LLMUsage",
     "Message",
     "ModelRating",
+    "OptimizationJob",
     "PasskeyCredential",
     "ProposalStatus",
     "ProposalType",
@@ -88,7 +103,9 @@ __all__ = [
     "Scene",
     "Script",
     "Service",
+    "SuggestionStatus",
     "SystemConfig",
+    "ToolGroup",
     "TriggerType",
     "UserProfile",
     "VersionStatus",

@@ -31,6 +31,11 @@ When generating scripts:
 4. Save any charts to /workspace/output/ directory
 5. Handle missing or invalid data gracefully
 
+Pandas/NumPy — avoiding division by zero:
+- `.replace({0: 1})` and `.replace(0, 1)` are methods on pandas Series/DataFrame only. Do not call them on scalar values (e.g. the result of `.sum()`, a single number, or a numpy.float64).
+- For a scalar denominator that might be zero, use: `denom if denom != 0 else 1` or `max(denom, 1)` (e.g. `total_presses_all if total_presses_all != 0 else 1`).
+- For a Series/DataFrame column as denominator, use: `col.replace(0, 1)` so division does not produce inf.
+
 Output JSON structure for behavioral insights:
 {{
   "insights": [

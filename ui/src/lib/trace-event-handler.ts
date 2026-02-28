@@ -14,6 +14,11 @@ import type {
 } from "@/lib/agent-activity-store";
 import { agentLabel } from "@/lib/agent-registry";
 
+/** Map agent names from event payload to topology-expected names. */
+const AGENT_NAME_ALIASES: Record<string, string> = {
+  data_scientist: "data_science_team",
+};
+
 /** Trace event shape from the SSE stream (subset of StreamChunk). */
 export interface TraceEventChunk {
   type: "trace";
@@ -48,17 +53,6 @@ function addEdge(
 }
 
 /**
- * Helper: remove all edges targeting a specific agent.
- * Used when an agent finishes so its incoming edges deactivate.
- */
-function removeEdgesTo(
-  edges: [string, string][],
-  agent: string,
-): [string, string][] {
-  return edges.filter(([, b]) => b !== agent);
-}
-
-/**
  * Process a single trace event and return the partial AgentActivity update.
  *
  * Pure function — all state changes are expressed as a Partial<AgentActivity>
@@ -70,7 +64,8 @@ export function handleTraceEvent(
   current: AgentActivity,
 ): void {
   const ts = event.ts ?? Date.now() / 1000;
-  const agent = event.agent || "unknown";
+  const rawAgent = event.agent || "unknown";
+  const agent = AGENT_NAME_ALIASES[rawAgent] ?? rawAgent;
 
   // Build a timeline entry for every event
   const entry: LiveTimelineEntry = {
@@ -136,9 +131,8 @@ export function handleTraceEvent(
       // Aether stays firing while the workflow is active
       newStates["aether"] = "firing";
 
-      // Deactivate edges targeting the finished agent so they
-      // fade back to the dim "dormant pathway" state.
-      const newEdges = removeEdgesTo(current.activeEdges, agent);
+      // Keep edges visible while workflow is active; they clear on "complete"
+      const newEdges = current.activeEdges;
 
       setActivity({
         isActive: true,

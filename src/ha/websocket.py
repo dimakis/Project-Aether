@@ -21,7 +21,7 @@ from websockets.asyncio.client import connect as ws_connect
 
 from src.exceptions import HAClientError
 
-__all__ = ["ws_command", "ws_connect"]
+__all__ = ["_authenticate", "ws_command", "ws_connect"]
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,44 @@ async def ws_command(
         ) from exc
 
 
+async def _authenticate(ws: Any, token: str) -> None:
+    """Authenticate a WebSocket connection to Home Assistant.
+
+    Performs the HA WebSocket auth handshake: waits for ``auth_required``,
+    sends the token, and validates ``auth_ok``.  Reusable by both the
+    one-shot :func:`ws_command` and the persistent :class:`HAEventStream`.
+
+    Args:
+        ws: An open ``websockets`` connection.
+        token: Long-lived access token for HA.
+
+    Raises:
+        HAClientError: On unexpected messages or authentication failure.
+    """
+    raw = await ws.recv()
+    msg = json.loads(raw)
+    if msg.get("type") != "auth_required":
+        raise HAClientError(
+            f"Expected auth_required, got {msg.get('type')}",
+            tool="ws_auth",
+        )
+
+    await ws.send(json.dumps({"type": "auth", "access_token": token}))
+
+    raw = await ws.recv()
+    msg = json.loads(raw)
+    if msg.get("type") == "auth_invalid":
+        raise HAClientError(
+            msg.get("message", "Authentication failed"),
+            tool="ws_auth",
+        )
+    if msg.get("type") != "auth_ok":
+        raise HAClientError(
+            f"Expected auth_ok, got {msg.get('type')}",
+            tool="ws_auth",
+        )
+
+
 async def _execute(
     ws_url: str,
     token: str,
@@ -83,38 +121,11 @@ async def _execute(
 ) -> Any:
     """Internal: run the connect -> auth -> command -> close cycle."""
     async with ws_connect(ws_url) as ws:
-        # ── Phase 1: Authentication ─────────────────────────────────
-        raw = await ws.recv()
-        msg = json.loads(raw)
+        await _authenticate(ws, token)
 
-        if msg.get("type") != "auth_required":
-            raise HAClientError(
-                f"Expected auth_required, got {msg.get('type')}",
-                tool="ws_command",
-            )
-
-        await ws.send(json.dumps({"type": "auth", "access_token": token}))
-
-        raw = await ws.recv()
-        msg = json.loads(raw)
-
-        if msg.get("type") == "auth_invalid":
-            raise HAClientError(
-                msg.get("message", "Authentication failed"),
-                tool="ws_command",
-            )
-
-        if msg.get("type") != "auth_ok":
-            raise HAClientError(
-                f"Expected auth_ok, got {msg.get('type')}",
-                tool="ws_command",
-            )
-
-        # ── Phase 2: Send command ───────────────────────────────────
         command: dict[str, Any] = {"id": 1, "type": command_type, **params}
         await ws.send(json.dumps(command))
 
-        # ── Phase 3: Read result ────────────────────────────────────
         raw = await ws.recv()
         msg = json.loads(raw)
 

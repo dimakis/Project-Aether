@@ -29,6 +29,7 @@ class SettingsResponse(BaseModel):
     chat: dict[str, Any]
     dashboard: dict[str, Any]
     data_science: dict[str, Any]
+    notifications: dict[str, Any]
 
 
 class SettingsPatchRequest(BaseModel):
@@ -37,6 +38,7 @@ class SettingsPatchRequest(BaseModel):
     chat: dict[str, Any] | None = None
     dashboard: dict[str, Any] | None = None
     data_science: dict[str, Any] | None = None
+    notifications: dict[str, Any] | None = None
 
 
 class ResetRequest(BaseModel):

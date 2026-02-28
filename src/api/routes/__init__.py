@@ -103,4 +103,9 @@ from src.api.routes.jobs import router as jobs_router
 
 api_router.include_router(jobs_router)
 
+# Feature 34: Dynamic Tool Registry
+from src.api.routes.tool_groups import router as tool_groups_router
+
+api_router.include_router(tool_groups_router)
+
 __all__ = ["api_router"]

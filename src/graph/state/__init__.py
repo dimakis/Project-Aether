@@ -11,6 +11,7 @@ from .analysis import (
     SpecialistFinding,
     TeamAnalysis,
 )
+from .automation_builder import AutomationBuilderState
 from .base import BaseState, MessageState
 from .conversation import (
     ApprovalState,
@@ -41,6 +42,7 @@ __all__ = [
     "AnalysisType",
     "ApprovalDecision",
     "ApprovalState",
+    "AutomationBuilderState",
     "AutomationSuggestion",
     "BaseState",
     "CommunicationEntry",

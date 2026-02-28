@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePersistedState } from "@/hooks/use-persisted-state";
 import {
   Sparkles,
   Play,
@@ -7,8 +8,7 @@ import {
   XCircle,
   Clock,
   Zap,
-  ThumbsUp,
-  ThumbsDown,
+  ArrowRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,10 +18,10 @@ import { cn } from "@/lib/utils";
 import {
   useSuggestions,
   useRunOptimization,
-  useAcceptSuggestion,
-  useRejectSuggestion,
   useOptimizationJob,
 } from "@/api/hooks";
+import type { AutomationSuggestion } from "@/api/client/optimization";
+import { SuggestionDetail } from "./SuggestionDetail";
 
 const ANALYSIS_TYPES = [
   { value: "behavior_analysis", label: "Behavior Analysis" },
@@ -44,14 +44,13 @@ export function OptimizationPage() {
     "behavior_analysis",
   ]);
   const [hours, setHours] = useState(168);
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activeJobId, setActiveJobId] = usePersistedState<string | null>("optimization:activeJobId", null);
+  const [expandedSuggestionId, setExpandedSuggestionId] = useState<string | null>(null);
 
   const runOpt = useRunOptimization();
   const { data: jobData } = useOptimizationJob(activeJobId);
   const { data: suggestionsData, isLoading: loadingSuggestions } =
     useSuggestions();
-  const acceptMut = useAcceptSuggestion();
-  const rejectMut = useRejectSuggestion();
 
   const handleRun = () => {
     runOpt.mutate(
@@ -70,6 +69,9 @@ export function OptimizationPage() {
 
   const suggestions = suggestionsData?.items ?? [];
   const pendingSuggestions = suggestions.filter((s) => s.status === "pending");
+  const expandedSuggestion = expandedSuggestionId
+    ? suggestions.find((s) => s.id === expandedSuggestionId)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -220,90 +222,99 @@ export function OptimizationPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {suggestions.map((s) => (
-              <Card key={s.id} className="relative">
-                <CardContent className="space-y-3 p-4">
-                  <div className="flex items-start justify-between">
-                    <p className="text-sm font-medium leading-snug">
-                      {s.pattern}
-                    </p>
-                    <Badge
-                      variant={
-                        s.status === "pending"
-                          ? "secondary"
-                          : s.status === "accepted"
-                            ? "default"
-                            : "outline"
-                      }
-                      className="shrink-0 text-[10px]"
-                    >
-                      {s.status}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>
-                      <strong>Trigger:</strong> {s.proposed_trigger}
-                    </p>
-                    <p>
-                      <strong>Action:</strong> {s.proposed_action}
-                    </p>
-                    <p>
-                      <strong>Confidence:</strong>{" "}
-                      {Math.round(s.confidence * 100)}%
-                    </p>
-                  </div>
-
-                  {s.entities.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {s.entities.slice(0, 3).map((e) => (
-                        <Badge
-                          key={e}
-                          variant="outline"
-                          className="text-[10px]"
-                        >
-                          {e}
-                        </Badge>
-                      ))}
-                      {s.entities.length > 3 && (
-                        <Badge variant="outline" className="text-[10px]">
-                          +{s.entities.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {s.status === "pending" && (
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => acceptMut.mutate({ id: s.id })}
-                        disabled={acceptMut.isPending}
-                      >
-                        <ThumbsUp className="mr-1 h-3 w-3" />
-                        Accept
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          rejectMut.mutate({ id: s.id, reason: "Not needed" })
-                        }
-                        disabled={rejectMut.isPending}
-                      >
-                        <ThumbsDown className="mr-1 h-3 w-3" />
-                        Reject
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <SuggestionCard
+                key={s.id}
+                suggestion={s}
+                isExpanded={expandedSuggestionId === s.id}
+                onExpand={() =>
+                  setExpandedSuggestionId(expandedSuggestionId === s.id ? null : s.id)
+                }
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Detail overlay */}
+      {expandedSuggestion && (
+        <SuggestionDetail
+          suggestion={expandedSuggestion}
+          onClose={() => setExpandedSuggestionId(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+  isExpanded,
+  onExpand,
+}: {
+  suggestion: AutomationSuggestion;
+  isExpanded: boolean;
+  onExpand: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      className={cn(
+        "group relative flex flex-col rounded-xl border text-left transition-all duration-200",
+        "hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5",
+        isExpanded && "border-primary/50 ring-2 ring-primary/20",
+        "border-border",
+      )}
+    >
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium leading-snug line-clamp-2 break-words">
+            {suggestion.pattern}
+          </p>
+          <Badge
+            variant={
+              suggestion.status === "pending"
+                ? "secondary"
+                : suggestion.status === "accepted"
+                  ? "default"
+                  : "outline"
+            }
+            className="shrink-0 text-[10px]"
+          >
+            {suggestion.status}
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground line-clamp-2">
+          <span className="font-medium">Trigger:</span> {suggestion.proposed_trigger}
+        </p>
+        <p className="text-xs text-muted-foreground line-clamp-1">
+          <span className="font-medium">Action:</span> {suggestion.proposed_action}
+        </p>
+        {suggestion.entities.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {suggestion.entities.slice(0, 3).map((e) => (
+              <Badge key={e} variant="outline" className="text-[10px] font-mono">
+                {e}
+              </Badge>
+            ))}
+            {suggestion.entities.length > 3 && (
+              <Badge variant="outline" className="text-[10px]">
+                +{suggestion.entities.length - 3}
+              </Badge>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-[10px] text-muted-foreground">
+            {Math.round(suggestion.confidence * 100)}% confidence
+          </span>
+          <span className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+            <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }

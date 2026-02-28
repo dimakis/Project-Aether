@@ -87,6 +87,9 @@ async def create_agent_from_config(
     db_temperature = config.temperature if config else None
     db_prompt = config.prompt_template if config else None
     tools_enabled = config.tools_enabled if config else None
+    tool_groups_enabled: list[str] | None = (
+        getattr(config, "tool_groups_enabled", None) if config else None
+    )
 
     model_name, temperature = resolve_model(
         db_model=db_model,
@@ -100,7 +103,9 @@ async def create_agent_from_config(
     except FileNotFoundError:
         prompt = None
 
-    tools = get_tools_for_agent(agent_name, tools_enabled=tools_enabled)
+    tools = await get_tools_for_agent(
+        agent_name, tools_enabled=tools_enabled, tool_groups_enabled=tool_groups_enabled
+    )
 
     cls = get_agent_class(agent_name)
     if cls is None:

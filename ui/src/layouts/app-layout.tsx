@@ -15,6 +15,8 @@ import {
   Star,
   LogOut,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
   FileBarChart,
   PanelLeft,
@@ -22,6 +24,7 @@ import {
   Sparkles,
   Workflow,
   Bell,
+  ListChecks,
 } from "lucide-react";
 import { lazy, Suspense, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -63,6 +66,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/architecture", icon: Network, label: "Architecture" },
   { to: "/workflows", icon: Workflow, label: "Workflows" },
+  { to: "/jobs", icon: ListChecks, label: "Jobs" },
   { to: "/agents/registry", icon: Star, label: "Model Performance" },
   { to: "/dashboard-editor", icon: PanelLeft, label: "Dashboard Editor" },
   { to: "/settings", icon: Settings, label: "Settings" },
@@ -90,90 +94,143 @@ export function AppLayout() {
   const { data: pendingProposals } = usePendingProposals();
   const pendingCount = pendingProposals?.length ?? 0;
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("aether:sidebarCollapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("aether:sidebarCollapsed", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <aside className="flex w-56 flex-col border-r border-border bg-card">
-        {/* Logo */}
-        <div className="flex h-14 items-center gap-2.5 border-b border-border px-4">
-          <Zap className="h-5 w-5 text-primary" />
-          <span className="text-lg font-semibold tracking-tight">
-            Aether
-          </span>
+      {/* Sidebar — collapsible */}
+      <aside
+        className={cn(
+          "flex shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200 ease-out",
+          sidebarCollapsed ? "w-[4rem]" : "w-56",
+        )}
+      >
+        {/* Logo + collapse toggle */}
+        <div className="flex h-14 items-center border-b border-border px-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 px-2">
+            <Zap className="h-5 w-5 shrink-0 text-primary" />
+            {!sidebarCollapsed && (
+              <span className="truncate text-lg font-semibold tracking-tight">
+                Aether
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-2">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
+              title={sidebarCollapsed ? label : undefined}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center rounded-lg px-2 py-2 text-sm font-medium transition-colors",
+                  sidebarCollapsed ? "justify-center" : "gap-3",
                   isActive
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                 )
               }
             >
-              <Icon className="h-4 w-4" />
-              <span className="flex-1">{label}</span>
-              {/* Pending proposals badge */}
-              {label === "Proposals" && pendingCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold text-amber-400 ring-1 ring-amber-500/30">
-                  {pendingCount}
-                </span>
+              <Icon className="h-4 w-4 shrink-0" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="flex-1 truncate">{label}</span>
+                  {/* Pending proposals badge */}
+                  {label === "Proposals" && pendingCount > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold text-amber-400 ring-1 ring-amber-500/30">
+                      {pendingCount}
+                    </span>
+                  )}
+                </>
               )}
             </NavLink>
           ))}
         </nav>
 
         {/* Status footer */}
-        <div className="space-y-2 border-t border-border p-4">
+        <div className={cn("space-y-2 border-t border-border", sidebarCollapsed ? "p-2" : "p-4")}>
           {/* Activity panel toggle */}
           <button
             onClick={toggleActivityPanel}
+            title="Activity Panel"
             className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+              "flex w-full items-center rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+              sidebarCollapsed ? "justify-center" : "gap-2",
               panelOpen
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
             )}
           >
-            <Activity className="h-3.5 w-3.5" />
-            Activity Panel
+            <Activity className="h-3.5 w-3.5 shrink-0" />
+            {!sidebarCollapsed && <span>Activity Panel</span>}
           </button>
 
           {/* System status */}
           {agentActivity.isActive ? (
-            <div className="flex items-center gap-2 text-xs text-primary">
-              <div className="relative h-2 w-2">
+            <div className={cn("flex items-center text-xs text-primary", sidebarCollapsed ? "justify-center" : "gap-2")}>
+              <div className="relative h-2 w-2 shrink-0">
                 <div className="absolute inset-0 animate-ping rounded-full bg-primary/60" />
                 <div className="relative h-2 w-2 rounded-full bg-primary" />
               </div>
-              <span className="truncate">
-                {agentActivity.activeAgent
-                  ? agentLabel(agentActivity.activeAgent)
-                  : "Processing"}
-                {agentActivity.delegatingTo && (
-                  <span className="text-muted-foreground">
-                    {" → "}
-                    {agentLabel(agentActivity.delegatingTo)}
-                  </span>
-                )}
-              </span>
+              {!sidebarCollapsed && (
+                <span className="min-w-0 truncate">
+                  {agentActivity.activeAgent
+                    ? agentLabel(agentActivity.activeAgent)
+                    : "Processing"}
+                  {agentActivity.delegatingTo && (
+                    <span className="text-muted-foreground">
+                      {" → "}
+                      {agentLabel(agentActivity.delegatingTo)}
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className={cn("flex items-center text-xs text-muted-foreground", sidebarCollapsed ? "justify-center" : "gap-2")}>
               <div
                 className={cn(
-                  "h-2 w-2 rounded-full",
+                  "h-2 w-2 shrink-0 rounded-full",
                   isHealthy ? "bg-success" : "bg-destructive",
                 )}
               />
-              <span>{isHealthy ? "System Healthy" : "Connecting..."}</span>
+              {!sidebarCollapsed && (
+                <span>{isHealthy ? "System Healthy" : "Connecting..."}</span>
+              )}
             </div>
           )}
         </div>
@@ -204,9 +261,9 @@ export function AppLayout() {
 
           {/* Other routes render via Outlet (hidden when on /chat) */}
           {!isOnChat && (
-            <div className="h-full overflow-auto">
+            <div className="h-full overflow-auto px-6 pt-6 pb-4">
               <Outlet />
-              <footer className="px-6 py-4 text-center text-[11px] text-muted-foreground/50">
+              <footer className="mt-6 py-4 text-center text-[11px] text-muted-foreground/50">
                 Made with CC (Claude 🤖 &amp; Coffee ☕) 😄
               </footer>
             </div>

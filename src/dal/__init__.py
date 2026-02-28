@@ -20,9 +20,14 @@ from src.dal.devices import DeviceRepository
 from src.dal.entities import EntityRepository
 from src.dal.insight_schedules import InsightScheduleRepository
 from src.dal.insights import InsightRepository
+from src.dal.optimization import (
+    AutomationSuggestionRepository,
+    OptimizationJobRepository,
+)
 from src.dal.queries import NaturalLanguageQueryEngine, query_entities
 from src.dal.services import ServiceRepository, seed_services
 from src.dal.sync import DiscoverySyncService
+from src.dal.tool_groups import ToolGroupRepository
 
 __all__ = [
     "AgentConfigVersionRepository",
@@ -32,6 +37,8 @@ __all__ = [
     "AreaRepository",
     # HA registry repositories
     "AutomationRepository",
+    # Feature 38: Optimization Persistence
+    "AutomationSuggestionRepository",
     # Conversation repositories (US2)
     "ConversationRepository",
     "DeviceRepository",
@@ -45,10 +52,14 @@ __all__ = [
     "InsightScheduleRepository",
     "MessageRepository",
     "NaturalLanguageQueryEngine",
+    # Feature 38: Optimization Persistence
+    "OptimizationJobRepository",
     "ProposalRepository",
     "SceneRepository",
     "ScriptRepository",
     "ServiceRepository",
+    # Feature 34: Dynamic Tool Registry
+    "ToolGroupRepository",
     "query_entities",
     "seed_services",
 ]
