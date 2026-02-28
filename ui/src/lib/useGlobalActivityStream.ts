@@ -132,13 +132,7 @@ export function useGlobalActivityStream() {
               });
             } else if (event === "complete") {
               updateJobStatus(jobId, "completed");
-              const handle = setTimeout(() => {
-                pendingTimeouts.current.delete(handle);
-                const latest = getActivitySnapshot();
-                const stillFiring = Object.values(latest.agentStates).some((v) => v === "firing");
-                if (!stillFiring) completeAgentActivity();
-              }, 1500);
-              pendingTimeouts.current.add(handle);
+              completeAgentActivity();
             } else if (event === "failed") {
               updateJobStatus(jobId, "failed");
               completeAgentActivity();
