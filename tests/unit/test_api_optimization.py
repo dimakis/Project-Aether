@@ -378,35 +378,41 @@ class TestAcceptSuggestion:
         optimization_client,
         mock_get_db,
         mock_session,
+        mock_get_session,
     ):
-        """Should accept suggestion and create proposal."""
+        """Should return 202 and mark suggestion accepted; proposal is created in background."""
         mock_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="pending")
+        accepted_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="accepted")
         mock_repo = MagicMock()
-        mock_repo.get_by_id = AsyncMock(return_value=mock_entity)
+        # Request path: pending; background: accepted so proposal creation runs
+        mock_repo.get_by_id = AsyncMock(side_effect=[mock_entity, accepted_entity])
         mock_repo.update_status = AsyncMock(return_value=True)
-        mock_architect = MagicMock()
-        mock_architect.receive_suggestion = AsyncMock(
-            return_value={
-                "proposal_id": "proposal-uuid-1",
-                "proposal_name": "Power Management Automation",
-            }
-        )
+        # Use a dedicated session for background so request-path commit is asserted alone
+        background_session = MagicMock()
+        background_session.commit = AsyncMock()
+
+        @asynccontextmanager
+        async def fake_get_session():
+            yield background_session
+
         optimization_app.dependency_overrides[get_db] = mock_get_db
         with (
             patch(
                 "src.api.routes.optimization.AutomationSuggestionRepository", return_value=mock_repo
             ),
-            patch("src.agents.ArchitectAgent", return_value=mock_architect),
+            patch("src.storage.get_session", fake_get_session),
+            patch("src.agents.ArchitectAgent") as mock_architect_cls,
         ):
+            mock_architect_cls.return_value.receive_suggestion = AsyncMock(return_value=None)
             response = await optimization_client.post(
                 "/api/v1/optimize/suggestions/suggestion-uuid-1/accept",
                 json={"comment": "Looks good"},
             )
-        assert response.status_code == 200
+        assert response.status_code == 202
         data = response.json()
         assert data["status"] == "accepted"
-        assert data["proposal_id"] == "proposal-uuid-1"
-        assert "Proposal created" in data["message"]
+        assert "message" in data
+        assert "proposal" in data["message"].lower() or "ready" in data["message"].lower()
         mock_repo.update_status.assert_called_once_with("suggestion-uuid-1", "accepted")
         mock_session.commit.assert_called_once()
         optimization_app.dependency_overrides.pop(get_db, None)
@@ -454,31 +460,32 @@ class TestAcceptSuggestion:
         assert "already processed" in response.json()["detail"].lower()
         optimization_app.dependency_overrides.pop(get_db, None)
 
-    async def test_accept_suggestion_architect_error(
+    async def test_accept_suggestion_returns_202(
         self,
         optimization_app,
         optimization_client,
         mock_get_db,
+        mock_get_session,
     ):
-        """Should handle architect errors gracefully."""
+        """Accept returns 202 immediately; proposal creation runs in background."""
         mock_entity = _make_mock_suggestion(id="suggestion-uuid-1", status="pending")
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(return_value=mock_entity)
-        mock_architect = MagicMock()
-        mock_architect.receive_suggestion = AsyncMock(side_effect=Exception("Architect error"))
+        mock_repo.update_status = AsyncMock(return_value=True)
         optimization_app.dependency_overrides[get_db] = mock_get_db
         with (
             patch(
                 "src.api.routes.optimization.AutomationSuggestionRepository", return_value=mock_repo
             ),
-            patch("src.agents.ArchitectAgent", return_value=mock_architect),
+            patch("src.storage.get_session", mock_get_session),
         ):
             response = await optimization_client.post(
                 "/api/v1/optimize/suggestions/suggestion-uuid-1/accept",
                 json={},
             )
-        assert response.status_code == 500
-        assert "error" in response.json()["detail"].lower()
+        assert response.status_code == 202
+        data = response.json()
+        assert data["status"] == "accepted"
         optimization_app.dependency_overrides.pop(get_db, None)
 
 
