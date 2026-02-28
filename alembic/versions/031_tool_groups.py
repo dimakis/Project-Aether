@@ -5,7 +5,7 @@ Stores named groups of tools for dynamic agent tool assignment,
 with seed data for the 12 default groups.
 
 Revision ID: 031_tool_groups
-Revises: 030_workflow_definitions
+Revises: 031_previous_config
 Create Date: 2026-02-28
 """
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 revision: str = "031_tool_groups"
-down_revision: str | None = "030_workflow_definitions"
+down_revision: str | None = "031_previous_config"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -125,18 +125,29 @@ def upgrade() -> None:
         ),
     )
 
+    tool_group_table = sa.table(
+        "tool_group",
+        sa.column("id", sa.String),
+        sa.column("name", sa.String),
+        sa.column("display_name", sa.String),
+        sa.column("tool_names", postgresql.JSONB),
+        sa.column("is_read_only", sa.Boolean),
+        sa.column("created_at", sa.DateTime),
+        sa.column("updated_at", sa.DateTime),
+    )
+
+    import json
+
     for group in SEED_GROUPS:
         op.execute(
-            sa.text(
-                "INSERT INTO tool_group "
-                "(id, name, display_name, tool_names, is_read_only, created_at, updated_at) "
-                "VALUES (:id, :name, :display_name, :tool_names, :is_read_only, now(), now())"
-            ).bindparams(
+            tool_group_table.insert().values(
                 id=str(uuid4()),
                 name=group["name"],
                 display_name=group["display_name"],
-                tool_names=group["tool_names"],
+                tool_names=json.loads(group["tool_names"]),
                 is_read_only=group["is_read_only"],
+                created_at=sa.func.now(),
+                updated_at=sa.func.now(),
             )
         )
 
