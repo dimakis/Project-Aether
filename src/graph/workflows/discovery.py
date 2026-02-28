@@ -68,6 +68,8 @@ def build_discovery_graph(
     Returns:
         Configured StateGraph
     """
+    from src.tracing import traced_node
+
     graph = create_graph(DiscoveryState)
 
     # Define node wrappers that inject dependencies
@@ -92,14 +94,14 @@ def build_discovery_graph(
     async def _finalize(state: DiscoveryState) -> dict[str, object]:
         return await finalize_discovery_node(state)
 
-    # Add nodes
-    graph.add_node("initialize", _initialize)
-    graph.add_node("fetch_entities", _fetch_entities)
-    graph.add_node("infer_devices", _infer_devices)
-    graph.add_node("infer_areas", _infer_areas)
-    graph.add_node("sync_automations", _sync_automations)
-    graph.add_node("persist_entities", _persist_entities)
-    graph.add_node("finalize", _finalize)
+    # Add nodes (traced for MLflow per-node spans)
+    graph.add_node("initialize", traced_node("initialize", _initialize))
+    graph.add_node("fetch_entities", traced_node("fetch_entities", _fetch_entities))
+    graph.add_node("infer_devices", traced_node("infer_devices", _infer_devices))
+    graph.add_node("infer_areas", traced_node("infer_areas", _infer_areas))
+    graph.add_node("sync_automations", traced_node("sync_automations", _sync_automations))
+    graph.add_node("persist_entities", traced_node("persist_entities", _persist_entities))
+    graph.add_node("finalize", traced_node("finalize", _finalize))
 
     # Define edges
     graph.add_edge(START, "initialize")
@@ -156,6 +158,12 @@ async def run_discovery_workflow(
         session_context(get_session_id()) as session_id,
         start_experiment_run("discovery_workflow"),
     ):
+        mlflow.update_current_trace(
+            tags={
+                "workflow": "discovery",
+                **({"mlflow.trace.session": session_id} if session_id else {}),
+            }
+        )
         mlflow.set_tag("workflow", "discovery")
         mlflow.set_tag("session.id", session_id)
 

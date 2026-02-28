@@ -21,7 +21,7 @@ from src.graph.nodes import (
     process_approval_node,
 )
 from src.graph.state import ConversationState, ConversationStatus
-from src.tracing import start_experiment_run, trace_with_uri
+from src.tracing import start_experiment_run, trace_with_uri, traced_node
 
 
 def build_conversation_graph(
@@ -90,11 +90,11 @@ def build_conversation_graph(
             return await developer_deploy_node(state, proposal_id, session=session)
         return {"error": "No approved proposals to deploy"}
 
-    # Add nodes
-    graph.add_node("architect_propose", _architect_propose)
-    graph.add_node("approval_gate", _approval_gate)
-    graph.add_node("process_approval", _process_approval)
-    graph.add_node("deploy", _deploy)
+    # Add nodes (traced for MLflow per-node spans)
+    graph.add_node("architect_propose", traced_node("architect_propose", _architect_propose))
+    graph.add_node("approval_gate", traced_node("approval_gate", _approval_gate))
+    graph.add_node("process_approval", traced_node("process_approval", _process_approval))
+    graph.add_node("deploy", traced_node("deploy", _deploy))
 
     # Define routing
     def route_after_propose(
@@ -202,6 +202,12 @@ async def run_conversation_workflow(
         session_context(get_session_id()) as session_id,
         start_experiment_run("conversation_workflow"),
     ):
+        mlflow.update_current_trace(
+            tags={
+                "workflow": "conversation",
+                **({"mlflow.trace.session": session_id} if session_id else {}),
+            }
+        )
         mlflow.set_tag("workflow", "conversation")
         mlflow.set_tag("thread_id", thread_id or state.conversation_id)
         mlflow.set_tag("session.id", session_id)

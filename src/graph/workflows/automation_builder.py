@@ -94,15 +94,28 @@ def build_automation_builder_graph() -> StateGraph:
         validate_entities_node,
         validate_yaml_node,
     )
+    from src.tracing import traced_node
 
     graph = create_graph(AutomationBuilderState)
 
-    graph.add_node("gather_intent", gather_intent_node)
-    graph.add_node("validate_entities", validate_entities_node)
-    graph.add_node("check_duplicates", check_duplicates_node)
-    graph.add_node("generate_yaml", generate_yaml_node)
-    graph.add_node("validate_yaml", validate_yaml_node)
-    graph.add_node("preview", preview_node)
+    graph.add_node("gather_intent", traced_node("gather_intent", gather_intent_node))
+    graph.add_node(
+        "validate_entities",
+        traced_node("validate_entities", validate_entities_node),
+    )
+    graph.add_node(
+        "check_duplicates",
+        traced_node("check_duplicates", check_duplicates_node),
+    )
+    graph.add_node(
+        "generate_yaml",
+        traced_node("generate_yaml", generate_yaml_node),
+    )
+    graph.add_node(
+        "validate_yaml",
+        traced_node("validate_yaml", validate_yaml_node),
+    )
+    graph.add_node("preview", traced_node("preview", preview_node))
 
     graph.add_edge(START, "gather_intent")
     graph.add_conditional_edges("gather_intent", _route_after_intent)

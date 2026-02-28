@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import mlflow
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,6 +63,7 @@ def build_optimization_graph(
         collect_behavioral_data_node,
         present_recommendations_node,
     )
+    from src.tracing import traced_node
 
     graph = create_graph(AnalysisState)
 
@@ -77,11 +80,23 @@ def build_optimization_graph(
     async def _present_recommendations(state: AnalysisState) -> dict[str, object]:
         return await present_recommendations_node(state)
 
-    # Add nodes
-    graph.add_node("collect_behavioral_data", _collect_behavioral)
-    graph.add_node("analyze_and_suggest", _analyze_and_suggest)
-    graph.add_node("architect_review", _architect_review)
-    graph.add_node("present_recommendations", _present_recommendations)
+    # Add nodes (traced for MLflow per-node spans)
+    graph.add_node(
+        "collect_behavioral_data",
+        traced_node("collect_behavioral_data", _collect_behavioral),
+    )
+    graph.add_node(
+        "analyze_and_suggest",
+        traced_node("analyze_and_suggest", _analyze_and_suggest),
+    )
+    graph.add_node(
+        "architect_review",
+        traced_node("architect_review", _architect_review),
+    )
+    graph.add_node(
+        "present_recommendations",
+        traced_node("present_recommendations", _present_recommendations),
+    )
 
     # Define flow
     graph.add_edge(START, "collect_behavioral_data")
@@ -107,6 +122,7 @@ def build_optimization_graph(
     return graph
 
 
+@mlflow.trace(name="optimization_workflow", span_type="CHAIN")
 async def run_optimization_workflow(
     analysis_type: str = "behavior_analysis",
     entity_ids: list[str] | None = None,
@@ -133,8 +149,6 @@ async def run_optimization_workflow(
     Returns:
         Final analysis state
     """
-    import mlflow
-
     from src.tracing import log_metric, log_param, start_experiment_run
     from src.tracing.context import get_session_id, session_context
 
@@ -154,6 +168,12 @@ async def run_optimization_workflow(
         session_context(get_session_id()) as session_id,
         start_experiment_run("optimization_workflow"),
     ):
+        mlflow.update_current_trace(
+            tags={
+                "workflow": "optimization",
+                **({"mlflow.trace.session": session_id} if session_id else {}),
+            }
+        )
         mlflow.set_tag("workflow", "optimization")
         mlflow.set_tag("session.id", session_id)
         log_param("analysis_type", analysis_type)

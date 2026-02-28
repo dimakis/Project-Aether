@@ -22,6 +22,7 @@ from src.graph.nodes import (
     resolve_targets_node,
 )
 from src.graph.state import ReviewState
+from src.tracing import traced_node
 
 logger = logging.getLogger(__name__)
 
@@ -126,13 +127,19 @@ def build_review_graph(
     async def _create_proposals(state: ReviewState) -> dict:
         return await create_review_proposals_node(state, session=session)
 
-    # Wire up nodes
-    graph.add_node("resolve_targets", _resolve_targets)
-    graph.add_node("fetch_configs", _fetch_configs)
-    graph.add_node("gather_context", _gather_context)
-    graph.add_node("consult_ds_team", _consult_ds_team)
-    graph.add_node("architect_synthesize", _architect_synthesize)
-    graph.add_node("create_review_proposals", _create_proposals)
+    # Wire up nodes (traced for MLflow per-node spans)
+    graph.add_node("resolve_targets", traced_node("resolve_targets", _resolve_targets))
+    graph.add_node("fetch_configs", traced_node("fetch_configs", _fetch_configs))
+    graph.add_node("gather_context", traced_node("gather_context", _gather_context))
+    graph.add_node("consult_ds_team", traced_node("consult_ds_team", _consult_ds_team))
+    graph.add_node(
+        "architect_synthesize",
+        traced_node("architect_synthesize", _architect_synthesize),
+    )
+    graph.add_node(
+        "create_review_proposals",
+        traced_node("create_review_proposals", _create_proposals),
+    )
 
     # Linear flow
     graph.add_edge(START, "resolve_targets")

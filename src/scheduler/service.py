@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import time
 
+import mlflow
+
 from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -283,6 +285,7 @@ class SchedulerService:
                 logger.info("Removed stale schedule job %s", job.id)
 
 
+@mlflow.trace(name="scheduled_analysis", span_type="CHAIN")
 async def _execute_scheduled_analysis(schedule_id: str) -> None:
     """Execute a scheduled insight analysis job.
 
@@ -303,6 +306,17 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
         if not schedule or not schedule.enabled:
             logger.warning("Schedule %s not found or disabled, skipping", schedule_id)
             return
+
+        from contextlib import suppress
+
+        with suppress(Exception):
+            mlflow.update_current_trace(
+                tags={
+                    "workflow": "scheduled_analysis",
+                    "schedule_id": schedule_id,
+                    "trigger": "cron",
+                }
+            )
 
         job_id = f"schedule:{schedule_id}:{int(time.time())}"
         emit_job_start(job_id, "schedule", schedule.name)
