@@ -551,9 +551,9 @@ async def run_discovery(
         DiscoverySession with results
     """
     if ha_client is None:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha_client = get_ha_client()
+        ha_client = await get_ha_client_async()
 
     service = DiscoverySyncService(session, ha_client)
     return await service.run_discovery(triggered_by=triggered_by)
@@ -577,9 +577,9 @@ async def run_registry_sync(
         and duration_seconds.
     """
     if ha_client is None:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha_client = get_ha_client()
+        ha_client = await get_ha_client_async()
 
     start = time.monotonic()
 

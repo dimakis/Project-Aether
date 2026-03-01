@@ -29,7 +29,6 @@ _SKILLS = [
 
 
 def create_orchestrator_service() -> Starlette:
-    """Create the Orchestrator A2A service."""
     from src.agents.orchestrator import OrchestratorAgent
 
     return create_a2a_service(

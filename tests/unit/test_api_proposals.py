@@ -1054,7 +1054,11 @@ class TestDeployProposal:
         with (
             patch("src.api.routes.proposals.get_session", mock_get_session),
             patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
-            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.api.routes.proposals.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await proposal_client.post("/api/v1/proposals/prop-uuid-entity/deploy")
 
@@ -1197,7 +1201,11 @@ class TestDeployProposal:
                 "src.api.routes.proposals.ProposalRepository",
                 return_value=mock_proposal_repo,
             ),
-            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.api.routes.proposals.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await proposal_client.post("/api/v1/proposals/prop-uuid-dash/deploy")
 
@@ -1263,7 +1271,11 @@ class TestDeployProposal:
                 "src.api.routes.proposals.ProposalRepository",
                 return_value=mock_proposal_repo,
             ),
-            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.api.routes.proposals.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await proposal_client.post("/api/v1/proposals/prop-uuid-snap/deploy")
 
@@ -1325,7 +1337,11 @@ class TestDeployProposal:
                 "src.api.routes.proposals.ProposalRepository",
                 return_value=mock_proposal_repo,
             ),
-            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.api.routes.proposals.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await proposal_client.post("/api/v1/proposals/prop-uuid-new/deploy")
 
@@ -1385,7 +1401,11 @@ class TestDeployProposal:
         with (
             patch("src.api.routes.proposals.get_session", mock_get_session),
             patch("src.api.routes.proposals.ProposalRepository", return_value=mock_proposal_repo),
-            patch("src.api.routes.proposals.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.api.routes.proposals.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await proposal_client.post("/api/v1/proposals/prop-uuid-helper/deploy")
 

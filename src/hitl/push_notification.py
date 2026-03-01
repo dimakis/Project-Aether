@@ -77,9 +77,9 @@ async def send_approval_notification(
         return {"success": False, "service": service, "skipped": True, "reason": "ui_only channel"}
 
     try:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         parts = service.split(".", 1)
         if len(parts) != 2:
             return {
@@ -178,9 +178,9 @@ async def send_insight_notification(
     tag = f"aether-insight-{insight_id[:8]}" if insight_id else "aether-insights"
 
     try:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         parts = configured_service.split(".", 1)
         if len(parts) != 2:
             return {
@@ -245,9 +245,9 @@ async def send_test_notification(
         Dict with ``success``, ``service``, and ``error`` (if any).
     """
     try:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         parts = notify_service.split(".", 1)
         if len(parts) != 2:
             return {
@@ -288,9 +288,9 @@ async def discover_notify_services() -> list[str]:
         List of service IDs (e.g. ``["notify.mobile_app_dans_iphone"]``).
     """
     try:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         result = await ha._request("GET", "/api/services")
         services: list[str] = []
         if isinstance(result, list):

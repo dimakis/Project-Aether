@@ -51,9 +51,9 @@ async def fetch_entities_node(
     Returns:
         State updates with fetched entities
     """
-    from src.ha import get_ha_client, parse_entity_list
+    from src.ha import get_ha_client_async, parse_entity_list
 
-    ha: HAClient = ha_client or get_ha_client()
+    ha: HAClient = ha_client or await get_ha_client_async()
 
     # Fetch all entities
     raw_entities = await ha.list_entities(detailed=True)
@@ -148,9 +148,9 @@ async def sync_automations_node(
     Returns:
         State updates with automation info
     """
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
 
-    ha = ha_client or get_ha_client()
+    ha = ha_client or await get_ha_client_async()
 
     try:
         # Fetch automations
@@ -188,10 +188,10 @@ async def persist_entities_node(
         State updates with sync statistics
     """
     from src.dal import DiscoverySyncService
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
     from src.storage import get_session
 
-    ha = ha_client or get_ha_client()
+    ha = ha_client or await get_ha_client_async()
 
     # Use provided session or create new one
     if session:

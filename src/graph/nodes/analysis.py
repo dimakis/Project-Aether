@@ -35,9 +35,9 @@ async def collect_energy_data_node(
     Returns:
         State updates with collected energy data
     """
-    from src.ha import EnergyHistoryClient, get_ha_client
+    from src.ha import EnergyHistoryClient, get_ha_client_async
 
-    ha = ha_client or get_ha_client()
+    ha = ha_client or await get_ha_client_async()
     energy_client = EnergyHistoryClient(ha)
 
     # Discover energy sensors if not specified
@@ -80,12 +80,12 @@ async def generate_script_node(
         State updates with generated script
     """
     from src.agents import DataScientistAgent
-    from src.ha import EnergyHistoryClient, get_ha_client
+    from src.ha import EnergyHistoryClient, get_ha_client_async
 
     agent = DataScientistAgent()
 
     # Get energy data for script generation
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     energy_client = EnergyHistoryClient(ha)
     energy_data = await energy_client.get_aggregated_energy(
         state.entity_ids,
@@ -116,7 +116,7 @@ async def execute_sandbox_node(
     Returns:
         State updates with execution results
     """
-    from src.ha import EnergyHistoryClient, get_ha_client
+    from src.ha import EnergyHistoryClient, get_ha_client_async
     from src.sandbox.runner import SandboxRunner
 
     if not state.generated_script:
@@ -125,7 +125,7 @@ async def execute_sandbox_node(
         }
 
     # Get fresh energy data for execution
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     energy_client = EnergyHistoryClient(ha)
     energy_data = await energy_client.get_aggregated_energy(
         state.entity_ids,
@@ -312,9 +312,9 @@ async def collect_behavioral_data_node(
     Returns:
         State updates with collected data in messages
     """
-    from src.ha import LogbookHistoryClient, get_ha_client
+    from src.ha import LogbookHistoryClient, get_ha_client_async
 
-    ha = ha_client or get_ha_client()
+    ha = ha_client or await get_ha_client_async()
     logbook = LogbookHistoryClient(ha)
 
     try:

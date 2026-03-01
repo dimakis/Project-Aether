@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ async def list_dashboards() -> list[dict[str, Any]]:
     Returns a list of dashboard metadata including id, title,
     mode, and url_path.
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         return cast("list[dict[str, Any]]", await ha.list_dashboards())
     except Exception as exc:
@@ -50,7 +50,7 @@ async def get_dashboard_config(url_path: str) -> dict[str, Any]:
     Raises:
         404: Dashboard not found.
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
 
     # Map "default" to None so the client fetches /api/lovelace/config
     actual_path = None if url_path == "default" else url_path

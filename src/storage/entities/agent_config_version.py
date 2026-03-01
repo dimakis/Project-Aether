@@ -123,7 +123,6 @@ class AgentConfigVersion(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return (
             f"<AgentConfigVersion(agent_id={self.agent_id!r}, "
             f"v{self.version_number}, status={self.status!r})>"

@@ -13,6 +13,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import HumanMessage
 
 
@@ -52,6 +53,23 @@ class TestCreateA2AService:
         )
         routes = [r.path for r in app.routes if hasattr(r, "path")]
         assert "/.well-known/agent-card.json" in routes
+
+    @pytest.mark.asyncio()
+    async def test_agent_card_advertises_streaming_capability(self):
+        from src.agents.a2a_service import create_a2a_service
+
+        app = create_a2a_service(
+            agent_name="test-agent",
+            agent_description="Test",
+            agent_skills=[],
+        )
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/.well-known/agent-card.json")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["capabilities"]["streaming"] is True
 
 
 class TestAetherAgentExecutor:

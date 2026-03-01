@@ -29,7 +29,6 @@ _SKILLS = [
 
 
 def create_librarian_service() -> Starlette:
-    """Create the Librarian A2A service."""
     from src.agents.librarian import LibrarianAgent
 
     return create_a2a_service(

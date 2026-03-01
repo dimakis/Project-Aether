@@ -127,7 +127,6 @@ async def _create_entity_command_proposal(
     service_data: dict | None,
     original_yaml: str | None = None,
 ) -> str:
-    """Create an entity command proposal."""
     if not entity_id:
         return "entity_id is required for entity_command proposals."
 
@@ -183,7 +182,6 @@ async def _create_automation_proposal(
     mode: str,
     original_yaml: str | None = None,
 ) -> str:
-    """Create an automation proposal."""
     # If yaml_content provided, parse using the canonical schema pipeline
     if yaml_content:
         from src.schema import parse_ha_yaml
@@ -250,7 +248,6 @@ async def _create_script_proposal(
     mode: str,
     original_yaml: str | None = None,
 ) -> str:
-    """Create a script proposal."""
     # Validate required fields — reject early so the LLM retries with full data
     if not actions:
         return (
@@ -292,7 +289,6 @@ async def _create_scene_proposal(
     actions: dict | list | None,
     original_yaml: str | None = None,
 ) -> str:
-    """Create a scene proposal."""
     try:
         async with get_session() as session:
             repo = ProposalRepository(session)
@@ -364,7 +360,6 @@ async def _create_helper_proposal(
     description: str,
     helper_config: dict | None,
 ) -> str:
-    """Create a helper entity proposal."""
     if not helper_config or "helper_type" not in helper_config:
         return (
             "helper_config with 'helper_type' is required for helper proposals. "
@@ -404,5 +399,4 @@ async def _create_helper_proposal(
 
 
 def get_approval_tools() -> list:
-    """Return approval tools for the Architect agent."""
     return [seek_approval]

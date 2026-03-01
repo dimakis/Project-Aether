@@ -116,7 +116,7 @@ def get_llm(
         )
 
         # Wrap with resilience
-        llm: BaseChatModel = ResilientLLM(  # type: ignore[assignment]
+        llm: BaseChatModel = ResilientLLM(
             primary_llm=primary_llm,
             provider=provider,
             fallback_llm=fallback_llm,
@@ -124,7 +124,7 @@ def get_llm(
         )
     else:
         # No fallback, wrap primary with resilience
-        llm = ResilientLLM(  # type: ignore[assignment]
+        llm = ResilientLLM(
             primary_llm=primary_llm,
             provider=provider,
         )

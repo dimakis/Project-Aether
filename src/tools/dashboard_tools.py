@@ -135,7 +135,6 @@ async def list_dashboards() -> str:
 
 
 def get_dashboard_tools() -> list:
-    """Return all dashboard tools for agent registration."""
     return [
         generate_dashboard_yaml,
         validate_dashboard_yaml,

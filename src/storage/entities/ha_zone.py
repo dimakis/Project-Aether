@@ -76,7 +76,6 @@ class HAZone(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return (
             f"<HAZone(name={self.name!r}, slug={self.slug!r}, "
             f"ha_url={self.ha_url!r}, is_default={self.is_default})>"

@@ -208,7 +208,6 @@ class Agent(Base, UUIDMixin, TimestampMixin):
         return new_status in VALID_AGENT_STATUS_TRANSITIONS.get(current, set())
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return f"<Agent(name={self.name!r}, version={self.version!r}, status={self.status!r})>"
 
     @classmethod
