@@ -26,44 +26,41 @@ class HAClientConfig(BaseModel):
     )
 
 
-def _try_get_db_config(settings: Any) -> tuple[str, str] | None:
-    """Try to read HA config from DB (non-blocking best effort).
-
-    Returns (ha_url, ha_token) if successful, None otherwise.
-    Gracefully handles missing DB, no config, or event loop issues.
-    """
-    import asyncio
-
+async def _try_get_db_config_async(settings: Any) -> tuple[str, str] | None:
+    """Read HA config from DB. Use from async context only."""
     import structlog
 
     logger = structlog.get_logger(__name__)
-
     try:
         from src.api.auth import _get_jwt_secret
         from src.dal.system_config import SystemConfigRepository
         from src.storage import get_session
 
         jwt_secret = _get_jwt_secret(settings)
-
-        async def _fetch() -> tuple[str, str] | None:
-            async with get_session() as session:
-                repo = SystemConfigRepository(session)
-                return await repo.get_ha_connection(jwt_secret)
-
-        # Try to run in existing event loop or create a new one
-        try:
-            asyncio.get_running_loop()
-            # If already in an async context, we can't use asyncio.run().
-            # Return None and let the env var fallback be used.
-            # The setup endpoint calls reset_ha_client() after storing
-            # config, so next access will re-init with DB config.
-            return None
-        except RuntimeError:
-            # No event loop running - safe to use asyncio.run()
-            result = asyncio.run(_fetch())
-            return result  # type: ignore[no-untyped-call]
+        async with get_session() as session:
+            repo = SystemConfigRepository(session)
+            return await repo.get_ha_connection(jwt_secret)
     except Exception as exc:
         logger.debug("mcp_db_config_fallback", reason=str(exc))
+        return None
+
+
+def _try_get_db_config(settings: Any) -> tuple[str, str] | None:
+    """Try to read HA config from DB (sync; use only when no event loop is running).
+
+    Returns (ha_url, ha_token) if successful, None otherwise.
+    In async context use _try_get_db_config_async instead.
+    """
+    import asyncio
+
+    try:
+        asyncio.get_running_loop()
+        return None
+    except RuntimeError:
+        pass
+    try:
+        return asyncio.run(_try_get_db_config_async(settings))
+    except Exception:
         return None
 
 

@@ -102,7 +102,7 @@ async def get_automation_config(
     """
     import yaml as pyyaml
 
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
 
     # Resolve to HA automation ID
     repo = AutomationRepository(session)
@@ -127,7 +127,7 @@ async def get_automation_config(
     )
 
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         config = await ha.get_automation_config(ha_id)
 
         if not config:

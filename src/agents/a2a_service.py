@@ -435,7 +435,7 @@ def create_a2a_service(
         url="http://localhost:8000",
         version="0.3.0",
         skills=skills,
-        capabilities=AgentCapabilities(),
+        capabilities=AgentCapabilities(streaming=True),
         default_input_modes=["text"],
         default_output_modes=["text"],
     )

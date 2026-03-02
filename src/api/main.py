@@ -93,11 +93,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start real-time event stream (Feature 35)
     if settings.environment != "testing":
         try:
-            from src.ha import get_ha_client
+            from src.ha import get_ha_client_async
             from src.ha.event_handler import EventHandler
             from src.ha.event_stream import HAEventStream
 
-            ha_client = get_ha_client()
+            ha_client = await get_ha_client_async()
             ws_url = ha_client._get_ws_url()
             token = ha_client.config.ha_token
             event_handler = EventHandler()

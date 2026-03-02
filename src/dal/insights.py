@@ -24,11 +24,6 @@ class InsightRepository:
     """
 
     def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
         self.session = session
 
     async def create(
@@ -46,9 +41,7 @@ class InsightRepository:
         conversation_id: str | None = None,
         task_label: str | None = None,
     ) -> Insight:
-        """Create a new insight.
-
-        Args:
+        """Args:
             type: Insight category (energy_optimization, anomaly, etc.)
             title: Brief summary
             description: Detailed explanation (markdown supported)
@@ -86,14 +79,6 @@ class InsightRepository:
         return insight
 
     async def get_by_id(self, insight_id: str) -> Insight | None:
-        """Get insight by ID.
-
-        Args:
-            insight_id: Insight UUID
-
-        Returns:
-            Insight or None
-        """
         result = await self.session.execute(select(Insight).where(Insight.id == insight_id))
         return result.scalar_one_or_none()
 
@@ -104,9 +89,7 @@ class InsightRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[Insight]:
-        """List insights by type.
-
-        Args:
+        """Args:
             insight_type: Filter by insight type
             status: Optional status filter
             limit: Max results
@@ -131,9 +114,7 @@ class InsightRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[Insight]:
-        """List insights by status.
-
-        Args:
+        """Args:
             status: Status filter
             limit: Max results
             offset: Skip results
@@ -152,14 +133,6 @@ class InsightRepository:
         return list(result.scalars().all())
 
     async def list_pending(self, limit: int = 50) -> list[Insight]:
-        """List pending insights awaiting review.
-
-        Args:
-            limit: Max results
-
-        Returns:
-            List of pending insights
-        """
         return await self.list_by_status(InsightStatus.PENDING, limit)
 
     async def list_by_entity(
@@ -168,9 +141,7 @@ class InsightRepository:
         status: InsightStatus | None = None,
         limit: int = 50,
     ) -> list[Insight]:
-        """List insights related to a specific entity.
-
-        Args:
+        """Args:
             entity_id: Entity ID to search for
             status: Optional status filter
             limit: Max results
@@ -195,9 +166,7 @@ class InsightRepository:
         status: InsightStatus | None = None,
         limit: int = 50,
     ) -> list[Insight]:
-        """List high-confidence insights.
-
-        Args:
+        """Args:
             min_confidence: Minimum confidence threshold
             status: Optional status filter
             limit: Max results
@@ -221,9 +190,7 @@ class InsightRepository:
         status: InsightStatus | None = None,
         limit: int = 50,
     ) -> list[Insight]:
-        """List insights by impact level.
-
-        Args:
+        """Args:
             impact: Impact level (low, medium, high, critical)
             status: Optional status filter
             limit: Max results
@@ -247,9 +214,7 @@ class InsightRepository:
         status: InsightStatus | None = None,
         limit: int = 50,
     ) -> list[Insight]:
-        """List recent insights.
-
-        Args:
+        """Args:
             hours: Look back period in hours
             status: Optional status filter
             limit: Max results
@@ -274,9 +239,7 @@ class InsightRepository:
         limit: int = 100,
         offset: int = 0,
     ) -> list[Insight]:
-        """List all insights.
-
-        Args:
+        """Args:
             limit: Max results
             offset: Skip results
 
@@ -443,14 +406,6 @@ class InsightRepository:
         }
 
     async def delete(self, insight_id: str) -> bool:
-        """Delete an insight.
-
-        Args:
-            insight_id: Insight UUID
-
-        Returns:
-            True if deleted, False if not found
-        """
         insight = await self.get_by_id(insight_id)
         if insight:
             await self.session.delete(insight)

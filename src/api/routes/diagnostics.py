@@ -26,7 +26,7 @@ from src.diagnostics.log_parser import (
     get_error_summary,
     parse_error_log,
 )
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ router = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
 async def ha_health() -> dict[str, Any]:
     """Home Assistant health: unavailable/stale entities & unhealthy integrations."""
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
     except Exception as e:
         raise HTTPException(
             status_code=503,
@@ -75,7 +75,7 @@ async def ha_health() -> dict[str, Any]:
 async def error_log() -> dict[str, Any]:
     """Parsed HA error log with summary and known pattern matching."""
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         raw_log = await ha.get_error_log()
     except Exception as e:
         raise HTTPException(
@@ -110,7 +110,7 @@ async def error_log() -> dict[str, Any]:
 async def config_check() -> dict[str, Any]:
     """Run HA config validation."""
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
     except Exception as e:
         raise HTTPException(
             status_code=503,

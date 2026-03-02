@@ -61,7 +61,6 @@ class AgentRepository:
         self.session = session
 
     async def get_by_id(self, agent_id: str) -> Agent | None:
-        """Get agent by ID."""
         result = await self.session.execute(select(Agent).where(Agent.id == agent_id))
         return result.scalar_one_or_none()
 
@@ -78,11 +77,6 @@ class AgentRepository:
         return result.scalar_one_or_none()
 
     async def list_all(self) -> list[Agent]:
-        """List all agents ordered by name.
-
-        Returns:
-            List of agents
-        """
         result = await self.session.execute(select(Agent).order_by(Agent.name))
         return list(result.scalars().all())
 
@@ -190,21 +184,12 @@ class AgentConfigVersionRepository:
         self.session = session
 
     async def get_by_id(self, version_id: str) -> AgentConfigVersion | None:
-        """Get config version by ID."""
         result = await self.session.execute(
             select(AgentConfigVersion).where(AgentConfigVersion.id == version_id)
         )
         return result.scalar_one_or_none()
 
     async def get_active(self, agent_id: str) -> AgentConfigVersion | None:
-        """Get the active config version for an agent.
-
-        Args:
-            agent_id: Parent agent ID
-
-        Returns:
-            Active config version or None
-        """
         result = await self.session.execute(
             select(AgentConfigVersion).where(
                 AgentConfigVersion.agent_id == agent_id,
@@ -214,7 +199,6 @@ class AgentConfigVersionRepository:
         return result.scalar_one_or_none()
 
     async def get_draft(self, agent_id: str) -> AgentConfigVersion | None:
-        """Get the current draft config version for an agent."""
         result = await self.session.execute(
             select(AgentConfigVersion).where(
                 AgentConfigVersion.agent_id == agent_id,
@@ -246,7 +230,6 @@ class AgentConfigVersionRepository:
         return list(result.scalars().all())
 
     async def _next_version_number(self, agent_id: str) -> int:
-        """Get the next version number for an agent."""
         result = await self.session.execute(
             select(func.max(AgentConfigVersion.version_number)).where(
                 AgentConfigVersion.agent_id == agent_id
@@ -256,7 +239,6 @@ class AgentConfigVersionRepository:
         return (max_version or 0) + 1
 
     async def _latest_semver(self, agent_id: str) -> str | None:
-        """Get the latest semver string for an agent's config versions."""
         result = await self.session.execute(
             select(AgentConfigVersion.version)
             .where(
@@ -278,9 +260,7 @@ class AgentConfigVersionRepository:
         change_summary: str | None = None,
         bump_type: str = "patch",
     ) -> AgentConfigVersion:
-        """Create a new draft config version.
-
-        Enforces single-draft policy: only one draft per agent at a time.
+        """Enforces single-draft policy: only one draft per agent at a time.
 
         Args:
             agent_id: Parent agent ID
@@ -329,9 +309,7 @@ class AgentConfigVersionRepository:
         version_id: str,
         **kwargs: object,
     ) -> AgentConfigVersion | None:
-        """Update a draft config version.
-
-        Only draft versions can be edited.
+        """Only draft versions can be edited.
 
         Args:
             version_id: Config version ID
@@ -468,9 +446,7 @@ class AgentConfigVersionRepository:
         return rollback_version
 
     async def delete_draft(self, version_id: str) -> bool:
-        """Delete a draft config version.
-
-        Only drafts can be deleted.
+        """Only drafts can be deleted.
 
         Args:
             version_id: Version ID to delete
@@ -500,14 +476,12 @@ class AgentPromptVersionRepository:
         self.session = session
 
     async def get_by_id(self, version_id: str) -> AgentPromptVersion | None:
-        """Get prompt version by ID."""
         result = await self.session.execute(
             select(AgentPromptVersion).where(AgentPromptVersion.id == version_id)
         )
         return result.scalar_one_or_none()
 
     async def get_active(self, agent_id: str) -> AgentPromptVersion | None:
-        """Get the active prompt version for an agent."""
         result = await self.session.execute(
             select(AgentPromptVersion).where(
                 AgentPromptVersion.agent_id == agent_id,
@@ -517,7 +491,6 @@ class AgentPromptVersionRepository:
         return result.scalar_one_or_none()
 
     async def get_draft(self, agent_id: str) -> AgentPromptVersion | None:
-        """Get the current draft prompt version for an agent."""
         result = await self.session.execute(
             select(AgentPromptVersion).where(
                 AgentPromptVersion.agent_id == agent_id,
@@ -541,7 +514,6 @@ class AgentPromptVersionRepository:
         return list(result.scalars().all())
 
     async def _next_version_number(self, agent_id: str) -> int:
-        """Get the next version number for an agent."""
         result = await self.session.execute(
             select(func.max(AgentPromptVersion.version_number)).where(
                 AgentPromptVersion.agent_id == agent_id
@@ -551,7 +523,6 @@ class AgentPromptVersionRepository:
         return (max_version or 0) + 1
 
     async def _latest_semver(self, agent_id: str) -> str | None:
-        """Get the latest semver string for an agent's prompt versions."""
         result = await self.session.execute(
             select(AgentPromptVersion.version)
             .where(

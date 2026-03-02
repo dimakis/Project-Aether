@@ -27,7 +27,7 @@ from src.api.schemas import (
     RollbackResponse,
 )
 from src.dal import ProposalRepository
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.storage import get_session
 from src.storage.entities import AutomationProposal, ProposalStatus, ProposalType
 
@@ -666,9 +666,9 @@ async def verify_deployment(
             }
 
         try:
-            from src.ha import get_ha_client
+            from src.ha import get_ha_client_async
 
-            ha = get_ha_client()
+            ha = await get_ha_client_async()
             entity_id = f"automation.{ha_automation_id}"
             states = await ha._request("GET", f"/api/states/{entity_id}")
 
@@ -799,7 +799,7 @@ async def _deploy_entity_command(
     if entity_id:
         data["entity_id"] = entity_id
 
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     await ha.call_service(domain=domain, service=service, data=data)
 
     # Mark as deployed (use a descriptive ID since there's no HA automation)
@@ -835,7 +835,7 @@ async def _deploy_dashboard(
     config = proposal.dashboard_config or {}
     url_path = (proposal.service_call or {}).get("url_path")
 
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
 
     # Snapshot current config before overwriting (enables rollback)
     try:
@@ -905,7 +905,7 @@ async def _deploy_helper(proposal: AutomationProposal, repo: ProposalRepository)
             "error": f"Unknown helper type: {helper_type}",
         }
 
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     method = getattr(ha, method_name)
 
     # Build kwargs from config, excluding metadata keys

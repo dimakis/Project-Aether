@@ -28,7 +28,6 @@ def entities(
 
 
 async def _list_entities(domain: str | None, limit: int) -> None:
-    """List entities from database."""
     from src.dal.entities import EntityRepository
     from src.storage import get_session
 
@@ -76,7 +75,6 @@ def areas() -> None:
 
 
 async def _list_areas() -> None:
-    """List areas from database."""
     from src.dal.areas import AreaRepository
     from src.storage import get_session
 
@@ -111,7 +109,6 @@ def devices(
 
 
 async def _list_devices(limit: int) -> None:
-    """List devices from database."""
     from src.dal.devices import DeviceRepository
     from src.storage import get_session
 
@@ -163,7 +160,6 @@ def automations(
 
 
 async def _list_automations(state: str | None, limit: int) -> None:
-    """List automations from database."""
     from src.dal.entities import EntityRepository
     from src.storage import get_session
 
@@ -219,7 +215,6 @@ def scripts(
 
 
 async def _list_scripts(limit: int) -> None:
-    """List scripts from database."""
     from src.dal.entities import EntityRepository
     from src.storage import get_session
 
@@ -273,7 +268,6 @@ def scenes(
 
 
 async def _list_scenes(limit: int) -> None:
-    """List scenes from database."""
     from src.dal.entities import EntityRepository
     from src.storage import get_session
 
@@ -323,7 +317,6 @@ def services(
 
 
 async def _list_services(domain: str | None, limit: int) -> None:
-    """List services from database."""
     from src.dal.services import ServiceRepository
     from src.storage import get_session
 
@@ -358,7 +351,6 @@ def seed_services_cmd() -> None:
 
 
 async def _seed_services() -> None:
-    """Seed common services."""
     from src.dal.services import seed_services
     from src.storage import get_session
 
@@ -383,7 +375,6 @@ def mcp_gaps() -> None:
 
 
 async def _show_mcp_gaps() -> None:
-    """Display HA gaps report."""
     from src.ha.gaps import get_all_gaps, get_gaps_report
 
     gaps = get_all_gaps()
