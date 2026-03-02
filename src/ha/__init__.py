@@ -17,6 +17,8 @@ from src.ha.behavioral import BehavioralAnalysisClient
 from src.ha.client import HAClient, get_ha_client
 from src.ha.constants import COMMON_SERVICES
 from src.ha.dashboards import DashboardMixin
+from src.ha.event_handler import EventHandler
+from src.ha.event_stream import HAEventStream
 from src.ha.history import (
     EnergyDataPoint,
     EnergyHistory,
@@ -56,7 +58,10 @@ __all__ = [
     # Energy History (US3)
     "EnergyHistoryClient",
     "EnergyStats",
+    # Event Stream (Feature 35)
+    "EventHandler",
     "HAClient",
+    "HAEventStream",
     # Logbook (US5 / Feature 03)
     "LogbookHistoryClient",
     "LogbookStats",

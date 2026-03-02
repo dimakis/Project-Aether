@@ -8,8 +8,10 @@ import logging
 from datetime import UTC
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import get_db
 from src.api.rate_limit import limiter
 from src.api.schemas import (
     ActionRequest,
@@ -24,8 +26,10 @@ from src.api.schemas import (
     ReviewRequest,
 )
 from src.dal import InsightRepository
-from src.storage import get_session
 from src.storage.entities.insight import InsightStatus, InsightType
+
+# Route handlers use Depends(get_db) for request-scoped session; background
+# tasks (e.g. _run_analysis_job) import get_session locally as they have no request.
 
 logger = logging.getLogger(__name__)
 
@@ -66,41 +70,41 @@ async def list_insights(
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    session: AsyncSession = Depends(get_db),
 ) -> InsightListResponse:
     """List all insights with optional filters."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
+    repo = InsightRepository(session)
 
-        # Parse filters
-        type_filter = None
-        status_filter = None
+    # Parse filters
+    type_filter = None
+    status_filter = None
 
-        if type:
-            with contextlib.suppress(ValueError):
-                type_filter = InsightType(type.lower())
+    if type:
+        with contextlib.suppress(ValueError):
+            type_filter = InsightType(type.lower())
 
-        if status:
-            with contextlib.suppress(ValueError):
-                status_filter = InsightStatus(status.lower())
+    if status:
+        with contextlib.suppress(ValueError):
+            status_filter = InsightStatus(status.lower())
 
-        # Fetch based on filters
-        if type_filter:
-            insights = await repo.list_by_type(
-                type_filter, status=status_filter, limit=limit, offset=offset
-            )
-        elif status_filter:
-            insights = await repo.list_by_status(status_filter, limit=limit, offset=offset)
-        else:
-            insights = await repo.list_all(limit=limit, offset=offset)
-
-        total = await repo.count(type=type_filter, status=status_filter)
-
-        return InsightListResponse(
-            items=[_insight_to_response(i) for i in insights],
-            total=total,
-            limit=limit,
-            offset=offset,
+    # Fetch based on filters
+    if type_filter:
+        insights = await repo.list_by_type(
+            type_filter, status=status_filter, limit=limit, offset=offset
         )
+    elif status_filter:
+        insights = await repo.list_by_status(status_filter, limit=limit, offset=offset)
+    else:
+        insights = await repo.list_all(limit=limit, offset=offset)
+
+    total = await repo.count(type=type_filter, status=status_filter)
+
+    return InsightListResponse(
+        items=[_insight_to_response(i) for i in insights],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get(
@@ -109,19 +113,21 @@ async def list_insights(
     summary="List pending insights",
     description="List insights awaiting review.",
 )
-async def list_pending_insights(limit: int = 50) -> InsightListResponse:
+async def list_pending_insights(
+    limit: int = 50,
+    session: AsyncSession = Depends(get_db),
+) -> InsightListResponse:
     """List insights pending review."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
-        insights = await repo.list_pending(limit=limit)
-        total = await repo.count(status=InsightStatus.PENDING)
+    repo = InsightRepository(session)
+    insights = await repo.list_pending(limit=limit)
+    total = await repo.count(status=InsightStatus.PENDING)
 
-        return InsightListResponse(
-            items=[_insight_to_response(i) for i in insights],
-            total=total,
-            limit=limit,
-            offset=0,
-        )
+    return InsightListResponse(
+        items=[_insight_to_response(i) for i in insights],
+        total=total,
+        limit=limit,
+        offset=0,
+    )
 
 
 @router.get(
@@ -130,12 +136,13 @@ async def list_pending_insights(limit: int = 50) -> InsightListResponse:
     summary="Get insights summary",
     description="Get counts and statistics for insights.",
 )
-async def get_insights_summary() -> InsightSummary:
+async def get_insights_summary(
+    session: AsyncSession = Depends(get_db),
+) -> InsightSummary:
     """Get insights summary with counts by type and status."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
-        summary = await repo.get_summary()
-        return InsightSummary(**summary)
+    repo = InsightRepository(session)
+    summary = await repo.get_summary()
+    return InsightSummary(**summary)
 
 
 @router.get(
@@ -145,16 +152,18 @@ async def get_insights_summary() -> InsightSummary:
     description="Get a specific insight by ID.",
     responses={404: {"model": ErrorResponse}},
 )
-async def get_insight(insight_id: str) -> InsightResponse:
+async def get_insight(
+    insight_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> InsightResponse:
     """Get insight by ID."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
-        insight = await repo.get_by_id(insight_id)
+    repo = InsightRepository(session)
+    insight = await repo.get_by_id(insight_id)
 
-        if not insight:
-            raise HTTPException(status_code=404, detail="Insight not found")
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
 
-        return _insight_to_response(insight)
+    return _insight_to_response(insight)
 
 
 @router.post(
@@ -164,32 +173,34 @@ async def get_insight(insight_id: str) -> InsightResponse:
     summary="Create insight",
     description="Create a new insight (typically done by Data Scientist agent).",
 )
-async def create_insight(data: InsightCreate) -> InsightResponse:
+async def create_insight(
+    data: InsightCreate,
+    session: AsyncSession = Depends(get_db),
+) -> InsightResponse:
     """Create a new insight."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
+    repo = InsightRepository(session)
 
-        # Map string type to enum
-        try:
-            insight_type = InsightType(data.type.value)
-        except ValueError:
-            insight_type = InsightType.ENERGY_OPTIMIZATION
+    # Map string type to enum
+    try:
+        insight_type = InsightType(data.type.value)
+    except ValueError:
+        insight_type = InsightType.ENERGY_OPTIMIZATION
 
-        insight = await repo.create(
-            type=insight_type,
-            title=data.title,
-            description=data.description,
-            evidence=data.evidence,
-            confidence=data.confidence,
-            impact=data.impact,
-            entities=data.entities,
-            script_path=data.script_path,
-            script_output=data.script_output,
-            mlflow_run_id=data.mlflow_run_id,
-        )
-        await session.commit()
+    insight = await repo.create(
+        type=insight_type,
+        title=data.title,
+        description=data.description,
+        evidence=data.evidence,
+        confidence=data.confidence,
+        impact=data.impact,
+        entities=data.entities,
+        script_path=data.script_path,
+        script_output=data.script_output,
+        mlflow_run_id=data.mlflow_run_id,
+    )
+    await session.commit()
 
-        return _insight_to_response(insight)
+    return _insight_to_response(insight)
 
 
 @router.post(
@@ -200,17 +211,21 @@ async def create_insight(data: InsightCreate) -> InsightResponse:
     responses={404: {"model": ErrorResponse}},
 )
 @limiter.limit("10/minute")
-async def review_insight(request: Request, insight_id: str, data: ReviewRequest) -> InsightResponse:
+async def review_insight(
+    request: Request,
+    insight_id: str,
+    data: ReviewRequest,
+    session: AsyncSession = Depends(get_db),
+) -> InsightResponse:
     """Mark insight as reviewed."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
-        insight = await repo.mark_reviewed(insight_id)
+    repo = InsightRepository(session)
+    insight = await repo.mark_reviewed(insight_id)
 
-        if not insight:
-            raise HTTPException(status_code=404, detail="Insight not found")
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
 
-        await session.commit()
-        return _insight_to_response(insight)
+    await session.commit()
+    return _insight_to_response(insight)
 
 
 @router.post(
@@ -221,17 +236,21 @@ async def review_insight(request: Request, insight_id: str, data: ReviewRequest)
     responses={404: {"model": ErrorResponse}},
 )
 @limiter.limit("10/minute")
-async def action_insight(request: Request, insight_id: str, data: ActionRequest) -> InsightResponse:
+async def action_insight(
+    request: Request,
+    insight_id: str,
+    data: ActionRequest,
+    session: AsyncSession = Depends(get_db),
+) -> InsightResponse:
     """Mark insight as actioned."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
-        insight = await repo.mark_actioned(insight_id)
+    repo = InsightRepository(session)
+    insight = await repo.mark_actioned(insight_id)
 
-        if not insight:
-            raise HTTPException(status_code=404, detail="Insight not found")
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
 
-        await session.commit()
-        return _insight_to_response(insight)
+    await session.commit()
+    return _insight_to_response(insight)
 
 
 @router.post(
@@ -243,18 +262,20 @@ async def action_insight(request: Request, insight_id: str, data: ActionRequest)
 )
 @limiter.limit("10/minute")
 async def dismiss_insight(
-    request: Request, insight_id: str, data: DismissRequest
+    request: Request,
+    insight_id: str,
+    data: DismissRequest,
+    session: AsyncSession = Depends(get_db),
 ) -> InsightResponse:
     """Dismiss an insight."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
-        insight = await repo.dismiss(insight_id)
+    repo = InsightRepository(session)
+    insight = await repo.dismiss(insight_id)
 
-        if not insight:
-            raise HTTPException(status_code=404, detail="Insight not found")
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
 
-        await session.commit()
-        return _insight_to_response(insight)
+    await session.commit()
+    return _insight_to_response(insight)
 
 
 @router.delete(
@@ -265,16 +286,19 @@ async def dismiss_insight(
     responses={404: {"model": ErrorResponse}},
 )
 @limiter.limit("10/minute")
-async def delete_insight(request: Request, insight_id: str) -> None:
+async def delete_insight(
+    request: Request,
+    insight_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> None:
     """Delete an insight."""
-    async with get_session() as session:
-        repo = InsightRepository(session)
-        deleted = await repo.delete(insight_id)
+    repo = InsightRepository(session)
+    deleted = await repo.delete(insight_id)
 
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Insight not found")
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Insight not found")
 
-        await session.commit()
+    await session.commit()
 
 
 @router.post(

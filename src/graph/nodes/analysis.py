@@ -227,8 +227,9 @@ async def extract_insights_node(
     if session and insights:
         repo = InsightRepository(session)
         for insight_data in insights:
+            type_str = str(insight_data.get("type", "energy_optimization")).lower()
             try:
-                insight_type = InsightType(insight_data.get("type", "energy_optimization"))
+                insight_type = InsightType(type_str)
             except ValueError:
                 insight_type = InsightType.ENERGY_OPTIMIZATION
 

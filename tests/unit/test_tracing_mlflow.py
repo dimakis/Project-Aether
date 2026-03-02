@@ -529,6 +529,81 @@ class TestTraceWithUri:
             clear_session()
 
 
+class TestTracedNode:
+    """Tests for traced_node (LangGraph node wrapper using mlflow.trace)."""
+
+    def test_traced_node_sync_no_mlflow(self):
+        from src.tracing.mlflow import traced_node
+
+        def node_fn(state):
+            return {"x": state.get("x", 0) + 1}
+
+        wrapped = traced_node("my_node", node_fn)
+        with patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=False):
+            assert wrapped({"x": 1}) == {"x": 2}
+
+    async def test_traced_node_async_no_mlflow(self):
+        from src.tracing.mlflow import traced_node
+
+        async def node_fn(state):
+            return {"done": True}
+
+        wrapped = traced_node("async_node", node_fn)
+        with patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=False):
+            result = await wrapped({})
+            assert result == {"done": True}
+
+    def test_traced_node_sync_uses_mlflow_trace(self):
+        from src.tracing.mlflow import traced_node
+
+        def node_fn(state):
+            return {"out": state["x"]}
+
+        mock_mlflow = MagicMock()
+        mock_traced = MagicMock(return_value={"out": 42})
+        mock_mlflow.trace.return_value = mock_traced
+
+        wrapped = traced_node("collect_data", node_fn, span_type="CHAIN")
+        with (
+            patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=True),
+            patch("src.tracing.mlflow_spans._traces_available", True),
+            patch("src.tracing.mlflow_spans._safe_import_mlflow", return_value=mock_mlflow),
+        ):
+            result = wrapped({"x": 42})
+            assert result == {"out": 42}
+            mock_mlflow.trace.assert_called_once()
+            call_kw = mock_mlflow.trace.call_args[1]
+            assert call_kw["name"] == "collect_data"
+            assert call_kw["span_type"] == "CHAIN"
+
+    async def test_traced_node_async_uses_mlflow_trace(self):
+        from src.tracing.mlflow import traced_node
+
+        async def node_fn(state):
+            return {"out": state["x"]}
+
+        async def mock_traced(*args, **kwargs):
+            return {"out": 99}
+
+        mock_mlflow = MagicMock()
+        mock_mlflow.trace.return_value = mock_traced
+
+        wrapped = traced_node("analyze", node_fn, span_type="CHAIN")
+        with (
+            patch("src.tracing.mlflow_spans._ensure_mlflow_initialized", return_value=True),
+            patch("src.tracing.mlflow_spans._traces_available", True),
+            patch("src.tracing.mlflow_spans._safe_import_mlflow", return_value=mock_mlflow),
+        ):
+            result = await wrapped({"x": 99})
+            assert result == {"out": 99}
+            mock_mlflow.trace.assert_called_once_with(
+                node_fn,
+                name="analyze",
+                span_type="CHAIN",
+                attributes=None,
+            )
+
+
 class TestEnableAutolog:
     def test_skips_when_not_initialized(self):
         from src.tracing import mlflow_init as mod

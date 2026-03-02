@@ -7,7 +7,6 @@ The get_session dependency is patched at the import site so
 the test never attempts a real Postgres connection.
 """
 
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,12 +16,13 @@ from httpx import ASGITransport, AsyncClient
 from src.storage.entities.insight import InsightStatus, InsightType
 
 
-def _make_test_app():
+def _make_test_app(mock_session):
     """Create a minimal FastAPI app with the insights router and mock DB."""
     from fastapi import FastAPI
     from slowapi import _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
 
+    from src.api.deps import get_db
     from src.api.rate_limit import limiter
     from src.api.routes.insights import router
 
@@ -33,13 +33,19 @@ def _make_test_app():
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
+    # Override get_db so routes never call get_session() (unit-test DB guard)
+    async def _mock_get_db():
+        yield mock_session
+
+    app.dependency_overrides[get_db] = _mock_get_db
+
     return app
 
 
 @pytest.fixture
-def insights_app():
+def insights_app(mock_session):
     """Lightweight FastAPI app with insights routes and mocked DB."""
-    return _make_test_app()
+    return _make_test_app(mock_session)
 
 
 @pytest.fixture
@@ -124,17 +130,7 @@ class TestListInsights:
     ):
         """Should return paginated insights."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights")
 
             assert response.status_code == 200
@@ -150,17 +146,7 @@ class TestListInsights:
     ):
         """Should filter insights by type."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights?type=energy_optimization")
 
             assert response.status_code == 200
@@ -171,17 +157,7 @@ class TestListInsights:
     ):
         """Should filter insights by status."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights?status=pending")
 
             assert response.status_code == 200
@@ -192,17 +168,7 @@ class TestListInsights:
     ):
         """Should support pagination."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights?limit=10&offset=5")
 
             assert response.status_code == 200
@@ -216,17 +182,7 @@ class TestListInsights:
         repo.list_all = AsyncMock(return_value=[])
         repo.count = AsyncMock(return_value=0)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=repo):
             response = await insights_client.get("/api/v1/insights")
 
             assert response.status_code == 200
@@ -244,17 +200,7 @@ class TestListPendingInsights:
     ):
         """Should return pending insights."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights/pending")
 
             assert response.status_code == 200
@@ -268,31 +214,18 @@ class TestListPendingInsights:
 class TestGetInsightsSummary:
     """Tests for GET /api/v1/insights/summary."""
 
-    async def test_get_insights_summary_success(
-        self, insights_client, mock_insight_repo, mock_session
-    ):
+    async def test_get_insights_summary_success(self, insights_client, mock_insight_repo):
         """Should return insights summary with counts."""
-
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights/summary")
 
-            assert response.status_code == 200
-            data = response.json()
-            assert "total" in data
-            assert "by_type" in data
-            assert "by_status" in data
-            assert "pending_count" in data
-            assert "high_impact_count" in data
+        assert response.status_code == 200
+        data = response.json()
+        assert "total" in data
+        assert "by_type" in data
+        assert "by_status" in data
+        assert "pending_count" in data
+        assert "high_impact_count" in data
 
 
 @pytest.mark.asyncio
@@ -304,17 +237,7 @@ class TestGetInsight:
     ):
         """Should return insight by ID."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights/insight-1")
 
             assert response.status_code == 200
@@ -327,17 +250,7 @@ class TestGetInsight:
         """Should return 404 when insight not found."""
         mock_insight_repo.get_by_id = AsyncMock(return_value=None)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.get("/api/v1/insights/nonexistent")
 
             assert response.status_code == 404
@@ -353,17 +266,7 @@ class TestCreateInsight:
     ):
         """Should create a new insight."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.post(
                 "/api/v1/insights",
                 json={
@@ -395,17 +298,7 @@ class TestReviewInsight:
         mock_insight.status = InsightStatus.REVIEWED
         mock_insight.reviewed_at = datetime.now(UTC)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.post(
                 "/api/v1/insights/insight-1/review",
                 json={"notes": "Reviewed"},
@@ -421,17 +314,7 @@ class TestReviewInsight:
         """Should return 404 when insight not found."""
         mock_insight_repo.mark_reviewed = AsyncMock(return_value=None)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.post(
                 "/api/v1/insights/nonexistent/review",
                 json={"notes": "Reviewed"},
@@ -451,17 +334,7 @@ class TestActionInsight:
         mock_insight.status = InsightStatus.ACTIONED
         mock_insight.actioned_at = datetime.now(UTC)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.post(
                 "/api/v1/insights/insight-1/action",
                 json={"action_taken": "Implemented"},
@@ -477,17 +350,7 @@ class TestActionInsight:
         """Should return 404 when insight not found."""
         mock_insight_repo.mark_actioned = AsyncMock(return_value=None)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.post(
                 "/api/v1/insights/nonexistent/action",
                 json={"action_taken": "Implemented"},
@@ -506,17 +369,7 @@ class TestDismissInsight:
         """Should dismiss an insight."""
         mock_insight.status = InsightStatus.DISMISSED
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.post(
                 "/api/v1/insights/insight-1/dismiss",
                 json={"reason": "Not relevant"},
@@ -534,17 +387,7 @@ class TestDismissInsight:
         """Should return 404 when insight not found."""
         mock_insight_repo.dismiss = AsyncMock(return_value=None)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.post(
                 "/api/v1/insights/nonexistent/dismiss",
                 json={"reason": "Not relevant"},
@@ -560,17 +403,7 @@ class TestDeleteInsight:
     async def test_delete_insight_success(self, insights_client, mock_insight_repo, mock_session):
         """Should delete an insight."""
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.delete("/api/v1/insights/insight-1")
 
             assert response.status_code == 204
@@ -581,17 +414,7 @@ class TestDeleteInsight:
         """Should return 404 when insight not found."""
         mock_insight_repo.delete = AsyncMock(return_value=False)
 
-        @asynccontextmanager
-        async def _mock_get_session():
-            yield mock_session
-
-        def _get_session_factory():
-            return _mock_get_session()
-
-        with (
-            patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
-            patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
-        ):
+        with patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo):
             response = await insights_client.delete("/api/v1/insights/nonexistent")
 
             assert response.status_code == 404

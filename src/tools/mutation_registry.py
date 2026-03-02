@@ -16,6 +16,7 @@ approval.  Any unlisted tool is treated as mutating.
 from __future__ import annotations
 
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +73,56 @@ def register_read_only_tool(tool_name: str) -> None:
     global READ_ONLY_TOOLS
     READ_ONLY_TOOLS = READ_ONLY_TOOLS | frozenset({tool_name})
     logger.info("Registered read-only tool: %s", tool_name)
+
+
+# ---------------------------------------------------------------------------
+# DB-backed read-only set with TTL cache (Feature 34)
+# ---------------------------------------------------------------------------
+
+_cached_db_read_only: frozenset[str] | None = None
+_cached_db_read_only_at: float = 0.0
+_DB_CACHE_TTL = 60.0
+
+
+async def build_read_only_set_from_db() -> frozenset[str]:
+    """Load the read-only tool set from DB-backed tool groups.
+
+    Results are cached for ``_DB_CACHE_TTL`` seconds.  On any DB
+    failure the hardcoded ``READ_ONLY_TOOLS`` set is returned as a
+    safe fallback.
+    """
+    global _cached_db_read_only, _cached_db_read_only_at
+
+    now = time.monotonic()
+    if _cached_db_read_only is not None and (now - _cached_db_read_only_at) < _DB_CACHE_TTL:
+        return _cached_db_read_only
+
+    try:
+        from src.dal.tool_groups import ToolGroupRepository
+        from src.storage import get_session
+
+        async with get_session() as session:
+            groups = await ToolGroupRepository(session).list_all()
+
+        read_only: set[str] = set()
+        for group in groups:
+            if group.is_read_only:
+                read_only.update(group.tool_names or [])
+
+        result = frozenset(read_only)
+        _cached_db_read_only = result
+        _cached_db_read_only_at = now
+        return result
+    except Exception:
+        logger.warning("Failed to load read-only tools from DB, using hardcoded fallback")
+        return READ_ONLY_TOOLS
+
+
+async def is_mutating_tool_async(tool_name: str) -> bool:
+    """Async mutation check using the DB-backed read-only set.
+
+    Falls back to the hardcoded ``READ_ONLY_TOOLS`` if the DB is
+    unavailable (handled inside ``build_read_only_set_from_db``).
+    """
+    read_only = await build_read_only_set_from_db()
+    return tool_name not in read_only

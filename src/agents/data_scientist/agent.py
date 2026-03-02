@@ -365,7 +365,7 @@ class DataScientistAgent(BaseAgent):
             for insight in insights:
                 normalized.append(
                     {
-                        "type": insight.get("type", "custom"),
+                        "type": str(insight.get("type", "custom")).lower(),
                         "title": insight.get("title", "Untitled Insight"),
                         "description": insight.get("description", ""),
                         "confidence": min(1.0, max(0.0, float(insight.get("confidence", 0.5)))),
@@ -432,8 +432,10 @@ class DataScientistAgent(BaseAgent):
         insight_ids = []
 
         for insight_data in insights:
-            # Map string type to InsightType enum
-            type_str = insight_data.get("type", "custom")
+            # Map string type to InsightType enum.
+            # LLM scripts may output uppercase names (BEHAVIORAL_PATTERN)
+            # instead of lowercase values (behavioral_pattern).
+            type_str = str(insight_data.get("type", "custom")).lower()
             try:
                 insight_type = InsightType(type_str)
             except ValueError:

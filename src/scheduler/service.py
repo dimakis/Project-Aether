@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import time
 
+import mlflow
+
 from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -167,6 +169,11 @@ class SchedulerService:
 
         Uses an IntervalTrigger so the first run happens after one interval,
         and subsequent runs repeat at the configured frequency.
+
+        When the real-time event stream (Feature 35) is active, entity states
+        are kept current via WebSocket push.  The polling sync then only needs
+        to catch structural changes (new/removed entities), so we widen the
+        interval to 360 min (6 h) to reduce redundant DB churn.
         """
         if self._scheduler is None or IntervalTrigger is None:
             return
@@ -176,6 +183,28 @@ class SchedulerService:
             return
 
         interval = getattr(settings, "discovery_sync_interval_minutes", 30)
+
+        # When the event stream (Feature 35) is active, entity state updates
+        # arrive in real-time via WebSocket push. The polling sync only needs
+        # to catch structural changes (new/removed entities), so we widen the
+        # interval to 6 h to reduce redundant DB churn.
+        event_stream_available = False
+        try:
+            import importlib.util
+
+            event_stream_available = importlib.util.find_spec("src.ha.event_stream") is not None
+        except (ImportError, ValueError):
+            pass
+
+        if event_stream_available:
+            event_stream_interval = 360  # 6 hours in minutes
+            if interval < event_stream_interval:
+                logger.info(
+                    "Event stream active — widening discovery sync from %d to %d minutes",
+                    interval,
+                    event_stream_interval,
+                )
+                interval = event_stream_interval
 
         self._scheduler.add_job(
             _execute_discovery_sync,
@@ -256,6 +285,7 @@ class SchedulerService:
                 logger.info("Removed stale schedule job %s", job.id)
 
 
+@mlflow.trace(name="scheduled_analysis", span_type="CHAIN")
 async def _execute_scheduled_analysis(schedule_id: str) -> None:
     """Execute a scheduled insight analysis job.
 
@@ -276,6 +306,17 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
         if not schedule or not schedule.enabled:
             logger.warning("Schedule %s not found or disabled, skipping", schedule_id)
             return
+
+        from contextlib import suppress
+
+        with suppress(Exception):
+            mlflow.update_current_trace(
+                tags={
+                    "workflow": "scheduled_analysis",
+                    "schedule_id": schedule_id,
+                    "trigger": "cron",
+                }
+            )
 
         job_id = f"schedule:{schedule_id}:{int(time.time())}"
         emit_job_start(job_id, "schedule", schedule.name)
@@ -303,6 +344,24 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
                 schedule.run_count,
             )
             emit_job_complete(job_id)
+
+            # Feature 37: notify user of actionable insights from this run
+            try:
+                from src.dal.insights import InsightRepository
+                from src.hitl.insight_notifier import InsightNotifier
+
+                notifier = await InsightNotifier.from_settings()
+                insight_repo = InsightRepository(session)
+                recent_insights = await insight_repo.list_recent(hours=1)
+                sent = await notifier.notify_if_actionable(recent_insights)
+                if sent:
+                    logger.info(
+                        "Sent %d insight notification(s) for schedule %s", sent, schedule.name
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Insight notification failed for schedule %s: %s", schedule.name, exc
+                )
         except Exception as e:
             schedule.record_run(success=False, error=str(e))
             logger.exception(

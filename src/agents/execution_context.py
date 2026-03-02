@@ -188,13 +188,29 @@ def emit_delegation(from_agent: str, to_agent: str, content: str) -> None:
     """Emit a delegation event capturing an inter-agent message.
 
     Convenience wrapper around :func:`emit_progress` for delegation events.
+    When MLflow tracing is active, creates a short span for the delegation
+    boundary so the trace tree shows inter-agent handoffs.
 
     Args:
         from_agent: Sending agent role identifier.
         to_agent: Receiving agent role identifier.
         content: The message content being delegated.
     """
-    emit_progress("delegation", from_agent, content, target=to_agent)
+    try:
+        import mlflow
+
+        with mlflow.start_span(
+            name=f"delegation:{from_agent}->{to_agent}",
+            span_type="CHAIN",
+            attributes={
+                "from_agent": from_agent,
+                "to_agent": to_agent,
+                "content_preview": (content[:500] + "...") if len(content) > 500 else content,
+            },
+        ):
+            emit_progress("delegation", from_agent, content, target=to_agent)
+    except Exception:
+        emit_progress("delegation", from_agent, content, target=to_agent)
 
 
 def emit_communication(

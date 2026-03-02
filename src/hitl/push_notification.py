@@ -143,6 +143,94 @@ async def send_approval_notification(
         }
 
 
+async def send_insight_notification(
+    title: str,
+    message: str,
+    insight_id: str | None = None,
+) -> dict[str, Any]:
+    """Send a push notification for an actionable insight.
+
+    Args:
+        title: Notification title.
+        message: Notification body text.
+        insight_id: UUID of the specific insight (None for batch summary).
+
+    Returns:
+        Dict with ``success``, ``service``, and ``error`` (if any).
+    """
+    configured_service, channel = await _get_hitl_settings()
+
+    if channel == "ui_only":
+        return {
+            "success": False,
+            "service": configured_service,
+            "skipped": True,
+            "reason": "ui_only channel",
+        }
+
+    actions: list[dict[str, str]] = []
+    if insight_id:
+        actions.append({"action": f"INVESTIGATE_{insight_id}", "title": "Investigate"})
+        actions.append({"action": f"DISMISS_{insight_id}", "title": "Dismiss"})
+    else:
+        actions.append({"action": "VIEW_INSIGHTS", "title": "Review All"})
+
+    tag = f"aether-insight-{insight_id[:8]}" if insight_id else "aether-insights"
+
+    try:
+        from src.ha import get_ha_client
+
+        ha = get_ha_client()
+        parts = configured_service.split(".", 1)
+        if len(parts) != 2:
+            return {
+                "success": False,
+                "service": configured_service,
+                "error": f"Invalid service format: {configured_service}",
+            }
+
+        domain, svc_name = parts
+        service_data: dict[str, Any] = {
+            "message": message,
+            "title": f"Aether: {title}",
+            "data": {
+                "actions": actions,
+                "push": {
+                    "sound": "default",
+                    "interruption-level": "active",
+                },
+                "tag": tag,
+            },
+        }
+
+        result = await ha.call_service(domain, svc_name, service_data)
+
+        failed = isinstance(result, dict) and "error" in result
+        if not failed:
+            logger.info(
+                "Insight notification sent via %s (insight=%s)",
+                configured_service,
+                insight_id or "batch",
+            )
+            return {"success": True, "service": configured_service, "result": result}
+
+        logger.warning("Insight notification failed: %s", result)
+        return {
+            "success": False,
+            "service": configured_service,
+            "error": result.get("error"),
+            "result": result,
+        }
+
+    except Exception:
+        logger.exception("Failed to send insight notification via %s", configured_service)
+        return {
+            "success": False,
+            "service": configured_service,
+            "error": f"Failed to send insight notification via {configured_service}; see server logs.",
+        }
+
+
 async def send_test_notification(
     notify_service: str,
     message: str = "This is a test notification from Aether.",

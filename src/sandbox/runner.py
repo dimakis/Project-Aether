@@ -18,8 +18,13 @@ from pydantic import BaseModel, Field
 
 from src.sandbox.policies import SandboxPolicy, get_default_policy
 from src.settings import get_settings
+from src.tracing.mlflow_spans import get_active_span, trace_with_uri
 
 logger = logging.getLogger(__name__)
+
+# Truncation limits for span attributes (FR-007)
+_STDOUT_ATTR_MAX = 4096  # 4KB
+_STDERR_ATTR_MAX = 2048  # 2KB
 
 
 class SandboxResult(BaseModel):
@@ -49,6 +54,30 @@ class SandboxResult(BaseModel):
         default=0,
         description="Number of artifact files rejected by egress policy",
     )
+
+
+def _set_sandbox_span_attributes(result: SandboxResult) -> None:
+    """Set MLflow span attributes for sandbox execution (exit_code, policy, duration, etc.)."""
+    span = get_active_span()
+    if span is None or not hasattr(span, "set_attribute"):
+        return
+    try:
+        span.set_attribute("exit_code", result.exit_code)
+        span.set_attribute("sandbox.policy", result.policy_name)
+        span.set_attribute("sandbox.duration_s", result.duration_seconds)
+        span.set_attribute("sandbox.timed_out", result.timed_out)
+        span.set_attribute("sandbox.artifact_count", len(result.artifacts))
+        span.set_attribute("sandbox.artifacts_rejected", result.artifacts_rejected)
+        if len(result.stdout) > _STDOUT_ATTR_MAX:
+            span.set_attribute("stdout_preview", result.stdout[:_STDOUT_ATTR_MAX] + "...")
+        else:
+            span.set_attribute("stdout_preview", result.stdout)
+        if len(result.stderr) > _STDERR_ATTR_MAX:
+            span.set_attribute("stderr_preview", result.stderr[:_STDERR_ATTR_MAX] + "...")
+        else:
+            span.set_attribute("stderr_preview", result.stderr)
+    except Exception as e:
+        logger.debug("Failed to set sandbox span attributes: %s", e)
 
 
 class SandboxRunner:
@@ -94,6 +123,7 @@ class SandboxRunner:
         self._gvisor_available: bool | None = None  # Cached check result
         self._build_attempted: bool = False  # Only attempt auto-build once per process
 
+    @trace_with_uri(name="sandbox.execute", span_type="TOOL")
     async def run(
         self,
         script: str,
@@ -138,10 +168,10 @@ class SandboxRunner:
             policy_enabled=policy.artifacts_enabled,
         )
 
-        # Create temp output dir for artifacts (only when both gates are True)
-        output_dir: Path | None = None
-        if artifacts_active:
-            output_dir = Path(tempfile.mkdtemp(prefix="aether-artifacts-"))
+        # Always create an output dir so LLM-generated scripts that write to
+        # /workspace/output don't crash on the read-only root filesystem.
+        # Artifacts are only collected when both gates are True.
+        output_dir = Path(tempfile.mkdtemp(prefix="aether-artifacts-"))
 
         # Create temp file for the script
         with tempfile.NamedTemporaryFile(
@@ -189,7 +219,7 @@ class SandboxRunner:
 
             except FileNotFoundError:
                 # Podman not installed
-                return SandboxResult(
+                r = SandboxResult(
                     success=False,
                     exit_code=-1,
                     stderr=f"Podman not found at '{self.podman_path}'. "
@@ -199,9 +229,11 @@ class SandboxRunner:
                     started_at=started_at,
                     completed_at=datetime.now(UTC),
                 )
+                _set_sandbox_span_attributes(r)
+                return r
 
             except Exception as e:
-                return SandboxResult(
+                r = SandboxResult(
                     success=False,
                     exit_code=-1,
                     stderr=f"Sandbox error: {e!s}",
@@ -210,6 +242,8 @@ class SandboxRunner:
                     started_at=started_at,
                     completed_at=datetime.now(UTC),
                 )
+                _set_sandbox_span_attributes(r)
+                return r
 
             duration = asyncio.get_event_loop().time() - start_time
             completed_at = datetime.now(UTC)
@@ -217,12 +251,12 @@ class SandboxRunner:
             # Collect and validate artifacts from the output directory
             artifacts_list: list[Any] = []
             artifacts_rejected = 0
-            if output_dir is not None and output_dir.exists():
+            if artifacts_active and output_dir.exists():
                 from src.sandbox.artifact_validator import validate_artifacts
 
                 artifacts_list, artifacts_rejected = validate_artifacts(output_dir)
 
-            return SandboxResult(
+            result = SandboxResult(
                 success=exit_code == 0 and not timed_out,
                 exit_code=exit_code,
                 stdout=stdout,
@@ -235,6 +269,8 @@ class SandboxRunner:
                 artifacts=artifacts_list,
                 artifacts_rejected=artifacts_rejected,
             )
+            _set_sandbox_span_attributes(result)
+            return result
 
         finally:
             # Cleanup temp file
@@ -351,11 +387,13 @@ class SandboxRunner:
                     f"{output_dir}:/workspace/output:rw",
                 ]
             )
+            cmd.extend(["--env", "OUTDIR=/workspace/output"])
 
         # Suppress Python deprecation warnings so they don't pollute stdout.
         # The DS Team agent parses JSON from stdout; stray warnings
         # (e.g. pandas pyarrow DeprecationWarning) break extraction.
         cmd.extend(["--env", "PYTHONWARNINGS=ignore::DeprecationWarning"])
+        cmd.extend(["--env", "MPLCONFIGDIR=/tmp"])
 
         # Environment variables
         if environment:
@@ -517,7 +555,7 @@ class SandboxRunner:
 
             duration = asyncio.get_event_loop().time() - start_time
 
-            return SandboxResult(
+            result = SandboxResult(
                 success=process.returncode == 0 and not timed_out,
                 exit_code=process.returncode or 0,
                 stdout=stdout_bytes.decode("utf-8", errors="replace"),
@@ -528,6 +566,8 @@ class SandboxRunner:
                 started_at=started_at,
                 completed_at=datetime.now(UTC),
             )
+            _set_sandbox_span_attributes(result)
+            return result
 
         finally:
             script_path.unlink(missing_ok=True)

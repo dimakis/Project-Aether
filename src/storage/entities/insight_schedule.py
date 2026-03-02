@@ -21,6 +21,7 @@ class TriggerType(str, enum.Enum):
 
     CRON = "cron"  # Periodic via APScheduler cron expression
     WEBHOOK = "webhook"  # On-demand via HA webhook event
+    EVENT = "event"  # Triggered by real-time HA event stream (Feature 35)
 
 
 class InsightSchedule(Base):
