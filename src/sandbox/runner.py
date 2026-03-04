@@ -357,6 +357,9 @@ class SandboxRunner:
         # (e.g. pandas pyarrow DeprecationWarning) break extraction.
         cmd.extend(["--env", "PYTHONWARNINGS=ignore::DeprecationWarning"])
 
+        # Matplotlib needs a writable config dir; the sandbox has no home dir.
+        cmd.extend(["--env", "MPLCONFIGDIR=/tmp/matplotlib"])
+
         # Environment variables
         if environment:
             for key, value in environment.items():
