@@ -461,7 +461,7 @@ class DataScientistAgent(BaseAgent):
                 evidence=cast("dict[str, Any]", insight_data.get("evidence", {})),
                 confidence=cast("float", insight_data.get("confidence", 0.5)),
                 impact=cast("str", insight_data.get("impact", "medium")),
-                entities=_filter_valid_uuids(insight_data.get("entities", [])),
+                entities=_filter_valid_uuids(cast("list[object]", insight_data.get("entities", []))),
                 script_path=None,  # Could store in MLflow artifacts
                 script_output={"stdout": cast("str", insight_data.get("raw_output", ""))[:1000]},
                 mlflow_run_id=state.mlflow_run_id,
