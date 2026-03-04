@@ -21,9 +21,9 @@ class InsightType(str, enum.Enum):
     """Types of insights the Data Science team can generate."""
 
     ENERGY_OPTIMIZATION = "energy_optimization"
-    ANOMALY_DETECTION = "anomaly_detection"
-    USAGE_PATTERN = "usage_pattern"
-    COST_SAVING = "cost_saving"
+    ANOMALY_DETECTION = "anomaly"
+    USAGE_PATTERN = "pattern"
+    COST_SAVING = "recommendation"
     MAINTENANCE_PREDICTION = "maintenance_prediction"
     # Feature 03: Intelligent Optimization
     AUTOMATION_GAP = "automation_gap"
@@ -51,9 +51,9 @@ class InsightImpact(str, enum.Enum):
 class InsightStatus(str, enum.Enum):
     """Status of an insight through its lifecycle."""
 
-    PENDING = "pending"  # Just generated, awaiting review
+    PENDING = "generated"  # Just generated, awaiting review
     REVIEWED = "reviewed"  # User has seen it
-    ACTIONED = "actioned"  # User took action based on it
+    ACTIONED = "acted_upon"  # User took action based on it
     DISMISSED = "dismissed"  # User dismissed it
 
 
