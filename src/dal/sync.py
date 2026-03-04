@@ -28,6 +28,7 @@ def _strip_null_bytes(obj: Any) -> Any:
         return [_strip_null_bytes(item) for item in obj]
     return obj
 
+
 from src.dal.areas import AreaRepository
 from src.dal.automations import AutomationRepository, SceneRepository, ScriptRepository
 from src.dal.devices import DeviceRepository
