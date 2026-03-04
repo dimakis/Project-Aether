@@ -32,11 +32,11 @@ class TestInsightEnums:
     """Tests for insight enums."""
 
     def test_insight_type_values(self):
-        """Test all insight types exist."""
+        """Test all insight types exist with DB-aligned values."""
         assert InsightType.ENERGY_OPTIMIZATION == "energy_optimization"
-        assert InsightType.ANOMALY_DETECTION == "anomaly_detection"
-        assert InsightType.USAGE_PATTERN == "usage_pattern"
-        assert InsightType.COST_SAVING == "cost_saving"
+        assert InsightType.ANOMALY_DETECTION == "anomaly"
+        assert InsightType.USAGE_PATTERN == "pattern"
+        assert InsightType.COST_SAVING == "recommendation"
         assert InsightType.MAINTENANCE_PREDICTION == "maintenance_prediction"
         assert InsightType.AUTOMATION_GAP == "automation_gap"
         assert InsightType.AUTOMATION_INEFFICIENCY == "automation_inefficiency"
@@ -62,10 +62,10 @@ class TestInsightEnums:
         )
 
     def test_insight_status_values(self):
-        """Test all insight statuses exist."""
-        assert InsightStatus.PENDING == "pending"
+        """Test all insight statuses exist with DB-aligned values."""
+        assert InsightStatus.PENDING == "generated"
         assert InsightStatus.REVIEWED == "reviewed"
-        assert InsightStatus.ACTIONED == "actioned"
+        assert InsightStatus.ACTIONED == "acted_upon"
         assert InsightStatus.DISMISSED == "dismissed"
 
 
