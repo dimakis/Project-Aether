@@ -1,5 +1,7 @@
 """Discovery sync service for orchestrating HA synchronization."""
 
+from __future__ import annotations
+
 import logging
 import time
 from datetime import UTC, datetime
@@ -7,6 +9,22 @@ from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_null_bytes(obj: Any) -> Any:
+    """Recursively strip \\u0000 null bytes from strings in a JSON-compatible structure.
+
+    PostgreSQL JSONB columns reject null bytes, but some HA integrations
+    (e.g. Hyundai/Kia vehicle data) embed them in attribute values.
+    """
+    if isinstance(obj, str):
+        return obj.replace("\x00", "")
+    if isinstance(obj, dict):
+        return {k: _strip_null_bytes(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_strip_null_bytes(item) for item in obj]
+    return obj
+
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -280,7 +298,9 @@ class DiscoverySyncService:
                     "domain": entity.domain,
                     "name": entity.name,
                     "state": entity.state,
-                    "attributes": entity.attributes,
+                    "attributes": _strip_null_bytes(entity.attributes)
+                    if entity.attributes
+                    else entity.attributes,
                     "area_id": internal_area_id,
                     "device_id": internal_device_id,
                     "device_class": metadata.get("device_class"),
@@ -471,12 +491,13 @@ class DiscoverySyncService:
             if getattr(entity, "device_id", None):
                 internal_device_id = device_id_mapping.get(entity.device_id)
 
+            raw_attrs = getattr(entity, "attributes", None)
             entity_data = {
                 "entity_id": entity.entity_id,
                 "domain": entity.domain,
                 "name": entity.name,
                 "state": entity.state,
-                "attributes": getattr(entity, "attributes", None),
+                "attributes": _strip_null_bytes(raw_attrs) if raw_attrs else raw_attrs,
                 "area_id": internal_area_id,
                 "device_id": internal_device_id,
                 "device_class": metadata.get("device_class"),
