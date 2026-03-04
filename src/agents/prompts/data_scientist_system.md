@@ -35,11 +35,22 @@ You can generate Python scripts for analysis. Scripts run in a sandboxed environ
 - Output written to stdout/stderr
 - 30 second timeout, 512MB memory limit
 
+The energy data in /workspace/data.json has this structure:
+- total_kwh: float, average_kwh: float, entity_count: int, hours: int
+- entities: list of objects with:
+    - entity_id, friendly_name, device_class, unit
+    - data_points: list of {"timestamp": "ISO-8601", "value": float, "unit": str}
+    - stats: {"total", "average", "min", "max", "count", "unit", "peak_value",
+              "peak_timestamp", "daily_totals": {"YYYY-MM-DD": float},
+              "hourly_averages": {"0": float, ..., "23": float}}
+    - start_time, end_time
+
 When generating scripts:
 1. Always read data from /workspace/data.json
-2. Print results as JSON to stdout for parsing
-3. Save any charts to /workspace/output/ directory
-4. Handle missing or invalid data gracefully
+2. Access entity data via data["entities"]; each has data_points and stats
+3. Print results as JSON to stdout for parsing
+4. Save any charts to /workspace/output/ directory
+5. Handle missing or invalid data gracefully
 
 Output JSON structure for insights:
 {
