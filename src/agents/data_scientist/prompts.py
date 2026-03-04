@@ -70,7 +70,9 @@ Data structure (available in /workspace/data.json):
         )
 
     elif state.analysis_type == AnalysisType.ANOMALY_DETECTION:
-        prompt = energy_context + """
+        prompt = (
+            energy_context
+            + """
 Please analyze this energy data and generate a Python script that:
 1. Establishes baseline consumption patterns
 2. Detects anomalies using statistical methods (z-score, IQR)
@@ -79,9 +81,12 @@ Please analyze this energy data and generate a Python script that:
 
 Output insights as JSON to stdout with type="anomaly_detection".
 """
+        )
 
     elif state.analysis_type == AnalysisType.USAGE_PATTERNS:
-        prompt = energy_context + """
+        prompt = (
+            energy_context
+            + """
 Please analyze this energy data and generate a Python script that:
 1. Identifies daily usage patterns (morning, afternoon, evening, night)
 2. Compares weekday vs weekend consumption
@@ -90,6 +95,7 @@ Please analyze this energy data and generate a Python script that:
 
 Output insights as JSON to stdout with type="usage_pattern".
 """
+        )
 
     elif state.analysis_type == AnalysisType.BEHAVIOR_ANALYSIS:
         prompt = f"""

@@ -127,8 +127,6 @@ async def trigger_evaluation(
     nightly via the scheduler.
     """
     try:
-        import os
-
         import mlflow
         import mlflow.genai
 
@@ -144,9 +142,6 @@ async def trigger_evaluation(
         scorers = get_all_scorers()
         if not scorers:
             raise HTTPException(status_code=503, detail="No scorers available")
-
-        # Increase MLflow HTTP timeout for batchGet (default 3s is too low)
-        os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "30")
 
         # Resolve experiment name → ID (search_traces requires IDs)
         experiment = mlflow.get_experiment_by_name(settings.mlflow_experiment_name)

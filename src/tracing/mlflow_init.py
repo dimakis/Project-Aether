@@ -11,7 +11,7 @@ from __future__ import annotations
 # the CLI if the server is unreachable or returns errors.
 import os
 
-os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "3")
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "30")
 os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
 # Disable async trace logging to get immediate feedback on failures
 os.environ.setdefault("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
