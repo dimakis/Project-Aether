@@ -65,7 +65,7 @@ class EnergyStats:
             "peak_value": self.peak_value,
             "peak_timestamp": self.peak_timestamp.isoformat() if self.peak_timestamp else None,
             "daily_totals": self.daily_totals,
-            "hourly_averages": self.hourly_averages,
+            "hourly_averages": {str(k): v for k, v in self.hourly_averages.items()},
         }
 
 

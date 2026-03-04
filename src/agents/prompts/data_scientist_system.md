@@ -46,11 +46,13 @@ The energy data in /workspace/data.json has this structure:
     - start_time, end_time
 
 When generating scripts:
-1. Always read data from /workspace/data.json
-2. Access entity data via data["entities"]; each has data_points and stats
-3. Print results as JSON to stdout for parsing
-4. Save any charts to /workspace/output/ directory
-5. Handle missing or invalid data gracefully
+1. Load data with `json.load()` — it returns plain Python dicts and lists, NOT pandas DataFrames
+2. Access entity data via `data["entities"]`; each entity is a dict with `data_points` and `stats` keys
+3. Access hourly averages as `entity["stats"]["hourly_averages"]["0"]` through `"23"` (string keys, always all 24 hours)
+4. Only convert to pandas if you explicitly need DataFrame operations; prefer plain dict/list iteration
+5. Print results as JSON to stdout for parsing
+6. Save any charts to /workspace/output/ directory
+7. Handle missing or invalid data gracefully with `.get()` defaults
 
 Output JSON structure for insights:
 {
