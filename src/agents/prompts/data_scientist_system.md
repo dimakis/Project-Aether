@@ -35,11 +35,24 @@ You can generate Python scripts for analysis. Scripts run in a sandboxed environ
 - Output written to stdout/stderr
 - 30 second timeout, 512MB memory limit
 
+The energy data in /workspace/data.json has this structure:
+- total_kwh: float, average_kwh: float, entity_count: int, hours: int
+- entities: list of objects with:
+    - entity_id, friendly_name, device_class, unit
+    - data_points: list of {"timestamp": "ISO-8601", "value": float, "unit": str}
+    - stats: {"total", "average", "min", "max", "count", "unit", "peak_value",
+              "peak_timestamp", "daily_totals": {"YYYY-MM-DD": float},
+              "hourly_averages": {"0": float, ..., "23": float}}
+    - start_time, end_time
+
 When generating scripts:
-1. Always read data from /workspace/data.json
-2. Print results as JSON to stdout for parsing
-3. Save any charts to /workspace/output/ directory
-4. Handle missing or invalid data gracefully
+1. Load data with `json.load()` — it returns plain Python dicts and lists, NOT pandas DataFrames
+2. Access entity data via `data["entities"]`; each entity is a dict with `data_points` and `stats` keys
+3. Access hourly averages as `entity["stats"]["hourly_averages"]["0"]` through `"23"` (string keys, always all 24 hours)
+4. Only convert to pandas if you explicitly need DataFrame operations; prefer plain dict/list iteration
+5. Print results as JSON to stdout for parsing
+6. Save any charts to /workspace/output/ directory
+7. Handle missing or invalid data gracefully with `.get()` defaults
 
 Output JSON structure for insights:
 {

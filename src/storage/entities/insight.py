@@ -10,7 +10,8 @@ import enum
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, func
+from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.storage.models import Base
@@ -20,9 +21,9 @@ class InsightType(str, enum.Enum):
     """Types of insights the Data Science team can generate."""
 
     ENERGY_OPTIMIZATION = "energy_optimization"
-    ANOMALY_DETECTION = "anomaly_detection"
-    USAGE_PATTERN = "usage_pattern"
-    COST_SAVING = "cost_saving"
+    ANOMALY_DETECTION = "anomaly"
+    USAGE_PATTERN = "pattern"
+    COST_SAVING = "recommendation"
     MAINTENANCE_PREDICTION = "maintenance_prediction"
     # Feature 03: Intelligent Optimization
     AUTOMATION_GAP = "automation_gap"
@@ -38,12 +39,21 @@ class InsightType(str, enum.Enum):
     CUSTOM = "custom"
 
 
+class InsightImpact(str, enum.Enum):
+    """Impact level of an insight."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
 class InsightStatus(str, enum.Enum):
     """Status of an insight through its lifecycle."""
 
-    PENDING = "pending"  # Just generated, awaiting review
+    PENDING = "generated"  # Just generated, awaiting review
     REVIEWED = "reviewed"  # User has seen it
-    ACTIONED = "actioned"  # User took action based on it
+    ACTIONED = "acted_upon"  # User took action based on it
     DISMISSED = "dismissed"  # User dismissed it
 
 
@@ -56,11 +66,16 @@ class Insight(Base):
 
     __tablename__ = "insights"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
 
     # Insight classification
     type: Mapped[InsightType] = mapped_column(
-        Enum(InsightType),
+        Enum(
+            InsightType,
+            name="insighttype",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         index=True,
     )
@@ -81,15 +96,20 @@ class Insight(Base):
         nullable=False,
         doc="Confidence score 0.0-1.0",
     )
-    impact: Mapped[str] = mapped_column(
-        String(50),
+    impact: Mapped[InsightImpact] = mapped_column(
+        Enum(
+            InsightImpact,
+            name="insightimpact",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         doc="Impact level: low, medium, high, critical",
     )
 
     # Related entities
     entities: Mapped[list[str]] = mapped_column(
-        JSON,
+        ARRAY(Uuid(as_uuid=False)),
         nullable=False,
         default=list,
         doc="Entity IDs related to this insight",
@@ -109,7 +129,12 @@ class Insight(Base):
 
     # Status tracking
     status: Mapped[InsightStatus] = mapped_column(
-        Enum(InsightStatus),
+        Enum(
+            InsightStatus,
+            name="insightstatus",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=InsightStatus.PENDING,
         index=True,

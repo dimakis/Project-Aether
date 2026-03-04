@@ -65,7 +65,7 @@ class EnergyStats:
             "peak_value": self.peak_value,
             "peak_timestamp": self.peak_timestamp.isoformat() if self.peak_timestamp else None,
             "daily_totals": self.daily_totals,
-            "hourly_averages": self.hourly_averages,
+            "hourly_averages": {str(k): v for k, v in self.hourly_averages.items()},
         }
 
 
@@ -442,7 +442,10 @@ class EnergyHistoryClient:
                 hourly_sums[hour] = []
             hourly_sums[hour].append(dp.value)
 
-        hourly_averages = {hour: sum(vals) / len(vals) for hour, vals in hourly_sums.items()}
+        hourly_averages = {
+            hour: sum(hourly_sums[hour]) / len(hourly_sums[hour]) if hour in hourly_sums else 0.0
+            for hour in range(24)
+        }
 
         return EnergyStats(
             total=total,

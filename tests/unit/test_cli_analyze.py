@@ -217,7 +217,7 @@ class TestInsights:
             mock_get_session.return_value.__aenter__.return_value = mock_session
             mock_repo_class.return_value = mock_insight_repo
 
-            result = runner.invoke(app, ["insights", "--status", "pending"])
+            result = runner.invoke(app, ["insights", "--status", "generated"])
 
             assert result.exit_code == 0
             mock_insight_repo.list_by_status.assert_called_once()

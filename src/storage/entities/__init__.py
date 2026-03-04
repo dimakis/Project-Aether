@@ -33,7 +33,7 @@ from src.storage.entities.ha_entity import HAEntity
 from src.storage.entities.ha_zone import HAZone
 
 # Insights (User Story 3)
-from src.storage.entities.insight import Insight, InsightStatus, InsightType
+from src.storage.entities.insight import Insight, InsightImpact, InsightStatus, InsightType
 
 # Insight Schedules (Feature 10)
 from src.storage.entities.insight_schedule import InsightSchedule, TriggerType
@@ -75,6 +75,7 @@ __all__ = [
     "HAEntity",
     "HAZone",
     "Insight",
+    "InsightImpact",
     "InsightSchedule",
     "InsightStatus",
     "InsightType",

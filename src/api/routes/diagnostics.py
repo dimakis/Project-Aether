@@ -169,6 +169,7 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
             experiment_ids=[experiment.experiment_id],
             max_results=limit,
             order_by=["timestamp_ms DESC"],
+            include_spans=False,
         )
 
         items = []

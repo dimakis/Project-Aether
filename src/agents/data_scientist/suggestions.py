@@ -29,7 +29,8 @@ def generate_automation_suggestion(
             title = insight.get("title", "Untitled")
             description = insight.get("description", "")
             entities = insight.get("entities", [])
-            evidence = insight.get("evidence", {})
+            raw_evidence = insight.get("evidence", {})
+            evidence = raw_evidence if isinstance(raw_evidence, dict) else {"items": raw_evidence}
 
             # Determine proposed trigger and action based on insight type
             proposed_trigger = ""
