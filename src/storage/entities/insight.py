@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.storage.models import Base
@@ -108,7 +109,7 @@ class Insight(Base):
 
     # Related entities
     entities: Mapped[list[str]] = mapped_column(
-        JSON,
+        ARRAY(Uuid(as_uuid=False)),
         nullable=False,
         default=list,
         doc="Entity IDs related to this insight",
