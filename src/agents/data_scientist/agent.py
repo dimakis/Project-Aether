@@ -18,6 +18,7 @@ import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from uuid import UUID
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
@@ -43,6 +44,20 @@ from src.tracing import log_metric, log_param
 from .constants import BEHAVIORAL_ANALYSIS_TYPES
 
 logger = logging.getLogger(__name__)
+
+
+def _filter_valid_uuids(values: list[object]) -> list[str]:
+    """Keep only valid UUID strings, discarding HA entity_ids and other non-UUIDs."""
+    result: list[str] = []
+    for v in values:
+        if not isinstance(v, str):
+            continue
+        try:
+            UUID(v)
+            result.append(v)
+        except ValueError:
+            pass
+    return result
 
 
 class DataScientistAgent(BaseAgent):
@@ -446,7 +461,7 @@ class DataScientistAgent(BaseAgent):
                 evidence=cast("dict[str, Any]", insight_data.get("evidence", {})),
                 confidence=cast("float", insight_data.get("confidence", 0.5)),
                 impact=cast("str", insight_data.get("impact", "medium")),
-                entities=cast("list[str]", insight_data.get("entities", [])),
+                entities=_filter_valid_uuids(insight_data.get("entities", [])),
                 script_path=None,  # Could store in MLflow artifacts
                 script_output={"stdout": cast("str", insight_data.get("raw_output", ""))[:1000]},
                 mlflow_run_id=state.mlflow_run_id,
