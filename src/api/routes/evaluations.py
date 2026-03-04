@@ -143,9 +143,13 @@ async def trigger_evaluation(
         if not scorers:
             raise HTTPException(status_code=503, detail="No scorers available")
 
-        # Search for recent traces
+        # Resolve experiment name → ID (search_traces requires IDs)
+        experiment = mlflow.get_experiment_by_name(settings.mlflow_experiment_name)
+        if experiment is None:
+            raise HTTPException(status_code=404, detail="MLflow experiment not found")
+
         trace_df = mlflow.search_traces(
-            experiment_names=[settings.mlflow_experiment_name],
+            experiment_ids=[experiment.experiment_id],
             max_results=max_traces,
         )
 
