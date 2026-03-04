@@ -38,6 +38,15 @@ class InsightType(str, enum.Enum):
     CUSTOM = "custom"
 
 
+class InsightImpact(str, enum.Enum):
+    """Impact level of an insight."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
 class InsightStatus(str, enum.Enum):
     """Status of an insight through its lifecycle."""
 
@@ -81,8 +90,8 @@ class Insight(Base):
         nullable=False,
         doc="Confidence score 0.0-1.0",
     )
-    impact: Mapped[str] = mapped_column(
-        String(50),
+    impact: Mapped[InsightImpact] = mapped_column(
+        Enum(InsightImpact, name="insightimpact", create_type=False),
         nullable=False,
         doc="Impact level: low, medium, high, critical",
     )
