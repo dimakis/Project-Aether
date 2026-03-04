@@ -94,6 +94,7 @@ async def list_jobs(
             experiment_ids=[experiment.experiment_id],
             max_results=limit,
             order_by=["timestamp_ms DESC"],
+            include_spans=False,
         )
 
         jobs = [_map_trace_to_job(t) for t in traces]
