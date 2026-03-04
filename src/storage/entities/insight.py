@@ -91,7 +91,12 @@ class Insight(Base):
         doc="Confidence score 0.0-1.0",
     )
     impact: Mapped[InsightImpact] = mapped_column(
-        Enum(InsightImpact, name="insightimpact", create_type=False),
+        Enum(
+            InsightImpact,
+            name="insightimpact",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         doc="Impact level: low, medium, high, critical",
     )
