@@ -10,7 +10,7 @@ import enum
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, func
+from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.storage.models import Base
@@ -65,11 +65,16 @@ class Insight(Base):
 
     __tablename__ = "insights"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
 
     # Insight classification
     type: Mapped[InsightType] = mapped_column(
-        Enum(InsightType),
+        Enum(
+            InsightType,
+            name="insighttype",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         index=True,
     )
@@ -123,7 +128,12 @@ class Insight(Base):
 
     # Status tracking
     status: Mapped[InsightStatus] = mapped_column(
-        Enum(InsightStatus),
+        Enum(
+            InsightStatus,
+            name="insightstatus",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=InsightStatus.PENDING,
         index=True,
