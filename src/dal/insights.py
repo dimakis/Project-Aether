@@ -412,9 +412,7 @@ class InsightRepository:
         Returns:
             Total count across all specified levels
         """
-        resolved = tuple(
-            InsightImpact(i) if isinstance(i, str) else i for i in impacts
-        )
+        resolved = tuple(InsightImpact(i) if isinstance(i, str) else i for i in impacts)
         query = select(func.count(Insight.id)).where(Insight.impact.in_(resolved))
         result = await self.session.execute(query)
         return result.scalar() or 0
