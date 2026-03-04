@@ -25,7 +25,7 @@ class TestServe:
         mock_settings.api_workers = 1
 
         with (
-            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("src.cli.commands.serve.get_settings", return_value=mock_settings),
             patch("uvicorn.run") as mock_uvicorn_run,
         ):
             result = runner.invoke(app, ["serve"])
@@ -48,7 +48,7 @@ class TestServe:
         mock_settings.api_workers = 1
 
         with (
-            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("src.cli.commands.serve.get_settings", return_value=mock_settings),
             patch("uvicorn.run") as mock_uvicorn_run,
         ):
             result = runner.invoke(app, ["serve", "--host", "127.0.0.1", "--port", "9000"])
@@ -71,7 +71,7 @@ class TestServe:
         mock_settings.api_workers = 4
 
         with (
-            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("src.cli.commands.serve.get_settings", return_value=mock_settings),
             patch("uvicorn.run") as mock_uvicorn_run,
         ):
             result = runner.invoke(app, ["serve", "--reload"])
@@ -95,7 +95,7 @@ class TestServe:
         mock_settings.api_workers = 1
 
         with (
-            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("src.cli.commands.serve.get_settings", return_value=mock_settings),
             patch("uvicorn.run") as mock_uvicorn_run,
         ):
             result = runner.invoke(app, ["serve", "--workers", "4"])
@@ -118,7 +118,7 @@ class TestServe:
         mock_settings.api_workers = 1
 
         with (
-            patch("src.settings.get_settings", return_value=mock_settings),
+            patch("src.cli.commands.serve.get_settings", return_value=mock_settings),
             patch("uvicorn.run") as mock_uvicorn_run,
         ):
             result = runner.invoke(

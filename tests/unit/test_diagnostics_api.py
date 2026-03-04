@@ -274,6 +274,7 @@ class TestRecentTraces:
             experiment_ids=["42"],
             max_results=50,
             order_by=["timestamp_ms DESC"],
+            include_spans=False,
         )
 
     async def test_returns_empty_when_experiment_not_found(self, client: AsyncClient):

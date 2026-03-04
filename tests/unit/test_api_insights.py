@@ -182,7 +182,7 @@ class TestListInsights:
             patch("src.api.routes.insights.get_session", side_effect=_get_session_factory),
             patch("src.api.routes.insights.InsightRepository", return_value=mock_insight_repo),
         ):
-            response = await insights_client.get("/api/v1/insights?status=pending")
+            response = await insights_client.get("/api/v1/insights?status=generated")
 
             assert response.status_code == 200
             mock_insight_repo.list_by_status.assert_called_once()
@@ -469,7 +469,7 @@ class TestActionInsight:
 
             assert response.status_code == 200
             data = response.json()
-            assert data["status"] == "actioned"
+            assert data["status"] == "acted_upon"
             mock_insight_repo.mark_actioned.assert_called_once_with("insight-1")
             mock_session.commit.assert_called_once()
 
