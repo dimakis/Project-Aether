@@ -13,7 +13,7 @@ from uuid import uuid4
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.storage.entities.insight import Insight, InsightStatus, InsightType
+from src.storage.entities.insight import Insight, InsightImpact, InsightStatus, InsightType
 
 
 class InsightRepository:
@@ -217,20 +217,22 @@ class InsightRepository:
 
     async def list_by_impact(
         self,
-        impact: str,
+        impact: InsightImpact | str,
         status: InsightStatus | None = None,
         limit: int = 50,
     ) -> list[Insight]:
         """List insights by impact level.
 
         Args:
-            impact: Impact level (low, medium, high, critical)
+            impact: Impact level enum or string value
             status: Optional status filter
             limit: Max results
 
         Returns:
             List of insights with specified impact
         """
+        if isinstance(impact, str):
+            impact = InsightImpact(impact)
         query = select(Insight).where(Insight.impact == impact)
 
         if status:
@@ -401,16 +403,19 @@ class InsightRepository:
         result = await self.session.execute(query)
         return {row[0].value: row[1] for row in result.all()}
 
-    async def count_by_impact(self, *impacts: str) -> int:
+    async def count_by_impact(self, *impacts: InsightImpact | str) -> int:
         """Count insights matching any of the given impact levels.
 
         Args:
-            impacts: Impact level strings (e.g. "high", "critical")
+            impacts: Impact level enums or string values
 
         Returns:
             Total count across all specified levels
         """
-        query = select(func.count(Insight.id)).where(Insight.impact.in_(impacts))
+        resolved = tuple(
+            InsightImpact(i) if isinstance(i, str) else i for i in impacts
+        )
+        query = select(func.count(Insight.id)).where(Insight.impact.in_(resolved))
         result = await self.session.execute(query)
         return result.scalar() or 0
 
@@ -423,7 +428,9 @@ class InsightRepository:
         total_q = select(func.count(Insight.id))
         type_q = select(Insight.type, func.count(Insight.id)).group_by(Insight.type)
         status_q = select(Insight.status, func.count(Insight.id)).group_by(Insight.status)
-        impact_q = select(func.count(Insight.id)).where(Insight.impact.in_(("high", "critical")))
+        impact_q = select(func.count(Insight.id)).where(
+            Insight.impact.in_((InsightImpact.HIGH, InsightImpact.CRITICAL))
+        )
 
         total_r, type_r, status_r, impact_r = (
             await self.session.execute(total_q),
