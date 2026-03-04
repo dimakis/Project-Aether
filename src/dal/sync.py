@@ -5,8 +5,11 @@ from __future__ import annotations
 import logging
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +27,6 @@ def _strip_null_bytes(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_strip_null_bytes(item) for item in obj]
     return obj
-
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.dal.areas import AreaRepository
 from src.dal.automations import AutomationRepository, SceneRepository, ScriptRepository
