@@ -16,9 +16,9 @@ class InsightType(str, Enum):
     """Types of insights."""
 
     ENERGY_OPTIMIZATION = "energy_optimization"
-    ANOMALY_DETECTION = "anomaly_detection"
-    USAGE_PATTERN = "usage_pattern"
-    COST_SAVING = "cost_saving"
+    ANOMALY_DETECTION = "anomaly"
+    USAGE_PATTERN = "pattern"
+    COST_SAVING = "recommendation"
     MAINTENANCE_PREDICTION = "maintenance_prediction"
     # Feature 03: Intelligent Optimization
     AUTOMATION_GAP = "automation_gap"
@@ -37,9 +37,9 @@ class InsightType(str, Enum):
 class InsightStatus(str, Enum):
     """Insight lifecycle status."""
 
-    PENDING = "pending"
+    PENDING = "generated"
     REVIEWED = "reviewed"
-    ACTIONED = "actioned"
+    ACTIONED = "acted_upon"
     DISMISSED = "dismissed"
 
 
