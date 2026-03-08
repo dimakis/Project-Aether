@@ -275,12 +275,12 @@ async def get_entity_history(
     Returns:
         A summary of the entity's recent history
     """
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
 
     hours = min(hours, 168)
 
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         history = await ha.get_history(entity_id=entity_id, hours=hours)
 
         if not history or not history.get("states"):

@@ -143,10 +143,10 @@ async def validate_automation_draft(yaml_content: str) -> str:
 
     # Semantic validation (Feature 27) — best-effort
     try:
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
         from src.schema import validate_yaml_semantic
 
-        ha_client = get_ha_client()
+        ha_client = await get_ha_client_async()
         sem_result = await validate_yaml_semantic(
             yaml_content, "ha.automation", ha_client=ha_client
         )

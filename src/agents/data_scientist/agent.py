@@ -34,7 +34,7 @@ from src.agents.model_context import get_model_context, resolve_model
 from src.agents.prompts import load_prompt
 from src.dal import InsightRepository
 from src.graph.state import AgentRole, AnalysisState, AutomationSuggestion
-from src.ha import HAClient, get_ha_client
+from src.ha import HAClient, get_ha_client, get_ha_client_async
 from src.llm import get_llm
 from src.sandbox.runner import SandboxResult, SandboxRunner
 from src.settings import get_settings
@@ -90,9 +90,15 @@ class DataScientistAgent(BaseAgent):
 
     @property
     def ha(self) -> HAClient:
-        """Get HA client, creating if needed."""
+        """Get HA client (must be initialized via _ensure_ha first in async context)."""
         if self._ha_client is None:
             self._ha_client = get_ha_client()
+        return self._ha_client
+
+    async def _ensure_ha(self) -> HAClient:
+        """Resolve HA client asynchronously (DB-backed config in async context)."""
+        if self._ha_client is None:
+            self._ha_client = await get_ha_client_async()
         return self._ha_client
 
     @property
@@ -209,11 +215,13 @@ class DataScientistAgent(BaseAgent):
         session: AsyncSession | None = None,
     ) -> dict[str, object]:
         """Collect energy data for analysis. Delegates to collectors module."""
-        return await collect_energy_data(state, self.ha, session=session)
+        ha = await self._ensure_ha()
+        return await collect_energy_data(state, ha, session=session)
 
     async def _collect_behavioral_data(self, state: AnalysisState) -> dict[str, object]:
         """Collect behavioral data from logbook. Delegates to collectors module."""
-        return await collect_behavioral_data(state, self.ha)
+        ha = await self._ensure_ha()
+        return await collect_behavioral_data(state, ha)
 
     def _build_analysis_prompt(
         self,

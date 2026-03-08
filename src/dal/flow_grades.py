@@ -57,7 +57,6 @@ class FlowGradeRepository:
         return fg
 
     async def list_for_conversation(self, conversation_id: str) -> list[FlowGrade]:
-        """List all grades for a conversation."""
         result = await self.session.execute(
             select(FlowGrade)
             .where(FlowGrade.conversation_id == conversation_id)
@@ -101,7 +100,6 @@ class FlowGradeRepository:
         }
 
     async def delete(self, grade_id: str) -> bool:
-        """Delete a grade by ID."""
         result = await self.session.execute(select(FlowGrade).where(FlowGrade.id == grade_id))
         fg = result.scalar_one_or_none()
         if fg:

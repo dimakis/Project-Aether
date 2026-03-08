@@ -138,12 +138,11 @@ async def get_ha_client_async(zone_id: str | None = None) -> HAClient:
     if key in _clients:
         return _clients[key]
     config = await _resolve_zone_config_async(key)
+    if config is None:
+        config = await HAClient._resolve_config_async()
     with _client_lock:
         if key not in _clients:
-            if config:
-                _clients[key] = HAClient(config=config)
-            else:
-                _clients[key] = HAClient()
+            _clients[key] = HAClient(config=config)
     return _clients[key]
 
 

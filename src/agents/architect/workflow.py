@@ -19,6 +19,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from src.agents.architect.stream_event import StreamEvent
 from src.graph.state import AgentRole, ConversationState
+from src.tools import get_architect_tools, is_mutating_tool
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +261,7 @@ class ArchitectWorkflow:
                     recoverable=True,
                 )
 
-            tools = self.agent._get_ha_tools()
+            tools = get_architect_tools()
             tool_lookup = {tool.name: tool for tool in tools}
             tool_llm = self.agent.get_tool_llm()
 
@@ -292,7 +293,7 @@ class ArchitectWorkflow:
                 # Parse and dispatch tool calls
                 parsed = parse_tool_calls(
                     tool_calls_buffer,
-                    is_mutating_fn=self.agent._is_mutating_tool,
+                    is_mutating_fn=is_mutating_tool,
                 )
                 tool_results: dict[str, str] = {}
                 full_tool_calls: list[dict[str, Any]] = []
@@ -317,7 +318,7 @@ class ArchitectWorkflow:
                         content=tool_results.get(tc["id"], ""), tool_call_id=tc.get("id", "")
                     )
                     for tc in full_tool_calls
-                    if not self.agent._is_mutating_tool(tc["name"])
+                    if not is_mutating_tool(tc["name"])
                 ]
                 all_new_messages.extend([ai_msg, *tool_msgs])
 

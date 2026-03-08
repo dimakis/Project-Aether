@@ -217,7 +217,11 @@ class TestPersistEntitiesNode:
 
         with (
             patch("src.storage.get_session", return_value=mock_session),
-            patch("src.ha.get_ha_client", return_value=mock_ha),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha,
+            ),
             patch("src.dal.DiscoverySyncService", return_value=mock_sync),
         ):
             result = await persist_entities_node(_make_state())

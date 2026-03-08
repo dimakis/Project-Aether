@@ -174,7 +174,10 @@ ignore_missing_imports = true
 # New modules MUST pass strict mypy. Burn this list down module-by-module.
 # Reduced from 75 (2026-02-09) to 70 (2026-02-14) after decomposition.
 # Removed: settings, llm, tracing.mlflow (now pass strict mypy).
-# Remaining modules need targeted type annotation work (dict -> dict[str, Any], etc.).
+# Note (2026-03-08): Most listed modules pass strict mypy individually but fail
+# in full-tree checking due to cascading errors from inter-module imports.
+# Burn-down strategy: fix error-source modules (agents, ha.*) first, then
+# remove downstream modules (dal, tools, tracing) that only fail from imports.
 [[tool.mypy.overrides]]
 module = [
     # Agents layer — complex LLM kwargs and dynamic dispatch

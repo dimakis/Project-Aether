@@ -128,6 +128,31 @@ class BaseHAClient:
             ha_token=settings.ha_token.get_secret_value(),
         )
 
+    @staticmethod
+    async def _resolve_config_async() -> HAClientConfig:
+        """Resolve HA config from DB (primary) or env vars (fallback).
+
+        Async variant that properly awaits DB access in an async context,
+        unlike _resolve_config() which cannot use asyncio.run() when a
+        loop is already running.
+        """
+        settings = get_settings()
+
+        db_config = await _try_get_db_config_async(settings)
+        if db_config:
+            ha_url, ha_token = db_config
+            return HAClientConfig(
+                ha_url=ha_url,
+                ha_url_remote=settings.ha_url_remote,
+                ha_token=ha_token,
+            )
+
+        return HAClientConfig(
+            ha_url=settings.ha_url,
+            ha_url_remote=settings.ha_url_remote,
+            ha_token=settings.ha_token.get_secret_value(),
+        )
+
     @_trace_ha_call("ha.connect")
     async def connect(self) -> None:
         """Verify connection to Home Assistant.

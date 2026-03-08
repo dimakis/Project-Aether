@@ -27,9 +27,7 @@ def _make_workflow():
     mock_agent.role = MagicMock()
     mock_agent.role.value = "architect"
     mock_agent.llm = MagicMock()
-    mock_agent._get_ha_tools.return_value = []
     mock_agent._build_messages.return_value = [HumanMessage(content="test")]
-    mock_agent._is_mutating_tool.return_value = False
     mock_agent._get_entity_context = AsyncMock(return_value=(None, None))
 
     workflow = ArchitectWorkflow.__new__(ArchitectWorkflow)
@@ -96,11 +94,14 @@ class TestStreamProgressEvents:
         tool_llm_mock.astream = mock_astream
 
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
-        workflow.agent._get_ha_tools.return_value = [mock_tool]
 
-        events = []
-        async for event in workflow.stream_conversation(state, "test message"):
-            events.append(dict(event))
+        with (
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
+            events = []
+            async for event in workflow.stream_conversation(state, "test message"):
+                events.append(dict(event))
 
         event_types = [e["type"] for e in events]
 
@@ -161,11 +162,14 @@ class TestStreamProgressEvents:
         tool_llm_mock.astream = mock_astream
 
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
-        workflow.agent._get_ha_tools.return_value = [mock_tool]
 
-        events = []
-        async for event in workflow.stream_conversation(state, "test"):
-            events.append(dict(event))
+        with (
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
+            events = []
+            async for event in workflow.stream_conversation(state, "test"):
+                events.append(dict(event))
 
         event_types = [e["type"] for e in events]
         assert "tool_start" in event_types
@@ -219,13 +223,16 @@ class TestDrainLoopExitsImmediately:
         tool_llm_mock.astream = mock_astream
 
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
-        workflow.agent._get_ha_tools.return_value = [mock_tool]
 
-        t0 = _time.monotonic()
-        events = []
-        async for event in workflow.stream_conversation(state, "quick test"):
-            events.append(dict(event))
-        elapsed = _time.monotonic() - t0
+        with (
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
+            t0 = _time.monotonic()
+            events = []
+            async for event in workflow.stream_conversation(state, "quick test"):
+                events.append(dict(event))
+            elapsed = _time.monotonic() - t0
 
         # The whole stream should complete in well under 1 second.
         # The old buggy code would stall ~0.5s per drain iteration.
@@ -283,10 +290,13 @@ class TestToolTimeout:
         tool_llm_mock.astream = mock_astream
 
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
-        workflow.agent._get_ha_tools.return_value = [mock_tool]
 
         # Patch settings to use a very short timeout
-        with patch("src.agents.streaming.dispatcher.get_settings") as mock_settings:
+        with (
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.agents.streaming.dispatcher.get_settings") as mock_settings,
+        ):
             settings = MagicMock()
             settings.tool_timeout_seconds = 0.1
             settings.analysis_tool_timeout_seconds = 0.2
@@ -296,17 +306,17 @@ class TestToolTimeout:
             async for event in workflow.stream_conversation(state, "test"):
                 events.append(dict(event))
 
-        event_types = [e["type"] for e in events]
-        assert "tool_end" in event_types
+            event_types = [e["type"] for e in events]
+            assert "tool_end" in event_types
 
-        # The tool_end should contain an error indication
-        tool_end_events = [e for e in events if e["type"] == "tool_end"]
-        assert len(tool_end_events) >= 1
-        # Result should mention timeout or error
-        result = tool_end_events[0].get("result", "")
-        assert "error" in result.lower() or "timeout" in result.lower(), (
-            f"Expected timeout/error in tool_end result, got: {result}"
-        )
+            # The tool_end should contain an error indication
+            tool_end_events = [e for e in events if e["type"] == "tool_end"]
+            assert len(tool_end_events) >= 1
+            # Result should mention timeout or error
+            result = tool_end_events[0].get("result", "")
+            assert "error" in result.lower() or "timeout" in result.lower(), (
+                f"Expected timeout/error in tool_end result, got: {result}"
+            )
 
 
 # ---------------------------------------------------------------------------

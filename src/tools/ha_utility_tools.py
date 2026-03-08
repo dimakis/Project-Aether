@@ -6,7 +6,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.tracing import trace_with_uri
 
 
@@ -28,7 +28,7 @@ async def fire_event(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.fire_event(event_type, event_data)
 
@@ -64,7 +64,7 @@ async def send_ha_notification(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         # Split target into domain.service
         parts = target.split(".", 1)
@@ -97,7 +97,7 @@ async def render_template(template: str) -> str:
     Args:
         template: Jinja2 template string
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.render_template(template)
         if result is not None:
@@ -112,7 +112,7 @@ async def render_template(template: str) -> str:
 @trace_with_uri(name="ha.get_ha_logs", span_type="TOOL")
 async def get_ha_logs() -> str:
     """Get recent HA error/warning log entries."""
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         log_text = await ha.get_error_log()
         if not log_text:
@@ -132,7 +132,7 @@ async def get_ha_logs() -> str:
 @trace_with_uri(name="ha.check_ha_config", span_type="TOOL")
 async def check_ha_config() -> str:
     """Check HA configuration validity."""
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.check_config()
         status = result.get("result", "unknown")

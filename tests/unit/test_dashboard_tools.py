@@ -39,7 +39,11 @@ class TestGenerateDashboardYaml:
                 },
             ]
         )
-        with patch("src.tools.dashboard_tools.get_ha_client", return_value=mock_client):
+        with patch(
+            "src.tools.dashboard_tools.get_ha_client_async",
+            new_callable=AsyncMock,
+            return_value=mock_client,
+        ):
             self.mock_client = mock_client
             yield
 
@@ -118,7 +122,11 @@ class TestListDashboards:
                 {"id": "lovelace-energy", "title": "Energy", "mode": "yaml"},
             ]
         )
-        with patch("src.tools.dashboard_tools.get_ha_client", return_value=mock_client):
+        with patch(
+            "src.tools.dashboard_tools.get_ha_client_async",
+            new_callable=AsyncMock,
+            return_value=mock_client,
+        ):
             self.mock_client = mock_client
             yield
 
@@ -147,7 +155,11 @@ class TestGenerateDashboardYamlNoN1:
             ]
         )
 
-        with patch("src.tools.dashboard_tools.get_ha_client", return_value=mock_client):
+        with patch(
+            "src.tools.dashboard_tools.get_ha_client_async",
+            new_callable=AsyncMock,
+            return_value=mock_client,
+        ):
             from src.tools.dashboard_tools import generate_dashboard_yaml
 
             result = await generate_dashboard_yaml.ainvoke(

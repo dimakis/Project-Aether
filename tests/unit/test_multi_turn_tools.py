@@ -6,7 +6,7 @@ using tool_llm (with tools bound) for follow-up calls.
 TDD: Multi-turn tool loop with max iteration guard.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessageChunk, HumanMessage
@@ -22,9 +22,7 @@ def _make_workflow():
     mock_agent.role = MagicMock()
     mock_agent.role.value = "architect"
     mock_agent.llm = MagicMock()
-    mock_agent._get_ha_tools.return_value = []
     mock_agent._build_messages.return_value = [HumanMessage(content="test")]
-    mock_agent._is_mutating_tool.return_value = False
     mock_agent._get_entity_context = AsyncMock(return_value=(None, None))
 
     workflow = ArchitectWorkflow.__new__(ArchitectWorkflow)
@@ -100,11 +98,14 @@ class TestMultiTurnToolLoop:
         tool_llm_mock.astream = mock_astream
 
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
-        workflow.agent._get_ha_tools.return_value = [mock_tool]
 
-        events = []
-        async for event in workflow.stream_conversation(state, "check lights"):
-            events.append(dict(event))
+        with (
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
+            events = []
+            async for event in workflow.stream_conversation(state, "check lights"):
+                events.append(dict(event))
 
         event_types = [e["type"] for e in events]
 
@@ -152,11 +153,14 @@ class TestMultiTurnToolLoop:
         tool_llm_mock.astream = mock_astream
 
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
-        workflow.agent._get_ha_tools.return_value = [mock_tool]
 
-        events = []
-        async for event in workflow.stream_conversation(state, "infinite loop"):
-            events.append(dict(event))
+        with (
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
+            events = []
+            async for event in workflow.stream_conversation(state, "infinite loop"):
+                events.append(dict(event))
 
         event_types = [e["type"] for e in events]
 
@@ -201,11 +205,14 @@ class TestMultiTurnToolLoop:
         tool_llm_mock.astream = mock_astream
 
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
-        workflow.agent._get_ha_tools.return_value = [mock_tool]
 
-        events = []
-        async for event in workflow.stream_conversation(state, "check light"):
-            events.append(dict(event))
+        with (
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
+            events = []
+            async for event in workflow.stream_conversation(state, "check light"):
+                events.append(dict(event))
 
         event_types = [e["type"] for e in events]
         assert event_types.count("tool_start") == 1

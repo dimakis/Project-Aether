@@ -25,7 +25,7 @@ from src.diagnostics.integration_health import (
     find_unhealthy_integrations,
 )
 from src.diagnostics.log_parser import get_error_summary, parse_error_log
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 
 
 @tool("analyze_error_log")
@@ -36,7 +36,7 @@ async def analyze_error_log() -> str:
     error patterns to provide actionable recommendations.
     """
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         raw_log = await ha.get_error_log()
 
         if not raw_log or not raw_log.strip():
@@ -90,7 +90,7 @@ async def analyze_error_log() -> str:
 async def find_unavailable_entities_tool() -> str:
     """Find all entities that are unavailable or unknown, grouped by integration."""
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         diagnostics = await _find_unavailable(ha)
 
         if not diagnostics:
@@ -120,7 +120,7 @@ async def find_unavailable_entities_tool() -> str:
 async def diagnose_entity(entity_id: str) -> str:
     """Deep-dive diagnosis of a single entity, including history and related errors."""
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         entity = await ha.get_entity(entity_id)
 
         if not entity:
@@ -192,7 +192,7 @@ async def diagnose_entity(entity_id: str) -> str:
 async def check_integration_health() -> str:
     """Check the health of all Home Assistant integrations."""
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         unhealthy = await find_unhealthy_integrations(ha)
 
         if not unhealthy:
@@ -215,7 +215,7 @@ async def check_integration_health() -> str:
 async def validate_config() -> str:
     """Run a Home Assistant configuration validation check."""
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         result = await run_config_check(ha)
 
         if result.result == "valid":

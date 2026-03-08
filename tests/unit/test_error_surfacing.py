@@ -34,8 +34,6 @@ def _make_workflow():
     w.session_factory = None
     w.agent.model_name = "test-model"
     w.agent._build_messages.return_value = [HumanMessage(content="test")]
-    w.agent._get_ha_tools.return_value = []
-    w.agent._is_mutating_tool.return_value = False
     w.agent._extract_proposals.return_value = []
     w.agent.get_tool_llm.return_value = MagicMock(astream=MagicMock(return_value=_empty_astream()))
     return w
@@ -109,7 +107,11 @@ class TestWorkflowYieldsErrorEvents:
         state = ConversationState(messages=[])
         events = []
 
-        with patch("src.agents.architect.workflow.mlflow", None):
+        with (
+            patch("src.agents.architect.workflow.mlflow", None),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
             async for event in workflow.stream_conversation(state=state, user_message="hi"):
                 events.append(event)
 

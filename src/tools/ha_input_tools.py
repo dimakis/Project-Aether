@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from langchain_core.tools import tool
 
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.tracing import trace_with_uri
 
 
@@ -28,7 +28,7 @@ async def create_input_boolean(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_input_boolean(
             input_id=input_id,
@@ -72,7 +72,7 @@ async def create_input_number(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_input_number(
             input_id=input_id,
@@ -120,7 +120,7 @@ async def create_input_text(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_input_text(
             input_id=input_id,
@@ -162,7 +162,7 @@ async def create_input_select(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_input_select(
             input_id=input_id,
@@ -202,7 +202,7 @@ async def create_input_datetime(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_input_datetime(
             input_id=input_id,
@@ -238,7 +238,7 @@ async def create_input_button(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_input_button(
             input_id=input_id,
@@ -279,7 +279,7 @@ async def create_counter(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_counter(
             input_id=input_id,
@@ -318,7 +318,7 @@ async def create_timer(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_timer(
             input_id=input_id,

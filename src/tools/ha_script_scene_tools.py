@@ -8,7 +8,7 @@ import yaml
 from langchain_core.tools import tool
 
 from src.dal.automations import ScriptRepository
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.storage import get_session
 from src.tracing import trace_with_uri
 
@@ -68,7 +68,7 @@ async def create_script(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_script(
             script_id=script_id,
@@ -110,7 +110,7 @@ async def create_scene(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_scene(
             scene_id=scene_id,

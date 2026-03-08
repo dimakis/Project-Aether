@@ -366,7 +366,11 @@ class TestExecuteDiscoverySync:
 
         with (
             patch("src.storage.get_session", return_value=mock_session),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
             patch("src.dal.sync.DiscoverySyncService", return_value=mock_service),
         ):
             await _execute_discovery_sync()
