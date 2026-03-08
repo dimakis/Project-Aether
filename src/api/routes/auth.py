@@ -194,7 +194,7 @@ async def setup(body: SetupRequest, response: Response) -> SetupResponse:
     try:
         from src.ha.client import reset_ha_client
 
-        reset_ha_client()
+        await reset_ha_client()
     except ImportError:
         pass
 

@@ -28,6 +28,7 @@ __all__ = [
     "HAClient",
     "HAClientConfig",
     "HAClientError",
+    "close_all_ha_clients",
     "get_ha_client",
     "get_ha_client_async",
     "reset_ha_client",
@@ -146,19 +147,45 @@ async def get_ha_client_async(zone_id: str | None = None) -> HAClient:
     return _clients[key]
 
 
-def reset_ha_client(zone_id: str | None = None) -> None:
-    """Reset HA client(s).
+async def _close_client_safe(client: HAClient, key: str) -> None:
+    """Close a single HA client, logging but not raising on failure."""
+    import structlog
 
-    If zone_id is provided, resets only that zone's client.
-    If None, resets ALL cached clients (e.g. after setup).
+    logger = structlog.get_logger(__name__)
+    try:
+        await client.close()
+    except Exception as exc:
+        logger.warning("ha_client_close_failed", zone_id=key, error=str(exc))
+
+
+async def close_all_ha_clients() -> None:
+    """Close and remove all cached HA clients.
+
+    Called during application shutdown to release httpx connection pools.
+    Tolerates individual close() failures so all clients get a chance to clean up.
+    """
+    with _client_lock:
+        clients_snapshot = list(_clients.items())
+        _clients.clear()
+    for key, client in clients_snapshot:
+        await _close_client_safe(client, key)
+
+
+async def reset_ha_client(zone_id: str | None = None) -> None:
+    """Close and reset HA client(s).
+
+    If zone_id is provided, closes and removes only that zone's client.
+    If None, closes and removes ALL cached clients (e.g. after setup).
 
     Thread-safe: Acquires lock before modifying cache.
 
     Args:
         zone_id: UUID of a specific zone to reset, or None for all.
     """
-    with _client_lock:
-        if zone_id is not None:
-            _clients.pop(zone_id, None)
-        else:
-            _clients.clear()
+    if zone_id is not None:
+        with _client_lock:
+            client = _clients.pop(zone_id, None)
+        if client is not None:
+            await _close_client_safe(client, zone_id)
+    else:
+        await close_all_ha_clients()
