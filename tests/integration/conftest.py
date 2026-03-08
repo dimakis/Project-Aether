@@ -93,7 +93,13 @@ def postgres_container() -> Generator[Any, None, None]:
 
     Uses testcontainers to spin up a real PostgreSQL instance.
     Container is shared across all integration tests in the session.
+
+    Skipped in CI where a service container is provided via DATABASE_URL.
     """
+    if os.environ.get("DATABASE_URL"):
+        yield None
+        return
+
     if not TESTCONTAINERS_AVAILABLE:
         pytest.skip("testcontainers not installed")
 
@@ -110,11 +116,17 @@ def postgres_container() -> Generator[Any, None, None]:
 
 
 @pytest.fixture(scope="session")
-def postgres_url(postgres_container: PostgresContainer) -> str:
-    """Get async connection URL for the PostgreSQL container."""
-    # testcontainers gives us a sync URL, convert to async
-    sync_url = postgres_container.get_connection_url()
-    # Replace psycopg2 with asyncpg
+def postgres_url(postgres_container: Any) -> str:
+    """Get async connection URL for PostgreSQL.
+
+    In CI (DATABASE_URL set), uses the pre-provisioned service container.
+    Locally, derives the URL from the testcontainers instance.
+    """
+    ci_url: str | None = os.environ.get("DATABASE_URL")
+    if ci_url:
+        return ci_url
+
+    sync_url: str = postgres_container.get_connection_url()
     async_url = sync_url.replace("postgresql://", "postgresql+asyncpg://")
     async_url = async_url.replace("psycopg2", "asyncpg")
     return async_url
