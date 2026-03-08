@@ -15,7 +15,6 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.agents.model_context import get_model_context, model_context
 from src.tracing import trace_with_uri
 
 logger = logging.getLogger(__name__)
@@ -79,7 +78,8 @@ async def run_custom_analysis(
     hours = max(1, min(hours, 168))
 
     try:
-        # Propagate model context to the DS Team
+        from src.agents.model_context import get_model_context, model_context
+
         ctx = get_model_context()
         parent_span_id = None
         try:
