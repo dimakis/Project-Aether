@@ -14,7 +14,6 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.agents.model_context import get_model_context, model_context
 from src.tracing import trace_with_uri
 
 logger = logging.getLogger(__name__)
@@ -66,9 +65,8 @@ async def analyze_energy(
     hours = min(hours, 168)  # Max 1 week
 
     try:
-        # Propagate model context to the DS Team.
-        # The contextvars already flow through async calls, but we also
-        # capture the parent span ID for inter-agent trace linking.
+        from src.agents.model_context import get_model_context, model_context
+
         ctx = get_model_context()
         parent_span_id = None
         try:
@@ -441,7 +439,8 @@ async def diagnose_issue(
     hours = min(hours, 168)
 
     try:
-        # Propagate model context + parent span for trace linking
+        from src.agents.model_context import get_model_context, model_context
+
         ctx = get_model_context()
         parent_span_id = None
         try:
@@ -597,6 +596,8 @@ async def analyze_behavior(
     hours = min(hours, 720)  # Max 30 days
 
     try:
+        from src.agents.model_context import get_model_context, model_context
+
         ctx = get_model_context()
         parent_span_id = None
         try:

@@ -9,7 +9,6 @@ from src.agents.config_cache import is_agent_enabled
 from src.agents.diagnostic_analyst import DiagnosticAnalyst
 from src.agents.energy_analyst import EnergyAnalyst
 from src.agents.execution_context import emit_progress
-from src.agents.model_context import get_model_context, model_context
 from src.graph.state import AnalysisDepth, AnalysisState, AnalysisType
 from src.tools.specialist_routing import (
     _format_findings,
@@ -27,6 +26,8 @@ def _capture_parent_span_context() -> tuple[str | None, float | None, str | None
     Returns (model_name, temperature, parent_span_id) so that analyst
     spans appear as children of the coordinator span in the trace tree.
     """
+    from src.agents.model_context import get_model_context
+
     ctx = get_model_context()
     model_name = ctx.model_name if ctx else None
     temperature = ctx.temperature if ctx else None
@@ -51,6 +52,8 @@ async def _run_energy(
         emit_progress(
             "status", "energy_analyst", f"Running energy analysis ({hours}h, depth={depth})..."
         )
+        from src.agents.model_context import model_context
+
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = EnergyAnalyst()
         ta = _get_or_create_team_analysis(query)
@@ -91,6 +94,8 @@ async def _run_behavioral(
             "behavioral_analyst",
             f"Running behavioral analysis ({hours}h, depth={depth})...",
         )
+        from src.agents.model_context import model_context
+
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = BehavioralAnalyst()
         ta = _get_or_create_team_analysis(query)
@@ -131,6 +136,8 @@ async def _run_diagnostic(
             "diagnostic_analyst",
             f"Running diagnostic analysis ({hours}h, depth={depth})...",
         )
+        from src.agents.model_context import model_context
+
         model_name, temperature, parent_span_id = _capture_parent_span_context()
         analyst = DiagnosticAnalyst()
         ta = _get_or_create_team_analysis(query)
