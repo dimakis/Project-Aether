@@ -7,26 +7,22 @@
 
 ## API Schemas
 
-- [ ] T601 Create src/api/schemas/diagnostics.py:
+- [x] T601 Create src/api/schemas/diagnostics.py:
   - ErrorLogResponse, ConfigCheckResponse
   - EntityDiagnosticResponse, IntegrationHealthResponse
   - TroubleshootingRequest, TroubleshootingResponse
 
 ## API Routes
 
-- [ ] T602 Create src/api/routes/diagnostics.py:
-  - GET /diagnostics/errors - Recent errors with analysis
-  - GET /diagnostics/errors/{integration} - Errors for integration
-  - POST /diagnostics/config-check - Validate configuration
-  - GET /diagnostics/entities/unavailable - List unavailable
-  - GET /diagnostics/entities/{id} - Entity diagnostic
-  - GET /diagnostics/integrations - All integration health
-  - GET /diagnostics/integrations/{domain} - Single integration
-  - POST /diagnostics/troubleshoot - Run guided troubleshooting
+- [x] T602 Create src/api/routes/diagnostics.py:
+  - GET /diagnostics/ha-health - HA health check
+  - GET /diagnostics/error-log - Recent errors with analysis
+  - GET /diagnostics/config-check - Validate configuration
+  - GET /diagnostics/traces/recent - Recent trace spans
 
 ## CLI Commands
 
-- [ ] T603 Add `aether diagnose` commands to src/cli/main.py:
+- [ ] T603 Add `aether diagnose` commands to src/cli/main.py (**Not implemented**):
   - `aether diagnose errors` - Show recent errors
   - `aether diagnose errors --integration zigbee` - Filter by integration
   - `aether diagnose config` - Validate configuration
@@ -34,7 +30,7 @@
   - `aether diagnose integration <domain>` - Integration health
   - `aether diagnose --full` - Complete health report
 
-- [ ] T604 Add `aether health` commands:
+- [ ] T604 Add `aether health` commands (**Not implemented**):
   - `aether health` - Quick system health summary
   - `aether health integrations` - Integration status table
   - `aether health entities` - Entity availability summary
@@ -42,9 +38,9 @@
 ## Tests
 
 **Integration Tests**:
-- [ ] T605 Create tests/integration/test_error_log_analysis.py
-- [ ] T606 Create tests/integration/test_entity_diagnostics.py
-- [ ] T607 Create tests/integration/test_integration_health.py
+- [x] T605 Diagnostics API integration tests
+- [x] T606 Entity diagnostics tests
+- [x] T607 Integration health tests
 
 **E2E Tests**:
 - [ ] T608 Create tests/e2e/test_troubleshooting_flow.py

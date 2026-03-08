@@ -1,11 +1,11 @@
-**Completed**: 2026-02-07
-
 # Feature: Home Assistant Registry Management
 
-**Status**: Complete  
+**Status**: Partial  
 **Priority**: P3  
 **User Story**: US6  
 **Depends on**: US1 (Entity Discovery), US2 (Architect)
+
+> **Note (2026-03-08)**: Read-only operations (list, get, sync) are implemented for entities, areas, devices, automations, scripts, and scenes. Full CRUD (create, update, delete) for devices, entities, and areas is not yet implemented. Floors and labels are not implemented. The spec was previously marked "Complete" in error.
 
 ## Goal
 
