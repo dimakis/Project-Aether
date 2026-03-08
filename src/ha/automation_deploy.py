@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-from src.ha.client import HAClient, get_ha_client
+from src.ha.client import HAClient, get_ha_client, get_ha_client_async
 from src.settings import get_settings
 
 
@@ -36,9 +36,15 @@ class AutomationDeployer:
 
     @property
     def ha(self) -> HAClient:
-        """Get HA client."""
+        """Get HA client (must be initialized via _ensure_ha first in async context)."""
         if self._ha_client is None:
             self._ha_client = get_ha_client()
+        return self._ha_client
+
+    async def _ensure_ha(self) -> HAClient:
+        """Resolve HA client asynchronously (DB-backed config in async context)."""
+        if self._ha_client is None:
+            self._ha_client = await get_ha_client_async()
         return self._ha_client
 
     def generate_automation_yaml(

@@ -9,9 +9,12 @@ with live validation, duplicate detection, and HITL approval.
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from langgraph.checkpoint.memory import MemorySaver
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.graph import END, START, StateGraph, create_graph
 from src.graph.state.automation_builder import AutomationBuilderState
@@ -128,16 +131,28 @@ def build_automation_builder_graph() -> StateGraph:
     return graph
 
 
-def compile_automation_builder_graph() -> object:
+def compile_automation_builder_graph(
+    session: AsyncSession | None = None,
+) -> object:
     """Compile the automation builder graph with HITL interrupt.
 
     Constitution: Safety First — interrupt_before at preview
     ensures human approval before any deployment.
 
+    Args:
+        session: Database session. When provided, uses PostgresCheckpointer
+            so workflow state survives process restarts.
+
     Returns:
         Compiled graph with checkpointing and HITL interrupts.
     """
-    checkpointer = MemorySaver()
+    if session is not None:
+        from src.storage.checkpoints import PostgresCheckpointer
+
+        checkpointer = PostgresCheckpointer(session)
+    else:
+        checkpointer = MemorySaver()
+
     graph = build_automation_builder_graph()
     return graph.compile(
         checkpointer=checkpointer,

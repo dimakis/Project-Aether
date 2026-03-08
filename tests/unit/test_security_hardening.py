@@ -25,15 +25,15 @@ from src.settings import Settings
 
 
 class TestHITLWhitelist:
-    """Test that _is_mutating_tool uses a whitelist (not blacklist) approach.
+    """Test that is_mutating_tool uses a whitelist (not blacklist) approach.
 
-    Tests the class attribute and method directly to avoid importing the
-    full ArchitectWorkflow (which pulls in heavy LangGraph/LLM deps).
+    Tests the READ_ONLY_TOOLS set and is_mutating_tool directly to avoid
+    importing the full ArchitectWorkflow (which pulls in heavy LangGraph/LLM deps).
     """
 
     def test_read_only_tools_are_allowed(self):
         """Known read-only tools should be in the whitelist."""
-        from src.agents.architect import ArchitectAgent
+        from src.tools import READ_ONLY_TOOLS
 
         read_only = [
             "get_entity_state",
@@ -50,13 +50,13 @@ class TestHITLWhitelist:
             "check_ha_config",
         ]
         for tool_name in read_only:
-            assert tool_name in ArchitectAgent._READ_ONLY_TOOLS, (
-                f"{tool_name} should be in _READ_ONLY_TOOLS whitelist"
+            assert tool_name in READ_ONLY_TOOLS, (
+                f"{tool_name} should be in READ_ONLY_TOOLS whitelist"
             )
 
     def test_known_mutating_tools_not_in_whitelist(self):
         """Known mutating tools should NOT be in the whitelist."""
-        from src.agents.architect import ArchitectAgent
+        from src.tools import READ_ONLY_TOOLS
 
         mutating = [
             "control_entity",
@@ -69,23 +69,23 @@ class TestHITLWhitelist:
             "fire_event",
         ]
         for tool_name in mutating:
-            assert tool_name not in ArchitectAgent._READ_ONLY_TOOLS, (
-                f"{tool_name} should NOT be in _READ_ONLY_TOOLS (it's mutating)"
+            assert tool_name not in READ_ONLY_TOOLS, (
+                f"{tool_name} should NOT be in READ_ONLY_TOOLS (it's mutating)"
             )
 
     def test_unknown_tools_not_in_whitelist(self):
         """Arbitrary/unknown tools should NOT be in the whitelist."""
-        from src.agents.architect import ArchitectAgent
+        from src.tools import READ_ONLY_TOOLS
 
-        assert "some_new_tool_2026" not in ArchitectAgent._READ_ONLY_TOOLS
-        assert "" not in ArchitectAgent._READ_ONLY_TOOLS
-        assert "hack_the_planet" not in ArchitectAgent._READ_ONLY_TOOLS
+        assert "some_new_tool_2026" not in READ_ONLY_TOOLS
+        assert "" not in READ_ONLY_TOOLS
+        assert "hack_the_planet" not in READ_ONLY_TOOLS
 
     def test_whitelist_is_frozenset(self):
         """Whitelist should be immutable."""
-        from src.agents.architect import ArchitectAgent
+        from src.tools import READ_ONLY_TOOLS
 
-        assert isinstance(ArchitectAgent._READ_ONLY_TOOLS, frozenset)
+        assert isinstance(READ_ONLY_TOOLS, frozenset)
 
 
 # =============================================================================

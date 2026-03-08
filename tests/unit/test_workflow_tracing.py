@@ -24,8 +24,6 @@ def _make_workflow():
     w.agent.model_name = "test-model"
     w.agent._build_messages.return_value = [HumanMessage(content="test")]
     w.agent._get_entity_context = AsyncMock(return_value=(None, None))
-    w.agent._get_ha_tools.return_value = []
-    w.agent._is_mutating_tool.return_value = False
     w.agent._extract_proposals.return_value = []
     w.agent.get_tool_llm.return_value = MagicMock(astream=MagicMock(return_value=_empty_astream()))
     return w
@@ -45,7 +43,11 @@ class TestStreamConversationTracing:
         mock_span = MagicMock()
         mock_span.request_id = "trace-abc123"
 
-        with patch("src.agents.architect.workflow.mlflow") as mock_mlflow:
+        with (
+            patch("src.agents.architect.workflow.mlflow") as mock_mlflow,
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
             # Make @mlflow.trace a passthrough (we test event emission, not MLflow internals)
             mock_mlflow.trace = lambda **kw: lambda fn: fn
             mock_mlflow.get_current_active_span.return_value = mock_span
@@ -64,7 +66,11 @@ class TestStreamConversationTracing:
     @pytest.mark.asyncio
     async def test_uses_metadata_for_session_grouping(self):
         """Session grouping should use metadata per MLflow 3.x docs."""
-        with patch("src.agents.architect.workflow.mlflow") as mock_mlflow:
+        with (
+            patch("src.agents.architect.workflow.mlflow") as mock_mlflow,
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
             mock_mlflow.trace = lambda **kw: lambda fn: fn
             mock_mlflow.get_current_active_span.return_value = None
 
@@ -90,7 +96,11 @@ class TestStreamConversationTracing:
             trace_calls.append(kw)
             return lambda fn: fn
 
-        with patch("src.agents.architect.workflow.mlflow") as mock_mlflow:
+        with (
+            patch("src.agents.architect.workflow.mlflow") as mock_mlflow,
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
             mock_mlflow.trace = mock_trace_decorator
             mock_mlflow.get_current_active_span.return_value = None
 
@@ -107,7 +117,11 @@ class TestStreamConversationTracing:
     @pytest.mark.asyncio
     async def test_yields_state_event_at_end(self):
         """The stream should end with a state event."""
-        with patch("src.agents.architect.workflow.mlflow", None):
+        with (
+            patch("src.agents.architect.workflow.mlflow", None),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
             workflow = _make_workflow()
             state = ConversationState(messages=[])
             events = []
@@ -121,7 +135,11 @@ class TestStreamConversationTracing:
     @pytest.mark.asyncio
     async def test_works_without_mlflow(self):
         """When mlflow is None, streaming works without tracing."""
-        with patch("src.agents.architect.workflow.mlflow", None):
+        with (
+            patch("src.agents.architect.workflow.mlflow", None),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+        ):
             workflow = _make_workflow()
             state = ConversationState(messages=[])
             events = []

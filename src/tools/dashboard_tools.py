@@ -9,7 +9,7 @@ from __future__ import annotations
 import yaml
 from langchain_core.tools import tool
 
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.tracing import trace_with_uri
 
 
@@ -26,7 +26,7 @@ async def generate_dashboard_yaml(title: str, areas: list[str] | None = None) ->
     Returns:
         A Lovelace YAML configuration string.
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
 
     views: list[dict] = []
 
@@ -118,7 +118,7 @@ async def list_dashboards() -> str:
     Returns:
         A formatted string with dashboard IDs, titles, and modes.
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     dashboards = await ha.list_dashboards()
 
     if not dashboards:

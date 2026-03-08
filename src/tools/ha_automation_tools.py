@@ -8,7 +8,7 @@ import yaml
 from langchain_core.tools import tool
 
 from src.dal.automations import AutomationRepository
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.storage import get_session
 from src.tracing import trace_with_uri
 
@@ -41,7 +41,7 @@ async def deploy_automation(
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.create_automation(
             automation_id=automation_id,
@@ -75,7 +75,7 @@ async def delete_automation(automation_id: str) -> str:
     Returns:
         Success or error message
     """
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         result = await ha.delete_automation(automation_id)
         if result.get("success"):

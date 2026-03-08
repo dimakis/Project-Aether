@@ -25,11 +25,6 @@ class BaseRepository(Generic[T]):
     order_by_field: str = "name"  # Field for ordering
 
     def __init__(self, session: AsyncSession):
-        """Initialize repository with database session.
-
-        Args:
-            session: SQLAlchemy async session
-        """
         self.session = session
 
     async def get_by_id(self, id: str) -> T | None:

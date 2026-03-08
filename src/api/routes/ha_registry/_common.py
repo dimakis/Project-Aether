@@ -4,7 +4,7 @@ import uuid as _uuid
 
 from src.api.deps import get_db
 
-__all__ = ["_is_valid_uuid", "get_db"]
+__all__ = ["get_db"]
 
 
 def _is_valid_uuid(value: str) -> bool:

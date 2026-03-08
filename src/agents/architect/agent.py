@@ -38,7 +38,7 @@ from src.agents.architect.review import (
 from src.agents.architect.review import (
     synthesize_review as _synthesize_review,
 )
-from src.agents.architect.tools import READ_ONLY_TOOLS, get_ha_tools, is_mutating_tool
+from src.agents.architect.tools import get_ha_tools, is_mutating_tool
 from src.agents.base import BaseAgent
 from src.agents.prompts import load_prompt
 from src.graph.state import AgentRole, ConversationState, ConversationStatus, HITLApproval
@@ -98,7 +98,7 @@ class ArchitectAgent(BaseAgent):
         Returns a Runnable (bind_tools wrapper) or BaseChatModel.
         """
         if self._bound_llm is None:
-            tools = self._get_ha_tools()
+            tools = get_ha_tools()
             self._bound_llm = self.llm.bind_tools(tools) if tools else self.llm
         return self._bound_llm
 
@@ -141,7 +141,7 @@ class ArchitectAgent(BaseAgent):
             if entity_context:
                 messages.insert(1, SystemMessage(content=entity_context))
 
-            tools = self._get_ha_tools()
+            tools = get_ha_tools()
             tool_llm = self.get_tool_llm()
             response = await tool_llm.ainvoke(messages)
 
@@ -218,10 +218,6 @@ class ArchitectAgent(BaseAgent):
 
             return updates
 
-    # ------------------------------------------------------------------
-    # Delegating methods (thin wrappers for backwards compatibility)
-    # ------------------------------------------------------------------
-
     # Maximum number of conversation messages to include in the prompt.
     # Keeps prompt size bounded on long conversations while preserving
     # enough context for the LLM to follow the thread (10 turns = 20 msgs).
@@ -257,16 +253,6 @@ class ArchitectAgent(BaseAgent):
             content = getattr(msg, "content", "")
             serialized.append({"role": str(role), "content": str(content)[:max_chars]})
         return serialized
-
-    def _get_ha_tools(self) -> list[BaseTool]:
-        """Get the curated Architect tool set."""
-        return get_ha_tools()
-
-    _READ_ONLY_TOOLS = READ_ONLY_TOOLS
-
-    def _is_mutating_tool(self, tool_name: str) -> bool:
-        """Check if a tool call can mutate Home Assistant state."""
-        return is_mutating_tool(tool_name)
 
     async def _handle_tool_calls(
         self,

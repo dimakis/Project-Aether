@@ -14,9 +14,7 @@ def mock_agent():
     agent.role = MagicMock()
     agent.role.value = "architect"
     agent.llm = MagicMock()
-    agent._get_ha_tools.return_value = []
     agent._build_messages.return_value = [HumanMessage(content="test")]
-    agent._is_mutating_tool.return_value = False
     agent._get_entity_context = AsyncMock(return_value=(None, None))
     agent._extract_proposals.return_value = []
     return agent

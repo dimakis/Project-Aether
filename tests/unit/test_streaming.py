@@ -126,12 +126,14 @@ class TestStreamConversation:
         workflow.agent._llm = mock_llm
 
         # Mock entity context
-        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
-            with patch.object(workflow.agent, "_get_ha_tools", return_value=[]):
-                state = ConversationState(messages=[])
-                events = []
-                async for ev in workflow.stream_conversation(state, "Hi"):
-                    events.append(ev)
+        with (
+            patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+        ):
+            state = ConversationState(messages=[])
+            events = []
+            async for ev in workflow.stream_conversation(state, "Hi"):
+                events.append(ev)
 
         # Should have 3 token events + 1 state event
         token_events = [e for e in events if e["type"] == "token"]
@@ -154,12 +156,14 @@ class TestStreamConversation:
         workflow = ArchitectWorkflow(model_name="test-model")
         workflow.agent._llm = mock_llm
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
-            with patch.object(workflow.agent, "_get_ha_tools", return_value=[]):
-                state = ConversationState(messages=[])
-                events = []
-                async for ev in workflow.stream_conversation(state, "Hello"):
-                    events.append(ev)
+        with (
+            patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+        ):
+            state = ConversationState(messages=[])
+            events = []
+            async for ev in workflow.stream_conversation(state, "Hello"):
+                events.append(ev)
 
         final_state = events[-1]["state"]
         assert final_state is not None
@@ -185,12 +189,14 @@ class TestStreamConversation:
         workflow = ArchitectWorkflow(model_name="test-model")
         workflow.agent._llm = mock_llm
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
-            with patch.object(workflow.agent, "_get_ha_tools", return_value=[]):
-                state = ConversationState(messages=[])
-                events = []
-                async for ev in workflow.stream_conversation(state, "Hi"):
-                    events.append(ev)
+        with (
+            patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+        ):
+            state = ConversationState(messages=[])
+            events = []
+            async for ev in workflow.stream_conversation(state, "Hi"):
+                events.append(ev)
 
         token_events = [e for e in events if e["type"] == "token"]
         assert len(token_events) == 1
@@ -326,12 +332,14 @@ class TestTruncatedToolCalls:
         mock_tool.name = "seek_approval"
         mock_tool.ainvoke = AsyncMock(return_value="Proposal submitted")
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
-            with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
-                state = ConversationState(messages=[])
-                events = []
-                async for ev in workflow.stream_conversation(state, "Create automation"):
-                    events.append(ev)
+        with (
+            patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+        ):
+            state = ConversationState(messages=[])
+            events = []
+            async for ev in workflow.stream_conversation(state, "Create automation"):
+                events.append(ev)
 
         # The empty-name tool call should NOT have triggered tool_start
         tool_start_events = [e for e in events if e["type"] == "tool_start"]
@@ -377,12 +385,14 @@ class TestTruncatedToolCalls:
         mock_tool.name = "seek_approval"
         mock_tool.ainvoke = AsyncMock(return_value="Proposal submitted")
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
-            with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
-                state = ConversationState(messages=[])
-                events = []
-                async for ev in workflow.stream_conversation(state, "Create automation"):
-                    events.append(ev)
+        with (
+            patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+        ):
+            state = ConversationState(messages=[])
+            events = []
+            async for ev in workflow.stream_conversation(state, "Create automation"):
+                events.append(ev)
 
         # The tool should not have been called with corrupt args
         mock_tool.ainvoke.assert_not_called()
@@ -435,12 +445,14 @@ class TestFallbackResponse:
         mock_tool.name = "get_entity_state"
         mock_tool.ainvoke = AsyncMock(return_value="light is on")
 
-        with patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)):
-            with patch.object(workflow.agent, "_get_ha_tools", return_value=[mock_tool]):
-                state = ConversationState(messages=[])
-                events = []
-                async for ev in workflow.stream_conversation(state, "Check light"):
-                    events.append(ev)
+        with (
+            patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
+            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+        ):
+            state = ConversationState(messages=[])
+            events = []
+            async for ev in workflow.stream_conversation(state, "Check light"):
+                events.append(ev)
 
         # Should have a fallback token event
         token_events = [e for e in events if e["type"] == "token"]

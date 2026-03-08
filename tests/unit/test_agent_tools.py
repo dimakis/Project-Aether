@@ -29,7 +29,7 @@ class TestGetEntityHistoryBasic:
             }
         )
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             result = await get_entity_history.ainvoke(
                 {
                     "entity_id": "sensor.temperature",
@@ -49,7 +49,7 @@ class TestGetEntityHistoryBasic:
         mock_mcp = MagicMock()
         mock_mcp.get_history = AsyncMock(return_value={"states": [], "count": 0})
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             result = await get_entity_history.ainvoke(
                 {
                     "entity_id": "sensor.missing",
@@ -72,7 +72,7 @@ class TestGetEntityHistoryBasic:
             }
         )
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             await get_entity_history.ainvoke(
                 {
                     "entity_id": "light.test",
@@ -105,7 +105,7 @@ class TestGetEntityHistoryDetailed:
             }
         )
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             result = await get_entity_history.ainvoke(
                 {
                     "entity_id": "light.living_room",
@@ -135,7 +135,7 @@ class TestGetEntityHistoryDetailed:
             }
         )
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             result = await get_entity_history.ainvoke(
                 {
                     "entity_id": "sensor.test",
@@ -170,7 +170,7 @@ class TestGetEntityHistoryDetailed:
             }
         )
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             result = await get_entity_history.ainvoke(
                 {
                     "entity_id": "sensor.energy",
@@ -199,7 +199,7 @@ class TestGetEntityHistoryDetailed:
             }
         )
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             result = await get_entity_history.ainvoke(
                 {
                     "entity_id": "light.test",
@@ -226,7 +226,7 @@ class TestGetEntityHistoryDetailed:
             }
         )
 
-        with patch("src.ha.get_ha_client", return_value=mock_mcp):
+        with patch("src.ha.get_ha_client_async", new_callable=AsyncMock, return_value=mock_mcp):
             result = await get_entity_history.ainvoke(
                 {
                     "entity_id": "switch.pump",

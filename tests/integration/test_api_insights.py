@@ -28,7 +28,7 @@ def mock_insight():
     insight.script_path = None
     insight.script_output = None
     insight.status = MagicMock()
-    insight.status.value = "pending"
+    insight.status.value = "generated"
     insight.mlflow_run_id = "run-abc123"
     insight.conversation_id = None
     insight.task_label = None
@@ -50,7 +50,7 @@ def mock_insight_repo(mock_insight):
     repo.get_by_id = AsyncMock(return_value=mock_insight)
     repo.count = AsyncMock(return_value=1)
     repo.count_by_type = AsyncMock(return_value={"energy_optimization": 1})
-    repo.count_by_status = AsyncMock(return_value={"pending": 1})
+    repo.count_by_status = AsyncMock(return_value={"generated": 1})
     repo.create = AsyncMock(return_value=mock_insight)
     repo.mark_reviewed = AsyncMock(return_value=mock_insight)
     repo.mark_actioned = AsyncMock(return_value=mock_insight)
@@ -60,7 +60,7 @@ def mock_insight_repo(mock_insight):
         return_value={
             "total": 1,
             "by_type": {"energy_optimization": 1},
-            "by_status": {"pending": 1},
+            "by_status": {"generated": 1},
             "pending_count": 1,
             "high_impact_count": 0,
         }

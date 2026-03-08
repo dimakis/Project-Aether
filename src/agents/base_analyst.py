@@ -38,7 +38,7 @@ from src.graph.state import (
     SpecialistFinding,
     TeamAnalysis,
 )
-from src.ha import HAClient, get_ha_client
+from src.ha import HAClient, get_ha_client, get_ha_client_async
 from src.llm import get_llm
 from src.sandbox.policies import get_policy_for_depth
 from src.sandbox.runner import SandboxResult, SandboxRunner
@@ -104,15 +104,20 @@ class BaseAnalyst(
 
     @property
     def ha(self) -> HAClient:
-        """Get HA client, creating if needed."""
+        """Get HA client (must be initialized via _ensure_ha first in async context)."""
         if self._ha_client is None:
             self._ha_client = get_ha_client()
         return self._ha_client
 
     @ha.setter
     def ha(self, value: HAClient) -> None:
-        """Set HA client (for testing or injection)."""
         self._ha_client = value
+
+    async def _ensure_ha(self) -> HAClient:
+        """Resolve HA client asynchronously (DB-backed config in async context)."""
+        if self._ha_client is None:
+            self._ha_client = await get_ha_client_async()
+        return self._ha_client
 
     @property
     def llm(self) -> BaseChatModel:  # type: ignore[override]  # writeable in parent

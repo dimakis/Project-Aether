@@ -82,11 +82,19 @@ class LibrarianWorkflow:
 
     @property
     def ha(self) -> HAClient:
-        """Get HA client, creating if needed."""
+        """Get HA client (must be initialized via _ensure_ha first in async context)."""
         if self._ha_client is None:
             from src.ha import get_ha_client
 
             self._ha_client = get_ha_client()
+        return self._ha_client
+
+    async def _ensure_ha(self) -> HAClient:
+        """Resolve HA client asynchronously (DB-backed config in async context)."""
+        if self._ha_client is None:
+            from src.ha import get_ha_client_async
+
+            self._ha_client = await get_ha_client_async()
         return self._ha_client
 
     async def run_discovery(
@@ -203,8 +211,8 @@ class LibrarianWorkflow:
         """
         from src.ha import parse_entity_list
 
-        # Fetch entities
-        raw_entities = await self.ha.list_entities(
+        ha = await self._ensure_ha()
+        raw_entities = await ha.list_entities(
             domain=domain_filter,
             detailed=True,
         )
@@ -246,8 +254,9 @@ class LibrarianWorkflow:
         """
         from src.storage import get_session
 
+        ha = await self._ensure_ha()
         async with get_session() as session:
-            sync_service = DiscoverySyncService(session, self.ha)
+            sync_service = DiscoverySyncService(session, ha)
             discovery = await sync_service.run_discovery(
                 triggered_by=triggered_by,
                 mlflow_run_id=state.mlflow_run_id,

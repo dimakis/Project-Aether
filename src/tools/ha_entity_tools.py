@@ -11,7 +11,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.dal.entities import EntityRepository
-from src.ha import get_ha_client
+from src.ha import get_ha_client_async
 from src.storage import get_session
 from src.tracing import trace_with_uri
 
@@ -32,7 +32,7 @@ def _extract_results(payload: Any) -> list[dict[str, Any]]:
 @trace_with_uri(name="ha.get_entity_state", span_type="TOOL")
 async def get_entity_state(entity_id: str) -> str:
     """Get the current state and key attributes for an entity."""
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     entity = await ha.get_entity(entity_id)
     if not entity:
         return f"Entity '{entity_id}' not found."
@@ -108,7 +108,7 @@ async def get_domain_summary(domain: str) -> str:
 @trace_with_uri(name="ha.control_entity", span_type="TOOL")
 async def control_entity(entity_id: str, action: str) -> str:
     """Control an entity (on/off/toggle)."""
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     try:
         await ha.entity_action(entity_id=entity_id, action=action)
     except Exception as exc:  # pragma: no cover - defensive
