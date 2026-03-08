@@ -17,22 +17,28 @@ from tests.helpers.auth import make_test_settings
 class TestResetHAClient:
     """Tests for reset_ha_client()."""
 
-    def test_reset_clears_singleton(self):
+    @pytest.mark.asyncio
+    async def test_reset_clears_singleton(self):
         """reset_ha_client clears the internal _clients dict."""
+        from unittest.mock import AsyncMock
+
         from src.ha import client as client_mod
 
-        # Set a fake client in the dict
-        client_mod._clients["__default__"] = MagicMock()
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        client_mod._clients["__default__"] = mock_client
         assert len(client_mod._clients) > 0
 
-        client_mod.reset_ha_client()
+        await client_mod.reset_ha_client()
         assert len(client_mod._clients) == 0
 
-    def test_get_ha_client_after_reset_creates_new(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_get_ha_client_after_reset_creates_new(self, monkeypatch):
         """After reset, get_ha_client() creates a new instance."""
+        from unittest.mock import AsyncMock
+
         from src.ha import client as client_mod
 
-        # Patch _resolve_zone_config to avoid DB access
         settings = make_test_settings(
             ha_url="http://env-ha:8123",
             ha_token=SecretStr("env-token"),
@@ -41,16 +47,18 @@ class TestResetHAClient:
         monkeypatch.setattr("src.ha.base._try_get_db_config", lambda s: None)
         monkeypatch.setattr("src.ha.client._resolve_zone_config", lambda key: None)
 
-        # Reset
-        client_mod.reset_ha_client()
+        # Seed a mock client so reset has something to close
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        client_mod._clients["__default__"] = mock_client
+
+        await client_mod.reset_ha_client()
         assert len(client_mod._clients) == 0
 
-        # Get a new one
         new_client = client_mod.get_ha_client()
         assert new_client is not None
         assert new_client.config.ha_url == "http://env-ha:8123"
 
-        # Clean up
         client_mod._clients.clear()
 
 

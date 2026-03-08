@@ -14,7 +14,7 @@ from src.ha.automation_deploy import (
     build_time_trigger,
 )
 from src.ha.behavioral import BehavioralAnalysisClient
-from src.ha.client import HAClient, get_ha_client, get_ha_client_async
+from src.ha.client import HAClient, close_all_ha_clients, get_ha_client, get_ha_client_async
 from src.ha.constants import COMMON_SERVICES
 from src.ha.dashboards import DashboardMixin
 from src.ha.event_handler import EventHandler
@@ -65,6 +65,7 @@ __all__ = [
     "build_state_trigger",
     "build_sun_trigger",
     "build_time_trigger",
+    "close_all_ha_clients",
     "discover_energy_sensors",
     "get_energy_history",
     "get_ha_client",

@@ -125,6 +125,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if hasattr(app.state, "event_handler"):
         await app.state.event_handler.stop()
 
+    # Close HA client connection pools before DB shutdown
+    from src.ha.client import close_all_ha_clients
+
+    await close_all_ha_clients()
+
     if scheduler:
         await scheduler.stop()
     await close_db()
