@@ -8,13 +8,52 @@ from __future__ import annotations
 
 import enum
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeVar
 
-from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, Uuid, func
+from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, TypeDecorator, Uuid, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.storage.models import Base
+
+_E = TypeVar("_E", bound=enum.Enum)
+
+
+def _enum_column(enum_cls: type[_E]) -> TypeDecorator[_E]:
+    """Enum column that persists by value and loads by value or name (legacy).
+
+    Uses String as the impl so SQLAlchemy's internal Enum validation
+    is bypassed; the DB-level enum constraint is maintained by the
+    PostgreSQL column type created in migrations.
+    """
+
+    class _EnumByNameOrValue(TypeDecorator[_E]):
+        impl = String(255)
+        cache_ok = True
+
+        def process_bind_param(self, value: Any, dialect: Any) -> str | None:
+            if value is None:
+                return None
+            if isinstance(value, enum_cls):
+                return value.value
+            return str(value)
+
+        def process_result_value(self, value: Any, dialect: Any) -> _E | None:
+            if value is None:
+                return None
+            if isinstance(value, enum_cls):
+                return value
+            s = str(value).strip()
+            for member in enum_cls:
+                if s in (member.value, member.name):
+                    return member
+            raise LookupError(
+                f"{value!r} is not among the defined enum values. "
+                f"Enum: {enum_cls.__name__}. "
+                f"Possible: {[e.value for e in enum_cls]}"
+            )
+
+    return _EnumByNameOrValue()
 
 
 class InsightType(str, enum.Enum):
@@ -68,14 +107,9 @@ class Insight(Base):
 
     id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
 
-    # Insight classification
+    # Insight classification: persist by value; load by value or name (legacy rows)
     type: Mapped[InsightType] = mapped_column(
-        Enum(
-            InsightType,
-            name="insighttype",
-            create_type=False,
-            values_callable=lambda e: [m.value for m in e],
-        ),
+        _enum_column(InsightType),
         nullable=False,
         index=True,
     )
@@ -127,14 +161,9 @@ class Insight(Base):
         doc="Output from script execution",
     )
 
-    # Status tracking
+    # Status tracking: persist by value; load by value or name (legacy rows)
     status: Mapped[InsightStatus] = mapped_column(
-        Enum(
-            InsightStatus,
-            name="insightstatus",
-            create_type=False,
-            values_callable=lambda e: [m.value for m in e],
-        ),
+        _enum_column(InsightStatus),
         nullable=False,
         default=InsightStatus.PENDING,
         index=True,

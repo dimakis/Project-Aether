@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+import mlflow
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +25,7 @@ from src.graph.nodes import (
     generate_script_node,
 )
 from src.graph.state import AnalysisState
-from src.tracing import start_experiment_run
+from src.tracing import start_experiment_run, traced_node
 
 
 def build_analysis_graph(
@@ -63,7 +65,7 @@ def build_analysis_graph(
     """
     graph = create_graph(AnalysisState)
 
-    # Define node wrappers with dependency injection
+    # Define node wrappers with dependency injection (traced for MLflow per-node spans)
     async def _collect_data(state: AnalysisState) -> dict[str, object]:
         return await collect_energy_data_node(state, ha_client=ha_client)
 
@@ -81,12 +83,12 @@ def build_analysis_graph(
         error = Exception("Unknown error")
         return await analysis_error_node(state, error)
 
-    # Add nodes
-    graph.add_node("collect_data", _collect_data)
-    graph.add_node("generate_script", _generate_script)
-    graph.add_node("execute_sandbox", _execute_sandbox)
-    graph.add_node("extract_insights", _extract_insights)
-    graph.add_node("error", _handle_error)
+    # Add nodes (traced for MLflow per-node spans)
+    graph.add_node("collect_data", traced_node("collect_data", _collect_data))
+    graph.add_node("generate_script", traced_node("generate_script", _generate_script))
+    graph.add_node("execute_sandbox", traced_node("execute_sandbox", _execute_sandbox))
+    graph.add_node("extract_insights", traced_node("extract_insights", _extract_insights))
+    graph.add_node("error", traced_node("error", _handle_error))
 
     # Define flow
     graph.add_edge(START, "collect_data")
@@ -99,6 +101,7 @@ def build_analysis_graph(
     return graph
 
 
+@mlflow.trace(name="analysis_workflow", span_type="CHAIN")
 async def run_analysis_workflow(
     analysis_type: str = "energy_optimization",
     entity_ids: list[str] | None = None,
@@ -123,8 +126,6 @@ async def run_analysis_workflow(
     Returns:
         Final analysis state with insights
     """
-    import mlflow
-
     from src.graph.state import AnalysisType
     from src.tracing.context import get_session_id, session_context
 
@@ -154,6 +155,12 @@ async def run_analysis_workflow(
         if run:
             initial_state.mlflow_run_id = run.info.run_id if hasattr(run, "info") else None
 
+        mlflow.update_current_trace(
+            tags={
+                "workflow": "analysis",
+                **({"mlflow.trace.session": session_id} if session_id else {}),
+            }
+        )
         mlflow.set_tag("workflow", "analysis")
         mlflow.set_tag("session.id", session_id)
         mlflow.set_tag("analysis_type", analysis_type)

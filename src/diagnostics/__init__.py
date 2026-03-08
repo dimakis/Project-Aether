@@ -37,13 +37,9 @@ from src.diagnostics.log_parser import (
 )
 
 __all__ = [
-    # Config validator
     "ConfigCheckResult",
-    # Entity health
     "EntityDiagnostic",
-    # Log parser
     "ErrorLogEntry",
-    # Integration health
     "IntegrationHealth",
     "analyze_errors",
     "categorize_by_integration",
@@ -55,7 +51,6 @@ __all__ = [
     "find_unhealthy_integrations",
     "get_error_summary",
     "get_integration_statuses",
-    # Error patterns
     "match_known_errors",
     "parse_config_errors",
     "parse_error_log",

@@ -348,7 +348,11 @@ class TestGetAutomationConfig:
                 "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await registry_client.get(
                 f"/api/v1/registry/automations/{_AUTO_UUID}/config"
@@ -376,7 +380,11 @@ class TestGetAutomationConfig:
                 "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await registry_client.get(
                 f"/api/v1/registry/automations/{_AUTO_UUID}/config"
@@ -416,7 +424,11 @@ class TestGetAutomationConfig:
                 "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await registry_client.get(
                 f"/api/v1/registry/automations/{_AUTO_UUID}/config"
@@ -438,7 +450,11 @@ class TestGetAutomationConfig:
                 "src.api.routes.ha_registry.automations.AutomationRepository",
                 return_value=mock_automation_repo,
             ),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await registry_client.get(
                 f"/api/v1/registry/automations/{_AUTO_UUID}/config"
@@ -804,7 +820,11 @@ class TestCallService:
                 "src.api.routes.ha_registry.services.ServiceRepository",
                 return_value=mock_service_repo,
             ),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await registry_client.post(
                 "/api/v1/registry/services/call",
@@ -838,7 +858,11 @@ class TestCallService:
                 "src.api.routes.ha_registry.services.ServiceRepository",
                 return_value=mock_service_repo,
             ),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await registry_client.post(
                 "/api/v1/registry/services/call",
@@ -876,7 +900,11 @@ class TestCallService:
                 "src.api.routes.ha_registry.services.ServiceRepository",
                 return_value=mock_service_repo,
             ),
-            patch("src.ha.get_ha_client", return_value=mock_ha_client),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
         ):
             response = await registry_client.post(
                 "/api/v1/registry/services/call",

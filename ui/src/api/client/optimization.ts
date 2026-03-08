@@ -51,7 +51,7 @@ export const optimization = {
   suggestions: () => request<SuggestionList>("/optimize/suggestions/list"),
 
   acceptSuggestion: (id: string, comment?: string) =>
-    request<{ status: string; proposal_id?: string }>(
+    request<{ status: string; message?: string; proposal_id?: string }>(
       `/optimize/suggestions/${id}/accept`,
       {
         method: "POST",

@@ -39,6 +39,7 @@ _EXPORTS = {
     "search_traces": "src.tracing.mlflow",
     # Decorators (for non-LLM spans; LLM calls use autolog)
     "trace_with_uri": "src.tracing.mlflow",
+    "traced_node": "src.tracing.mlflow",
     "get_active_span": "src.tracing.mlflow",
     "add_span_event": "src.tracing.mlflow",
     "get_tracing_status": "src.tracing.mlflow",
@@ -108,6 +109,7 @@ if TYPE_CHECKING:
         start_experiment_run,
         start_run,
         trace_with_uri,
+        traced_node,
     )
 
 __all__ = [
@@ -144,4 +146,5 @@ __all__ = [
     "start_session",
     # Decorators (for non-LLM spans; LLM calls use autolog)
     "trace_with_uri",
+    "traced_node",
 ]

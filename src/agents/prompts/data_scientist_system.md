@@ -54,6 +54,8 @@ When generating scripts:
 6. Save any charts to /workspace/output/ directory
 7. Handle missing or invalid data gracefully with `.get()` defaults
 
+Division by zero: `.replace({0: 1})` and `.replace(0, 1)` work only on pandas Series/DataFrame, not on scalars (e.g. `.sum()`, a single number, or numpy.float64). For a scalar denominator use `x if x != 0 else 1` or `max(x, 1)`.
+
 Output JSON structure for insights:
 {
   "insights": [

@@ -522,7 +522,7 @@ export function useChatMessages(): UseChatMessagesReturn {
         setStreamingSessionId(null);
         setStreamStartTime(null);
         setStatusMessage("");
-        completeAgentActivity();
+        completeAgentActivity(sessionId);
         inputRef.current?.focus();
       }
     },

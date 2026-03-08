@@ -67,7 +67,11 @@ class TestFetchEntitiesNode:
         mock_ha.list_entities = AsyncMock(return_value=[])
 
         with (
-            patch("src.ha.get_ha_client", return_value=mock_ha),
+            patch(
+                "src.ha.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha,
+            ),
             patch("src.ha.parse_entity_list", return_value=[]),
         ):
             result = await fetch_entities_node(_make_state())
