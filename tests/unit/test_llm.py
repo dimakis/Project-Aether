@@ -6,10 +6,20 @@ Tests the flexible LLM configuration supporting multiple backends.
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_core.language_models import BaseChatModel
 
 
 class TestGetLLM:
     """Tests for get_llm factory function."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_llm_cache(self):
+        """Clear the factory cache before each test to avoid cross-test pollution."""
+        import src.llm.factory as factory_mod
+
+        factory_mod._llm_cache.clear()
+        yield
+        factory_mod._llm_cache.clear()
 
     @pytest.fixture
     def mock_settings_openrouter(self):
@@ -66,6 +76,7 @@ class TestGetLLM:
         """Test OpenRouter provider configuration."""
         with patch("src.llm.factory.get_settings", return_value=mock_settings_openrouter):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
+                MockChatOpenAI.return_value = MagicMock(spec=BaseChatModel)
                 from src.llm import get_llm
 
                 get_llm()
@@ -82,6 +93,7 @@ class TestGetLLM:
         """Test OpenAI provider configuration."""
         with patch("src.llm.factory.get_settings", return_value=mock_settings_openai):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
+                MockChatOpenAI.return_value = MagicMock(spec=BaseChatModel)
                 from src.llm import get_llm
 
                 get_llm()
@@ -96,6 +108,7 @@ class TestGetLLM:
         """Test Google Gemini provider configuration."""
         with patch("src.llm.factory.get_settings", return_value=mock_settings_google):
             with patch("langchain_google_genai.ChatGoogleGenerativeAI") as MockGemini:
+                MockGemini.return_value = MagicMock(spec=BaseChatModel)
                 from src.llm import get_llm
 
                 get_llm()
@@ -110,6 +123,7 @@ class TestGetLLM:
         """Test custom base URL for OpenAI-compatible APIs."""
         with patch("src.llm.factory.get_settings", return_value=mock_settings_custom):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
+                MockChatOpenAI.return_value = MagicMock(spec=BaseChatModel)
                 from src.llm import get_llm
 
                 get_llm()
@@ -122,6 +136,7 @@ class TestGetLLM:
         """Test temperature can be overridden."""
         with patch("src.llm.factory.get_settings", return_value=mock_settings_openrouter):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
+                MockChatOpenAI.return_value = MagicMock(spec=BaseChatModel)
                 from src.llm import get_llm
 
                 get_llm(temperature=0.2)
@@ -133,6 +148,7 @@ class TestGetLLM:
         """Test model can be overridden."""
         with patch("src.llm.factory.get_settings", return_value=mock_settings_openrouter):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
+                MockChatOpenAI.return_value = MagicMock(spec=BaseChatModel)
                 from src.llm import get_llm
 
                 get_llm(model="openai/gpt-4-turbo")
@@ -170,6 +186,7 @@ class TestGetLLM:
 
         with patch("src.llm.factory.get_settings", return_value=settings):
             with patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
+                MockChatOpenAI.return_value = MagicMock(spec=BaseChatModel)
                 from src.llm import get_llm
 
                 get_llm()

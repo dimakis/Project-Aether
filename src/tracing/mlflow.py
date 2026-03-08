@@ -33,6 +33,7 @@ from src.tracing.mlflow_spans import (
     add_span_event,
     get_active_span,
     trace_with_uri,
+    traced_node,
 )
 from src.tracing.mlflow_tracer import AetherTracer, get_tracer, get_tracing_status
 
@@ -59,4 +60,5 @@ __all__ = [
     "start_experiment_run",
     "start_run",
     "trace_with_uri",
+    "traced_node",
 ]

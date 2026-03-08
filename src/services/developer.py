@@ -34,7 +34,6 @@ _SKILLS = [
 
 
 def create_developer_service() -> Starlette:
-    """Create the Developer A2A service."""
     from src.agents.developer import DeveloperAgent
 
     return create_a2a_service(

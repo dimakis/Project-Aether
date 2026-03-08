@@ -169,5 +169,4 @@ async def create_insight_schedule(
 
 
 def get_insight_schedule_tools() -> list:
-    """Return insight schedule tools for the Architect agent."""
     return [create_insight_schedule]

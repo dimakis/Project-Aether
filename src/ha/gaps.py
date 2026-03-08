@@ -73,14 +73,9 @@ MCP_GAPS: list[dict[str, Any]] = [
         "affects": ["Integration status", "Device sources"],
         "data_model_impact": ["ConfigEntry entity skipped"],
     },
-    {
-        "tool": "subscribe_events",
-        "priority": "P3",
-        "impact": "No real-time entity state updates",
-        "workaround": "Periodic polling via list_entities",
-        "affects": ["Live dashboards", "Real-time sync"],
-        "data_model_impact": ["Event streaming unavailable"],
-    },
+    # subscribe_events gap CLOSED — implemented via HAEventStream in src/ha/event_stream.py
+    # (Feature 35: Real-Time HA Event Stream). Persistent WebSocket subscription
+    # with debounced batch upserts replaces periodic polling.
     {
         "tool": "create_automation",
         "priority": "P2",

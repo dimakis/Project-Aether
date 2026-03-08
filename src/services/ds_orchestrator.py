@@ -33,7 +33,6 @@ _SKILLS = [
 
 
 def create_ds_orchestrator_service() -> Starlette:
-    """Create the DS Orchestrator A2A service."""
     from src.agents.data_scientist import DataScientistAgent
 
     agent = DataScientistAgent()

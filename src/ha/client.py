@@ -24,8 +24,14 @@ from src.ha.diagnostics import DiagnosticMixin
 from src.ha.entities import EntityMixin
 from src.ha.helpers import HelperMixin
 
-# Re-export for backward compatibility
-__all__ = ["HAClient", "HAClientConfig", "HAClientError", "get_ha_client", "reset_ha_client"]
+__all__ = [
+    "HAClient",
+    "HAClientConfig",
+    "HAClientError",
+    "get_ha_client",
+    "get_ha_client_async",
+    "reset_ha_client",
+]
 
 
 class HAClient(
@@ -57,14 +63,8 @@ _client_lock = __import__("threading").Lock()
 _DEFAULT_KEY = "__default__"
 
 
-def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
-    """Try to resolve HA config from a specific zone in the DB.
-
-    Returns HAClientConfig if found, None otherwise.
-    Runs synchronously (for singleton init outside async context).
-    """
-    import asyncio
-
+async def _resolve_zone_config_async(zone_id: str) -> HAClientConfig | None:
+    """Resolve HA config from a specific zone in the DB. Use from async context only."""
     import structlog
 
     logger = structlog.get_logger(__name__)
@@ -76,64 +76,74 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
 
         settings = get_settings()
         jwt_secret = _get_jwt_secret(settings)
-
-        async def _fetch() -> HAClientConfig | None:
-            async with get_session() as session:
-                repo = HAZoneRepository(session)
-                if zone_id == _DEFAULT_KEY:
-                    zone = await repo.get_default()
-                else:
-                    zone = await repo.get_by_id(zone_id)
-                if not zone:
-                    return None
-                conn = await repo.get_connection(zone.id, jwt_secret)
-                if not conn:
-                    return None
-                ha_url, ha_url_remote, ha_token, url_preference = conn
-                return HAClientConfig(
-                    ha_url=ha_url,
-                    ha_url_remote=ha_url_remote,
-                    ha_token=ha_token,
-                    url_preference=url_preference,
-                )
-
-        try:
-            asyncio.get_running_loop()
-            # Inside async context — can't use asyncio.run()
-            return None
-        except RuntimeError:
-            result = asyncio.run(_fetch())
-            return result  # type: ignore[no-untyped-call]
+        async with get_session() as session:
+            repo = HAZoneRepository(session)
+            if zone_id == _DEFAULT_KEY:
+                zone = await repo.get_default()
+            else:
+                zone = await repo.get_by_id(zone_id)
+            if not zone:
+                return None
+            conn = await repo.get_connection(zone.id, jwt_secret)
+            if not conn:
+                return None
+            ha_url, ha_url_remote, ha_token, url_preference = conn
+            return HAClientConfig(
+                ha_url=ha_url,
+                ha_url_remote=ha_url_remote,
+                ha_token=ha_token,
+                url_preference=url_preference,
+            )
     except Exception as exc:
         logger.warning("zone_config_resolution_failed", zone_id=zone_id, reason=str(exc))
         return None
 
 
+def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
+    """Resolve HA config from DB (sync). Use only when no event loop is running."""
+    import asyncio
+
+    try:
+        asyncio.get_running_loop()
+        return None
+    except RuntimeError:
+        pass
+    try:
+        return asyncio.run(_resolve_zone_config_async(zone_id))
+    except Exception:
+        return None
+
+
 def get_ha_client(zone_id: str | None = None) -> HAClient:
-    """Get or create an HA client for a specific zone.
+    """Get or create an HA client (sync). Prefer get_ha_client_async in async code.
 
-    If zone_id is None, returns the default zone's client.
-    Falls back to environment variables if zone DB lookup fails.
-
-    Thread-safe: Uses double-checked locking per zone.
-
-    Args:
-        zone_id: UUID of the zone, or None for the default.
-
-    Returns:
-        HAClient instance for the specified zone.
+    In async context DB config cannot be resolved here; use get_ha_client_async
+    so the first request gets DB-backed config when available.
     """
     key = zone_id or _DEFAULT_KEY
     if key not in _clients:
         with _client_lock:
             if key not in _clients:
-                # Try zone-specific config from DB first
                 config = _resolve_zone_config(key)
                 if config:
                     _clients[key] = HAClient(config=config)
                 else:
-                    # Fallback: resolve from env vars / system_config
                     _clients[key] = HAClient()
+    return _clients[key]
+
+
+async def get_ha_client_async(zone_id: str | None = None) -> HAClient:
+    """Get or create an HA client for a zone, resolving config from DB when in async context."""
+    key = zone_id or _DEFAULT_KEY
+    if key in _clients:
+        return _clients[key]
+    config = await _resolve_zone_config_async(key)
+    with _client_lock:
+        if key not in _clients:
+            if config:
+                _clients[key] = HAClient(config=config)
+            else:
+                _clients[key] = HAClient()
     return _clients[key]
 
 

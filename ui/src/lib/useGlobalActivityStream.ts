@@ -55,6 +55,13 @@ export function useGlobalActivityStream() {
             const jobId: string = data.job_id;
             const event: string = data.event;
 
+            // Normalize agent names to match topology node IDs
+            const AGENT_ALIASES: Record<string, string> = {
+              data_scientist: "data_science_team",
+            };
+            const rawAgent: string = data.agent ?? "";
+            const agent = AGENT_ALIASES[rawAgent] ?? rawAgent;
+
             if (event === "start") {
               registerJob({
                 jobId,
@@ -71,37 +78,48 @@ export function useGlobalActivityStream() {
                   activeAgent: null,
                   agentsSeen: ["aether"],
                   agentStates: { aether: "firing" },
+                  activeEdges: [],
                   liveTimeline: [
                     { ts: data.ts ?? Date.now() / 1000, event: "start", agent: data.job_type ?? "system" },
                   ],
                 });
               }
-            } else if (event === "agent_start" && data.agent) {
+            } else if (event === "agent_start" && agent) {
               const snap = getActivitySnapshot();
               const nextStates = { ...snap.agentStates };
-              nextStates[data.agent] = "firing";
-              const seen = snap.agentsSeen.includes(data.agent)
+              nextStates[agent] = "firing";
+              nextStates["aether"] = "firing";
+              const seen = snap.agentsSeen.includes(agent)
                 ? snap.agentsSeen
-                : [...snap.agentsSeen, data.agent];
+                : [...snap.agentsSeen, agent];
+              const seenWithAether = seen.includes("aether") ? seen : [...seen, "aether"];
+
+              // Add edge from aether (or current active agent) to the new agent
+              const parent = snap.activeAgent || "aether";
+              const edges = snap.activeEdges ?? [];
+              const hasEdge = edges.some(([a, b]: [string, string]) => a === parent && b === agent);
+              const nextEdges = hasEdge ? edges : [...edges, [parent, agent] as [string, string]];
+
               setAgentActivity({
                 isActive: true,
-                activeAgent: data.agent,
-                agentsSeen: seen,
+                activeAgent: agent,
+                agentsSeen: seenWithAether,
                 agentStates: nextStates,
+                activeEdges: nextEdges,
                 liveTimeline: [
                   ...snap.liveTimeline,
-                  { ts: data.ts ?? Date.now() / 1000, event: "start", agent: data.agent },
+                  { ts: data.ts ?? Date.now() / 1000, event: "start", agent },
                 ],
               });
-            } else if (event === "agent_end" && data.agent) {
+            } else if (event === "agent_end" && agent) {
               const snap = getActivitySnapshot();
               const nextStates = { ...snap.agentStates };
-              nextStates[data.agent] = "done";
+              nextStates[agent] = "done";
               setAgentActivity({
                 agentStates: nextStates,
                 liveTimeline: [
                   ...snap.liveTimeline,
-                  { ts: data.ts ?? Date.now() / 1000, event: "end", agent: data.agent },
+                  { ts: data.ts ?? Date.now() / 1000, event: "end", agent },
                 ],
               });
             } else if (event === "status" && data.message) {
@@ -114,13 +132,7 @@ export function useGlobalActivityStream() {
               });
             } else if (event === "complete") {
               updateJobStatus(jobId, "completed");
-              const handle = setTimeout(() => {
-                pendingTimeouts.current.delete(handle);
-                const latest = getActivitySnapshot();
-                const stillFiring = Object.values(latest.agentStates).some((v) => v === "firing");
-                if (!stillFiring) completeAgentActivity();
-              }, 1500);
-              pendingTimeouts.current.add(handle);
+              completeAgentActivity();
             } else if (event === "failed") {
               updateJobStatus(jobId, "failed");
               completeAgentActivity();

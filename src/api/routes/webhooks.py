@@ -124,6 +124,58 @@ async def receive_ha_webhook(
                 message=f"Proposal {result.get('action', 'unknown')}: {result.get('proposal_id', '')[:8]}",
             )
 
+        # Feature 37: Insight notification actions
+        if action_id.startswith("INVESTIGATE_"):
+            from src.hitl.action_log import record_action
+
+            insight_id = action_id[len("INVESTIGATE_") :]
+            record_action(proposal_id=insight_id, action="investigate", status="success")
+            logger.info("Insight investigate action: %s", insight_id[:8])
+            return WebhookResponse(
+                status="success",
+                matched_schedules=0,
+                message=f"Investigate insight: {insight_id[:8]}",
+            )
+
+        if action_id.startswith("DISMISS_"):
+            from src.dal.insights import InsightRepository
+            from src.hitl.action_log import record_action
+            from src.storage import get_session as _get_session
+
+            insight_id = action_id[len("DISMISS_") :]
+            status = "success"
+            try:
+                async with _get_session() as dismiss_session:
+                    insight_repo = InsightRepository(dismiss_session)
+                    insight = await insight_repo.get_by_id(insight_id)
+                    if insight:
+                        insight.dismiss()
+                        await dismiss_session.commit()
+                    else:
+                        status = "not_found"
+            except Exception:
+                logger.exception("Failed to dismiss insight %s", insight_id[:8])
+                status = "error"
+
+            record_action(proposal_id=insight_id, action="dismiss", status=status)
+            logger.info("Insight dismiss action: %s (status=%s)", insight_id[:8], status)
+            return WebhookResponse(
+                status=status,
+                matched_schedules=0,
+                message=f"Dismiss insight: {insight_id[:8]}",
+            )
+
+        if action_id == "VIEW_INSIGHTS":
+            from src.hitl.action_log import record_action
+
+            record_action(proposal_id="", action="view_insights", status="success")
+            logger.info("View insights action received")
+            return WebhookResponse(
+                status="success",
+                matched_schedules=0,
+                message="View insights",
+            )
+
     # Entity registry sync: trigger immediate sync on registry changes
     if payload.event_type == "entity_registry_updated":
         background_tasks.add_task(_run_registry_sync)

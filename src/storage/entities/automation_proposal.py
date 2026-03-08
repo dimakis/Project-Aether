@@ -238,7 +238,6 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         return self.original_yaml is not None
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return f"<AutomationProposal(id={self.id!r}, name={self.name!r}, status={self.status.value!r})>"
 
     def can_transition_to(self, new_status: ProposalStatus) -> bool:

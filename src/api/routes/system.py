@@ -297,9 +297,9 @@ async def _check_home_assistant() -> ComponentHealth:
     try:
         import httpx
 
-        from src.ha import get_ha_client
+        from src.ha import get_ha_client_async
 
-        ha_client = get_ha_client()
+        ha_client = await get_ha_client_async()
         config = ha_client.config
 
         # Skip check if no HA URL configured

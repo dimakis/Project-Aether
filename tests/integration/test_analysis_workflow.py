@@ -341,7 +341,7 @@ class TestAnalysisWithDatabase:
                     mock_ctx.__enter__ = MagicMock(return_value=mock_run)
                     mock_ctx.__exit__ = MagicMock(return_value=False)
                     with patch(
-                        "src.agents.data_scientist.start_experiment_run",
+                        "src.agents.data_scientist.workflow.start_experiment_run",
                         return_value=mock_ctx,
                     ):
                         state = await workflow.run_analysis(

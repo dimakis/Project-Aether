@@ -59,6 +59,74 @@ def _is_async(func: Callable[..., Any]) -> bool:
     return asyncio.iscoroutinefunction(func) or inspect.iscoroutinefunction(func)
 
 
+def traced_node(
+    name: str,
+    fn: Callable[..., Any],
+    span_type: str = "CHAIN",
+    attributes: dict[str, Any] | None = None,
+) -> Callable[..., Any]:
+    """Wrap a LangGraph node function with mlflow.trace for per-node spans.
+
+    Uses the MLflow fluent API (mlflow.trace) so inputs, outputs, duration,
+    and errors are captured automatically. Degrades to the original function
+    when MLflow is unavailable or tracing is disabled. Checks at call time so
+    graph build can happen before MLflow is initialized.
+
+    Args:
+        name: Span name (typically the node name in the graph).
+        fn: Async or sync node function (state) -> state updates.
+        span_type: Span type (default CHAIN for agent/graph nodes).
+        attributes: Optional attributes to set on the span.
+
+    Returns:
+        Wrapped function that creates a span when tracing is enabled.
+    """
+    traced_func: Callable[..., Any] | None = None
+
+    def _get_traced(mlflow: Any) -> Callable[..., Any]:
+        nonlocal traced_func
+        if traced_func is None:
+            traced_func = mlflow.trace(
+                fn,
+                name=name,
+                span_type=span_type,
+                attributes=attributes,
+            )
+        return traced_func
+
+    @functools.wraps(fn)
+    async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+        if not _ensure_mlflow_initialized() or not _traces_available:
+            return await fn(*args, **kwargs)
+        mlflow = _safe_import_mlflow()
+        if mlflow is None:
+            return await fn(*args, **kwargs)
+        try:
+            return await _get_traced(mlflow)(*args, **kwargs)
+        except Exception as e:
+            _disable_traces("traced_node span failed; backend rejected traces")
+            _logger.debug("traced_node span failed, running without trace: %s", e)
+            return await fn(*args, **kwargs)
+
+    @functools.wraps(fn)
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+        if not _ensure_mlflow_initialized() or not _traces_available:
+            return fn(*args, **kwargs)
+        mlflow = _safe_import_mlflow()
+        if mlflow is None:
+            return fn(*args, **kwargs)
+        try:
+            return _get_traced(mlflow)(*args, **kwargs)
+        except Exception as e:
+            _disable_traces("traced_node span failed; backend rejected traces")
+            _logger.debug("traced_node span failed, running without trace: %s", e)
+            return fn(*args, **kwargs)
+
+    if _is_async(fn):
+        return async_wrapper
+    return sync_wrapper
+
+
 def trace_with_uri(
     name: str | None = None,
     span_type: str = "UNKNOWN",
