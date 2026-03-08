@@ -182,21 +182,30 @@ async def _create_automation_proposal(
     mode: str,
     original_yaml: str | None = None,
 ) -> str:
-    # If yaml_content provided, parse using the canonical schema pipeline
+    # If yaml_content provided, validate structurally then extract fields
     if yaml_content:
+        from src.schema import validate_yaml
+
+        validation_result = validate_yaml(yaml_content, "ha.automation")
+        if not validation_result.valid:
+            error_lines = [
+                f"- {e.path}: {e.message}" if e.path else f"- {e.message}"
+                for e in validation_result.errors
+            ]
+            return (
+                f"Validation failed for automation '{name}'.\n\n"
+                f"**Errors:**\n" + "\n".join(error_lines) + "\n\n"
+                "Please fix the issues and call seek_approval again."
+            )
+
         from src.schema import parse_ha_yaml
 
-        parsed, errors = parse_ha_yaml(yaml_content)
-        if not errors:
+        parsed, _parse_errors = parse_ha_yaml(yaml_content)
+        if not _parse_errors:
             trigger = trigger or parsed.get("trigger", {})
             actions = actions or parsed.get("action", {})
             conditions = conditions or parsed.get("condition")
             mode = parsed.get("mode", mode)
-        else:
-            logger.debug(
-                "Failed to parse YAML content, falling back to explicit params: %s",
-                [str(e) for e in errors],
-            )
 
     # Validate required fields — reject early so the LLM retries with full data
     missing: list[str] = []

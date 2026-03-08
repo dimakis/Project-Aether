@@ -554,3 +554,170 @@ class TestSeekApprovalTool:
         )
 
         assert "helper_type" in result.lower()
+
+
+@pytest.mark.asyncio
+class TestAutomationProposalValidation:
+    """Automation proposals run structural validation before creation.
+
+    Tests call _create_automation_proposal directly, loaded via
+    importlib.util to bypass the pre-existing circular import in
+    src.tools.__init__ (src.tools <-> src.agents.architect.workflow).
+    """
+
+    @pytest.fixture
+    def approval_mod(self):
+        """Load approval_tools module, bypassing src/tools/__init__.py circular import."""
+        import importlib.util
+        import sys
+
+        key = "src.tools.approval_tools"
+        if key in sys.modules:
+            return sys.modules[key]
+
+        spec = importlib.util.spec_from_file_location(key, "src/tools/approval_tools.py")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[key] = mod
+        spec.loader.exec_module(mod)
+        return mod
+
+    @pytest.fixture
+    def mock_proposal(self):
+        proposal = MagicMock()
+        proposal.id = str(uuid4())
+        proposal.name = "Test"
+        return proposal
+
+    @pytest.fixture
+    def mock_repo(self, mock_proposal):
+        repo = AsyncMock()
+        repo.create.return_value = mock_proposal
+        repo.propose.return_value = mock_proposal
+        return repo
+
+    @pytest.fixture
+    def mock_session(self):
+        session = AsyncMock()
+        session.commit = AsyncMock()
+        return session
+
+    async def test_valid_yaml_creates_proposal(
+        self, approval_mod, mock_repo, mock_session, mock_proposal
+    ):
+        """When YAML passes structural validation, proposal is created."""
+        valid_yaml = (
+            "trigger:\n"
+            "  - platform: sun\n"
+            "    event: sunset\n"
+            "action:\n"
+            "  - service: light.turn_on\n"
+            "    target:\n"
+            "      entity_id: light.living_room\n"
+        )
+        parsed_data = {
+            "trigger": [{"platform": "sun", "event": "sunset"}],
+            "action": [{"service": "light.turn_on", "target": {"entity_id": "light.living_room"}}],
+        }
+
+        with (
+            patch.object(approval_mod, "get_session") as mock_get_session,
+            patch.object(approval_mod, "ProposalRepository", return_value=mock_repo),
+            patch("src.schema.validate_yaml") as mock_validate,
+            patch("src.schema.parse_ha_yaml", return_value=(parsed_data, [])),
+        ):
+            from src.schema.core import ValidationResult
+
+            mock_validate.return_value = ValidationResult(valid=True, schema_name="ha.automation")
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await approval_mod._create_automation_proposal(
+                name="Sunset lights",
+                description="Turn on lights at sunset",
+                yaml_content=valid_yaml,
+                trigger=None,
+                actions=None,
+                conditions=None,
+                mode="single",
+            )
+
+        assert "submitted an automation proposal" in result
+        mock_repo.create.assert_called_once()
+
+    async def test_invalid_yaml_returns_validation_errors(self, approval_mod):
+        """When YAML fails structural validation, errors are returned to the agent."""
+        with patch("src.schema.validate_yaml") as mock_validate:
+            from src.schema.core import ValidationError as VError
+            from src.schema.core import ValidationResult
+
+            mock_validate.return_value = ValidationResult(
+                valid=False,
+                errors=[VError(path="trigger[0]", message="Invalid trigger platform")],
+                schema_name="ha.automation",
+            )
+
+            result = await approval_mod._create_automation_proposal(
+                name="Bad automation",
+                description="Has bad trigger",
+                yaml_content="trigger:\n  - platform: bad\n",
+                trigger=None,
+                actions=None,
+                conditions=None,
+                mode="single",
+            )
+
+        assert "validation" in result.lower()
+        assert "trigger[0]" in result or "Invalid trigger" in result
+
+    async def test_validation_skipped_when_no_yaml_content(
+        self, approval_mod, mock_repo, mock_session, mock_proposal
+    ):
+        """When trigger/actions provided directly (no yaml_content), structural validation
+        is not run — there's no YAML string to validate."""
+        with (
+            patch.object(approval_mod, "get_session") as mock_get_session,
+            patch.object(approval_mod, "ProposalRepository", return_value=mock_repo),
+            patch("src.schema.validate_yaml") as mock_validate,
+        ):
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await approval_mod._create_automation_proposal(
+                name="Direct params",
+                description="No YAML",
+                yaml_content=None,
+                trigger={"platform": "sun", "event": "sunset"},
+                actions=[{"service": "light.turn_on"}],
+                conditions=None,
+                mode="single",
+            )
+
+        assert "submitted an automation proposal" in result
+        mock_validate.assert_not_called()
+
+    async def test_validation_error_does_not_create_proposal(self, approval_mod):
+        """When YAML fails validation, no proposal is persisted."""
+        with (
+            patch("src.schema.validate_yaml") as mock_validate,
+            patch.object(approval_mod, "ProposalRepository") as mock_repo_cls,
+        ):
+            from src.schema.core import ValidationError as VError
+            from src.schema.core import ValidationResult
+
+            mock_validate.return_value = ValidationResult(
+                valid=False,
+                errors=[VError(path="action[0].service", message="Unknown service")],
+                schema_name="ha.automation",
+            )
+
+            await approval_mod._create_automation_proposal(
+                name="Bad",
+                description="Bad",
+                yaml_content="trigger:\n  - platform: state\n",
+                trigger=None,
+                actions=None,
+                conditions=None,
+                mode="single",
+            )
+
+        mock_repo_cls.return_value.create.assert_not_called()
