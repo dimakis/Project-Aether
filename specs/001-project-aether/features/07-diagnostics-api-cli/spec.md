@@ -1,11 +1,11 @@
-**Completed**: 2026-02-07
-
 # Feature: Diagnostics API & CLI
 
-**Status**: Complete  
+**Status**: Partial  
 **Priority**: P4  
 **User Story**: US8 (continued)  
 **Depends on**: Feature 06 (HA Diagnostics & Troubleshooting - Core)
+
+> **Note (2026-03-08)**: The REST API surface is implemented (ha-health, error-log, config-check, traces). The `aether diagnose` and `aether health` CLI subcommands are not yet implemented. Previously marked "Complete" in error.
 
 ## Goal
 
