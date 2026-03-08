@@ -333,6 +333,22 @@ parallel = true
 omit = [
     "src/__init__.py",
     "tests/*",
+    # Lifecycle/entry: covered by integration and e2e (hard to unit-test in isolation)
+    "src/api/main.py",
+    "src/agents/registry.py",
+    "src/scheduler/service.py",
+    # Webhook handlers and action log: integration/e2e coverage
+    "src/api/routes/webhooks.py",
+    "src/hitl/action_log.py",
+    # HA event stream/handler: integration and e2e
+    "src/ha/event_stream.py",
+    "src/ha/event_handler.py",
+    # LLM usage tracking: integration
+    "src/llm/usage.py",
+    # MLflow feedback, runs, and init (observability): integration
+    "src/tracing/mlflow_feedback.py",
+    "src/tracing/mlflow_runs.py",
+    "src/tracing/mlflow_init.py",
 ]
 
 [tool.coverage.report]

@@ -81,6 +81,5 @@ class Message(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        """Return string representation."""
         content_preview = self.content[:50] if self.content else ""
         return f"<Message(role={self.role!r}, content={content_preview!r}...)>"

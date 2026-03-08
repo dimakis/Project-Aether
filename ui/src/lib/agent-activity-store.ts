@@ -228,14 +228,29 @@ export function setAgentActivity(activity: Partial<AgentActivity>) {
   notifyActivity();
 }
 
+/** Returns true if the activity has meaningful data worth caching. */
+function hasCacheableActivity(activity: AgentActivity): boolean {
+  return (
+    activity.agentsSeen.length > 0 ||
+    activity.liveTimeline.length > 0 ||
+    (activity.thinkingStream?.length ?? 0) > 0
+  );
+}
+
 /**
  * Transition to a "completed" state that preserves the timeline,
  * agent states, and thinking content so the user can review them.
  *
  * The preserved state will be auto-cleared the next time
  * setAgentActivity is called with `isActive: true`.
+ *
+ * @param completingSessionId - Optional session ID that just completed.
+ *   When provided (e.g. from chat), cache under this ID so the snapshot
+ *   can be restored when switching sessions. Use this when the caller
+ *   knows which session owns the activity, avoiding timing issues where
+ *   activeSessionId may have changed (user switched) or not yet been set.
  */
-export function completeAgentActivity() {
+export function completeAgentActivity(completingSessionId?: string | null) {
   // Mark all seen agents as "done"
   const doneStates: Record<string, AgentNodeState> = {};
   for (const agent of currentActivity.agentsSeen) {
@@ -252,9 +267,21 @@ export function completeAgentActivity() {
     completedAt: Date.now(),
   };
 
-  // Cache the completed snapshot so it can be restored when switching sessions
-  if (activeSessionId) {
-    _cacheSessionSnapshot(activeSessionId, currentActivity);
+  // Cache the completed snapshot so it can be restored when switching sessions.
+  // Use completingSessionId when provided (avoids timing issues); otherwise
+  // fall back to activeSessionId. Only cache when currentActivity still
+  // belongs to the session we're caching for (user didn't switch during stream).
+  const cacheKey = completingSessionId ?? activeSessionId;
+  const activityBelongsToCacheKey =
+    !cacheKey ||
+    activeSessionId === null ||
+    activeSessionId === cacheKey;
+  if (
+    cacheKey &&
+    hasCacheableActivity(currentActivity) &&
+    activityBelongsToCacheKey
+  ) {
+    _cacheSessionSnapshot(cacheKey, currentActivity);
   }
 
   notifyActivity();
@@ -282,8 +309,9 @@ function subscribeActivity(listener: () => void) {
  * Otherwise the panel starts with a clean slate.
  */
 export function setActivitySession(sessionId: string | null) {
-  // Save current session's state to cache before switching
-  if (activeSessionId && currentActivity.agentsSeen.length > 0) {
+  // Save current session's state to cache before switching.
+  // Cache whenever there's meaningful activity, not just agentsSeen.
+  if (activeSessionId && hasCacheableActivity(currentActivity)) {
     _cacheSessionSnapshot(activeSessionId, currentActivity);
   }
 

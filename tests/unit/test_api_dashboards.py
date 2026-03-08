@@ -48,7 +48,10 @@ class TestListDashboards:
             {"id": "def456", "title": "Energy", "mode": "yaml", "url_path": "energy"},
         ]
 
-        with patch("src.api.routes.dashboards.get_ha_client") as mock_get_client:
+        with patch(
+            "src.api.routes.dashboards.get_ha_client_async",
+            new_callable=AsyncMock,
+        ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.list_dashboards = AsyncMock(return_value=mock_dashboards)
             mock_get_client.return_value = mock_client
@@ -67,7 +70,10 @@ class TestListDashboards:
     async def test_returns_empty_list(self, client: AsyncClient):
         token = make_test_jwt()
 
-        with patch("src.api.routes.dashboards.get_ha_client") as mock_get_client:
+        with patch(
+            "src.api.routes.dashboards.get_ha_client_async",
+            new_callable=AsyncMock,
+        ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.list_dashboards = AsyncMock(return_value=[])
             mock_get_client.return_value = mock_client
@@ -84,7 +90,10 @@ class TestListDashboards:
         """When HA is unreachable, return 502 instead of silently returning []."""
         token = make_test_jwt()
 
-        with patch("src.api.routes.dashboards.get_ha_client") as mock_get_client:
+        with patch(
+            "src.api.routes.dashboards.get_ha_client_async",
+            new_callable=AsyncMock,
+        ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.list_dashboards = AsyncMock(
                 side_effect=ConnectionError("HA unreachable"),
@@ -118,7 +127,10 @@ class TestGetDashboardConfig:
             "views": [{"title": "Overview", "cards": []}],
         }
 
-        with patch("src.api.routes.dashboards.get_ha_client") as mock_get_client:
+        with patch(
+            "src.api.routes.dashboards.get_ha_client_async",
+            new_callable=AsyncMock,
+        ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get_dashboard_config = AsyncMock(return_value=mock_config)
             mock_get_client.return_value = mock_client
@@ -137,7 +149,10 @@ class TestGetDashboardConfig:
         token = make_test_jwt()
         mock_config = {"title": "Default", "views": []}
 
-        with patch("src.api.routes.dashboards.get_ha_client") as mock_get_client:
+        with patch(
+            "src.api.routes.dashboards.get_ha_client_async",
+            new_callable=AsyncMock,
+        ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get_dashboard_config = AsyncMock(return_value=mock_config)
             mock_get_client.return_value = mock_client
@@ -154,7 +169,10 @@ class TestGetDashboardConfig:
     async def test_not_found(self, client: AsyncClient):
         token = make_test_jwt()
 
-        with patch("src.api.routes.dashboards.get_ha_client") as mock_get_client:
+        with patch(
+            "src.api.routes.dashboards.get_ha_client_async",
+            new_callable=AsyncMock,
+        ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get_dashboard_config = AsyncMock(return_value=None)
             mock_get_client.return_value = mock_client

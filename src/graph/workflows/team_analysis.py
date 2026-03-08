@@ -22,6 +22,7 @@ def build_team_analysis_graph() -> StateGraph:
     from src.agents.behavioral_analyst import BehavioralAnalyst
     from src.agents.diagnostic_analyst import DiagnosticAnalyst
     from src.agents.energy_analyst import EnergyAnalyst
+    from src.tracing import traced_node
 
     graph = create_graph(AnalysisState)
 
@@ -45,10 +46,10 @@ def build_team_analysis_graph() -> StateGraph:
             return {"team_analysis": result}
         return {}
 
-    graph.add_node("energy", _energy_analysis)
-    graph.add_node("behavioral", _behavioral_analysis)
-    graph.add_node("diagnostic", _diagnostic_analysis)
-    graph.add_node("synthesize", _synthesize)
+    graph.add_node("energy", traced_node("energy", _energy_analysis))
+    graph.add_node("behavioral", traced_node("behavioral", _behavioral_analysis))
+    graph.add_node("diagnostic", traced_node("diagnostic", _diagnostic_analysis))
+    graph.add_node("synthesize", traced_node("synthesize", _synthesize))
 
     graph.add_edge(START, "energy")
     graph.add_edge("energy", "behavioral")

@@ -99,7 +99,6 @@ class LLMUsage(Base, UUIDMixin, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        """Return string representation."""
         return (
             f"<LLMUsage(model={self.model!r}, "
             f"tokens={self.total_tokens}, "

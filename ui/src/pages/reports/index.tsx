@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   FileBarChart,
   Clock,
@@ -9,8 +9,10 @@ import {
   Zap,
   Users,
   ArrowRight,
+  MessageSquarePlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,7 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function ReportsPage() {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState("");
   const { data, isLoading, error } = useReports(statusFilter || undefined);
 
@@ -120,6 +123,15 @@ export function ReportsPage() {
                 analysis. Ask the Architect to analyze your data!
               </p>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => navigate("/chat")}
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5 mr-2" />
+              Request Analysis
+            </Button>
           </CardContent>
         </Card>
       )}

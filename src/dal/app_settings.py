@@ -49,10 +49,18 @@ DATA_SCIENCE_DEFAULTS: dict[str, Any] = {
     "sandbox_artifacts_enabled": False,
 }
 
+NOTIFICATIONS_DEFAULTS: dict[str, Any] = {
+    "enabled": True,
+    "min_impact": "high",
+    "quiet_hours_start": None,
+    "quiet_hours_end": None,
+}
+
 SECTION_DEFAULTS: dict[str, dict[str, Any]] = {
     "chat": CHAT_DEFAULTS,
     "dashboard": DASHBOARD_DEFAULTS,
     "data_science": DATA_SCIENCE_DEFAULTS,
+    "notifications": NOTIFICATIONS_DEFAULTS,
 }
 
 # ─── Validation bounds ────────────────────────────────────────────────────────
@@ -74,13 +82,19 @@ FIELD_BOUNDS: dict[str, tuple[int | None, int | None]] = {
 }
 
 
+_VALID_IMPACTS = {"low", "medium", "high", "critical"}
+
+# HH:MM time format for quiet hours validation
+_TIME_PATTERN = r"^\d{1,2}:\d{2}$"
+
+
 def validate_section(section: str, data: dict[str, Any]) -> dict[str, Any]:
     """Validate and clamp setting values within allowed bounds.
 
     Unknown keys are silently dropped.
 
     Args:
-        section: Section name (chat, dashboard, data_science)
+        section: Section name (chat, dashboard, data_science, notifications)
         data: Incoming key-value pairs to validate
 
     Returns:
@@ -89,6 +103,8 @@ def validate_section(section: str, data: dict[str, Any]) -> dict[str, Any]:
     Raises:
         ValueError: If a value has the wrong type
     """
+    import re
+
     defaults = SECTION_DEFAULTS.get(section, {})
     validated: dict[str, Any] = {}
 
@@ -111,6 +127,17 @@ def validate_section(section: str, data: dict[str, Any]) -> dict[str, Any]:
             if hi is not None:
                 iv = min(iv, hi)
             validated[key] = iv
+        elif key == "min_impact":
+            if value not in _VALID_IMPACTS:
+                raise ValueError(f"{key} must be one of {sorted(_VALID_IMPACTS)}")
+            validated[key] = value
+        elif key in ("quiet_hours_start", "quiet_hours_end"):
+            if value is None:
+                validated[key] = None
+            elif isinstance(value, str) and re.match(_TIME_PATTERN, value):
+                validated[key] = value
+            else:
+                raise ValueError(f"{key} must be a time string in HH:MM format or null")
         else:
             validated[key] = value
 

@@ -301,8 +301,9 @@ All workflows are defined as LangGraph graphs in `src/graph/workflows/`:
 | `optimization` | `build_optimization_graph` | Behavioral optimization |
 | `dashboard` | `build_dashboard_graph` | Dashboard generation |
 | `review` | `build_review_graph` | Config review workflow |
+| `automation_builder` | `build_automation_builder_graph` | NL automation creation (Feature 36) |
 
-State types are in `src/graph/state/` (ConversationState, AnalysisState, DiscoveryState, DashboardState, ReviewState, OrchestratorState, WorkflowState).
+State types are in `src/graph/state/` (ConversationState, AnalysisState, DiscoveryState, DashboardState, ReviewState, OrchestratorState, WorkflowState, AutomationBuilderState).
 
 ---
 
@@ -407,16 +408,37 @@ All DS Team analysis scripts run in a gVisor sandbox via Podman:
 
 ## Scheduled & Event-Driven Insights
 
-Two trigger mechanisms feed into the same analysis pipeline:
+Three trigger mechanisms feed into the same analysis pipeline:
 
 ```
   ┌──── Cron (APScheduler) ────►┐
   │   "0 2 * * *"               │   Existing analysis pipeline
   │                              │   (DS Team + sandbox)
-  └──── Webhook (HA event) ────►│   → Insight persisted to DB
-        POST /webhooks/ha        │
+  ├──── Webhook (HA event) ────►│   → Insight persisted to DB
+  │     POST /webhooks/ha        │   → Push notification if actionable (Feature 37)
+  │                              │
+  └──── Event (Feature 35) ────►│   Real-time entity state changes
+        WebSocket subscription   │   trigger analysis on threshold crossing
                                  └──────────────────────────────
 ```
+
+### Real-Time HA Event Stream (Feature 35)
+
+A persistent WebSocket connection to HA's event bus replaces periodic polling:
+
+- `HAEventStream`: connects, authenticates, subscribes to `state_changed` events, reconnects with exponential backoff (1s–60s)
+- `EventHandler`: bounded queue (1000 events), per-entity debounce, batch DB upserts every 1.5s
+- Falls back to periodic delta sync when WebSocket is unavailable
+- New `TriggerType.EVENT` for insight schedules
+
+### Proactive Insight Notifications (Feature 37)
+
+When scheduled or event-triggered analysis produces actionable insights, push notifications are sent to the user's phone/watch:
+
+- `InsightNotifier` filters by impact threshold (default: "high") and quiet hours
+- Batches multiple insights from one analysis into a single notification
+- Action buttons: "Investigate" (opens chat with context) and "Dismiss" (marks insight dismissed)
+- Preferences stored in `AppSettings.notifications` JSONB field
 
 ---
 
@@ -427,7 +449,7 @@ Two trigger mechanisms feed into the same analysis pipeline:
 | **PostgreSQL** | Conversations, messages, entities, devices, areas, automation proposals, insights, insight schedules, discovery sessions, agents (config + prompt versions), analysis reports, flow grades, LLM usage, model ratings, HA zones, passkey credentials, system config, user profiles, LangGraph checkpoints |
 | **MLflow** | Agent traces with parent-child spans, token usage, latency metrics, evaluation scores |
 
-### Database Models (21+)
+### Database Models (25+)
 
 All models are in `src/storage/entities/`:
 
@@ -437,6 +459,7 @@ All models are in `src/storage/entities/`:
 | `AnalysisReport` | DS team analysis reports with artifacts |
 | `Area` | HA areas |
 | `AutomationProposal` | Automation proposals (HITL workflow) |
+| `AutomationSuggestionEntity` | Optimization suggestions (Feature 38) |
 | `Conversation`, `Message` | Chat state |
 | `Device` | HA devices |
 | `DiscoverySession` | Entity discovery sessions |
@@ -447,8 +470,10 @@ All models are in `src/storage/entities/`:
 | `Insight`, `InsightSchedule` | Analysis insights and schedules |
 | `LLMUsage` | Token counts, costs, latency per LLM call |
 | `ModelRating` | Model quality ratings |
+| `OptimizationJob` | Optimization job records (Feature 38) |
 | `PasskeyCredential` | WebAuthn credentials |
 | `SystemConfig` | System-wide config (HA URL, setup status) |
+| `ToolGroup` | Named tool groups for dynamic agent assignment (Feature 34) |
 | `UserProfile` | User profiles |
 
 ---
@@ -594,7 +619,7 @@ The current Architect-centric architecture will evolve into a domain-agnostic Or
 | Agent selection | Implicit (always Architect) | Explicit (`agent` field) or auto (Orchestrator) |
 | Domain scope | Home Assistant only | Multi-domain (HA, Knowledge, Research, Food, ...) |
 | HITL enforcement | Per-agent (`_READ_ONLY_TOOLS`) | Centralized `MutatingToolRegistry` |
-| Tool assignment | Hardcoded (`get_architect_tools()`) | DB-driven via `tools_enabled` + agent config |
+| Tool assignment | Hardcoded (`get_architect_tools()`) | DB-driven via `tool_groups_enabled` + `tools_enabled` (Feature 34) |
 | Agent configuration | Code-defined | DB-driven (Feature 23 wired to runtime) |
 | Workflows | Static (Python-defined) | Static + dynamic (declarative composition) |
 

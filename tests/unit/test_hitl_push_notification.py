@@ -109,7 +109,11 @@ class TestSendTestNotification:
         mock_ha = MagicMock()
         mock_ha.call_service = AsyncMock(return_value={"result": "ok"})
 
-        with patch("src.ha.get_ha_client", return_value=mock_ha):
+        with patch(
+            "src.ha.get_ha_client_async",
+            new_callable=AsyncMock,
+            return_value=mock_ha,
+        ):
             result = await send_test_notification("notify.mobile_app_iphone")
 
         assert result["success"] is True

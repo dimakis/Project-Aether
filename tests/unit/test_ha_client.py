@@ -4,7 +4,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.ha.client import HAClient, HAClientConfig, get_ha_client, reset_ha_client
+from src.ha.client import (
+    HAClient,
+    HAClientConfig,
+    get_ha_client,
+    get_ha_client_async,
+    reset_ha_client,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -79,6 +85,31 @@ class TestResetHAClient:
             from src.ha.client import _clients
 
             assert len(_clients) == 0
+
+
+class TestGetHAClientAsync:
+    @pytest.mark.asyncio
+    async def test_returns_cached_client(self):
+        with patch("src.ha.client._resolve_zone_config_async", return_value=None):
+            from src.ha.client import get_ha_client_async
+
+            client = await get_ha_client_async()
+            assert isinstance(client, HAClient)
+
+    @pytest.mark.asyncio
+    async def test_uses_db_config_when_available(self):
+        mock_config = MagicMock(spec=HAClientConfig)
+        mock_config.ha_url = "http://db-ha:8123"
+        mock_config.ha_url_remote = None
+        mock_config.ha_token = "db-token"
+        mock_config.url_preference = "local"
+        with patch(
+            "src.ha.client._resolve_zone_config_async",
+            return_value=mock_config,
+        ):
+            client = await get_ha_client_async(zone_id="zone-1")
+            assert isinstance(client, HAClient)
+            assert client.config.ha_url == "http://db-ha:8123"
 
 
 class TestResolveZoneConfig:

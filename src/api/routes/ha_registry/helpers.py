@@ -25,10 +25,10 @@ async def list_helpers() -> HelperListResponse:
     Returns:
         List of helpers with type breakdown
     """
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
 
     try:
-        ha = get_ha_client()
+        ha = await get_ha_client_async()
         helpers = await ha.list_helpers()
 
         # Build type counts
@@ -69,9 +69,9 @@ async def create_helper(
     Returns:
         Creation result
     """
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
 
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     result: dict[str, Any]
 
     try:
@@ -189,9 +189,9 @@ async def delete_helper(
     Returns:
         Deletion result
     """
-    from src.ha import get_ha_client
+    from src.ha import get_ha_client_async
 
-    ha = get_ha_client()
+    ha = await get_ha_client_async()
     result = await ha.delete_helper(domain, input_id)
 
     return HelperDeleteResponse(

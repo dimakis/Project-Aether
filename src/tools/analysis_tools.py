@@ -171,5 +171,4 @@ def _format_custom_analysis(state: Any, description: str, hours: int) -> str:
 
 
 def get_analysis_tools() -> list:
-    """Return custom analysis tools for the Architect agent."""
     return [run_custom_analysis]

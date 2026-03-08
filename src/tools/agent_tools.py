@@ -759,7 +759,6 @@ async def propose_automation_from_insight(
 
 
 def get_agent_tools() -> list[Any]:
-    """Return all agent delegation tools for the Architect."""
     return [
         analyze_energy,
         analyze_behavior,
