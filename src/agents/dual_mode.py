@@ -97,8 +97,25 @@ def _import_class(dotted_path: str) -> type | None:
         return None
 
 
+def _try_remote_invoker(agent_name: str, settings: Any) -> AgentInvoker | None:
+    """Build a remote invoker if the agent has a configured service URL."""
+    url_attr = _AGENT_URL_MAP.get(agent_name)
+    service_url = getattr(settings, url_attr, None) if url_attr else None
+    if service_url:
+        return AgentInvoker(mode="remote", service_url=service_url)
+    return None
+
+
 def resolve_agent_invoker(agent_name: str) -> AgentInvoker:
     """Resolve an AgentInvoker based on deployment mode and agent name.
+
+    Modes:
+        monolith   — all agents run in-process (local).
+        distributed — all agents run as remote A2A services.
+        selective   — only agents in ``remote_agents`` run remotely;
+                      the rest stay in-process.
+
+    Falls back to local when a remote agent's service URL is not configured.
 
     Args:
         agent_name: Agent identifier (e.g., 'energy_analyst').
@@ -109,20 +126,22 @@ def resolve_agent_invoker(agent_name: str) -> AgentInvoker:
     from src.settings import get_settings
 
     settings = get_settings()
+    mode = settings.deployment_mode
 
-    if settings.deployment_mode == "distributed" and agent_name in _DISTRIBUTED_AGENTS:
-        url_attr = _AGENT_URL_MAP.get(agent_name)
-        service_url = getattr(settings, url_attr, None) if url_attr else None
-        if service_url:
-            return AgentInvoker(
-                mode="remote",
-                service_url=service_url,
-            )
+    should_try_remote = (mode == "distributed" and agent_name in _DISTRIBUTED_AGENTS) or (
+        mode == "selective" and agent_name in settings.remote_agents
+    )
+
+    if should_try_remote:
+        remote = _try_remote_invoker(agent_name, settings)
+        if remote is not None:
+            return remote
+        logger.info(
+            "Agent %r listed as remote but no service URL configured; falling back to local",
+            agent_name,
+        )
 
     cls_path = _AGENT_CLASS_MAP.get(agent_name)
     agent_cls = _import_class(cls_path) if cls_path else None
 
-    return AgentInvoker(
-        mode="local",
-        agent_cls=agent_cls,
-    )
+    return AgentInvoker(mode="local", agent_cls=agent_cls)

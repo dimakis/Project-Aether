@@ -85,3 +85,71 @@ class TestAgentInvokerExecution:
             result = await invoker.invoke(AnalysisState())
 
         assert result == {"result": "remote"}
+
+
+class TestSelectiveDeployment:
+    """DEPLOYMENT_MODE=selective routes only listed agents remotely."""
+
+    def test_selective_routes_listed_agent_remote(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_settings:
+            mock_settings.return_value.deployment_mode = "selective"
+            mock_settings.return_value.remote_agents = ["energy_analyst"]
+            mock_settings.return_value.ds_analysts_url = "http://ds:8000"
+            invoker = resolve_agent_invoker("energy_analyst")
+
+        assert invoker.mode == "remote"
+        assert invoker.service_url == "http://ds:8000"
+
+    def test_selective_keeps_unlisted_agent_local(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_settings:
+            mock_settings.return_value.deployment_mode = "selective"
+            mock_settings.return_value.remote_agents = ["energy_analyst"]
+            invoker = resolve_agent_invoker("architect")
+
+        assert invoker.mode == "local"
+        assert invoker.agent_cls is not None
+
+    def test_selective_with_no_url_falls_back_to_local(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_settings:
+            mock_settings.return_value.deployment_mode = "selective"
+            mock_settings.return_value.remote_agents = ["energy_analyst"]
+            mock_settings.return_value.ds_analysts_url = None
+            invoker = resolve_agent_invoker("energy_analyst")
+
+        assert invoker.mode == "local"
+
+    def test_selective_with_empty_list_keeps_all_local(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_settings:
+            mock_settings.return_value.deployment_mode = "selective"
+            mock_settings.return_value.remote_agents = []
+            invoker = resolve_agent_invoker("data_scientist")
+
+        assert invoker.mode == "local"
+
+    def test_selective_multiple_remote_agents(self):
+        from src.agents.dual_mode import resolve_agent_invoker
+
+        with patch("src.settings.get_settings") as mock_settings:
+            mock_settings.return_value.deployment_mode = "selective"
+            mock_settings.return_value.remote_agents = [
+                "data_scientist",
+                "energy_analyst",
+            ]
+            mock_settings.return_value.ds_orchestrator_url = "http://ds-orch:8000"
+            mock_settings.return_value.ds_analysts_url = "http://ds-analysts:8000"
+
+            ds_invoker = resolve_agent_invoker("data_scientist")
+            ea_invoker = resolve_agent_invoker("energy_analyst")
+            arch_invoker = resolve_agent_invoker("architect")
+
+        assert ds_invoker.mode == "remote"
+        assert ea_invoker.mode == "remote"
+        assert arch_invoker.mode == "local"
