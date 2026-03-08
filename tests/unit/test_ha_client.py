@@ -230,3 +230,29 @@ class TestResetHAClientCloses:
 
         mock_client.close.assert_awaited_once()
         assert "zone-1" not in _mod._clients
+
+
+class TestGetHADependency:
+    @pytest.mark.asyncio
+    async def test_returns_cached_client(self):
+        """get_ha() DI dependency returns the cached HA client."""
+        from src.api.deps import get_ha
+        from src.ha import client as _mod
+
+        mock_client = MagicMock(spec=HAClient)
+        _mod._clients["__default__"] = mock_client
+
+        result = await get_ha()
+        assert result is mock_client
+
+    @pytest.mark.asyncio
+    async def test_returns_zone_specific_client(self):
+        """get_ha() with zone_id returns the zone-specific client."""
+        from src.api.deps import get_ha
+        from src.ha import client as _mod
+
+        mock_client = MagicMock(spec=HAClient)
+        _mod._clients["zone-42"] = mock_client
+
+        result = await get_ha(zone_id="zone-42")
+        assert result is mock_client
