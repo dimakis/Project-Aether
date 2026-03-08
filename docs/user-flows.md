@@ -4,6 +4,51 @@ Step-by-step interaction sequences for all major features. See [Architecture](ar
 
 ---
 
+## 0. Orchestrator Routing (`agent=auto`)
+
+When no specific agent is selected (or `agent=auto`), the Orchestrator classifies intent and routes to the best domain agent:
+
+```
+You: "Analyze my energy consumption this week"
+         │
+         ▼
+    ┌─────────────────────┐
+    │   Orchestrator       │  Classifies intent: "energy_analysis"
+    │  (classify → route)  │  Selects: DS Team via Architect
+    └──────────┬──────────┘  Model tier: standard
+               │
+               ▼
+    ┌─────────────┐
+    │  Architect   │  Delegates to DS Team (Energy Analyst)
+    └──────┬──────┘
+           │
+           ▼
+    (Energy Analysis flow — see §4)
+```
+
+The Orchestrator can also present clarification options for ambiguous requests:
+
+```
+You: "Help with my kitchen"
+         │
+         ▼
+    ┌─────────────────────┐
+    │   Orchestrator       │  Ambiguous intent detected
+    └──────────┬──────────┘
+               │
+               ▼
+    "I can help with several things:
+     1. Diagnose kitchen device issues
+     2. Analyze kitchen energy usage
+     3. Create kitchen automations
+     4. Design a kitchen dashboard
+     What would you like?"
+```
+
+When a specific agent is selected in the UI (e.g. `agent=architect`), the Orchestrator is bypassed and the request goes directly to that agent.
+
+---
+
 ## 1. Chat & Home Control
 
 ```

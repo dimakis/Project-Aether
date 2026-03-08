@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Orchestrator agent** — intent classification and dynamic routing to domain agents with model tier selection (fast/standard/frontier); `agent=auto` support with clarification for ambiguous requests
+- **Streaming Tool Executor** (Feature 31) — decomposed monolithic `stream_conversation` (~340 lines) into modular components (StreamConsumer, ToolCallParser, ToolDispatcher, ProposalTracker, ProgressMuxer); parallel streaming tool execution for independent read-only tools
+- **DS Deep Analysis** (Feature 33) — configurable analysis depth (quick/standard/deep), teamwork execution strategy with cross-consultation, sandbox artifact capture with security gates (extension allowlist, magic-byte verification, size limits), analysis reports with agent communication log
 - **Multi-provider LLM support** — OpenAI, OpenRouter (100+ models), Google Gemini, Ollama (local/free), Together AI, Groq, and custom OpenAI-compatible APIs
 - **Per-agent model routing** — configure different models per agent for cost optimization; resolution order: UI selection > per-agent env > global default
 - **LLM circuit breaker & failover** — automatic retry with exponential backoff and configurable fallback provider
@@ -51,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Agent runtime config cache** — async in-memory cache for agent configs to avoid per-call DB queries (`src/agents/config_cache.py`)
 
 ### Changed
+- **HA client layer** — renamed `src/mcp/` to `src/ha/` for clarity (Feature 25); module is now `HAClient` instead of `MCPClient`
+- **Async HA client** — converted HA client to async with proper lifecycle management
+- **Distributed mode** — expanded from 4 containers to 7 agent services (Orchestrator, Architect, DS Orchestrator, DS Analysts, Developer, Librarian, Dashboard Designer)
 - Upgraded Fernet key derivation from SHA-256 to PBKDF2-HMAC-SHA256 (480k iterations)
 - Rate limiter now uses X-Forwarded-For for real client IP behind reverse proxies
 - `/metrics` endpoint now requires authentication (removed from auth-exempt routes)

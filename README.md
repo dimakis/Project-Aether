@@ -104,7 +104,8 @@ Project Aether is an intelligent home automation system that connects AI agents 
 
 | Agent | Role | What It Does |
 |-------|------|--------------|
-| **Architect** | Orchestrator & Chat | The unified entry point. Handles conversation, routes to specialists, designs automations, reviews existing configs. Has 16 curated tools. |
+| **Orchestrator** | Intent Routing | Classifies user intent and dynamically routes to the best domain agent with the right model tier (fast/standard/frontier). Entry point for `agent=auto`. |
+| **Architect** | Home Automation | Designs automations, reviews existing HA configs, runs diagnostics, and delegates to the DS team. Has 16 curated tools. |
 | **Data Science Team** | Analysis & Insights | Three specialists: Energy Analyst, Behavioral Analyst, Diagnostic Analyst. Share findings via TeamAnalysis with dual synthesis (programmatic + LLM). Scripts run in gVisor sandbox. |
 | **Librarian** | Discovery & Catalog | Discovers all HA entities, devices, and areas. Builds a searchable local catalog. |
 | **Developer** | Deployment | Takes approved automation proposals and deploys them to Home Assistant. Falls back to manual instructions if the API is unreachable. |
@@ -183,11 +184,17 @@ make run-prod  # Everything containerized
 Agents run as separate containers communicating via the [A2A protocol](https://google.github.io/A2A/). The monolith acts as an API gateway, delegating to agent services.
 
 ```bash
-make run-distributed   # Gateway + Architect + DS Orchestrator + DS Analysts
+make run-distributed   # Gateway + all agent services
 ```
 
 ```
-API Gateway :8000  -->  Architect :8001  -->  DS Orchestrator :8002  -->  DS Analysts :8003
+API Gateway :8000
+  ├── Orchestrator     :8007
+  ├── Architect        :8001
+  ├── DS Orchestrator  :8002  -->  DS Analysts :8003
+  ├── Developer        :8004
+  ├── Librarian        :8005
+  └── Dashboard Designer :8006
 ```
 
 Each agent container serves an A2A Agent Card at `/.well-known/agent-card.json` and health probes at `/health`.

@@ -261,19 +261,6 @@ src/
 │   ├── circuit_breaker.py   # Circuit breaker pattern
 │   ├── resilient.py         # Resilient LLM wrapper with failover
 │   └── usage.py             # Token counting and cost estimation
-├── mcp/                     # MCP client abstraction
-│   ├── client.py            # MCP client
-│   ├── automations.py       # Automation MCP tools
-│   ├── automation_deploy.py # Deploy via MCP
-│   ├── behavioral.py        # Behavioral data via MCP
-│   ├── diagnostics.py       # Diagnostics via MCP
-│   ├── entities.py          # Entity MCP tools
-│   ├── history.py           # History via MCP
-│   ├── logbook.py           # Logbook via MCP
-│   ├── parsers.py           # Response parsers
-│   ├── constants.py         # MCP constants
-│   ├── workarounds.py       # MCP workarounds
-│   └── base.py              # Base MCP client
 ├── sandbox/                 # gVisor sandbox runner
 │   ├── runner.py            # Sandbox execution
 │   ├── artifact_validator.py # Validate sandbox artifacts

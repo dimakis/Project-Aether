@@ -79,7 +79,8 @@ System design, agent roles, data flows, observability, and security model for Pr
 
 | Agent | Role | Tools |
 |-------|------|-------|
-| **Architect** | Unified chat entry point, routes to specialists, system diagnostics, config review | 16 tools: `consult_data_science_team`, `consult_dashboard_designer`, `discover_entities`, `review_config`, `seek_approval`, `create_insight_schedule`, `get_entity_state`, `list_entities_by_domain`, `search_entities`, `get_domain_summary`, `list_automations`, `get_automation_config`, `get_script_config`, `render_template`, `get_ha_logs`, `check_ha_config` |
+| **Orchestrator** | Intent classification and agent routing. Entry point when `agent=auto` or no agent specified. Classifies user intent, selects the best domain agent and model tier, routes the request. | `classify_intent`, agent delegation tools |
+| **Architect** | Home automation design, system diagnostics, config review. Primary domain agent for HA-related requests. | 16 tools: `consult_data_science_team`, `consult_dashboard_designer`, `discover_entities`, `review_config`, `seek_approval`, `create_insight_schedule`, `get_entity_state`, `list_entities_by_domain`, `search_entities`, `get_domain_summary`, `list_automations`, `get_automation_config`, `get_script_config`, `render_template`, `get_ha_logs`, `check_ha_config` |
 | **Data Science Team** | Energy analysis, behavioral patterns, diagnostics, insights | Sandbox execution, history aggregation, diagnostic mode, dual synthesis (programmatic + LLM) |
 | **Librarian** | Entity discovery, catalog maintenance | HA `list_entities`, `domain_summary` |
 | **Developer** | Automation deployment (HITL) | `deploy_automation` (with approval) |
@@ -586,13 +587,13 @@ The LLM subsystem is in `src/llm/`:
 
 ---
 
-## MCP Client (`src/mcp/`)
+## Home Assistant Client (`src/ha/`)
 
-The MCP (Model Context Protocol) client abstracts communication with Home Assistant:
+The HA client layer abstracts communication with Home Assistant:
 
 | Module | Purpose |
 |--------|---------|
-| `client.py` | MCP client connection and tool invocation |
+| `client.py` | HAClient — primary interface for HA operations |
 | `entities.py` | Entity operations (list, get state, search) |
 | `automations.py` | Automation CRUD |
 | `automation_deploy.py` | Deploy automations to HA |
@@ -600,8 +601,13 @@ The MCP (Model Context Protocol) client abstracts communication with Home Assist
 | `diagnostics.py` | Diagnostic data collection |
 | `history.py` | Historical state data |
 | `logbook.py` | HA logbook entries |
+| `dashboards.py` | Lovelace dashboard operations |
+| `helpers.py` | HA helper management (input_boolean, etc.) |
 | `parsers.py` | Response parsing |
+| `constants.py` | HA constants |
+| `gaps.py` | MCP capability gaps |
 | `workarounds.py` | HA API workarounds |
+| `base.py` | Base HA client |
 
 ---
 
