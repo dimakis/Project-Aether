@@ -206,9 +206,16 @@ class Settings(BaseSettings):
     )
 
     # Deployment mode (Feature 30: Domain-Agnostic Orchestration / A2A)
-    deployment_mode: Literal["monolith", "distributed"] = Field(
+    deployment_mode: Literal["monolith", "distributed", "selective"] = Field(
         default="monolith",
-        description="'monolith' (all agents in-process) or 'distributed' (agents as remote A2A services)",
+        description=(
+            "'monolith' (all in-process), 'distributed' (all remote A2A), "
+            "or 'selective' (only agents in remote_agents are remote)"
+        ),
+    )
+    remote_agents: list[str] = Field(
+        default_factory=list,
+        description="Agent names to run as remote A2A services when deployment_mode='selective'",
     )
     architect_service_url: str = Field(
         default="http://architect:8000",
