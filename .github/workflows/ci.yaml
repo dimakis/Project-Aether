@@ -2,7 +2,8 @@
 # CI/CD Pipeline
 # =============================================================================
 # Constitution: Reliability & Quality
-# Runs on every push and PR: lint → type check → unit → integration → E2E → coverage
+# Runs on every push and PR:
+#   lint → [unit | integration | e2e] (parallel) → coverage + security
 #
 # Quality Gates:
 # - All tests must pass
@@ -69,7 +70,7 @@ jobs:
         run: uv cache prune --ci
 
   # ===========================================================================
-  # Unit Tests (Fast, Isolated)
+  # Unit Tests (Fast, Isolated) — runs in parallel with integration-tests
   # ===========================================================================
   unit-tests:
     name: Unit Tests
@@ -115,12 +116,12 @@ jobs:
             .coverage.unit
 
   # ===========================================================================
-  # Integration Tests (Require Services)
+  # Integration Tests (Require Services) — runs in parallel with unit-tests
   # ===========================================================================
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: unit-tests
+    needs: lint
 
     services:
       postgres:
@@ -181,12 +182,12 @@ jobs:
             .coverage.integration
 
   # ===========================================================================
-  # E2E Tests (Full System)
+  # E2E Tests (Full System) — runs in parallel with unit & integration
   # ===========================================================================
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: integration-tests
+    needs: lint
 
     steps:
       - name: Checkout code
