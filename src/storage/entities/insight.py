@@ -10,7 +10,7 @@ import enum
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
-from sqlalchemy import JSON, DateTime, Enum, Float, String, Text, TypeDecorator, Uuid, func
+from sqlalchemy import JSON, DateTime, Float, String, Text, TypeDecorator, Uuid, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -132,12 +132,7 @@ class Insight(Base):
         doc="Confidence score 0.0-1.0",
     )
     impact: Mapped[InsightImpact] = mapped_column(
-        Enum(
-            InsightImpact,
-            name="insightimpact",
-            create_type=False,
-            values_callable=lambda e: [m.value for m in e],
-        ),
+        _enum_column(InsightImpact),
         nullable=False,
         doc="Impact level: low, medium, high, critical",
     )
