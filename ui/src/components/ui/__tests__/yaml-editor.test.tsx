@@ -45,7 +45,7 @@ describe("YamlEditor", () => {
         screen.queryByRole("button", { name: /cancel/i }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: /send to architect/i }),
+        screen.queryByRole("button", { name: /save changes/i }),
       ).not.toBeInTheDocument();
     });
   });
@@ -65,7 +65,7 @@ describe("YamlEditor", () => {
       expect(textarea).toHaveValue(SAMPLE_YAML);
     });
 
-    it("shows Cancel and Send to Architect buttons", () => {
+    it("shows Cancel and Save Changes buttons", () => {
       render(
         <YamlEditor
           originalYaml={SAMPLE_YAML}
@@ -78,7 +78,7 @@ describe("YamlEditor", () => {
         screen.getByRole("button", { name: /cancel/i }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /send to architect/i }),
+        screen.getByRole("button", { name: /save changes/i }),
       ).toBeInTheDocument();
     });
 
@@ -112,7 +112,7 @@ describe("YamlEditor", () => {
       // Use fireEvent to avoid userEvent special character issues with []
       fireEvent.change(textarea, { target: { value: "trigger: []" } });
       await user.click(
-        screen.getByRole("button", { name: /send to architect/i }),
+        screen.getByRole("button", { name: /save changes/i }),
       );
       expect(onSubmit).toHaveBeenCalledWith("trigger: []");
     });
@@ -155,7 +155,7 @@ describe("YamlEditor", () => {
       const textarea = screen.getByRole("textbox");
       fireEvent.change(textarea, { target: { value: "invalid: [unclosed" } });
       expect(
-        screen.getByRole("button", { name: /send to architect/i }),
+        screen.getByRole("button", { name: /save changes/i }),
       ).toBeDisabled();
     });
 
@@ -169,7 +169,7 @@ describe("YamlEditor", () => {
         />,
       );
       expect(
-        screen.getByRole("button", { name: /send to architect/i }),
+        screen.getByRole("button", { name: /save changes/i }),
       ).toBeDisabled();
     });
   });

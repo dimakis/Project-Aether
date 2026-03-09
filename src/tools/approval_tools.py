@@ -15,7 +15,7 @@ from langchain_core.tools import tool
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.dal import ProposalRepository
-from src.schema import validate_yaml
+from src.schema import validate_yaml, validate_yaml_semantic
 from src.storage import get_session
 from src.tracing import trace_with_uri
 
@@ -33,12 +33,17 @@ PROPOSAL_TYPE_TO_SCHEMA: dict[str, str] = {
 }
 
 
-def _validate_before_create(
+async def _validate_before_create(
     proposal_type: str,
     config: dict[str, Any],
     name: str,
 ) -> str | None:
-    """Structurally validate a proposal config before persisting it.
+    """Structurally and semantically validate a proposal config before persisting it.
+
+    Runs structural validation first. If that passes, attempts semantic
+    validation against the live HA registry (entity existence, service
+    validity). Semantic validation is best-effort: if the HA client is
+    unreachable, it is silently skipped.
 
     Returns an error string for the LLM on failure, or None on success.
     """
@@ -49,9 +54,34 @@ def _validate_before_create(
     yaml_content = yaml.dump(config, default_flow_style=False, sort_keys=False)
     result = validate_yaml(yaml_content, schema_name)
 
-    if result.valid:
-        return None
+    if not result.valid:
+        return _format_validation_errors(proposal_type, name, result)
 
+    try:
+        from src.ha import get_ha_client_async
+
+        ha_client = await get_ha_client_async()
+        semantic_result = await validate_yaml_semantic(
+            yaml_content, schema_name, ha_client=ha_client
+        )
+        if not semantic_result.valid:
+            return _format_validation_errors(proposal_type, name, semantic_result)
+    except Exception:
+        logger.debug(
+            "Semantic validation skipped for %s '%s' (HA unavailable)",
+            proposal_type,
+            name,
+        )
+
+    return None
+
+
+def _format_validation_errors(
+    proposal_type: str,
+    name: str,
+    result: Any,
+) -> str:
+    """Format validation errors into a string the LLM can act on."""
     error_lines = [
         f"- {e.path}: {e.message}" if e.path else f"- {e.message}" for e in result.errors
     ]
@@ -186,7 +216,7 @@ async def _create_entity_command_proposal(
     if service_data:
         service_call["data"] = service_data
 
-    validation_error = _validate_before_create("entity_command", service_call, name)
+    validation_error = await _validate_before_create("entity_command", service_call, name)
     if validation_error:
         return validation_error
 
@@ -270,7 +300,7 @@ async def _create_automation_proposal(
         auto_config: dict[str, Any] = {"trigger": trigger, "action": actions, "mode": mode}
         if conditions:
             auto_config["condition"] = conditions
-        validation_error = _validate_before_create("automation", auto_config, name)
+        validation_error = await _validate_before_create("automation", auto_config, name)
         if validation_error:
             return validation_error
 
@@ -321,7 +351,7 @@ async def _create_script_proposal(
         "sequence": actions if isinstance(actions, list) else [actions],
         "mode": mode,
     }
-    validation_error = _validate_before_create("script", script_config, name)
+    validation_error = await _validate_before_create("script", script_config, name)
     if validation_error:
         return validation_error
 
@@ -360,7 +390,7 @@ async def _create_scene_proposal(
     original_yaml: str | None = None,
 ) -> str:
     scene_config: dict[str, Any] = {"name": name, "entities": actions or {}}
-    validation_error = _validate_before_create("scene", scene_config, name)
+    validation_error = await _validate_before_create("scene", scene_config, name)
     if validation_error:
         return validation_error
 
@@ -401,7 +431,7 @@ async def _create_dashboard_proposal(
     if not dashboard_config or not isinstance(dashboard_config, dict):
         return "dashboard_config is required for dashboard proposals."
 
-    validation_error = _validate_before_create("dashboard", dashboard_config, name)
+    validation_error = await _validate_before_create("dashboard", dashboard_config, name)
     if validation_error:
         return validation_error
 
@@ -446,7 +476,7 @@ async def _create_helper_proposal(
             "name, and any type-specific parameters."
         )
 
-    validation_error = _validate_before_create("helper", helper_config, name)
+    validation_error = await _validate_before_create("helper", helper_config, name)
     if validation_error:
         return validation_error
 

@@ -78,12 +78,13 @@ describe("RegistryPage", () => {
   it("renders tabs in correct order with Overview first", () => {
     render(<RegistryPage />);
     const tabButtons = screen.getAllByRole("tab");
-    expect(tabButtons).toHaveLength(5);
+    expect(tabButtons).toHaveLength(6);
     expect(tabButtons[0].textContent).toContain("Overview");
     expect(tabButtons[1].textContent).toContain("Automations");
     expect(tabButtons[2].textContent).toContain("Scripts");
     expect(tabButtons[3].textContent).toContain("Scenes");
     expect(tabButtons[4].textContent).toContain("Services");
+    expect(tabButtons[5].textContent).toContain("Helpers");
   });
 
   it("switches to automations tab when clicked", async () => {

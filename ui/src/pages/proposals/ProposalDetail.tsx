@@ -212,6 +212,25 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
     return () => window.removeEventListener("mousedown", handler);
   }, [onClose]);
 
+  // Auto-validate on load for non-terminal proposals
+  useEffect(() => {
+    if (!detail?.id || !detail.yaml_content) return;
+    const terminal = new Set(["deployed", "rolled_back", "archived", "disabled", "deprecated"]);
+    if (terminal.has(detail.status)) return;
+
+    let cancelled = false;
+    setValidation({ loading: true });
+    proposalsApi
+      .validate(detail.id)
+      .then((result) => {
+        if (!cancelled) setValidation(result);
+      })
+      .catch(() => {
+        if (!cancelled) setValidation(null);
+      });
+    return () => { cancelled = true; };
+  }, [detail?.id, detail?.yaml_content, detail?.status]);
+
   if (isLoading || !detail) {
     return (
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/60 p-4 pt-[8vh] backdrop-blur-sm">
