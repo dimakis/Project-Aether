@@ -389,6 +389,10 @@ class TestExecuteDiscoverySync:
                 return_value=mock_ha_client,
             ),
             patch("src.dal.sync.DiscoverySyncService", return_value=mock_service),
+            patch(
+                "src.scheduler.service._reconcile_proposal_statuses",
+                new_callable=AsyncMock,
+            ),
         ):
             await _execute_discovery_sync()
 
