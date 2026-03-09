@@ -49,8 +49,8 @@ async def create_input_boolean(
 async def create_input_number(
     input_id: str,
     name: str,
-    min_value: float,
-    max_value: float,
+    min: float,
+    max: float,
     initial: float | None = None,
     step: float = 1.0,
     unit_of_measurement: str | None = None,
@@ -63,8 +63,8 @@ async def create_input_number(
     Args:
         input_id: Unique ID (e.g., "motion_timeout")
         name: Display name
-        min_value: Minimum allowed value
-        max_value: Maximum allowed value
+        min: Minimum allowed value (matches HA field name)
+        max: Maximum allowed value (matches HA field name)
         initial: Starting value
         step: Increment step
         unit_of_measurement: Unit label (e.g., "minutes", "%")
@@ -77,8 +77,8 @@ async def create_input_number(
         result = await ha.create_input_number(
             input_id=input_id,
             name=name,
-            min_value=min_value,
-            max_value=max_value,
+            min=min,
+            max=max,
             initial=initial,
             step=step,
             unit_of_measurement=unit_of_measurement,

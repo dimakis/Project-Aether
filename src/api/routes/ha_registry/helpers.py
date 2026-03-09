@@ -86,8 +86,8 @@ async def create_helper(
             result = await ha.create_input_number(
                 input_id=body.input_id,
                 name=body.name,
-                min_value=body.config.get("min", 0),
-                max_value=body.config.get("max", 100),
+                min=body.config.get("min", 0),
+                max=body.config.get("max", 100),
                 initial=body.config.get("initial"),
                 step=body.config.get("step", 1),
                 unit_of_measurement=body.config.get("unit_of_measurement"),

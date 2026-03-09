@@ -170,27 +170,33 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
 
   const isDashboard = (detail as Proposal)?.proposal_type === "dashboard";
 
-  const handleDeploy = useCallback(() => {
-    if (!detail) return;
-    deployMut.mutate(detail.id, {
-      onSuccess: (data) => {
-        setDeployResult({
-          success: data.success,
-          method: data.method,
-          instructions: data.instructions ?? undefined,
-          error: data.error ?? undefined,
-        });
-        setConfirmingDeploy(false);
-      },
-      onError: (err) => {
-        setDeployResult({
-          success: false,
-          error: err instanceof Error ? err.message : "Deployment failed",
-        });
-        setConfirmingDeploy(false);
-      },
-    });
-  }, [detail, deployMut]);
+  const handleDeploy = useCallback(
+    (force = false) => {
+      if (!detail) return;
+      deployMut.mutate(
+        { id: detail.id, force },
+        {
+          onSuccess: (data) => {
+            setDeployResult({
+              success: data.success,
+              method: data.method,
+              instructions: data.instructions ?? undefined,
+              error: data.error ?? undefined,
+            });
+            setConfirmingDeploy(false);
+          },
+          onError: (err) => {
+            setDeployResult({
+              success: false,
+              error: err instanceof Error ? err.message : "Deployment failed",
+            });
+            setConfirmingDeploy(false);
+          },
+        },
+      );
+    },
+    [detail, deployMut],
+  );
 
   // Close on Escape
   useEffect(() => {
@@ -576,35 +582,68 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
         </div>
 
         {/* Footer actions */}
-        <div className="flex items-center justify-between border-t border-border p-4 px-6">
-          <div className="flex items-center gap-2">
+        <div className="space-y-3 border-t border-border p-4 px-6">
+          {/* Feedback badges */}
+          <div className="flex flex-wrap items-center gap-2 empty:hidden">
+            {verification && !verification.loading && (
+              <div
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium",
+                  verification.verified
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "bg-red-500/10 text-red-400",
+                )}
+              >
+                {verification.verified
+                  ? `Live in HA (state: ${verification.state})`
+                  : verification.reason ?? "Not found in HA"}
+              </div>
+            )}
+            {rollbackMut.isSuccess && rollbackMut.data && (
+              <div className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium",
+                rollbackMut.data.ha_disabled
+                  ? "bg-success/10 text-success"
+                  : "bg-amber-500/10 text-amber-500",
+              )}>
+                {rollbackMut.data.ha_disabled
+                  ? (rollbackMut.data.note ?? "Rolled back successfully")
+                  : rollbackMut.data.ha_error
+                    ? `Rolled back in DB but HA action failed: ${rollbackMut.data.ha_error}`
+                    : (rollbackMut.data.note ?? "Rolled back (no HA action to undo)")}
+              </div>
+            )}
             {detail.ha_automation_id && (
-              <span className="text-[10px] font-mono text-muted-foreground">
-                HA: {detail.ha_automation_id}
+              <span className="ml-auto text-[10px] font-mono text-muted-foreground">
+                {detail.ha_automation_id}
               </span>
             )}
-            {detail.status !== "deployed" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={() =>
-                  deleteMut.mutate(detail.id, {
-                    onSuccess: () => onClose(),
-                  })
-                }
-                disabled={deleteMut.isPending}
-              >
-                {deleteMut.isPending ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                ) : (
-                  <Trash2 className="mr-1 h-3 w-3" />
-                )}
-                Delete
-              </Button>
-            )}
           </div>
-          <div className="flex gap-2">
+          {/* Button row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {detail.status !== "deployed" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() =>
+                    deleteMut.mutate(detail.id, {
+                      onSuccess: () => onClose(),
+                    })
+                  }
+                  disabled={deleteMut.isPending}
+                >
+                  {deleteMut.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1 h-3 w-3" />
+                  )}
+                  Delete
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
             {(detail.status === "proposed" || detail.status === "rejected") && (
               <Button
                 variant="outline"
@@ -699,6 +738,19 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => handleDeploy(true)}
+                  disabled={deployMut.isPending}
+                >
+                  {deployMut.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Rocket className="mr-1 h-3 w-3" />
+                  )}
+                  Redeploy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => rollbackMut.mutate(detail.id)}
                   disabled={rollbackMut.isPending}
                 >
@@ -709,9 +761,12 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                   )}
                   Rollback
                 </Button>
+                <div className="mx-1 h-5 w-px bg-border" />
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="Verify in HA"
                   onClick={async () => {
                     setVerification({ loading: true });
                     try {
@@ -728,15 +783,16 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                   disabled={verification?.loading}
                 >
                   {verification?.loading ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    <ShieldCheck className="h-3.5 w-3.5" />
                   )}
-                  Verify
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="Disable"
                   disabled={lifecycleLoading === "disable"}
                   onClick={async () => {
                     setLifecycleLoading("disable");
@@ -749,15 +805,16 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                   }}
                 >
                   {lifecycleLoading === "disable" ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Ban className="mr-1 h-3 w-3" />
+                    <Ban className="h-3.5 w-3.5" />
                   )}
-                  Disable
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="Deprecate"
                   disabled={lifecycleLoading === "deprecate"}
                   onClick={async () => {
                     setLifecycleLoading("deprecate");
@@ -770,11 +827,10 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                   }}
                 >
                   {lifecycleLoading === "deprecate" ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Archive className="mr-1 h-3 w-3" />
+                    <Archive className="h-3.5 w-3.5" />
                   )}
-                  Deprecate
                 </Button>
               </>
             )}
@@ -823,35 +879,7 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                 </Button>
               </>
             )}
-            {verification && !verification.loading && (
-              <div
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium",
-                  verification.verified
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "bg-red-500/10 text-red-400",
-                )}
-              >
-                {verification.verified
-                  ? `Live in HA (state: ${verification.state})`
-                  : verification.reason ?? "Not found in HA"}
-              </div>
-            )}
-            {/* Rollback result feedback */}
-            {rollbackMut.isSuccess && rollbackMut.data && (
-              <div className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium",
-                rollbackMut.data.ha_disabled
-                  ? "bg-success/10 text-success"
-                  : "bg-amber-500/10 text-amber-500",
-              )}>
-                {rollbackMut.data.ha_disabled
-                  ? (rollbackMut.data.note ?? "Rolled back successfully")
-                  : rollbackMut.data.ha_error
-                    ? `Rolled back in DB but HA action failed: ${rollbackMut.data.ha_error}`
-                    : (rollbackMut.data.note ?? "Rolled back (no HA action to undo)")}
-              </div>
-            )}
+            </div>
           </div>
         </div>
 

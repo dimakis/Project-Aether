@@ -3,12 +3,18 @@
 Provides methods for creating, listing, and deleting HA input helpers
 (input_boolean, input_number, input_text, input_select, input_datetime,
 input_button, counter, timer).
+
+Uses the HA WebSocket API ({domain}/create, {domain}/delete, {domain}/list)
+which is the same transport HA's own frontend uses.  The REST config storage
+endpoints (/api/config/{domain}/config/{id}) silently return 404 for helpers
+and should not be used.
 """
 
 from typing import Any
 
 from src.exceptions import HAClientError
 from src.ha.base import _trace_ha_call
+from src.ha.websocket import ws_command
 
 HELPER_DOMAINS = frozenset(
     {
@@ -25,7 +31,19 @@ HELPER_DOMAINS = frozenset(
 
 
 class HelperMixin:
-    """Mixin providing input helper operations."""
+    """Mixin providing input helper operations via HA WebSocket API."""
+
+    async def _ws(self, command_type: str, **params: Any) -> Any:
+        """Send a WebSocket command to HA.
+
+        Convenience wrapper that pulls ws_url and token from BaseHAClient.
+        """
+        return await ws_command(
+            self._get_ws_url(),  # type: ignore[attr-defined]
+            self.config.ha_token,  # type: ignore[attr-defined]
+            command_type,
+            **params,
+        )
 
     @_trace_ha_call("ha.create_input_boolean")
     async def create_input_boolean(
@@ -37,31 +55,26 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create an input_boolean helper.
 
-        Useful for creating virtual switches the agent can toggle.
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
             initial: Initial state
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {"name": name, "initial": initial}
         if icon:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/input_boolean/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("input_boolean/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"input_boolean.{input_id}",
+                "input_id": slug,
+                "entity_id": f"input_boolean.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -71,8 +84,8 @@ class HelperMixin:
         self,
         input_id: str,
         name: str,
-        min_value: float,
-        max_value: float,
+        min: float,
+        max: float,
         initial: float | None = None,
         step: float = 1.0,
         unit_of_measurement: str | None = None,
@@ -81,13 +94,11 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create an input_number helper.
 
-        Useful for creating configurable thresholds the agent can adjust.
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
-            min_value: Minimum value
-            max_value: Maximum value
+            min: Minimum value
+            max: Maximum value
             initial: Initial value
             step: Step increment
             unit_of_measurement: Unit label
@@ -95,12 +106,12 @@ class HelperMixin:
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {
             "name": name,
-            "min": min_value,
-            "max": max_value,
+            "min": min,
+            "max": max,
             "step": step,
             "mode": mode,
         }
@@ -112,15 +123,12 @@ class HelperMixin:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/input_number/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("input_number/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"input_number.{input_id}",
+                "input_id": slug,
+                "entity_id": f"input_number.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -139,10 +147,8 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create an input_text helper.
 
-        Useful for storing user-editable text values.
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
             min_length: Minimum string length
             max_length: Maximum string length
@@ -152,7 +158,7 @@ class HelperMixin:
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {
             "name": name,
@@ -168,15 +174,12 @@ class HelperMixin:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/input_text/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("input_text/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"input_text.{input_id}",
+                "input_id": slug,
+                "entity_id": f"input_text.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -192,17 +195,15 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create an input_select helper.
 
-        Useful for creating dropdown menus with predefined choices.
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
             options: List of selectable options
             initial: Initial selected option
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {"name": name, "options": options}
         if initial is not None:
@@ -211,15 +212,12 @@ class HelperMixin:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/input_select/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("input_select/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"input_select.{input_id}",
+                "input_id": slug,
+                "entity_id": f"input_select.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -236,10 +234,8 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create an input_datetime helper.
 
-        Useful for storing date/time values for scheduling.
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
             has_date: Whether to include date
             has_time: Whether to include time
@@ -247,7 +243,7 @@ class HelperMixin:
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {
             "name": name,
@@ -260,15 +256,12 @@ class HelperMixin:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/input_datetime/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("input_datetime/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"input_datetime.{input_id}",
+                "input_id": slug,
+                "entity_id": f"input_datetime.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -282,30 +275,25 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create an input_button helper.
 
-        Useful for triggering automations via a virtual button press.
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {"name": name}
         if icon:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/input_button/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("input_button/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"input_button.{input_id}",
+                "input_id": slug,
+                "entity_id": f"input_button.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -324,10 +312,8 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create a counter helper.
 
-        Useful for tracking counts (e.g., visitors, events).
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
             initial: Initial count value
             minimum: Minimum allowed value
@@ -337,7 +323,7 @@ class HelperMixin:
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {
             "name": name,
@@ -353,15 +339,12 @@ class HelperMixin:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/counter/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("counter/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"counter.{input_id}",
+                "input_id": slug,
+                "entity_id": f"counter.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -377,17 +360,15 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Create a timer helper.
 
-        Useful for countdown timers in automations.
-
         Args:
-            input_id: Unique ID
+            input_id: Unique ID (slug)
             name: Display name
             duration: Default duration (HH:MM:SS format)
             restore: Restore state on restart
             icon: Optional MDI icon
 
         Returns:
-            Result dict
+            Result dict with success, input_id, entity_id.
         """
         config: dict[str, Any] = {"name": name, "restore": restore}
         if duration is not None:
@@ -396,15 +377,12 @@ class HelperMixin:
             config["icon"] = icon
 
         try:
-            await self._request(
-                "POST",
-                f"/api/config/timer/config/{input_id}",
-                json=config,
-            )
+            result = await self._ws("timer/create", **config)
+            slug = result.get("id", input_id) if isinstance(result, dict) else input_id
             return {
                 "success": True,
-                "input_id": input_id,
-                "entity_id": f"timer.{input_id}",
+                "input_id": slug,
+                "entity_id": f"timer.{slug}",
             }
         except HAClientError as e:
             return {"success": False, "input_id": input_id, "error": str(e)}
@@ -417,12 +395,16 @@ class HelperMixin:
     ) -> dict[str, Any]:
         """Delete a helper entity.
 
+        Uses the WS {domain}/list to find the storage collection ID,
+        then {domain}/delete to remove it.  HA's delete command requires
+        the internal storage UUID, not the user-facing slug.
+
         Args:
             domain: Helper domain (e.g., "input_boolean", "counter")
-            input_id: Helper ID to delete
+            input_id: Helper ID (slug) to delete
 
         Returns:
-            Result dict
+            Result dict with success and entity_id.
         """
         entity_id = f"{domain}.{input_id}"
 
@@ -434,10 +416,22 @@ class HelperMixin:
             }
 
         try:
-            await self._request(
-                "DELETE",
-                f"/api/config/{domain}/config/{input_id}",
-            )
+            items: list[dict[str, Any]] = await self._ws(f"{domain}/list")
+            storage_id: str | None = None
+            for item in items:
+                if item.get("id") == input_id or item.get("name") == input_id:
+                    storage_id = item["id"]
+                    break
+
+            if not storage_id:
+                return {
+                    "success": False,
+                    "entity_id": entity_id,
+                    "error": f"Helper '{entity_id}' not found in HA storage",
+                }
+
+            id_key = f"{domain}_id"
+            await self._ws(f"{domain}/delete", **{id_key: storage_id})
             return {"success": True, "entity_id": entity_id}
         except HAClientError as e:
             return {"success": False, "entity_id": entity_id, "error": str(e)}
@@ -452,7 +446,7 @@ class HelperMixin:
             List of helper entity dicts with domain, entity_id,
             name, state, and attributes.
         """
-        entities = await self.list_entities(detailed=True)
+        entities = await self.list_entities(detailed=True)  # type: ignore[attr-defined]
 
         helpers = []
         for entity in entities:

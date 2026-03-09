@@ -188,6 +188,33 @@ class TestWsCommand:
         assert cmd_msg["config"] == config
 
     @pytest.mark.asyncio
+    async def test_protocol_keys_not_overwritten_by_params(self) -> None:
+        """Params named 'id' or 'type' must not overwrite WS protocol fields."""
+        from src.ha.websocket import ws_command
+
+        ws = _make_ws_mock(
+            [
+                {"type": "auth_required", "ha_version": "2025.1.0"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+                {"type": "result", "id": 1, "success": True, "result": {"id": "slug"}},
+            ]
+        )
+
+        with patch("src.ha.websocket.ws_connect", return_value=_async_ctx(ws)):
+            result = await ws_command(
+                WS_URL, TOKEN, "input_number/create", id="bad_slug", name="Test"
+            )
+
+        assert result == {"id": "slug"}
+
+        cmd_call = ws.send.call_args_list[1]
+        cmd_msg = json.loads(cmd_call[0][0])
+        assert cmd_msg["id"] == 1, "WS protocol 'id' must remain an integer"
+        assert cmd_msg["type"] == "input_number/create"
+        assert cmd_msg["name"] == "Test"
+        assert "bad_slug" not in json.dumps(cmd_msg)
+
+    @pytest.mark.asyncio
     async def test_ws_always_closed(self) -> None:
         """WebSocket should be closed even if command fails."""
         from src.ha.websocket import ws_command

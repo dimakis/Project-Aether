@@ -32,10 +32,10 @@ export const proposals = {
       body: JSON.stringify({ reason, rejected_by: "user" }),
     }),
 
-  deploy: (id: string) =>
+  deploy: (id: string, { force = false }: { force?: boolean } = {}) =>
     request<import("@/lib/types").DeploymentResponse>(
       `/proposals/${id}/deploy`,
-      { method: "POST", body: JSON.stringify({}) },
+      { method: "POST", body: JSON.stringify({ force }) },
     ),
 
   rollback: (id: string) =>

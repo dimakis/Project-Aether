@@ -1,14 +1,16 @@
 """Unit tests for HA helpers module.
 
-Tests HelperMixin methods with mocked _request.
+Tests HelperMixin methods with mocked ws_command.
 """
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.ha.base import HAClientError
 from src.ha.helpers import HelperMixin
+
+WS_COMMAND_PATH = "src.ha.helpers.ws_command"
 
 
 class MockHAClient(HelperMixin):
@@ -17,6 +19,11 @@ class MockHAClient(HelperMixin):
     def __init__(self):
         self._request = AsyncMock()
         self.list_entities = AsyncMock()
+        self.config = MagicMock()
+        self.config.ha_token = "fake-token"
+
+    def _get_ws_url(self) -> str:
+        return "ws://ha.local:8123/api/websocket"
 
 
 @pytest.fixture
@@ -30,49 +37,64 @@ class TestCreateInputBoolean:
 
     @pytest.mark.asyncio
     async def test_create_input_boolean_success(self, ha_client):
-        """Test successful input_boolean creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_boolean(
-            input_id="test_switch",
-            name="Test Switch",
-            initial=True,
-        )
+        """Test successful input_boolean creation via WS."""
+        ws_result = {"id": "test_switch", "name": "Test Switch", "initial": True}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_boolean(
+                input_id="test_switch",
+                name="Test Switch",
+                initial=True,
+            )
 
         assert result["success"] is True
         assert result["input_id"] == "test_switch"
         assert result["entity_id"] == "input_boolean.test_switch"
-        ha_client._request.assert_called_once()
-        call_args = ha_client._request.call_args
-        assert call_args[0][0] == "POST"
-        assert "/api/config/input_boolean/config/test_switch" in call_args[0][1]
-        assert call_args[1]["json"]["name"] == "Test Switch"
-        assert call_args[1]["json"]["initial"] is True
+        mock_ws.assert_called_once()
+        call_kwargs = mock_ws.call_args
+        assert call_kwargs[0][2] == "input_boolean/create"
+        assert call_kwargs[1]["name"] == "Test Switch"
+        assert call_kwargs[1]["initial"] is True
+        assert "id" not in call_kwargs[1]
+
+    @pytest.mark.asyncio
+    async def test_create_input_boolean_uses_ha_slug(self, ha_client):
+        """Test that entity_id uses the slug HA returns, not the caller's input_id."""
+        ws_result = {"id": "ha_generated_slug", "name": "Test Switch"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result):
+            result = await ha_client.create_input_boolean(
+                input_id="my_custom_id",
+                name="Test Switch",
+            )
+
+        assert result["input_id"] == "ha_generated_slug"
+        assert result["entity_id"] == "input_boolean.ha_generated_slug"
 
     @pytest.mark.asyncio
     async def test_create_input_boolean_with_icon(self, ha_client):
         """Test input_boolean creation with icon."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_boolean(
-            input_id="test_switch",
-            name="Test",
-            icon="mdi:toggle-switch",
-        )
+        ws_result = {"id": "test_switch", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_boolean(
+                input_id="test_switch",
+                name="Test",
+                icon="mdi:toggle-switch",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        assert call_args[1]["json"]["icon"] == "mdi:toggle-switch"
+        assert mock_ws.call_args[1]["icon"] == "mdi:toggle-switch"
 
     @pytest.mark.asyncio
     async def test_create_input_boolean_error(self, ha_client):
         """Test input_boolean creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_input_boolean")
-
-        result = await ha_client.create_input_boolean(
-            input_id="test_switch",
-            name="Test",
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_input_boolean(
+                input_id="test_switch",
+                name="Test",
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_switch"
@@ -84,80 +106,81 @@ class TestCreateInputNumber:
 
     @pytest.mark.asyncio
     async def test_create_input_number_success(self, ha_client):
-        """Test successful input_number creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_number(
-            input_id="test_number",
-            name="Test Number",
-            min_value=0.0,
-            max_value=100.0,
-            initial=50.0,
-        )
+        """Test successful input_number creation via WS."""
+        ws_result = {"id": "test_number", "name": "Test Number", "min": 0.0, "max": 100.0}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_number(
+                input_id="test_number",
+                name="Test Number",
+                min=0.0,
+                max=100.0,
+                initial=50.0,
+            )
 
         assert result["success"] is True
         assert result["input_id"] == "test_number"
         assert result["entity_id"] == "input_number.test_number"
-        ha_client._request.assert_called_once()
-        call_args = ha_client._request.call_args
-        assert call_args[0][0] == "POST"
-        assert "/api/config/input_number/config/test_number" in call_args[0][1]
-        assert call_args[1]["json"]["name"] == "Test Number"
-        assert call_args[1]["json"]["min"] == 0.0
-        assert call_args[1]["json"]["max"] == 100.0
-        assert call_args[1]["json"]["initial"] == 50.0
+        mock_ws.assert_called_once()
+        kw = mock_ws.call_args[1]
+        assert kw["name"] == "Test Number"
+        assert kw["min"] == 0.0
+        assert kw["max"] == 100.0
+        assert kw["initial"] == 50.0
+        assert "id" not in kw
 
     @pytest.mark.asyncio
     async def test_create_input_number_with_all_options(self, ha_client):
         """Test input_number creation with all options."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_number(
-            input_id="test_number",
-            name="Test",
-            min_value=0.0,
-            max_value=100.0,
-            initial=25.0,
-            step=5.0,
-            unit_of_measurement="%",
-            mode="box",
-            icon="mdi:percent",
-        )
+        ws_result = {"id": "test_number", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_number(
+                input_id="test_number",
+                name="Test",
+                min=0.0,
+                max=100.0,
+                initial=25.0,
+                step=5.0,
+                unit_of_measurement="%",
+                mode="box",
+                icon="mdi:percent",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        assert call_args[1]["json"]["step"] == 5.0
-        assert call_args[1]["json"]["unit_of_measurement"] == "%"
-        assert call_args[1]["json"]["mode"] == "box"
-        assert call_args[1]["json"]["icon"] == "mdi:percent"
+        kw = mock_ws.call_args[1]
+        assert kw["step"] == 5.0
+        assert kw["unit_of_measurement"] == "%"
+        assert kw["mode"] == "box"
+        assert kw["icon"] == "mdi:percent"
 
     @pytest.mark.asyncio
     async def test_create_input_number_without_initial(self, ha_client):
         """Test input_number creation without initial value."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_number(
-            input_id="test_number",
-            name="Test",
-            min_value=0.0,
-            max_value=100.0,
-        )
+        ws_result = {"id": "test_number", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_number(
+                input_id="test_number",
+                name="Test",
+                min=0.0,
+                max=100.0,
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        assert "initial" not in call_args[1]["json"]
+        assert "initial" not in mock_ws.call_args[1]
 
     @pytest.mark.asyncio
     async def test_create_input_number_error(self, ha_client):
         """Test input_number creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_input_number")
-
-        result = await ha_client.create_input_number(
-            input_id="test_number",
-            name="Test",
-            min_value=0.0,
-            max_value=100.0,
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_input_number(
+                input_id="test_number",
+                name="Test",
+                min=0.0,
+                max=100.0,
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_number"
@@ -172,58 +195,58 @@ class TestCreateInputText:
 
     @pytest.mark.asyncio
     async def test_create_input_text_success(self, ha_client):
-        """Test successful input_text creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_text(
-            input_id="test_text",
-            name="Test Text",
-        )
+        """Test successful input_text creation via WS."""
+        ws_result = {"id": "test_text", "name": "Test Text"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_text(
+                input_id="test_text",
+                name="Test Text",
+            )
 
         assert result["success"] is True
         assert result["input_id"] == "test_text"
         assert result["entity_id"] == "input_text.test_text"
-        ha_client._request.assert_called_once()
-        call_args = ha_client._request.call_args
-        assert call_args[0][0] == "POST"
-        assert "/api/config/input_text/config/test_text" in call_args[0][1]
-        assert call_args[1]["json"]["name"] == "Test Text"
+        assert mock_ws.call_args[0][2] == "input_text/create"
+        assert mock_ws.call_args[1]["name"] == "Test Text"
+        assert "id" not in mock_ws.call_args[1]
 
     @pytest.mark.asyncio
     async def test_create_input_text_with_all_options(self, ha_client):
         """Test input_text creation with all options."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_text(
-            input_id="test_text",
-            name="Test",
-            min_length=1,
-            max_length=50,
-            pattern="[a-z]+",
-            mode="password",
-            initial="hello",
-            icon="mdi:text",
-        )
+        ws_result = {"id": "test_text", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_text(
+                input_id="test_text",
+                name="Test",
+                min_length=1,
+                max_length=50,
+                pattern="[a-z]+",
+                mode="password",
+                initial="hello",
+                icon="mdi:text",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        json_data = call_args[1]["json"]
-        assert json_data["min"] == 1
-        assert json_data["max"] == 50
-        assert json_data["pattern"] == "[a-z]+"
-        assert json_data["mode"] == "password"
-        assert json_data["initial"] == "hello"
-        assert json_data["icon"] == "mdi:text"
+        kw = mock_ws.call_args[1]
+        assert kw["min"] == 1
+        assert kw["max"] == 50
+        assert kw["pattern"] == "[a-z]+"
+        assert kw["mode"] == "password"
+        assert kw["initial"] == "hello"
+        assert kw["icon"] == "mdi:text"
 
     @pytest.mark.asyncio
     async def test_create_input_text_error(self, ha_client):
         """Test input_text creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_input_text")
-
-        result = await ha_client.create_input_text(
-            input_id="test_text",
-            name="Test",
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_input_text(
+                input_id="test_text",
+                name="Test",
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_text"
@@ -238,53 +261,52 @@ class TestCreateInputSelect:
 
     @pytest.mark.asyncio
     async def test_create_input_select_success(self, ha_client):
-        """Test successful input_select creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_select(
-            input_id="test_select",
-            name="Test Select",
-            options=["option1", "option2", "option3"],
-        )
+        """Test successful input_select creation via WS."""
+        ws_result = {"id": "test_select", "name": "Test Select"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_select(
+                input_id="test_select",
+                name="Test Select",
+                options=["option1", "option2", "option3"],
+            )
 
         assert result["success"] is True
-        assert result["input_id"] == "test_select"
         assert result["entity_id"] == "input_select.test_select"
-        call_args = ha_client._request.call_args
-        assert call_args[0][0] == "POST"
-        assert "/api/config/input_select/config/test_select" in call_args[0][1]
-        json_data = call_args[1]["json"]
-        assert json_data["options"] == ["option1", "option2", "option3"]
+        assert mock_ws.call_args[0][2] == "input_select/create"
+        assert mock_ws.call_args[1]["options"] == ["option1", "option2", "option3"]
+        assert "id" not in mock_ws.call_args[1]
 
     @pytest.mark.asyncio
     async def test_create_input_select_with_initial(self, ha_client):
         """Test input_select creation with initial value."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_select(
-            input_id="test_select",
-            name="Test",
-            options=["a", "b"],
-            initial="b",
-            icon="mdi:menu",
-        )
+        ws_result = {"id": "test_select", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_select(
+                input_id="test_select",
+                name="Test",
+                options=["a", "b"],
+                initial="b",
+                icon="mdi:menu",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        json_data = call_args[1]["json"]
-        assert json_data["initial"] == "b"
-        assert json_data["icon"] == "mdi:menu"
+        kw = mock_ws.call_args[1]
+        assert kw["initial"] == "b"
+        assert kw["icon"] == "mdi:menu"
 
     @pytest.mark.asyncio
     async def test_create_input_select_error(self, ha_client):
         """Test input_select creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_input_select")
-
-        result = await ha_client.create_input_select(
-            input_id="test_select",
-            name="Test",
-            options=["a"],
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_input_select(
+                input_id="test_select",
+                name="Test",
+                options=["a"],
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_select"
@@ -299,67 +321,67 @@ class TestCreateInputDatetime:
 
     @pytest.mark.asyncio
     async def test_create_input_datetime_success(self, ha_client):
-        """Test successful input_datetime creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_datetime(
-            input_id="test_datetime",
-            name="Test Datetime",
-        )
+        """Test successful input_datetime creation via WS."""
+        ws_result = {"id": "test_datetime", "name": "Test Datetime"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_datetime(
+                input_id="test_datetime",
+                name="Test Datetime",
+            )
 
         assert result["success"] is True
-        assert result["input_id"] == "test_datetime"
         assert result["entity_id"] == "input_datetime.test_datetime"
-        call_args = ha_client._request.call_args
-        json_data = call_args[1]["json"]
-        assert json_data["has_date"] is True
-        assert json_data["has_time"] is True
+        kw = mock_ws.call_args[1]
+        assert kw["has_date"] is True
+        assert kw["has_time"] is True
+        assert "id" not in kw
 
     @pytest.mark.asyncio
     async def test_create_input_datetime_date_only(self, ha_client):
         """Test input_datetime creation with date only."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_datetime(
-            input_id="test_date",
-            name="Test",
-            has_date=True,
-            has_time=False,
-        )
+        ws_result = {"id": "test_date", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_datetime(
+                input_id="test_date",
+                name="Test",
+                has_date=True,
+                has_time=False,
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        json_data = call_args[1]["json"]
-        assert json_data["has_date"] is True
-        assert json_data["has_time"] is False
+        kw = mock_ws.call_args[1]
+        assert kw["has_date"] is True
+        assert kw["has_time"] is False
 
     @pytest.mark.asyncio
     async def test_create_input_datetime_with_initial(self, ha_client):
         """Test input_datetime creation with initial value."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_datetime(
-            input_id="test_datetime",
-            name="Test",
-            initial="2024-01-01 12:00:00",
-            icon="mdi:clock",
-        )
+        ws_result = {"id": "test_datetime", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_datetime(
+                input_id="test_datetime",
+                name="Test",
+                initial="2024-01-01 12:00:00",
+                icon="mdi:clock",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        json_data = call_args[1]["json"]
-        assert json_data["initial"] == "2024-01-01 12:00:00"
-        assert json_data["icon"] == "mdi:clock"
+        kw = mock_ws.call_args[1]
+        assert kw["initial"] == "2024-01-01 12:00:00"
+        assert kw["icon"] == "mdi:clock"
 
     @pytest.mark.asyncio
     async def test_create_input_datetime_error(self, ha_client):
         """Test input_datetime creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_input_datetime")
-
-        result = await ha_client.create_input_datetime(
-            input_id="test_datetime",
-            name="Test",
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_input_datetime(
+                input_id="test_datetime",
+                name="Test",
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_datetime"
@@ -374,45 +396,45 @@ class TestCreateInputButton:
 
     @pytest.mark.asyncio
     async def test_create_input_button_success(self, ha_client):
-        """Test successful input_button creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_button(
-            input_id="test_button",
-            name="Test Button",
-        )
+        """Test successful input_button creation via WS."""
+        ws_result = {"id": "test_button", "name": "Test Button"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_button(
+                input_id="test_button",
+                name="Test Button",
+            )
 
         assert result["success"] is True
-        assert result["input_id"] == "test_button"
         assert result["entity_id"] == "input_button.test_button"
-        call_args = ha_client._request.call_args
-        assert call_args[0][0] == "POST"
-        assert "/api/config/input_button/config/test_button" in call_args[0][1]
+        assert mock_ws.call_args[0][2] == "input_button/create"
+        assert "id" not in mock_ws.call_args[1]
 
     @pytest.mark.asyncio
     async def test_create_input_button_with_icon(self, ha_client):
         """Test input_button creation with icon."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_input_button(
-            input_id="test_button",
-            name="Test",
-            icon="mdi:gesture-tap-button",
-        )
+        ws_result = {"id": "test_button", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_input_button(
+                input_id="test_button",
+                name="Test",
+                icon="mdi:gesture-tap-button",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        assert call_args[1]["json"]["icon"] == "mdi:gesture-tap-button"
+        assert mock_ws.call_args[1]["icon"] == "mdi:gesture-tap-button"
 
     @pytest.mark.asyncio
     async def test_create_input_button_error(self, ha_client):
         """Test input_button creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_input_button")
-
-        result = await ha_client.create_input_button(
-            input_id="test_button",
-            name="Test",
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_input_button(
+                input_id="test_button",
+                name="Test",
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_button"
@@ -427,56 +449,56 @@ class TestCreateCounter:
 
     @pytest.mark.asyncio
     async def test_create_counter_success(self, ha_client):
-        """Test successful counter creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_counter(
-            input_id="test_counter",
-            name="Test Counter",
-        )
+        """Test successful counter creation via WS."""
+        ws_result = {"id": "test_counter", "name": "Test Counter"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_counter(
+                input_id="test_counter",
+                name="Test Counter",
+            )
 
         assert result["success"] is True
-        assert result["input_id"] == "test_counter"
         assert result["entity_id"] == "counter.test_counter"
-        call_args = ha_client._request.call_args
-        assert call_args[0][0] == "POST"
-        assert "/api/config/counter/config/test_counter" in call_args[0][1]
+        assert mock_ws.call_args[0][2] == "counter/create"
+        assert "id" not in mock_ws.call_args[1]
 
     @pytest.mark.asyncio
     async def test_create_counter_with_all_options(self, ha_client):
         """Test counter creation with all options."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_counter(
-            input_id="test_counter",
-            name="Test",
-            initial=5,
-            minimum=0,
-            maximum=100,
-            step=2,
-            restore=False,
-            icon="mdi:counter",
-        )
+        ws_result = {"id": "test_counter", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_counter(
+                input_id="test_counter",
+                name="Test",
+                initial=5,
+                minimum=0,
+                maximum=100,
+                step=2,
+                restore=False,
+                icon="mdi:counter",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        json_data = call_args[1]["json"]
-        assert json_data["initial"] == 5
-        assert json_data["minimum"] == 0
-        assert json_data["maximum"] == 100
-        assert json_data["step"] == 2
-        assert json_data["restore"] is False
-        assert json_data["icon"] == "mdi:counter"
+        kw = mock_ws.call_args[1]
+        assert kw["initial"] == 5
+        assert kw["minimum"] == 0
+        assert kw["maximum"] == 100
+        assert kw["step"] == 2
+        assert kw["restore"] is False
+        assert kw["icon"] == "mdi:counter"
 
     @pytest.mark.asyncio
     async def test_create_counter_error(self, ha_client):
         """Test counter creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_counter")
-
-        result = await ha_client.create_counter(
-            input_id="test_counter",
-            name="Test",
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_counter(
+                input_id="test_counter",
+                name="Test",
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_counter"
@@ -491,50 +513,50 @@ class TestCreateTimer:
 
     @pytest.mark.asyncio
     async def test_create_timer_success(self, ha_client):
-        """Test successful timer creation."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_timer(
-            input_id="test_timer",
-            name="Test Timer",
-        )
+        """Test successful timer creation via WS."""
+        ws_result = {"id": "test_timer", "name": "Test Timer"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_timer(
+                input_id="test_timer",
+                name="Test Timer",
+            )
 
         assert result["success"] is True
-        assert result["input_id"] == "test_timer"
         assert result["entity_id"] == "timer.test_timer"
-        call_args = ha_client._request.call_args
-        assert call_args[0][0] == "POST"
-        assert "/api/config/timer/config/test_timer" in call_args[0][1]
+        assert mock_ws.call_args[0][2] == "timer/create"
+        assert "id" not in mock_ws.call_args[1]
 
     @pytest.mark.asyncio
     async def test_create_timer_with_all_options(self, ha_client):
         """Test timer creation with all options."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.create_timer(
-            input_id="test_timer",
-            name="Test",
-            duration="00:05:00",
-            restore=True,
-            icon="mdi:timer",
-        )
+        ws_result = {"id": "test_timer", "name": "Test"}
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=ws_result) as mock_ws:
+            result = await ha_client.create_timer(
+                input_id="test_timer",
+                name="Test",
+                duration="00:05:00",
+                restore=True,
+                icon="mdi:timer",
+            )
 
         assert result["success"] is True
-        call_args = ha_client._request.call_args
-        json_data = call_args[1]["json"]
-        assert json_data["duration"] == "00:05:00"
-        assert json_data["restore"] is True
-        assert json_data["icon"] == "mdi:timer"
+        kw = mock_ws.call_args[1]
+        assert kw["duration"] == "00:05:00"
+        assert kw["restore"] is True
+        assert kw["icon"] == "mdi:timer"
 
     @pytest.mark.asyncio
     async def test_create_timer_error(self, ha_client):
         """Test timer creation error handling."""
-        ha_client._request.side_effect = HAClientError("API error", "create_timer")
-
-        result = await ha_client.create_timer(
-            input_id="test_timer",
-            name="Test",
-        )
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("API error", "ws_command"),
+        ):
+            result = await ha_client.create_timer(
+                input_id="test_timer",
+                name="Test",
+            )
 
         assert result["success"] is False
         assert result["input_id"] == "test_timer"
@@ -549,37 +571,55 @@ class TestDeleteHelper:
 
     @pytest.mark.asyncio
     async def test_delete_helper_success(self, ha_client):
-        """Test successful helper deletion."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.delete_helper("input_boolean", "test_switch")
+        """Test successful helper deletion via WS list+delete."""
+        list_result = [{"id": "test_switch", "name": "Test Switch"}]
+        with patch(
+            WS_COMMAND_PATH, new_callable=AsyncMock, side_effect=[list_result, None]
+        ) as mock_ws:
+            result = await ha_client.delete_helper("input_boolean", "test_switch")
 
         assert result["success"] is True
         assert result["entity_id"] == "input_boolean.test_switch"
-        ha_client._request.assert_called_once_with(
-            "DELETE",
-            "/api/config/input_boolean/config/test_switch",
-        )
+        assert mock_ws.call_count == 2
+        assert mock_ws.call_args_list[0][0][2] == "input_boolean/list"
+        assert mock_ws.call_args_list[1][0][2] == "input_boolean/delete"
+        assert mock_ws.call_args_list[1][1]["input_boolean_id"] == "test_switch"
 
     @pytest.mark.asyncio
     async def test_delete_helper_counter(self, ha_client):
         """Test deleting a counter helper."""
-        ha_client._request.return_value = {}
-
-        result = await ha_client.delete_helper("counter", "my_counter")
+        list_result = [{"id": "my_counter", "name": "My Counter"}]
+        with patch(
+            WS_COMMAND_PATH, new_callable=AsyncMock, side_effect=[list_result, None]
+        ) as mock_ws:
+            result = await ha_client.delete_helper("counter", "my_counter")
 
         assert result["success"] is True
         assert result["entity_id"] == "counter.my_counter"
+        assert mock_ws.call_args_list[1][1]["counter_id"] == "my_counter"
 
     @pytest.mark.asyncio
-    async def test_delete_helper_error(self, ha_client):
-        """Test helper deletion error handling."""
-        ha_client._request.side_effect = HAClientError("Not found", "delete_helper")
-
-        result = await ha_client.delete_helper("input_text", "nonexistent")
+    async def test_delete_helper_not_found(self, ha_client):
+        """Test deletion when helper not found in WS list."""
+        with patch(WS_COMMAND_PATH, new_callable=AsyncMock, return_value=[]):
+            result = await ha_client.delete_helper("input_text", "nonexistent")
 
         assert result["success"] is False
         assert result["entity_id"] == "input_text.nonexistent"
+        assert "not found" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_delete_helper_error(self, ha_client):
+        """Test helper deletion WS error handling."""
+        with patch(
+            WS_COMMAND_PATH,
+            new_callable=AsyncMock,
+            side_effect=HAClientError("WS error", "ws_command"),
+        ):
+            result = await ha_client.delete_helper("input_text", "broken")
+
+        assert result["success"] is False
+        assert result["entity_id"] == "input_text.broken"
         assert "error" in result
 
     @pytest.mark.asyncio

@@ -72,6 +72,7 @@ VALID_TRANSITIONS: dict[ProposalStatus, set[ProposalStatus]] = {
     ProposalStatus.APPROVED: {ProposalStatus.DEPLOYED, ProposalStatus.REJECTED},
     ProposalStatus.REJECTED: {ProposalStatus.PROPOSED, ProposalStatus.ARCHIVED},
     ProposalStatus.DEPLOYED: {
+        ProposalStatus.DEPLOYED,
         ProposalStatus.ROLLED_BACK,
         ProposalStatus.DISABLED,
         ProposalStatus.DEPRECATED,
