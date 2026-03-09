@@ -25,8 +25,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TYPE proposalstatus ADD VALUE IF NOT EXISTS 'disabled'")
-    op.execute("ALTER TYPE proposalstatus ADD VALUE IF NOT EXISTS 'deprecated'")
+    op.execute("ALTER TYPE proposalstatus ADD VALUE IF NOT EXISTS 'DISABLED'")
+    op.execute("ALTER TYPE proposalstatus ADD VALUE IF NOT EXISTS 'DEPRECATED'")
 
 
 def downgrade() -> None:
