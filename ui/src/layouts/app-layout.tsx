@@ -25,6 +25,7 @@ import {
   Workflow,
   Bell,
   ListChecks,
+  BatteryCharging,
 } from "lucide-react";
 import { lazy, Suspense, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,7 @@ const navItems = [
   { to: "/insights", icon: Lightbulb, label: "Insights" },
   { to: "/reports", icon: FileBarChart, label: "Reports" },
   { to: "/optimization", icon: Sparkles, label: "Optimization" },
+  { to: "/energy", icon: BatteryCharging, label: "Energy" },
   { to: "/entities", icon: Cpu, label: "Entities" },
   { to: "/registry", icon: BookOpen, label: "Registry" },
   { to: "/schedules", icon: Clock, label: "Schedules" },

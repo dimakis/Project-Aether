@@ -62,6 +62,10 @@ _EXPORTS = {
     "get_all_tools": "src.tools.registry",
     "get_architect_tools": "src.tools.registry",
     "get_tools_for_agent": "src.tools.registry",
+    # tariff_tools
+    "get_tariff_rates": "src.tools.tariff_tools",
+    "setup_electricity_tariffs": "src.tools.tariff_tools",
+    "update_electricity_tariffs": "src.tools.tariff_tools",
     # specialist_tools
     "consult_behavioral_analyst": "src.tools.specialist_tools",
     "consult_dashboard_designer": "src.tools.specialist_tools",
@@ -159,6 +163,11 @@ if TYPE_CHECKING:
         get_specialist_tools,
         request_synthesis_review,
     )
+    from src.tools.tariff_tools import (
+        get_tariff_rates,
+        setup_electricity_tariffs,
+        update_electricity_tariffs,
+    )
     from src.tools.web_search import get_web_search_tools, web_search
 
 __all__ = [
@@ -196,6 +205,7 @@ __all__ = [
     "get_insight_schedule_tools",
     "get_script_config",
     "get_specialist_tools",
+    "get_tariff_rates",
     "get_tools_for_agent",
     "get_web_search_tools",
     "is_mutating_tool",
@@ -207,6 +217,8 @@ __all__ = [
     "run_custom_analysis",
     "search_entities",
     "seek_approval",
+    "setup_electricity_tariffs",
+    "update_electricity_tariffs",
     "validate_automation_draft",
     "validate_config",
     "web_search",

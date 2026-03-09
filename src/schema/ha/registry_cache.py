@@ -158,6 +158,25 @@ class HARegistryCache:
         return area_id in self._area_ids
 
     # ------------------------------------------------------------------
+    # Entity attribute methods
+    # ------------------------------------------------------------------
+
+    async def get_entity_attributes(self, entity_id: str) -> dict[str, Any] | None:
+        """Get the state attributes for a specific entity.
+
+        Fetches via ``ha_client.get_entity()`` on each call (no bulk
+        cache) because attribute lookups are infrequent and per-entity.
+
+        Returns:
+            Attributes dict, or None if entity not found.
+        """
+        result = await self._ha.get_entity(entity_id)
+        if result is None:
+            return None
+        attrs: dict[str, Any] = result.get("attributes", {})
+        return attrs
+
+    # ------------------------------------------------------------------
     # Cache management
     # ------------------------------------------------------------------
 

@@ -58,7 +58,11 @@ class SemanticValidator:
         errors: list[ValidationError] = []
         warnings: list[ValidationError] = []
 
-        if schema_name == "ha.script":
+        if schema_name == "ha.entity_command":
+            await self._check_entity_command(data, errors, warnings)
+        elif schema_name == "ha.helper":
+            await self._check_helper(data, errors)
+        elif schema_name == "ha.script":
             await self._check_actions(data.get("sequence", []), errors, warnings)
         elif schema_name == "ha.scene":
             entities = data.get("entities", {})
@@ -79,6 +83,128 @@ class SemanticValidator:
             warnings=warnings,
             schema_name=schema_name,
         )
+
+    # ------------------------------------------------------------------
+    # Entity command checks
+    # ------------------------------------------------------------------
+
+    async def _check_entity_command(
+        self,
+        data: dict[str, Any],
+        errors: list[ValidationError],
+        warnings: list[ValidationError],
+    ) -> None:
+        """Semantic checks for entity_command proposals.
+
+        Validates entity existence, service existence, and for
+        input_number entities checks that values are within range.
+        """
+        domain = data.get("domain", "")
+        service = data.get("service", "")
+        entity_id = data.get("entity_id")
+
+        # Check top-level entity_id exists
+        if entity_id and isinstance(entity_id, str):
+            await self._check_entity_ids(entity_id, "entity_id", errors)
+
+        # Check domain.service exists
+        service_name = f"{domain}.{service}"
+        if domain and service and not await self._cache.service_exists(service_name):
+            errors.append(
+                ValidationError(
+                    path="service",
+                    message=f"Service '{service_name}' not found in HA registry",
+                )
+            )
+
+        # Check entity_updates if present
+        raw_data = data.get("data")
+        if not isinstance(raw_data, dict):
+            return
+
+        updates = raw_data.get("entity_updates")
+        if not isinstance(updates, list):
+            return
+
+        for i, update in enumerate(updates):
+            if not isinstance(update, dict):
+                continue
+
+            eid = update.get("entity_id", "")
+            value = update.get("value")
+            path = f"data.entity_updates[{i}]"
+
+            if eid:
+                if not await self._cache.entity_exists(eid):
+                    errors.append(
+                        ValidationError(
+                            path=f"{path}.entity_id",
+                            message=f"Entity '{eid}' not found in HA registry",
+                        )
+                    )
+                elif eid.startswith("input_number.") and isinstance(value, (int, float)):
+                    await self._check_input_number_range(eid, value, path, errors)
+
+    async def _check_input_number_range(
+        self,
+        entity_id: str,
+        value: int | float,
+        path: str,
+        errors: list[ValidationError],
+    ) -> None:
+        """Verify a value is within the entity's min/max range."""
+        attrs = await self._cache.get_entity_attributes(entity_id)
+        if attrs is None:
+            return
+
+        attr_min = attrs.get("min")
+        attr_max = attrs.get("max")
+
+        if attr_min is not None and value < attr_min:
+            errors.append(
+                ValidationError(
+                    path=f"{path}.value",
+                    message=(f"Value {value} is below min {attr_min} for '{entity_id}'"),
+                )
+            )
+        elif attr_max is not None and value > attr_max:
+            errors.append(
+                ValidationError(
+                    path=f"{path}.value",
+                    message=(f"Value {value} exceeds max {attr_max} for '{entity_id}'"),
+                )
+            )
+
+    # ------------------------------------------------------------------
+    # Helper checks
+    # ------------------------------------------------------------------
+
+    async def _check_helper(
+        self,
+        data: dict[str, Any],
+        errors: list[ValidationError],
+    ) -> None:
+        """Semantic checks for helper proposals.
+
+        Detects name conflicts: if an entity with the composed ID
+        (``{helper_type}.{input_id}``) already exists in HA, the
+        helper creation would fail or overwrite.
+        """
+        helper_type = data.get("helper_type", "")
+        input_id = data.get("input_id", "")
+
+        if helper_type and input_id:
+            composed_id = f"{helper_type}.{input_id}"
+            if await self._cache.entity_exists(composed_id):
+                errors.append(
+                    ValidationError(
+                        path="input_id",
+                        message=(
+                            f"Entity '{composed_id}' already exists in HA — "
+                            f"helper creation would conflict"
+                        ),
+                    )
+                )
 
     # ------------------------------------------------------------------
     # Trigger checks

@@ -44,6 +44,9 @@ READ_ONLY_TOOLS: frozenset[str] = frozenset(
         "create_insight_schedule",
         # Approval (1) -- creating proposals IS the approval mechanism
         "seek_approval",
+        # Tariff tools (2) -- create HITL proposals, no direct HA mutation
+        "setup_electricity_tariffs",
+        "update_electricity_tariffs",
         # Review (1) -- creates review proposals for HITL approval
         "review_config",
         # Web search (1) -- external read-only query

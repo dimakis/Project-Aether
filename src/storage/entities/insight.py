@@ -44,8 +44,9 @@ def _enum_column(enum_cls: type[_E]) -> TypeDecorator[_E]:
             if isinstance(value, enum_cls):
                 return value
             s = str(value).strip()
+            s_lower = s.lower()
             for member in enum_cls:
-                if s in (member.value, member.name):
+                if s in (member.value, member.name) or s_lower == member.name.lower():
                     return member
             raise LookupError(
                 f"{value!r} is not among the defined enum values. "

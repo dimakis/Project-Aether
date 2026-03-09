@@ -1050,6 +1050,16 @@ class TestDeployProposal:
 
         mock_ha_client = MagicMock()
         mock_ha_client.call_service = AsyncMock()
+        mock_ha_client.list_entities = AsyncMock(return_value=[{"entity_id": "light.living_room"}])
+        mock_ha_client.list_services = AsyncMock(
+            return_value=[
+                {
+                    "domain": "light",
+                    "services": {"turn_on": {"fields": {}}, "turn_off": {"fields": {}}},
+                },
+            ]
+        )
+        mock_ha_client.get_area_registry = AsyncMock(return_value=[])
 
         with (
             patch("src.api.routes.proposals.get_session", mock_get_session),
@@ -1397,6 +1407,9 @@ class TestDeployProposal:
         mock_ha_client.create_input_boolean = AsyncMock(
             return_value={"success": True, "entity_id": "input_boolean.vacation_mode"}
         )
+        mock_ha_client.list_entities = AsyncMock(return_value=[])
+        mock_ha_client.list_services = AsyncMock(return_value=[])
+        mock_ha_client.get_area_registry = AsyncMock(return_value=[])
 
         with (
             patch("src.api.routes.proposals.get_session", mock_get_session),

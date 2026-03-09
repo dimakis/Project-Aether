@@ -103,6 +103,11 @@ from src.api.routes.jobs import router as jobs_router
 
 api_router.include_router(jobs_router)
 
+# Feature 40: Electricity Tariff Management
+from src.api.routes.energy import router as energy_router
+
+api_router.include_router(energy_router)
+
 # Feature 34: Dynamic Tool Registry
 from src.api.routes.tool_groups import router as tool_groups_router
 

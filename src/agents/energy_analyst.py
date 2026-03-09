@@ -26,6 +26,7 @@ from src.graph.state import (
     SpecialistFinding,
 )
 from src.ha import EnergyHistoryClient
+from src.tools.tariff_tools import get_tariff_rates
 from src.tracing import log_metric, log_param
 
 if TYPE_CHECKING:
@@ -96,6 +97,14 @@ class EnergyAnalyst(BaseAnalyst):
                 }
                 for f in prior
             ]
+
+        # Inject electricity tariff rates for cost-aware analysis
+        try:
+            tariff_data = await get_tariff_rates(self.ha)
+            data["tariff_rates"] = tariff_data
+        except Exception:
+            logger.debug("Tariff entities not available, skipping injection")
+            data["tariff_rates"] = {"configured": False}
 
         return data
 
