@@ -22,6 +22,7 @@ from collections import defaultdict
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, cast
 
+import httpx
 import structlog
 
 if TYPE_CHECKING:
@@ -271,7 +272,13 @@ class LLMSynthesizer:
                     "synthesis_strategy": SynthesisStrategy.LLM,
                 }
             )
-        except Exception as e:
+        except (
+            json.JSONDecodeError,
+            ValueError,
+            httpx.HTTPError,
+            TimeoutError,
+            ConnectionError,
+        ) as e:
             logger.error("LLM synthesis failed", error=str(e))
             return analysis.model_copy(
                 update={

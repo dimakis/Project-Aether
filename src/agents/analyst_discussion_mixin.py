@@ -11,6 +11,8 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+import httpx
+
 from src.agents.execution_context import emit_communication
 from src.graph.state import CommunicationEntry
 
@@ -112,7 +114,15 @@ class AnalystDiscussionMixin:
 
             return entries
 
-        except Exception:
+        except (
+            json.JSONDecodeError,
+            ValueError,
+            KeyError,
+            TypeError,
+            httpx.HTTPError,
+            TimeoutError,
+            ConnectionError,
+        ):
             logger.warning(
                 "%s: discussion round failed",
                 self.NAME,

@@ -46,6 +46,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         None (context for application runtime)
     """
     # Startup
+    from src.logging_config import configure_logging
+
+    configure_logging()
+
     settings = get_settings()
 
     if settings.environment != "testing":

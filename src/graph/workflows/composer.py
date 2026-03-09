@@ -12,6 +12,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.graph.workflows.compiler import CompilationError, WorkflowCompiler
 from src.graph.workflows.definition import (
     EdgeDefinition,
@@ -118,6 +120,6 @@ async def persist_workflow(definition: WorkflowDefinition) -> str | None:
             await session.commit()
             logger.info("Persisted workflow '%s' as %s", definition.name, record.id)
             return str(record.id)
-    except Exception:
+    except SQLAlchemyError:
         logger.warning("Failed to persist workflow '%s'", definition.name, exc_info=True)
         return None

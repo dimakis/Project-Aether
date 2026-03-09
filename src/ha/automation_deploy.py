@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
 import yaml
 
 from src.ha.client import HAClient, get_ha_client, get_ha_client_async
@@ -217,7 +218,7 @@ class AutomationDeployer:
                 result["error"] = deploy_result.get("error", "Unknown error")
                 result["instructions"] = self._get_manual_instructions(automation_id)
 
-        except Exception as e:
+        except (httpx.HTTPError, yaml.YAMLError) as e:
             # Total failure - provide manual instructions
             result["success"] = False
             result["method"] = "manual"

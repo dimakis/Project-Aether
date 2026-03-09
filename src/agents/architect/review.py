@@ -10,6 +10,8 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,7 +102,7 @@ async def synthesize_review(
     except json.JSONDecodeError:
         logger.warning("Architect: failed to parse synthesize_review response (JSON decode error)")
         suggestions = []
-    except Exception:
+    except (ValueError, KeyError, TypeError, AttributeError):
         logger.warning("Architect: failed to parse synthesize_review response")
         suggestions = []
 
@@ -252,8 +254,8 @@ async def receive_suggestion(
                 result["proposal_id"] = proposal.id
                 result["proposal_name"] = proposal.name
                 result["proposal_yaml"] = proposal_to_yaml(proposal_data)
-            except Exception as e:
-                logger.warning(f"Failed to create proposal from suggestion: {e}")
+            except (SQLAlchemyError, ValueError) as e:
+                logger.warning("Failed to create proposal from suggestion: %s", e)
                 result["error"] = str(e)
 
         return result

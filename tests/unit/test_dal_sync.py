@@ -46,6 +46,8 @@ def _make_service(
     sess.commit = AsyncMock()
 
     ha = ha_client or MagicMock()
+    ha.get_automation_config = AsyncMock(return_value=None)
+    ha.get_script_config = AsyncMock(return_value=None)
 
     with (
         patch("src.dal.sync.EntityRepository") as MockEntityRepo,
@@ -107,9 +109,9 @@ class TestDiscoverySessionCreation:
         """If HA client raises, session should be marked FAILED."""
         service, sess, ha = _make_service()
 
-        ha.list_entities = AsyncMock(side_effect=RuntimeError("HA unavailable"))
+        ha.list_entities = AsyncMock(side_effect=ConnectionError("HA unavailable"))
 
-        with pytest.raises(RuntimeError, match="HA unavailable"):
+        with pytest.raises(ConnectionError, match="HA unavailable"):
             await service.run_discovery()
 
         # The session was added and should be marked failed

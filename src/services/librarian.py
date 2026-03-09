@@ -2,7 +2,7 @@
 
 Wraps the LibrarianAgent for HA entity discovery and sync.
 
-Entrypoint: ``uvicorn src.services.librarian:app``
+Entrypoint: ``uvicorn src.services.librarian:app --factory``
 """
 
 from __future__ import annotations
@@ -39,4 +39,4 @@ def create_librarian_service() -> Starlette:
     )
 
 
-app = create_librarian_service()
+app = create_librarian_service

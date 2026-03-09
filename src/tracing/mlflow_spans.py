@@ -26,7 +26,7 @@ def get_active_span() -> Any | None:
 
     try:
         return mlflow.get_current_active_span()
-    except Exception:
+    except (AttributeError, RuntimeError, ImportError):
         return None
 
 
@@ -47,7 +47,7 @@ def add_span_event(
 
         event = SpanEvent(name=name, attributes=attributes or {})  # type: ignore[abstract]
         span.add_event(event)
-    except (ImportError, TypeError, Exception) as e:
+    except (ImportError, TypeError, AttributeError, RuntimeError) as e:
         _logger.debug("Failed to add span event: %s", e)
 
 
@@ -103,7 +103,7 @@ def traced_node(
             return await fn(*args, **kwargs)
         try:
             return await _get_traced(mlflow)(*args, **kwargs)
-        except Exception as e:
+        except (AttributeError, RuntimeError, ImportError) as e:
             _disable_traces("traced_node span failed; backend rejected traces")
             _logger.debug("traced_node span failed, running without trace: %s", e)
             return await fn(*args, **kwargs)
@@ -117,7 +117,7 @@ def traced_node(
             return fn(*args, **kwargs)
         try:
             return _get_traced(mlflow)(*args, **kwargs)
-        except Exception as e:
+        except (AttributeError, RuntimeError, ImportError) as e:
             _disable_traces("traced_node span failed; backend rejected traces")
             _logger.debug("traced_node span failed, running without trace: %s", e)
             return fn(*args, **kwargs)
@@ -171,7 +171,7 @@ def trace_with_uri(
                 session_id = get_session_id()
                 if session_id:
                     mlflow.update_current_trace(tags={"mlflow.trace.session": session_id})
-            except Exception:
+            except (AttributeError, RuntimeError, ImportError):
                 _logger.debug("Failed to tag trace with session ID", exc_info=True)
 
         @functools.wraps(func)
@@ -188,7 +188,7 @@ def trace_with_uri(
                 result = await traced(*args, **kwargs)
                 _tag_trace_session(mlflow)
                 return result  # type: ignore[no-any-return]
-            except Exception as e:
+            except (AttributeError, RuntimeError, ImportError) as e:
                 _disable_traces("span creation failed; backend rejected traces")
                 _logger.debug("Span creation failed, running without trace: %s", e)
                 return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
@@ -207,7 +207,7 @@ def trace_with_uri(
                 result = traced(*args, **kwargs)
                 _tag_trace_session(mlflow)
                 return result  # type: ignore[no-any-return]
-            except Exception as e:
+            except (AttributeError, RuntimeError, ImportError) as e:
                 _disable_traces("span creation failed; backend rejected traces")
                 _logger.debug("Span creation failed, running without trace: %s", e)
                 return func(*args, **kwargs)

@@ -13,6 +13,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_db
@@ -61,7 +62,7 @@ def _job_to_result(job: Any, suggestions_loaded: bool = True) -> OptimizationRes
                 )
                 for s in (job.suggestions or [])
             ]
-        except Exception:
+        except (SQLAlchemyError, AttributeError):
             suggestions = []
     return OptimizationResult(
         job_id=job.id,
@@ -193,7 +194,7 @@ async def _run_accept_suggestion_background(suggestion_id: str) -> None:
             architect = ArchitectAgent()
             await architect.receive_suggestion(suggestion, session)
             await session.commit()
-        except Exception:
+        except (SQLAlchemyError, AttributeError):
             logger.exception("Background accept failed for suggestion %s", suggestion_id)
             await repo.update_status(suggestion_id, "pending")
             await session.commit()
@@ -418,6 +419,6 @@ async def _run_optimization_background(
                     completed_at=now,
                 )
                 await session.commit()
-            except Exception:
+            except SQLAlchemyError:
                 logger.warning("Could not persist failure status for job %s", job_id)
             emit_job_failed(job_id, str(e))

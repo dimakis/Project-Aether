@@ -13,6 +13,9 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.agents.execution_context import ProgressEvent, execution_context
 from src.agents.streaming.events import StreamEvent
 from src.settings import ANALYSIS_TOOLS, get_settings
@@ -221,7 +224,14 @@ async def _execute_single_tool(
                     is_proposal=is_proposal,
                 )
 
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            TimeoutError,
+            ConnectionError,
+            SQLAlchemyError,
+            ValueError,
+            OSError,
+        ) as e:
             if not tool_task.done():
                 tool_task.cancel()
             result_str = f"Error: {e}"

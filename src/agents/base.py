@@ -6,6 +6,18 @@ consistent tracing, error handling, and state management.
 
 import logging
 from abc import ABC, abstractmethod
+
+try:
+    from mlflow.exceptions import MlflowException as _MlflowException
+
+    _MLFLOW_EXCEPTIONS: tuple[type[BaseException], ...] = (
+        AttributeError,
+        RuntimeError,
+        ImportError,
+        _MlflowException,
+    )
+except ImportError:
+    _MLFLOW_EXCEPTIONS = (AttributeError, RuntimeError, ImportError)
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -107,7 +119,7 @@ class BaseAgent(ABC):
 
             if session_id:
                 span_metadata["session_id"] = session_id
-        except Exception:
+        except (AttributeError, KeyError, RuntimeError):
             logger.debug("Failed to get session ID for trace correlation", exc_info=True)
 
         # Log state context (session, messages, etc.)
@@ -123,7 +135,7 @@ class BaseAgent(ABC):
 
             mlflow.set_tracking_uri(self._settings.mlflow_tracking_uri)
             mlflow_available = True
-        except Exception:
+        except _MLFLOW_EXCEPTIONS:
             logger.debug("MLflow not available, tracing disabled", exc_info=True)
 
         if mlflow_available:
@@ -151,13 +163,13 @@ class BaseAgent(ABC):
                 if session_id:
                     try:
                         mlflow.update_current_trace(tags={"mlflow.trace.session": session_id})
-                    except Exception:
+                    except _MLFLOW_EXCEPTIONS:
                         logger.debug("Failed to update trace session metadata", exc_info=True)
 
                 # Set span inputs if provided
                 if inputs and span:
                     self._set_span_inputs(span, inputs)
-            except Exception:
+            except _MLFLOW_EXCEPTIONS:
                 # MLflow span creation failed, continue without tracing
                 logger.debug("Failed to create MLflow span", exc_info=True)
                 mlflow_available = False
@@ -190,7 +202,7 @@ class BaseAgent(ABC):
             if span and hasattr(span, "set_status"):
                 try:
                     span.set_status("ERROR")
-                except Exception:
+                except _MLFLOW_EXCEPTIONS:
                     logger.debug("Failed to set span error status", exc_info=True)
             add_span_event(span, "error", {"error": str(e)[:250]})
 
@@ -203,7 +215,7 @@ class BaseAgent(ABC):
             if mlflow_available and ctx is not None:
                 try:
                     ctx.__exit__(None, None, None)
-                except Exception:
+                except _MLFLOW_EXCEPTIONS:
                     logger.debug("Failed to close MLflow span context", exc_info=True)
 
     def _set_span_inputs(self, span: Any, inputs: dict[str, Any]) -> None:
@@ -223,7 +235,7 @@ class BaseAgent(ABC):
                 import json
 
                 span.set_attribute("inputs", json.dumps(inputs, default=str)[:4000])
-        except Exception:
+        except _MLFLOW_EXCEPTIONS:
             logger.debug("Failed to set span inputs", exc_info=True)
 
     def _set_span_outputs(self, span: Any, outputs: dict[str, Any]) -> None:
@@ -243,7 +255,7 @@ class BaseAgent(ABC):
                 import json
 
                 span.set_attribute("outputs", json.dumps(outputs, default=str)[:4000])
-        except Exception:
+        except _MLFLOW_EXCEPTIONS:
             logger.debug("Failed to set span outputs", exc_info=True)
 
     def _log_state_context(self, state: BaseState | None) -> None:
@@ -269,7 +281,7 @@ class BaseAgent(ABC):
             session_id = get_session_id()
             if session_id:
                 log_param(f"{self.name}.session_id", session_id)
-        except Exception:
+        except (AttributeError, KeyError, RuntimeError):
             logger.debug("Failed to log session ID to MLflow", exc_info=True)
 
         # Log conversation-specific context if available
@@ -368,7 +380,7 @@ class BaseAgent(ABC):
             session_id = get_session_id()
             if session_id:
                 artifact_data["session_id"] = session_id
-        except Exception:
+        except (AttributeError, KeyError, RuntimeError):
             logger.debug("Failed to get session ID for conversation log", exc_info=True)
 
         # Add tool calls if provided
@@ -401,7 +413,7 @@ class BaseAgent(ABC):
 
             if mlflow.active_run():
                 mlflow.log_metric(f"{self.name}.{key}", value, step=step)
-        except Exception:
+        except _MLFLOW_EXCEPTIONS:
             logger.debug("Failed to log metric %s to MLflow", key, exc_info=True)
 
     def log_param(self, key: str, value: Any) -> None:

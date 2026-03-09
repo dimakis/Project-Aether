@@ -6,6 +6,9 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.agents.execution_context import emit_delegation, emit_progress
 
 if TYPE_CHECKING:
@@ -88,7 +91,7 @@ async def _run_teamwork(
 
         try:
             result = await runner(query, hours, entity_ids, depth=depth)
-        except Exception as e:
+        except (httpx.HTTPError, TimeoutError, ConnectionError, SQLAlchemyError) as e:
             logger.error("Specialist %s failed: %s", name, e, exc_info=e)
             result = f"{name.title()} analysis failed: {e}"
 
@@ -181,7 +184,7 @@ async def _run_discussion_round(
             analyst = cls()
             entries = await analyst.discuss(findings_summary)
             all_entries.extend(entries)
-        except Exception as e:
+        except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
             logger.warning("Discussion round failed for %s: %s", name, e)
 
     return all_entries

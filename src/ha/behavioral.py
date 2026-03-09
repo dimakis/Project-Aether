@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from src.ha.logbook import (
     ACTION_TYPE_AUTOMATION,
     ACTION_TYPE_BUTTON,
@@ -183,7 +185,7 @@ class BehavioralAnalysisClient:
                 for a in automations:
                     eid = a.get("entity_id", "")
                     auto_map[eid] = a.get("alias", eid)
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ConnectionError):
             auto_map = {}
 
         reports = []

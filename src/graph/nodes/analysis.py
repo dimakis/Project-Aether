@@ -10,7 +10,9 @@ import contextlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
+import httpx
 from langchain_core.messages import AIMessage
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.graph.state import AnalysisState, ScriptExecution
 
@@ -332,7 +334,7 @@ async def collect_behavioral_data_node(
                 )
             ],
         }
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
         return {
             "messages": [AIMessage(content=f"Failed to collect behavioral data: {e}")],
         }
@@ -365,7 +367,7 @@ async def analyze_and_suggest_node(
     try:
         updates = await agent.invoke(state, session=session)
         return updates
-    except Exception as e:
+    except (SQLAlchemyError, httpx.HTTPError, TimeoutError, ConnectionError) as e:
         return {
             "insights": [
                 {
@@ -426,7 +428,7 @@ async def architect_review_node(
         return {
             "messages": [AIMessage(content="\n".join(parts))],
         }
-    except Exception as e:
+    except (SQLAlchemyError, httpx.HTTPError, TimeoutError, ConnectionError) as e:
         return {
             "messages": [AIMessage(content=f"Architect review failed: {e}")],
         }

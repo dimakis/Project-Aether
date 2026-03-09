@@ -2,7 +2,7 @@
 
 Wraps the DashboardDesignerAgent for Lovelace dashboard generation.
 
-Entrypoint: ``uvicorn src.services.dashboard_designer:app``
+Entrypoint: ``uvicorn src.services.dashboard_designer:app --factory``
 """
 
 from __future__ import annotations
@@ -39,4 +39,4 @@ def create_dashboard_designer_service() -> Starlette:
     )
 
 
-app = create_dashboard_designer_service()
+app = create_dashboard_designer_service

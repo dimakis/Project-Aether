@@ -169,7 +169,7 @@ class TestSyncAutomationsNode:
         from src.graph.nodes.discovery import sync_automations_node
 
         mock_ha = MagicMock()
-        mock_ha.list_automations = AsyncMock(side_effect=Exception("HA unavailable"))
+        mock_ha.list_automations = AsyncMock(side_effect=ConnectionError("HA unavailable"))
 
         state = _make_state(errors=[])
         result = await sync_automations_node(state, ha_client=mock_ha)

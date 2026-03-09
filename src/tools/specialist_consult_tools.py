@@ -73,7 +73,7 @@ async def consult_energy_analyst(
         return _format_findings(result)
 
     except Exception as e:
-        logger.error(f"Energy analysis failed: {e}", exc_info=True)
+        logger.error("Energy analysis failed: %s", e, exc_info=True)
         return f"Energy analysis failed: {e}"
 
 
@@ -136,7 +136,7 @@ async def consult_behavioral_analyst(
         return _format_findings(result)
 
     except Exception as e:
-        logger.error(f"Behavioral analysis failed: {e}", exc_info=True)
+        logger.error("Behavioral analysis failed: %s", e, exc_info=True)
         return f"Behavioral analysis failed: {e}"
 
 
@@ -190,7 +190,7 @@ async def consult_diagnostic_analyst(
         return _format_findings(result)
 
     except Exception as e:
-        logger.error(f"Diagnostic analysis failed: {e}", exc_info=True)
+        logger.error("Diagnostic analysis failed: %s", e, exc_info=True)
         return f"Diagnostic analysis failed: {e}"
 
 
@@ -247,7 +247,7 @@ async def request_synthesis_review(
         return "\n".join(parts)
 
     except Exception as e:
-        logger.error(f"Synthesis review failed: {e}", exc_info=True)
+        logger.error("Synthesis review failed: %s", e, exc_info=True)
         return f"Synthesis review failed: {e}"
 
 

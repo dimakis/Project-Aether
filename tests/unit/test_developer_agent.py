@@ -17,6 +17,7 @@ class TestDeveloperAgent:
         """Create mock HA client."""
         client = MagicMock()
         client.call_service = AsyncMock(return_value={})
+        client._request = AsyncMock(return_value=None)  # no existing config for snapshot
         return client
 
     @pytest.fixture
@@ -142,6 +143,8 @@ class TestDeveloperAgent:
         mock_proposal.id = "test-id"
         mock_proposal.status = ProposalStatus.DEPLOYED
         mock_proposal.ha_automation_id = "test_auto"
+        mock_proposal.previous_config = None  # no snapshot to restore
+        mock_proposal.proposal_type = "automation"
 
         mock_session = MagicMock()
         mock_repo = MagicMock()
@@ -162,7 +165,9 @@ class TestDeveloperAgent:
         from src.agents.developer import DeveloperAgent
         from src.storage.entities import ProposalStatus
 
-        mock_ha_client.call_service = AsyncMock(side_effect=Exception("HA connection refused"))
+        mock_ha_client.call_service = AsyncMock(
+            side_effect=ConnectionError("HA connection refused")
+        )
 
         mock_proposal = MagicMock()
         mock_proposal.id = "test-id"

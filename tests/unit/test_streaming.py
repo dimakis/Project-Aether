@@ -10,6 +10,19 @@ import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 from src.agents.architect import ArchitectAgent, ArchitectWorkflow, StreamEvent
+
+
+@pytest.fixture(autouse=True)
+def _patch_get_chat_setting():
+    """Prevent _stream_inner from calling get_session_factory via get_chat_setting."""
+    with patch(
+        "src.dal.app_settings.get_chat_setting",
+        new_callable=AsyncMock,
+        return_value=10,
+    ):
+        yield
+
+
 from src.api.routes.openai_compat import TOOL_AGENT_MAP
 from src.graph.state import ConversationState
 
@@ -128,7 +141,7 @@ class TestStreamConversation:
         # Mock entity context
         with (
             patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
         ):
             state = ConversationState(messages=[])
             events = []
@@ -158,7 +171,7 @@ class TestStreamConversation:
 
         with (
             patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
         ):
             state = ConversationState(messages=[])
             events = []
@@ -191,7 +204,7 @@ class TestStreamConversation:
 
         with (
             patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
         ):
             state = ConversationState(messages=[])
             events = []
@@ -334,7 +347,7 @@ class TestTruncatedToolCalls:
 
         with (
             patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
         ):
             state = ConversationState(messages=[])
             events = []
@@ -387,7 +400,7 @@ class TestTruncatedToolCalls:
 
         with (
             patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
         ):
             state = ConversationState(messages=[])
             events = []
@@ -447,7 +460,7 @@ class TestFallbackResponse:
 
         with (
             patch.object(workflow.agent, "_get_entity_context", return_value=(None, None)),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
         ):
             state = ConversationState(messages=[])
             events = []

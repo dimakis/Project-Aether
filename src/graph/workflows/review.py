@@ -9,6 +9,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -106,7 +109,15 @@ def build_review_graph(
                     entity_context=state.entity_context,
                 )
                 findings.extend(result.get("findings", []))
-            except Exception:
+            except (
+                AttributeError,
+                RuntimeError,
+                ImportError,
+                httpx.HTTPError,
+                TimeoutError,
+                ConnectionError,
+                SQLAlchemyError,
+            ):
                 logger.exception("DS team analyst '%s' failed", name)
 
         return {"ds_findings": findings}

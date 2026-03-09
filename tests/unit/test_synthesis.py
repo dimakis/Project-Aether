@@ -246,7 +246,7 @@ class TestLLMSynthesizer:
         ta = _team_analysis_with_findings()
 
         mock_llm = AsyncMock()
-        mock_llm.ainvoke.side_effect = Exception("LLM unavailable")
+        mock_llm.ainvoke.side_effect = ConnectionError("LLM unavailable")
 
         synth = LLMSynthesizer(llm=mock_llm)
         result = await synth.synthesize(ta)

@@ -10,6 +10,9 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
+import httpx
+
+from src.exceptions import HAClientError
 from src.ha.base import _trace_ha_call
 from src.ha.websocket import ws_command
 
@@ -72,7 +75,7 @@ class DashboardMixin:
                 force=False,
             )
             return cast("dict[str, Any] | None", result)
-        except Exception as ws_exc:
+        except (httpx.HTTPError, TimeoutError, ConnectionError, HAClientError) as ws_exc:
             logger.debug(
                 "WebSocket lovelace/config failed, falling back to REST: %s",
                 ws_exc,

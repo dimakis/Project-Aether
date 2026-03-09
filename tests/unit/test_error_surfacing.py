@@ -22,6 +22,17 @@ def _clear_cache():
     _invalidate_entity_context_cache()
 
 
+@pytest.fixture(autouse=True)
+def _patch_get_chat_setting():
+    """Prevent _stream_inner from calling get_session_factory via get_chat_setting."""
+    with patch(
+        "src.dal.app_settings.get_chat_setting",
+        new_callable=AsyncMock,
+        return_value=10,
+    ):
+        yield
+
+
 async def _empty_astream():
     yield AIMessageChunk(content="Hello")
 
@@ -109,8 +120,8 @@ class TestWorkflowYieldsErrorEvents:
 
         with (
             patch("src.agents.architect.workflow.mlflow", None),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             async for event in workflow.stream_conversation(state=state, user_message="hi"):
                 events.append(event)

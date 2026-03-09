@@ -67,7 +67,7 @@ class AetherTracer:
             from src.tracing.context import get_session_id
 
             return get_session_id()
-        except Exception:
+        except (AttributeError, RuntimeError, ImportError):
             return None
 
     async def __aenter__(self) -> "AetherTracer":

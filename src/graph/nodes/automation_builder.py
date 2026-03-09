@@ -55,7 +55,7 @@ async def gather_intent_node(state: AutomationBuilderState) -> dict[str, Any]:
             "needs_clarification": data.get("needs_clarification", False),
             "messages": [*list(messages), AIMessage(content=str(content))],
         }
-    except Exception:
+    except (ValueError, TypeError, KeyError):
         logger.debug("Failed to parse intent JSON, requesting clarification")
         return {
             "needs_clarification": True,

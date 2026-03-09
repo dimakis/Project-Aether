@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.agents.streaming.events import StreamEvent
 
 if TYPE_CHECKING:
@@ -93,5 +95,5 @@ async def extract_inline_proposals(
                 "Created inline proposal %s from streamed content",
                 proposal.id,
             )
-        except Exception as e:
+        except (SQLAlchemyError, ValueError) as e:
             logger.warning("Failed to create inline proposal: %s", e)

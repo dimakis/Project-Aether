@@ -9,6 +9,7 @@ import json
 import logging
 from typing import Any
 
+import httpx
 from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ async def validate_automation_draft(yaml_content: str) -> str:
             errors.extend(f"{e.path}: {e.message}" for e in result.errors)
     except KeyError:
         logger.debug("ha.automation schema not registered, skipping structural validation")
-    except Exception:
+    except ValueError:
         logger.exception("Schema validation error")
         errors.append("Schema validation failed unexpectedly")
 
@@ -155,7 +156,7 @@ async def validate_automation_draft(yaml_content: str) -> str:
             warnings.extend(f"{w.path}: {w.message}" for w in sem_result.warnings)
     except ImportError:
         pass
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ConnectionError):
         logger.debug("Semantic validation unavailable", exc_info=True)
         warnings.append("Semantic validation unavailable")
 

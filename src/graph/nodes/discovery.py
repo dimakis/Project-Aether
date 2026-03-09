@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+import httpx
+
 from src.graph.state import (
     AgentRole,
     DiscoveryState,
@@ -165,7 +167,7 @@ async def sync_automations_node(
             "services_found": automation_count + script_count + scene_count,
         }
 
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
         # Log but don't fail - automations are optional
         return {
             "errors": [*state.errors, f"Automation sync warning: {e}"],

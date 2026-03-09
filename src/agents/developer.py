@@ -10,7 +10,9 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
+import httpx
 import yaml
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.agents.base import BaseAgent
 from src.dal import ProposalRepository
@@ -106,7 +108,7 @@ class DeveloperAgent(BaseAgent):
                     "developer_code": result.get("yaml_content"),
                     "deployment_result": result,
                 }
-            except Exception as e:
+            except (httpx.HTTPError, TimeoutError, ConnectionError, SQLAlchemyError) as e:
                 span["deployment_success"] = False
                 span["deployment_error"] = str(e)
 
@@ -208,7 +210,7 @@ class DeveloperAgent(BaseAgent):
                     "Snapshot: saved existing config for automation.%s",
                     ha_automation_id,
                 )
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ConnectionError):
             logger.debug(
                 "No existing config to snapshot for automation.%s (new automation)",
                 ha_automation_id,
@@ -294,7 +296,7 @@ class DeveloperAgent(BaseAgent):
                     url_path or "default",
                     proposal_id,
                 )
-            except Exception as exc:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
                 ha_error = str(exc)
                 logger.warning(
                     "Rollback: failed to restore dashboard '%s' for proposal %s: %s",
@@ -355,7 +357,7 @@ class DeveloperAgent(BaseAgent):
                             ha_automation_id,
                             proposal_id,
                         )
-                except Exception as exc:
+                except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
                     ha_error = f"Restore failed: {exc}"
                     logger.warning(
                         "Rollback: failed to restore config for automation.%s, "
@@ -379,7 +381,7 @@ class DeveloperAgent(BaseAgent):
                         entity_id,
                         proposal_id,
                     )
-                except Exception as exc:
+                except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
                     if not ha_error:
                         ha_error = str(exc)
                     logger.warning(

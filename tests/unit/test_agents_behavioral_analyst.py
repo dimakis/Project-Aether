@@ -182,7 +182,7 @@ class TestCollectScriptSceneUsage:
 
         mock_behavioral = MagicMock()
         mock_behavioral._logbook = MagicMock()
-        mock_behavioral._logbook.get_stats = AsyncMock(side_effect=Exception("fail"))
+        mock_behavioral._logbook.get_stats = AsyncMock(side_effect=ConnectionError("fail"))
 
         result = await analyst._collect_script_scene_usage(mock_behavioral, 24)
         assert result == {}

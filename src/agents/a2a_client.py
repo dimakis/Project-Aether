@@ -138,7 +138,7 @@ class A2ARemoteClient:
             raise A2AClientError(f"Stream timeout after {self.stream_timeout}s: {e}") from e
         except A2AClientError:
             raise
-        except Exception as e:
+        except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
             raise A2AClientError(f"Unexpected streaming error: {e}") from e
 
     async def _send_message(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -170,7 +170,7 @@ class A2ARemoteClient:
 
             try:
                 body = resp.json()
-            except Exception as e:
+            except (ValueError, json.JSONDecodeError) as e:
                 raise A2AClientError(f"Invalid JSON response: {e}") from e
 
             if "error" in body:
@@ -192,7 +192,7 @@ class A2ARemoteClient:
             raise A2AClientError(f"Timeout after {self.timeout}s: {e}") from e
         except A2AClientError:
             raise
-        except Exception as e:
+        except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
             raise A2AClientError(f"Unexpected error: {e}") from e
 
 

@@ -2,7 +2,7 @@
 
 Wraps the OrchestratorAgent for intent classification and routing.
 
-Entrypoint: ``uvicorn src.services.orchestrator:app``
+Entrypoint: ``uvicorn src.services.orchestrator:app --factory``
 """
 
 from __future__ import annotations
@@ -39,4 +39,4 @@ def create_orchestrator_service() -> Starlette:
     )
 
 
-app = create_orchestrator_service()
+app = create_orchestrator_service

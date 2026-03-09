@@ -29,18 +29,25 @@ class TestHAClient:
         assert issubclass(HAClient, object)
 
     def test_instantiate_default(self):
-        client = HAClient()
+        with patch("src.ha.base._try_get_db_config", return_value=None):
+            client = HAClient()
         assert client is not None
 
 
 class TestGetHAClient:
     def test_returns_default_client(self):
-        with patch("src.ha.client._resolve_zone_config", return_value=None):
+        with (
+            patch("src.ha.client._resolve_zone_config", return_value=None),
+            patch("src.ha.base._try_get_db_config", return_value=None),
+        ):
             client = get_ha_client()
             assert isinstance(client, HAClient)
 
     def test_caches_client(self):
-        with patch("src.ha.client._resolve_zone_config", return_value=None):
+        with (
+            patch("src.ha.client._resolve_zone_config", return_value=None),
+            patch("src.ha.base._try_get_db_config", return_value=None),
+        ):
             c1 = get_ha_client()
             c2 = get_ha_client()
             assert c1 is c2
@@ -57,12 +64,18 @@ class TestGetHAClient:
             assert isinstance(client, HAClient)
 
     def test_zone_fallback_to_env(self):
-        with patch("src.ha.client._resolve_zone_config", return_value=None):
+        with (
+            patch("src.ha.client._resolve_zone_config", return_value=None),
+            patch("src.ha.base._try_get_db_config", return_value=None),
+        ):
             client = get_ha_client(zone_id="zone-missing")
             assert isinstance(client, HAClient)
 
     def test_different_zones_different_clients(self):
-        with patch("src.ha.client._resolve_zone_config", return_value=None):
+        with (
+            patch("src.ha.client._resolve_zone_config", return_value=None),
+            patch("src.ha.base._try_get_db_config", return_value=None),
+        ):
             c1 = get_ha_client(zone_id="zone-1")
             c2 = get_ha_client(zone_id="zone-2")
             assert c1 is not c2
@@ -71,7 +84,10 @@ class TestGetHAClient:
 class TestResetHAClient:
     @pytest.mark.asyncio
     async def test_reset_specific_zone(self):
-        with patch("src.ha.client._resolve_zone_config", return_value=None):
+        with (
+            patch("src.ha.client._resolve_zone_config", return_value=None),
+            patch("src.ha.base._try_get_db_config", return_value=None),
+        ):
             get_ha_client(zone_id="zone-1")
             await reset_ha_client(zone_id="zone-1")
             from src.ha.client import _clients
@@ -80,7 +96,10 @@ class TestResetHAClient:
 
     @pytest.mark.asyncio
     async def test_reset_all(self):
-        with patch("src.ha.client._resolve_zone_config", return_value=None):
+        with (
+            patch("src.ha.client._resolve_zone_config", return_value=None),
+            patch("src.ha.base._try_get_db_config", return_value=None),
+        ):
             get_ha_client()
             get_ha_client(zone_id="zone-1")
             await reset_ha_client()
@@ -92,7 +111,16 @@ class TestResetHAClient:
 class TestGetHAClientAsync:
     @pytest.mark.asyncio
     async def test_returns_cached_client(self):
-        with patch("src.ha.client._resolve_zone_config_async", return_value=None):
+        with (
+            patch(
+                "src.ha.client._resolve_zone_config_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.ha.base._try_get_db_config_async", new_callable=AsyncMock, return_value=None
+            ),
+        ):
             from src.ha.client import get_ha_client_async
 
             client = await get_ha_client_async()
@@ -115,19 +143,19 @@ class TestGetHAClientAsync:
 
 
 class TestResolveZoneConfig:
-    def test_returns_none_in_async_context(self):
+    @pytest.mark.asyncio
+    async def test_returns_none_in_async_context(self):
         """When running inside an async loop, returns None."""
         from src.ha.client import _resolve_zone_config
 
-        # In async context, should return None gracefully
+        # In async context, get_running_loop() succeeds and we return None immediately
         result = _resolve_zone_config("__default__")
-        # It may return None due to DB guard or async context detection
         assert result is None
 
     def test_returns_none_on_error(self):
         from src.ha.client import _resolve_zone_config
 
-        with patch("src.settings.get_settings", side_effect=Exception("No settings")):
+        with patch("src.settings.get_settings", side_effect=ConnectionError("No settings")):
             result = _resolve_zone_config("zone-1")
             assert result is None
 
@@ -169,7 +197,7 @@ class TestCloseAllHAClients:
         mock_ok = MagicMock(spec=HAClient)
         mock_ok.close = AsyncMock()
         mock_bad = MagicMock(spec=HAClient)
-        mock_bad.close = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_bad.close = AsyncMock(side_effect=ConnectionError("boom"))
 
         _mod._clients["ok"] = mock_ok
         _mod._clients["bad"] = mock_bad
@@ -222,7 +250,7 @@ class TestResetHAClientCloses:
         from src.ha import client as _mod
 
         mock_client = MagicMock(spec=HAClient)
-        mock_client.close = AsyncMock(side_effect=RuntimeError("fail"))
+        mock_client.close = AsyncMock(side_effect=ConnectionError("fail"))
 
         _mod._clients["zone-1"] = mock_client
 

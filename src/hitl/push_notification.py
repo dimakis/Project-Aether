@@ -21,6 +21,9 @@ import logging
 import os
 from typing import Any
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_NOTIFY_SERVICE = "notify.mobile_app_iphone"
@@ -132,7 +135,7 @@ async def send_approval_notification(
             "result": result,
         }
 
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ConnectionError):
         logger.exception(
             "Failed to send push notification for proposal %s via %s", proposal_id[:8], service
         )
@@ -222,7 +225,7 @@ async def send_insight_notification(
             "result": result,
         }
 
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ConnectionError):
         logger.exception("Failed to send insight notification via %s", configured_service)
         return {
             "success": False,
@@ -272,7 +275,7 @@ async def send_test_notification(
             "result": result,
         }
 
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ConnectionError):
         logger.exception("Failed to send test notification via %s", notify_service)
         return {
             "success": False,
@@ -300,7 +303,7 @@ async def discover_notify_services() -> list[str]:
                         if svc.startswith("mobile_app_"):
                             services.append(f"notify.{svc}")
         return services
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ConnectionError):
         logger.warning("Failed to discover notify services", exc_info=True)
         return []
 
@@ -349,6 +352,6 @@ async def handle_notification_action(action_id: str) -> dict[str, Any]:
             logger.warning("Proposal %s not found for %s", proposal_id[:8], action)
             return {"status": "not_found", "proposal_id": proposal_id, "action": action}
 
-    except Exception:
+    except SQLAlchemyError:
         logger.exception("Failed to %s proposal %s via push notification", action, proposal_id[:8])
         return {"status": "error", "proposal_id": proposal_id, "action": action}
