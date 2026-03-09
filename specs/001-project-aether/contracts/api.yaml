@@ -7,10 +7,9 @@ info:
     ## Architecture
 
 
-    Aether uses a multi-agent system orchestrated via LangGraph workflows and traced via MLflow. An Orchestrator agent classifies
-    user intent, selects the appropriate domain agent (Architect, Data Science team, Food, Research, Knowledge, Dashboard Designer),
-    and dynamically configures each agent with the right model, tools, and prompt. Mutating actions require HITL approval via
-    the web UI or push notifications (iPhone/Apple Watch).
+    Aether uses a multi-agent system (Architect, Data Scientist, Librarian, Developer) orchestrated via LangGraph workflows
+    and traced via MLflow. The Architect agent handles user conversations, delegates to specialists, and proposes Home Assistant
+    automations.
 
 
     ## Constitution Compliance
@@ -1855,6 +1854,145 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/refine:
+    post:
+      tags:
+      - Proposals
+      summary: Refine proposal with AI
+      description: Ask the architect LLM to revise a proposal based on feedback. Creates a new refined proposal and rejects
+        the original.
+      operationId: refine_proposal_endpoint_api_v1_proposals__proposal_id__refine_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefineRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefineResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/yaml:
+    patch:
+      tags:
+      - Proposals
+      summary: Edit proposal YAML
+      description: Update the YAML content of a proposal before deployment.
+      operationId: update_proposal_yaml_api_v1_proposals__proposal_id__yaml_patch
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              default: {}
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Update Proposal Yaml Api V1 Proposals  Proposal Id  Yaml Patch
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/validate:
+    post:
+      tags:
+      - Proposals
+      summary: Validate proposal YAML
+      description: Run HA schema validation on the proposal's YAML content.
+      operationId: validate_proposal_api_v1_proposals__proposal_id__validate_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Validate Proposal Api V1 Proposals  Proposal Id  Validate Post
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/proposals/{proposal_id}/deploy:
     post:
       tags:
@@ -1949,6 +2087,170 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/disable:
+    post:
+      tags:
+      - Proposals
+      summary: Disable proposal
+      description: Disable a deployed automation in HA. Can be re-enabled later.
+      operationId: disable_proposal_api_v1_proposals__proposal_id__disable_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/enable:
+    post:
+      tags:
+      - Proposals
+      summary: Enable proposal
+      description: Re-enable a disabled automation in HA.
+      operationId: enable_proposal_api_v1_proposals__proposal_id__enable_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/deprecate:
+    post:
+      tags:
+      - Proposals
+      summary: Deprecate proposal
+      description: Mark a deployed or disabled proposal as deprecated (scheduled for removal).
+      operationId: deprecate_proposal_api_v1_proposals__proposal_id__deprecate_post
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/verify:
+    get:
+      tags:
+      - Proposals
+      summary: Verify deployment
+      description: Check whether a deployed proposal's automation actually exists and is active in HA.
+      operationId: verify_deployment_api_v1_proposals__proposal_id__verify_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Verify Deployment Api V1 Proposals  Proposal Id  Verify Get
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
         '422':
           description: Validation Error
           content:
@@ -2341,6 +2643,96 @@ paths:
       security:
       - APIKeyHeader: []
       - APIKeyQuery: []
+  /api/v1/optimize/jobs:
+    get:
+      tags:
+      - Optimization
+      summary: List Jobs
+      description: List optimization job history.
+      operationId: list_jobs_api_v1_optimize_jobs_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by job status
+          title: Status
+        description: Filter by job status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OptimizationResult'
+                title: Response List Jobs Api V1 Optimize Jobs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimize/suggestions/list:
+    get:
+      tags:
+      - Optimization
+      summary: List Suggestions
+      description: List automation suggestions.
+      operationId: list_suggestions_api_v1_optimize_suggestions_list_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: job_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by job ID
+          title: Job Id
+        description: Filter by job ID
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by suggestion status
+          title: Status
+        description: Filter by suggestion status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/optimize/{job_id}:
     get:
       tags:
@@ -2371,29 +2763,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/optimize/suggestions/list:
-    get:
-      tags:
-      - Optimization
-      summary: List Suggestions
-      description: List all pending automation suggestions.
-      operationId: list_suggestions_api_v1_optimize_suggestions_list_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuggestionListResponse'
-      security:
-      - APIKeyHeader: []
-      - APIKeyQuery: []
   /api/v1/optimize/suggestions/{suggestion_id}/accept:
     post:
       tags:
       - Optimization
       summary: Accept Suggestion
-      description: Accept an automation suggestion and create a proposal.
+      description: Queue acceptance of an automation suggestion; proposal is created in the background.
       operationId: accept_suggestion_api_v1_optimize_suggestions__suggestion_id__accept_post
       security:
       - APIKeyHeader: []
@@ -2412,7 +2787,7 @@ paths:
             schema:
               $ref: '#/components/schemas/SuggestionAcceptRequest'
       responses:
-        '200':
+        '202':
           description: Successful Response
           content:
             application/json:
@@ -4167,7 +4542,7 @@ paths:
         required: false
         schema:
           type: integer
-          default: 50
+          default: 10
           title: Max Traces
       responses:
         '200':
@@ -4787,6 +5162,317 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/hitl/notify-services:
+    get:
+      tags:
+      - HITL
+      summary: List Notify Services
+      description: Discover available notify.mobile_app_* services from HA.
+      operationId: list_notify_services_api_v1_hitl_notify_services_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response List Notify Services Api V1 Hitl Notify Services Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/hitl/test-notification:
+    post:
+      tags:
+      - HITL
+      summary: Test Notification
+      description: Send a plain test notification to verify the service works.
+      operationId: test_notification_api_v1_hitl_test_notification_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestNotificationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Test Notification Api V1 Hitl Test Notification Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/hitl/test-approval:
+    post:
+      tags:
+      - HITL
+      summary: Test Approval
+      description: Send a test actionable approval notification with Approve/Reject buttons.
+      operationId: test_approval_api_v1_hitl_test_approval_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestApprovalRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Test Approval Api V1 Hitl Test Approval Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/hitl/action-status/{proposal_id}:
+    get:
+      tags:
+      - HITL
+      summary: Get Action Status
+      description: 'Check if a notification action (Approve/Reject) has been received.
+
+
+        The test page polls this after sending an approval notification.
+
+        Returns the action taken if the webhook has been received, or
+
+        ``{"received": false}`` if still waiting.'
+      operationId: get_action_status_api_v1_hitl_action_status__proposal_id__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Action Status Api V1 Hitl Action Status  Proposal Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/hitl/recent-actions:
+    get:
+      tags:
+      - HITL
+      summary: List Recent Actions
+      description: List recent notification actions received via webhook.
+      operationId: list_recent_actions_api_v1_hitl_recent_actions_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response List Recent Actions Api V1 Hitl Recent Actions Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/jobs:
+    get:
+      tags:
+      - Jobs
+      summary: List Jobs
+      description: "List recent jobs from MLflow traces.\n\nArgs:\n    limit: Maximum number of jobs to return.\n    job_type:\
+        \ Optional filter by job type (chat, analysis, optimization, etc.)."
+      operationId: list_jobs_api_v1_jobs_get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+          title: Limit
+      - name: job_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Job Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Jobs Api V1 Jobs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/energy/tariffs:
+    get:
+      tags:
+      - Energy
+      summary: Get Tariffs
+      description: 'Return current electricity tariff configuration.
+
+
+        Reads the tariff input_number/text/select entities from HA.
+
+        Returns configured=False if tariff helpers have not been set up.'
+      operationId: get_tariffs_api_v1_energy_tariffs_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Get Tariffs Api V1 Energy Tariffs Get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/api/v1/tool-groups:
+    get:
+      tags:
+      - Tool Groups
+      summary: List Tool Groups
+      operationId: list_tool_groups_api_v1_api_v1_tool_groups_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolGroupListResponse'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+    post:
+      tags:
+      - Tool Groups
+      summary: Create Tool Group
+      operationId: create_tool_group_api_v1_api_v1_tool_groups_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolGroupCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolGroupResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+  /api/v1/api/v1/tool-groups/{name}:
+    get:
+      tags:
+      - Tool Groups
+      summary: Get Tool Group
+      operationId: get_tool_group_api_v1_api_v1_tool_groups__name__get
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolGroupResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Tool Groups
+      summary: Update Tool Group
+      operationId: update_tool_group_api_v1_api_v1_tool_groups__name__put
+      security:
+      - APIKeyHeader: []
+      - APIKeyQuery: []
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolGroupUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolGroupResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /.well-known/agent.json:
     get:
       summary: Get Agent Card
@@ -4983,6 +5669,25 @@ components:
         status:
           type: string
           title: Status
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+        is_routable:
+          type: boolean
+          title: Is Routable
+          default: false
+        intent_patterns:
+          items:
+            type: string
+          type: array
+          title: Intent Patterns
+        capabilities:
+          items:
+            type: string
+          type: array
+          title: Capabilities
         active_config_version_id:
           anyOf:
           - type: string
@@ -5464,6 +6169,21 @@ components:
           title: Agent
           description: 'Agent to handle the request: "auto" (Orchestrator routes) or a specific agent name'
           default: auto
+        workflow_preset:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Workflow Preset
+          description: Workflow preset ID from /workflows/presets (e.g. 'full-analysis', 'energy-only')
+        disabled_agents:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Disabled Agents
+          description: Agent names to exclude from the selected workflow preset
       type: object
       required:
       - messages
@@ -6481,10 +7201,10 @@ components:
           type: string
           title: Version
           description: Application version
-          default: 0.1.0
       type: object
       required:
       - status
+      - version
       title: HealthResponse
       description: Health check response.
     HealthStatus:
@@ -7087,9 +7807,9 @@ components:
     InsightStatus:
       type: string
       enum:
-      - pending
+      - generated
       - reviewed
-      - actioned
+      - acted_upon
       - dismissed
       title: InsightStatus
       description: Insight lifecycle status.
@@ -7132,9 +7852,9 @@ components:
       type: string
       enum:
       - energy_optimization
-      - anomaly_detection
-      - usage_pattern
-      - cost_saving
+      - anomaly
+      - pattern
+      - recommendation
       - maintenance_prediction
       - automation_gap
       - automation_inefficiency
@@ -8226,6 +8946,12 @@ components:
           type: string
           title: Yaml Content
           description: Generated HA automation YAML
+        ha_state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ha State
+          description: Live HA state for DEPLOYED proposals (on/off/unavailable/not_found)
       type: object
       required:
       - id
@@ -8261,6 +8987,46 @@ components:
       - model_name
       title: QuickModelSwitch
       description: Request body for quick model switch (create + promote in one step).
+    RefineRequest:
+      properties:
+        feedback:
+          type: string
+          maxLength: 4000
+          minLength: 1
+          title: Feedback
+          description: What the architect should change in the proposal
+      type: object
+      required:
+      - feedback
+      title: RefineRequest
+      description: Schema for requesting AI-driven proposal refinement.
+    RefineResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          description: Whether refinement produced a new proposal
+        original_proposal_id:
+          type: string
+          title: Original Proposal Id
+          description: ID of the proposal that was refined
+        new_proposal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: New Proposal Id
+          description: ID of the newly created refined proposal
+        summary:
+          type: string
+          title: Summary
+          description: Human-readable summary of what happened
+      type: object
+      required:
+      - success
+      - original_proposal_id
+      - summary
+      title: RefineResponse
+      description: Schema for refinement result.
     RegisterVerifyRequest:
       properties:
         credential:
@@ -8831,6 +9597,12 @@ components:
             type: object
           - type: 'null'
           title: Data Science
+        notifications:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Notifications
       type: object
       title: SettingsPatchRequest
       description: Partial update — include only the sections you want to change.
@@ -8848,11 +9620,16 @@ components:
           additionalProperties: true
           type: object
           title: Data Science
+        notifications:
+          additionalProperties: true
+          type: object
+          title: Notifications
       type: object
       required:
       - chat
       - dashboard
       - data_science
+      - notifications
       title: SettingsResponse
       description: Full settings response with all sections.
     SetupRequest:
@@ -9014,7 +9791,6 @@ components:
           type: string
           title: Version
           description: Application version
-          default: 0.1.0
         environment:
           type: string
           title: Environment
@@ -9037,12 +9813,185 @@ components:
           - type: 'null'
           title: Public Url
           description: Externally reachable base URL (for webhook URLs, etc.)
+        deployment_mode:
+          type: string
+          title: Deployment Mode
+          description: 'Deployment mode: monolith or distributed'
+          default: monolith
       type: object
       required:
       - status
+      - version
       - environment
       title: SystemStatus
       description: Detailed system status response.
+    TestApprovalRequest:
+      properties:
+        notify_service:
+          type: string
+          title: Notify Service
+          description: HA notify service (e.g. 'notify.mobile_app_dans_iphone')
+        title:
+          type: string
+          title: Title
+          description: Proposal title
+          default: Test Action
+        description:
+          type: string
+          title: Description
+          description: Action description shown in the notification
+          default: Preheat oven to 200C for pizza
+      type: object
+      required:
+      - notify_service
+      title: TestApprovalRequest
+      description: Request body for sending a test approval notification.
+    TestNotificationRequest:
+      properties:
+        notify_service:
+          type: string
+          title: Notify Service
+          description: HA notify service (e.g. 'notify.mobile_app_dans_iphone')
+          examples:
+          - notify.mobile_app_dans_iphone
+        message:
+          type: string
+          title: Message
+          description: Test message body
+          default: This is a test notification from Aether.
+      type: object
+      required:
+      - notify_service
+      title: TestNotificationRequest
+      description: Request body for sending a test notification.
+    ToolGroupCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          pattern: ^[a-z][a-z0-9_]*$
+          title: Name
+        display_name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Display Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        tool_names:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Tool Names
+        is_read_only:
+          type: boolean
+          title: Is Read Only
+          default: true
+      type: object
+      required:
+      - name
+      - display_name
+      - tool_names
+      title: ToolGroupCreate
+      description: Request schema for creating a tool group.
+    ToolGroupListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ToolGroupResponse'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+      - items
+      - total
+      title: ToolGroupListResponse
+      description: Response for listing all tool groups.
+    ToolGroupResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        display_name:
+          type: string
+          title: Display Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        tool_names:
+          items:
+            type: string
+          type: array
+          title: Tool Names
+        tool_count:
+          type: integer
+          title: Tool Count
+        is_read_only:
+          type: boolean
+          title: Is Read Only
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - display_name
+      - tool_names
+      - tool_count
+      - is_read_only
+      - created_at
+      - updated_at
+      title: ToolGroupResponse
+      description: Response schema for a single tool group.
+    ToolGroupUpdate:
+      properties:
+        display_name:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Display Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        tool_names:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            minItems: 1
+          - type: 'null'
+          title: Tool Names
+        is_read_only:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Read Only
+      type: object
+      title: ToolGroupUpdate
+      description: Request schema for updating a tool group.
     TraceResponse:
       properties:
         trace_id:

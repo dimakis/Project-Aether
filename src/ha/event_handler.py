@@ -99,6 +99,7 @@ class EventHandler:
         batch = dict(self._pending)
         self._pending.clear()
 
+        automation_updates: dict[str, str] = {}
         try:
             from src.dal.entities import EntityRepository
             from src.storage import get_session
@@ -117,6 +118,8 @@ class EventHandler:
                         "last_synced_at": now,
                     }
                 )
+                if domain == "automation":
+                    automation_updates[entity_id] = state.get("state", "")
 
             async with get_session() as session:
                 repo = EntityRepository(session)
@@ -137,6 +140,45 @@ class EventHandler:
             for entity_id, state in batch.items():
                 if entity_id not in self._pending:
                     self._pending[entity_id] = state
+
+        if automation_updates:
+            await self._sync_proposal_statuses(automation_updates)
+
+    async def _sync_proposal_statuses(self, automation_updates: dict[str, str]) -> None:
+        """Sync proposal statuses based on HA automation state changes.
+
+        When an automation is turned off in HA, transition matching DEPLOYED
+        proposals to DISABLED. When turned on, transition DISABLED back to DEPLOYED.
+        """
+        try:
+            from src.dal import ProposalRepository
+            from src.storage import get_session
+            from src.storage.entities import ProposalStatus
+
+            async with get_session() as session:
+                repo = ProposalRepository(session)
+                changed = 0
+
+                for entity_id, ha_state in automation_updates.items():
+                    ha_automation_id = entity_id.removeprefix("automation.")
+
+                    deployed = await repo.find_by_ha_automation_id(ha_automation_id)
+                    if not deployed:
+                        continue
+
+                    if ha_state == "off" and deployed.status == ProposalStatus.DEPLOYED:
+                        deployed.disable()
+                        changed += 1
+                    elif ha_state == "on" and deployed.status == ProposalStatus.DISABLED:
+                        deployed.enable()
+                        changed += 1
+
+                if changed:
+                    await session.commit()
+                    logger.info("Synced %d proposal statuses from HA automation events", changed)
+
+        except Exception:
+            logger.warning("Failed to sync proposal statuses from automation events", exc_info=True)
 
     @property
     def stats(self) -> dict[str, int]:

@@ -39,11 +39,18 @@ class ProposalType(enum.Enum):
 class ProposalStatus(enum.Enum):
     """Status of an automation proposal.
 
-    State machine:
+    State machine (see plan for full mermaid diagram):
         draft -> proposed -> approved -> deployed -> rolled_back
-                    |                        |
-                    v                        v
-                rejected                  archived
+                    |                     |  |  |
+                    v                     |  |  v
+                rejected                  |  | archived
+                                          |  v
+                                          | deprecated -> archived
+                                          v
+                                        disabled -> deployed (re-enable)
+                                           |   |
+                                           v   v
+                                      deprecated  archived
 
     HITL: Cannot transition from proposed -> deployed without going through approved.
     """
@@ -55,15 +62,26 @@ class ProposalStatus(enum.Enum):
     DEPLOYED = "deployed"
     ROLLED_BACK = "rolled_back"
     ARCHIVED = "archived"
+    DISABLED = "disabled"
+    DEPRECATED = "deprecated"
 
 
-# Valid state transitions
 VALID_TRANSITIONS: dict[ProposalStatus, set[ProposalStatus]] = {
     ProposalStatus.DRAFT: {ProposalStatus.PROPOSED},
     ProposalStatus.PROPOSED: {ProposalStatus.APPROVED, ProposalStatus.REJECTED},
     ProposalStatus.APPROVED: {ProposalStatus.DEPLOYED, ProposalStatus.REJECTED},
     ProposalStatus.REJECTED: {ProposalStatus.PROPOSED, ProposalStatus.ARCHIVED},
-    ProposalStatus.DEPLOYED: {ProposalStatus.ROLLED_BACK},
+    ProposalStatus.DEPLOYED: {
+        ProposalStatus.ROLLED_BACK,
+        ProposalStatus.DISABLED,
+        ProposalStatus.DEPRECATED,
+    },
+    ProposalStatus.DISABLED: {
+        ProposalStatus.DEPLOYED,
+        ProposalStatus.DEPRECATED,
+        ProposalStatus.ARCHIVED,
+    },
+    ProposalStatus.DEPRECATED: {ProposalStatus.ARCHIVED},
     ProposalStatus.ROLLED_BACK: {ProposalStatus.PROPOSED, ProposalStatus.ARCHIVED},
     ProposalStatus.ARCHIVED: set(),  # Terminal state
 }
@@ -305,6 +323,24 @@ class AutomationProposal(Base, UUIDMixin, TimestampMixin):
         if not self.can_transition_to(ProposalStatus.ARCHIVED):
             raise ValueError(f"Cannot archive from status {self.status.value}")
         self.status = ProposalStatus.ARCHIVED
+
+    def disable(self) -> None:
+        """Disable a deployed proposal (temporarily inactive in HA)."""
+        if not self.can_transition_to(ProposalStatus.DISABLED):
+            raise ValueError(f"Cannot disable from status {self.status.value}")
+        self.status = ProposalStatus.DISABLED
+
+    def enable(self) -> None:
+        """Re-enable a disabled proposal (back to DEPLOYED)."""
+        if not self.can_transition_to(ProposalStatus.DEPLOYED):
+            raise ValueError(f"Cannot enable from status {self.status.value}")
+        self.status = ProposalStatus.DEPLOYED
+
+    def deprecate(self) -> None:
+        """Mark proposal as deprecated (scheduled for removal)."""
+        if not self.can_transition_to(ProposalStatus.DEPRECATED):
+            raise ValueError(f"Cannot deprecate from status {self.status.value}")
+        self.status = ProposalStatus.DEPRECATED
 
     @property
     def proposal_type_enum(self) -> ProposalType:

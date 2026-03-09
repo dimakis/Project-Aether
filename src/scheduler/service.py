@@ -482,6 +482,54 @@ async def _execute_discovery_sync() -> None:
     except (SQLAlchemyError, httpx.HTTPError, TimeoutError, ConnectionError) as e:
         logger.exception("Periodic discovery sync failed: %s", e)
 
+    await _reconcile_proposal_statuses()
+
+
+async def _reconcile_proposal_statuses() -> None:
+    """Reconcile DEPLOYED proposal statuses with actual HA automation states.
+
+    For each DEPLOYED proposal that has an ha_automation_id, check the live
+    HA state. If the automation is off/disabled in HA, transition the
+    proposal to DISABLED. This catches state changes missed by the
+    event stream (e.g. manual HA edits, restarts).
+    """
+    from src.dal import ProposalRepository
+    from src.storage import get_session
+    from src.storage.entities import ProposalStatus
+
+    try:
+        async with get_session() as session:
+            from src.ha import get_ha_client_async
+
+            ha = await get_ha_client_async()
+            repo = ProposalRepository(session)
+            deployed = await repo.list_by_status(ProposalStatus.DEPLOYED, limit=200)
+
+            reconciled = 0
+            for proposal in deployed:
+                if not proposal.ha_automation_id:
+                    continue
+
+                entity_id = f"automation.{proposal.ha_automation_id}"
+                try:
+                    state_data = await ha._request("GET", f"/api/states/{entity_id}")
+                    if isinstance(state_data, dict):
+                        ha_state = state_data.get("state", "")
+                        if ha_state == "off":
+                            proposal.disable()
+                            reconciled += 1
+                except Exception:
+                    pass
+
+            if reconciled:
+                await session.commit()
+                logger.info(
+                    "Proposal reconciliation: disabled %d stale DEPLOYED proposals", reconciled
+                )
+
+    except (SQLAlchemyError, httpx.HTTPError, TimeoutError, ConnectionError):
+        logger.warning("Proposal status reconciliation failed", exc_info=True)
+
 
 async def _execute_data_cleanup() -> None:
     """Delete old records from unbounded tables based on retention settings.

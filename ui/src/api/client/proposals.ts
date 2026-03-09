@@ -89,6 +89,30 @@ export const proposals = {
       `/proposals/${id}/yaml`,
       { method: "PATCH", body: JSON.stringify({ yaml_content: yamlContent }) },
     ),
+
+  refine: (id: string, feedback: string) =>
+    request<import("@/lib/types").RefineResponse>(`/proposals/${id}/refine`, {
+      method: "POST",
+      body: JSON.stringify({ feedback }),
+    }),
+
+  disable: (id: string) =>
+    request<import("@/lib/types").Proposal>(`/proposals/${id}/disable`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  enable: (id: string) =>
+    request<import("@/lib/types").Proposal>(`/proposals/${id}/enable`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  deprecate: (id: string) =>
+    request<import("@/lib/types").Proposal>(`/proposals/${id}/deprecate`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
 };
 
 // ─── Insights ───────────────────────────────────────────────────────────────

@@ -162,6 +162,7 @@ class ConversationState(MessageState):
     pending_approvals: list[HITLApproval] = Field(default_factory=list)
     approved_items: list[str] = Field(default_factory=list)
     rejected_items: list[str] = Field(default_factory=list)
+    rejection_reason: str | None = None
 
     # Orchestration (Feature 30: Domain-Agnostic Orchestration)
     channel: str | None = None  # "voice", "text", or "api"

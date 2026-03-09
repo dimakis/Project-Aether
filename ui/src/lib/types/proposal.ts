@@ -8,7 +8,9 @@ export type ProposalStatus =
   | "deployed"
   | "rolled_back"
   | "archived"
-  | "failed";
+  | "failed"
+  | "disabled"
+  | "deprecated";
 
 export type ProposalTypeValue = "automation" | "entity_command" | "script" | "scene" | "dashboard";
 
@@ -48,6 +50,7 @@ export interface ReviewNote {
 
 export interface ProposalWithYAML extends Proposal {
   yaml_content?: string;
+  ha_state?: string;
   // Review fields (Feature 28)
   original_yaml?: string;
   review_notes?: ReviewNote[];
@@ -81,4 +84,11 @@ export interface RollbackResponse {
   ha_error?: string;
   rolled_back_at: string;
   note?: string;
+}
+
+export interface RefineResponse {
+  success: boolean;
+  original_proposal_id: string;
+  new_proposal_id?: string;
+  summary: string;
 }

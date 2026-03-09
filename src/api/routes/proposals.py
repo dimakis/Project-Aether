@@ -22,6 +22,8 @@ from src.api.schemas import (
     ProposalListResponse,
     ProposalResponse,
     ProposalYAMLResponse,
+    RefineRequest,
+    RefineResponse,
     RejectionRequest,
     RollbackRequest,
     RollbackResponse,
@@ -67,6 +69,24 @@ def _proposal_to_response(p: AutomationProposal) -> ProposalResponse:
         # Dashboard fields
         dashboard_config=p.dashboard_config,
     )
+
+
+async def _get_ha_state(proposal: AutomationProposal) -> str | None:
+    """Fetch live HA state for a deployed/disabled proposal."""
+    live_statuses = {ProposalStatus.DEPLOYED, ProposalStatus.DISABLED}
+    if proposal.status not in live_statuses or not proposal.ha_automation_id:
+        return None
+
+    try:
+        ha = await get_ha_client_async()
+        entity_id = f"automation.{proposal.ha_automation_id}"
+        state_data = await ha._request("GET", f"/api/states/{entity_id}")
+        if isinstance(state_data, dict):
+            return str(state_data.get("state", "unknown"))
+        return "not_found"
+    except Exception:
+        logger.debug("Failed to fetch HA state for %s", proposal.ha_automation_id, exc_info=True)
+        return "unavailable"
 
 
 @router.get(
@@ -146,13 +166,14 @@ async def get_proposal(proposal_id: str) -> ProposalYAMLResponse:
         if not proposal:
             raise HTTPException(status_code=404, detail="Proposal not found")
 
-        # Generate YAML
         yaml_content = _generate_yaml(proposal)
+        ha_state = await _get_ha_state(proposal)
 
         base = _proposal_to_response(proposal)
         return ProposalYAMLResponse(
             **base.model_dump(),
             yaml_content=yaml_content,
+            ha_state=ha_state,
         )
 
 
@@ -330,6 +351,81 @@ async def reject_proposal(
         proposal = await repo.get_by_id(proposal_id)
 
         return _proposal_to_response(proposal)
+
+
+@router.post(
+    "/{proposal_id}/refine",
+    response_model=RefineResponse,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+    summary="Refine proposal with AI",
+    description="Ask the architect LLM to revise a proposal based on feedback. "
+    "Creates a new refined proposal and rejects the original.",
+)
+@limiter.limit("5/minute")
+async def refine_proposal_endpoint(
+    request: Request,
+    proposal_id: str,
+    body: RefineRequest,
+) -> RefineResponse:
+    """Refine a proposal via the architect LLM."""
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        refinable = {ProposalStatus.PROPOSED, ProposalStatus.REJECTED}
+        if proposal.status not in refinable:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot refine proposal in status {proposal.status.value}. "
+                "Must be proposed or rejected.",
+            )
+
+        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+        from src.agents.architect.review import refine_proposal
+        from src.graph.state.conversation import ConversationState
+        from src.llm import get_llm
+
+        llm = get_llm()
+
+        state = ConversationState(
+            conversation_id=proposal.conversation_id or proposal.id,
+            messages=[HumanMessage(content=body.feedback)],
+        )
+
+        def _build_messages(s: ConversationState) -> list:
+            return [
+                SystemMessage(content="You are the Aether architect agent. Refine the proposal."),
+                *[m for m in s.messages if isinstance(m, (HumanMessage, AIMessage))],
+            ]
+
+        updates = await refine_proposal(
+            llm=llm,
+            build_messages_fn=_build_messages,
+            state=state,
+            feedback=body.feedback,
+            proposal_id=proposal_id,
+            session=session,
+        )
+        await session.commit()
+
+        pending = updates.get("pending_approvals", [])
+        new_id = pending[0].id if pending else None
+
+        return RefineResponse(
+            success=new_id is not None,
+            original_proposal_id=proposal_id,
+            new_proposal_id=new_id,
+            summary="Refined proposal created"
+            if new_id
+            else "LLM response did not produce a new proposal",
+        )
 
 
 @router.patch(
@@ -629,6 +725,146 @@ async def rollback_proposal(
                 status_code=500,
                 detail=sanitize_error(e, context="Rollback proposal"),
             ) from e
+
+
+@router.post(
+    "/{proposal_id}/disable",
+    response_model=ProposalResponse,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+    summary="Disable proposal",
+    description="Disable a deployed automation in HA. Can be re-enabled later.",
+)
+@limiter.limit("5/minute")
+async def disable_proposal(
+    request: Request,
+    proposal_id: str,
+) -> ProposalResponse:
+    """Disable a deployed proposal and turn off the automation in HA."""
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        if proposal.status != ProposalStatus.DEPLOYED:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot disable proposal in status {proposal.status.value}. Must be deployed.",
+            )
+
+        if proposal.ha_automation_id:
+            try:
+                ha = await get_ha_client_async()
+                entity_id = f"automation.{proposal.ha_automation_id}"
+                await ha.call_service(
+                    domain="homeassistant",
+                    service="turn_off",
+                    data={"entity_id": entity_id},
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to disable automation %s in HA",
+                    proposal.ha_automation_id,
+                    exc_info=True,
+                )
+
+        proposal.disable()
+        await session.commit()
+
+        proposal = await repo.get_by_id(proposal_id)
+        return _proposal_to_response(proposal)
+
+
+@router.post(
+    "/{proposal_id}/enable",
+    response_model=ProposalResponse,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+    summary="Enable proposal",
+    description="Re-enable a disabled automation in HA.",
+)
+@limiter.limit("5/minute")
+async def enable_proposal(
+    request: Request,
+    proposal_id: str,
+) -> ProposalResponse:
+    """Re-enable a disabled proposal and turn on the automation in HA."""
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        if proposal.status != ProposalStatus.DISABLED:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot enable proposal in status {proposal.status.value}. Must be disabled.",
+            )
+
+        if proposal.ha_automation_id:
+            try:
+                ha = await get_ha_client_async()
+                entity_id = f"automation.{proposal.ha_automation_id}"
+                await ha.call_service(
+                    domain="homeassistant",
+                    service="turn_on",
+                    data={"entity_id": entity_id},
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to enable automation %s in HA", proposal.ha_automation_id, exc_info=True
+                )
+
+        proposal.enable()
+        await session.commit()
+
+        proposal = await repo.get_by_id(proposal_id)
+        return _proposal_to_response(proposal)
+
+
+@router.post(
+    "/{proposal_id}/deprecate",
+    response_model=ProposalResponse,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+    },
+    summary="Deprecate proposal",
+    description="Mark a deployed or disabled proposal as deprecated (scheduled for removal).",
+)
+@limiter.limit("5/minute")
+async def deprecate_proposal(
+    request: Request,
+    proposal_id: str,
+) -> ProposalResponse:
+    """Mark a proposal as deprecated."""
+    async with get_session() as session:
+        repo = ProposalRepository(session)
+        proposal = await repo.get_by_id(proposal_id)
+
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        deprecable = {ProposalStatus.DEPLOYED, ProposalStatus.DISABLED}
+        if proposal.status not in deprecable:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot deprecate proposal in status {proposal.status.value}. "
+                "Must be deployed or disabled.",
+            )
+
+        proposal.deprecate()
+        await session.commit()
+
+        proposal = await repo.get_by_id(proposal_id)
+        return _proposal_to_response(proposal)
 
 
 @router.get(

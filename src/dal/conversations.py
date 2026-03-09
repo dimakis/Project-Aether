@@ -447,6 +447,15 @@ class ProposalRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_by_ha_automation_id(self, ha_automation_id: str) -> AutomationProposal | None:
+        """Find a proposal by its HA automation ID."""
+        result = await self.session.execute(
+            select(AutomationProposal).where(
+                AutomationProposal.ha_automation_id == ha_automation_id
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def list_by_status(
         self,
         status: ProposalStatus,
