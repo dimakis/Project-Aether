@@ -111,6 +111,19 @@ class TestProposalStatusTransitions:
         assert proposal.can_transition_to(ProposalStatus.REJECTED)
         assert not proposal.can_transition_to(ProposalStatus.DEPLOYED)
 
+    def test_deployed_to_redeployed(self, proposal):
+        """Test that a deployed proposal can be redeployed (self-transition)."""
+        from src.storage.entities import ProposalStatus
+
+        proposal.propose()
+        proposal.approve("test_user")
+        proposal.deploy("automation.old_id")
+        assert proposal.status == ProposalStatus.DEPLOYED
+
+        proposal.deploy("automation.new_id")
+        assert proposal.status == ProposalStatus.DEPLOYED
+        assert proposal.ha_automation_id == "automation.new_id"
+
     def test_archived_is_terminal(self, proposal):
         """Test that archived is a terminal state."""
         from src.storage.entities import ProposalStatus

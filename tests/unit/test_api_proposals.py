@@ -1433,6 +1433,85 @@ class TestDeployProposal:
             )
             mock_session.commit.assert_called_once()
 
+    async def test_deploy_helper_proposal_ha_failure_not_marked_deployed(
+        self,
+        proposal_client,
+        mock_proposal_repo,
+        mock_get_session,
+        mock_session,
+    ):
+        """When HA rejects helper creation, proposal must NOT be marked deployed."""
+        helper_proposal = MagicMock()
+        helper_proposal.id = "prop-uuid-helper-fail"
+        helper_proposal.proposal_type = "helper"
+        helper_proposal.conversation_id = None
+        helper_proposal.name = "Create Energy Threshold"
+        helper_proposal.description = "input_number for energy threshold"
+        helper_proposal.trigger = {}
+        helper_proposal.conditions = None
+        helper_proposal.actions = {}
+        helper_proposal.mode = "single"
+        helper_proposal.status = ProposalStatus.APPROVED
+        helper_proposal.ha_automation_id = None
+        helper_proposal.proposed_at = datetime(2026, 2, 14, 10, 0, 0, tzinfo=UTC)
+        helper_proposal.approved_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        helper_proposal.approved_by = "user1"
+        helper_proposal.deployed_at = None
+        helper_proposal.rolled_back_at = None
+        helper_proposal.rejection_reason = None
+        helper_proposal.created_at = datetime(2026, 2, 14, 9, 0, 0, tzinfo=UTC)
+        helper_proposal.updated_at = datetime(2026, 2, 14, 11, 0, 0, tzinfo=UTC)
+        helper_proposal.service_call = {
+            "helper_type": "input_number",
+            "input_id": "energy_threshold",
+            "name": "Energy Threshold",
+            "min": 0,
+            "max": 1000,
+            "step": 1,
+        }
+        helper_proposal.dashboard_config = None
+        helper_proposal.original_yaml = None
+        helper_proposal.review_notes = None
+        helper_proposal.review_session_id = None
+        helper_proposal.parent_proposal_id = None
+        helper_proposal.to_ha_yaml_dict = MagicMock(return_value=helper_proposal.service_call)
+
+        mock_proposal_repo.get_by_id = AsyncMock(return_value=helper_proposal)
+        mock_proposal_repo.deploy = AsyncMock(return_value=helper_proposal)
+
+        mock_ha_client = MagicMock()
+        mock_ha_client.create_input_number = AsyncMock(
+            return_value={
+                "success": False,
+                "input_id": "energy_threshold",
+                "error": "Input number already exists",
+            }
+        )
+        mock_ha_client.list_entities = AsyncMock(return_value=[])
+        mock_ha_client.list_services = AsyncMock(return_value=[])
+        mock_ha_client.get_area_registry = AsyncMock(return_value=[])
+
+        with (
+            patch("src.api.routes.proposals.get_session", mock_get_session),
+            patch(
+                "src.api.routes.proposals.ProposalRepository",
+                return_value=mock_proposal_repo,
+            ),
+            patch(
+                "src.api.routes.proposals.get_ha_client_async",
+                new_callable=AsyncMock,
+                return_value=mock_ha_client,
+            ),
+        ):
+            response = await proposal_client.post("/api/v1/proposals/prop-uuid-helper-fail/deploy")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is False
+            assert data["error"] is not None
+            assert "already exists" in data["error"]
+            mock_proposal_repo.deploy.assert_not_called()
+
     async def test_deploy_proposal_with_error(
         self,
         proposal_client,

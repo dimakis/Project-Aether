@@ -53,8 +53,9 @@ export function useRejectProposal() {
 export function useDeployProposal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => proposals.deploy(id),
-    onSuccess: (_data, id) => {
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) =>
+      proposals.deploy(id, { force }),
+    onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
       qc.invalidateQueries({ queryKey: queryKeys.proposals.pending });
       qc.invalidateQueries({ queryKey: queryKeys.proposals.detail(id) });

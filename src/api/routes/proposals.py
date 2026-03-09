@@ -1238,11 +1238,17 @@ async def _deploy_helper(proposal: AutomationProposal, repo: ProposalRepository)
         }
 
     method = getattr(ha, method_name)
-    method = getattr(ha, method_name)
 
-    # Build kwargs from config, excluding metadata keys
     kwargs = {k: v for k, v in config.items() if k not in _HELPER_META_KEYS}
     result = await method(**kwargs)
+
+    if not result.get("success"):
+        return {
+            "ha_automation_id": None,
+            "deployment_method": "ha_helper_create",
+            "yaml_content": "",
+            "error": result.get("error", "HA helper creation failed"),
+        }
 
     entity_id = result.get("entity_id", "")
     deploy_id = entity_id or f"helper_{proposal.id[:8]}_{helper_type}"

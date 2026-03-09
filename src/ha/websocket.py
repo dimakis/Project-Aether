@@ -123,7 +123,9 @@ async def _execute(
     async with ws_connect(ws_url) as ws:
         await _authenticate(ws, token)
 
-        command: dict[str, Any] = {"id": 1, "type": command_type, **params}
+        _WS_PROTOCOL_KEYS = {"id", "type"}
+        safe_params = {k: v for k, v in params.items() if k not in _WS_PROTOCOL_KEYS}
+        command: dict[str, Any] = {"id": 1, "type": command_type, **safe_params}
         await ws.send(json.dumps(command))
 
         raw = await ws.recv()
