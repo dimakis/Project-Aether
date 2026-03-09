@@ -78,6 +78,9 @@ const OptimizationPage = lazy(() =>
 const JobsPage = lazy(() =>
   import("@/pages/jobs").then((m) => ({ default: m.JobsPage })),
 );
+const EnergyPage = lazy(() =>
+  import("@/pages/energy").then((m) => ({ default: m.EnergyPage })),
+);
 
 // ── Shared loading fallback ────────────────────────────────────────────────
 
@@ -177,6 +180,7 @@ export default function App() {
                     <Route path="dashboard-editor" element={<DashboardEditorPage />} />
                     <Route path="workflows" element={<WorkflowDefinitionsPage />} />
                     <Route path="optimization" element={<OptimizationPage />} />
+                    <Route path="energy" element={<EnergyPage />} />
                     <Route path="jobs" element={<JobsPage />} />
                   </Route>
                 </Route>

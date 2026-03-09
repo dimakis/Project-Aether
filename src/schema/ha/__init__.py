@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING
 from src.schema.core import registry
 from src.schema.ha.automation import HAAutomation
 from src.schema.ha.dashboard import LovelaceDashboard
+from src.schema.ha.entity_command import EntityCommandPayload
+from src.schema.ha.helper import HAHelper
 from src.schema.ha.scene import HAScene
 from src.schema.ha.script import HAScript
 
@@ -37,6 +39,8 @@ def _register_ha_schemas() -> None:
     _schemas: dict[str, type[BaseModel]] = {
         "ha.automation": HAAutomation,
         "ha.dashboard": LovelaceDashboard,
+        "ha.entity_command": EntityCommandPayload,
+        "ha.helper": HAHelper,
         "ha.script": HAScript,
         "ha.scene": HAScene,
     }
@@ -48,7 +52,9 @@ def _register_ha_schemas() -> None:
 _register_ha_schemas()
 
 __all__ = [
+    "EntityCommandPayload",
     "HAAutomation",
+    "HAHelper",
     "HAScene",
     "HAScript",
     "LovelaceDashboard",

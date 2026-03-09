@@ -195,12 +195,28 @@ Output insights as JSON to stdout with type="device_health".
 """
 
     elif state.analysis_type == AnalysisType.COST_OPTIMIZATION:
+        tariff_note = """
+If `tariff_rates` is present in the data and `tariff_rates["configured"]` is true,
+use the actual electricity rates for cost calculations:
+- tariff_rates["rates"]["day/night/peak"]["rate"] gives the c/kWh rate
+- tariff_rates["rates"]["day/night/peak"]["start"/"end"] gives the time window
+- Currency is in tariff_rates["currency"] (e.g. "EUR")
+
+Calculate actual costs by classifying each data point's hour into day/night/peak
+and multiplying kWh by the corresponding rate. Include in evidence:
+- estimated_cost_eur: total cost for the period
+- cost_by_period: {"day": float, "night": float, "peak": float}
+- potential_savings_eur: estimated savings from shifting peak to off-peak
+
+If tariff_rates is not configured, estimate costs using reasonable assumptions.
+"""
         prompt = (
             energy_context
+            + tariff_note
             + """
 Please analyze this data and generate a Python script that:
 1. Identifies the highest energy consumers
-2. Calculates cost projections based on usage patterns
+2. Calculates cost projections using tariff rates (or estimates if unavailable)
 3. Suggests schedule changes to reduce costs (off-peak shifting)
 4. Estimates monthly savings for each recommendation
 

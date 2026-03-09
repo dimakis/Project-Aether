@@ -143,6 +143,72 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
     );
   }
 
+  // ── EUR cost breakdown (tariff-aware analysis) ─────────────────────────────
+  if ("estimated_cost_eur" in evidence || "cost_by_period" in evidence) {
+    const costEur = safeNum(evidence.estimated_cost_eur);
+    const savingsEur = safeNum(evidence.potential_savings_eur);
+    const costByPeriod = evidence.cost_by_period as
+      | Record<string, unknown>
+      | undefined;
+    const currency = String(evidence.currency ?? "EUR");
+    const symbol = currency === "EUR" ? "€" : currency;
+
+    sections.push(
+      <div
+        key="eur-cost"
+        className="rounded-xl bg-emerald-500/5 p-4 ring-1 ring-emerald-500/20"
+      >
+        <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-emerald-400">
+          Energy Cost ({currency})
+        </h4>
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-bold text-emerald-400">
+            {symbol}
+            {formatNumber(costEur)}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            estimated for period
+          </span>
+        </div>
+        {costByPeriod && typeof costByPeriod === "object" && (
+          <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+            {(["day", "night", "peak"] as const).map((period) => {
+              const val = safeNum(
+                (costByPeriod as Record<string, unknown>)[period],
+              );
+              if (val === 0) return null;
+              const colors: Record<string, string> = {
+                day: "text-amber-400",
+                night: "text-blue-400",
+                peak: "text-red-400",
+              };
+              return (
+                <div key={period}>
+                  <p className="capitalize text-muted-foreground">{period}</p>
+                  <p className={cn("font-semibold", colors[period])}>
+                    {symbol}
+                    {val.toFixed(2)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {savingsEur > 0 && (
+          <div className="mt-3 border-t border-border/50 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Potential savings:{" "}
+              <span className="font-semibold text-green-400">
+                {symbol}
+                {formatNumber(savingsEur)}
+              </span>
+            </p>
+          </div>
+        )}
+      </div>,
+    );
+  }
+
   // ── Top consumers bar chart ────────────────────────────────────────────────
   if ("top_consumers" in evidence && Array.isArray(evidence.top_consumers)) {
     const rawConsumers = evidence.top_consumers as unknown[];

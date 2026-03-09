@@ -151,6 +151,7 @@ async def create_zone(body: ZoneCreate) -> ZoneResponse:
             url_preference=body.url_preference,
         )
         await session.commit()
+        await session.refresh(zone)
         return _serialize_zone(zone)
 
 
@@ -207,6 +208,7 @@ async def update_zone(zone_id: str, body: ZoneUpdate) -> ZoneResponse:
                 detail="Zone not found.",
             )
         await session.commit()
+        await session.refresh(zone)
         return _serialize_zone(zone)
 
 

@@ -165,6 +165,11 @@ export const queryKeys = {
     scorers: ["evaluations", "scorers"] as const,
   },
 
+  // ── Energy ──────────────────────────────────────────────────────────────
+  energy: {
+    tariffs: ["energy", "tariffs"] as const,
+  },
+
   // ── System ──────────────────────────────────────────────────────────────
   system: {
     status: ["system", "status"] as const,

@@ -20,10 +20,26 @@ Data structure (available in /workspace/data.json):
     - start_time: "ISO-8601"
     - end_time: "ISO-8601"
 
+If `tariff_rates` is present in the data and `tariff_rates.configured` is true:
+- tariff_rates.rates: dict with "day", "night", "peak" keys, each containing:
+    - rate: float (c/kWh)
+    - start: str (HH:MM)
+    - end: str (HH:MM)
+- tariff_rates.currency: str (e.g. "EUR")
+- tariff_rates.unit: str (e.g. "c/kWh")
+- tariff_rates.plan_name: str
+- tariff_rates.current_rate: float
+- tariff_rates.current_period: str ("day", "night", or "peak")
+
 Please analyze this energy data and generate a Python script that:
 1. Identifies the top energy consumers
 2. Detects peak usage times
 3. Finds opportunities for energy savings
-4. Calculates potential savings if usage is shifted to off-peak hours
+4. If tariff_rates is available and configured, calculate actual costs per entity using the rates and time-of-day schedule; otherwise estimate potential savings from shifting usage to off-peak hours
+
+When tariff data is available, include in the evidence:
+- estimated_cost_eur: total estimated cost for the period
+- cost_by_period: dict with day/night/peak cost breakdowns
+- potential_savings_eur: estimated savings from shifting peak usage to off-peak
 
 Output insights as JSON to stdout with type="energy_optimization".

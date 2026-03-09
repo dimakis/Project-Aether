@@ -31,6 +31,10 @@ from src.tools.insight_schedule_tools import (
 from src.tools.specialist_tools import (
     get_specialist_tools,
 )
+from src.tools.tariff_tools import (
+    setup_electricity_tariffs,
+    update_electricity_tariffs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +63,7 @@ def get_all_tools() -> list[Any]:
         + get_specialist_tools()
         + get_web_search_tools()
         + [_review_config]
+        + [setup_electricity_tariffs, update_electricity_tariffs]
     )
 
 
@@ -148,6 +153,8 @@ def get_architect_tools() -> list[Any]:
         _consult_dashboard,
         # Config review (1)
         _review_config,
+        # Tariff management (1)
+        update_electricity_tariffs,
     ]
     return _cached_architect_tools
 

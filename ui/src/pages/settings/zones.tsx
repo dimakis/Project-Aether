@@ -193,8 +193,12 @@ function ZoneCard({ zone }: { zone: HAZone }) {
 
   const handleTest = async () => {
     setTestResult(null);
-    const result = await testMut.mutateAsync(zone.id);
-    setTestResult(result);
+    try {
+      const result = await testMut.mutateAsync(zone.id);
+      setTestResult(result);
+    } catch {
+      setTestResult({ local_ok: false, remote_ok: null });
+    }
   };
 
   const handleSave = async () => {
@@ -341,19 +345,19 @@ function ZoneCard({ zone }: { zone: HAZone }) {
           </div>
         ) : (
           /* URLs display */
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs">
-              <Wifi className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Local:</span>
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex min-w-0 items-center gap-2 text-xs">
+              <Wifi className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="shrink-0 text-muted-foreground">Local:</span>
+              <code className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]" title={zone.ha_url}>
                 {zone.ha_url}
               </code>
             </div>
             {zone.ha_url_remote ? (
-              <div className="flex items-center gap-2 text-xs">
-                <Globe className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Remote:</span>
-                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+              <div className="flex min-w-0 items-center gap-2 text-xs">
+                <Globe className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <span className="shrink-0 text-muted-foreground">Remote:</span>
+                <code className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]" title={zone.ha_url_remote}>
                   {zone.ha_url_remote}
                 </code>
               </div>

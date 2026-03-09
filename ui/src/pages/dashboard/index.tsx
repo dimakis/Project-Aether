@@ -14,6 +14,9 @@ import {
   MapPin,
   BarChart3,
   Webhook,
+  BatteryCharging,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +36,7 @@ import {
   useAgents,
   useInsightSchedules,
   useHAZones,
+  useTariffs,
 } from "@/api/hooks";
 import { StatCard } from "./StatCard";
 import {
@@ -60,6 +64,7 @@ export function DashboardPage() {
   const { data: agentsData } = useAgents();
   const { data: schedulesData } = useInsightSchedules();
   const { data: zonesData } = useHAZones();
+  const { data: tariffs } = useTariffs();
 
   const totalEntities =
     domainsSummary?.reduce((sum, d) => sum + d.count, 0) ?? 0;
@@ -226,6 +231,65 @@ export function DashboardPage() {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">No usage data yet</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Electricity Tariff */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <BatteryCharging className="h-4 w-4 text-yellow-400" />
+                Electricity
+              </CardTitle>
+              <Link to="/energy">
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  Details
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {tariffs?.configured ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Current Rate</span>
+                    <span className="font-semibold tabular-nums">
+                      {tariffs.current_rate?.toFixed(2)} c/kWh
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Period</span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        tariffs.current_period === "peak"
+                          ? "border-red-500/30 text-red-400"
+                          : tariffs.current_period === "night"
+                            ? "border-blue-500/30 text-blue-400"
+                            : "border-amber-500/30 text-amber-400"
+                      }
+                    >
+                      {tariffs.current_period === "day" && <Sun className="mr-1 h-3 w-3" />}
+                      {tariffs.current_period === "night" && <Moon className="mr-1 h-3 w-3" />}
+                      {tariffs.current_period === "peak" && <Zap className="mr-1 h-3 w-3" />}
+                      <span className="text-[10px] capitalize">{tariffs.current_period}</span>
+                    </Badge>
+                  </div>
+                  {tariffs.plan_name && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Plan</span>
+                      <span className="truncate text-right">{tariffs.plan_name}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No tariff configured.{" "}
+                  <Link to="/energy" className="text-primary underline-offset-2 hover:underline">
+                    Set up
+                  </Link>
+                </p>
               )}
             </CardContent>
           </Card>

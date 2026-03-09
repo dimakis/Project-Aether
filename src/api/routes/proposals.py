@@ -461,6 +461,8 @@ async def validate_proposal(
             "script": "ha.script",
             "scene": "ha.scene",
             "dashboard": "ha.dashboard",
+            "entity_command": "ha.entity_command",
+            "helper": "ha.helper",
         }
         schema_name = schema_map.get(ptype)
         if not schema_name:
@@ -474,7 +476,7 @@ async def validate_proposal(
         result = validate_yaml(yaml_content, schema_name)
 
         return {
-            "valid": result.is_valid,
+            "valid": result.valid,
             "errors": [
                 {"path": str(e.path), "message": e.message, "severity": e.severity}
                 for e in result.errors
@@ -791,16 +793,77 @@ async def _deploy_entity_command(
         Deployment result dict
     """
     sc = proposal.service_call or {}
+
+    # Pre-flight structural validation
+    from pydantic import ValidationError as PydanticValidationError
+
+    from src.schema.ha.entity_command import EntityCommandPayload
+
+    try:
+        EntityCommandPayload.model_validate(sc)
+    except PydanticValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=[
+                {"path": ".".join(str(p) for p in e["loc"]), "message": e["msg"]}
+                for e in exc.errors()
+            ],
+        ) from exc
+
+    # Pre-flight semantic validation
+    ha = await get_ha_client_async()
+
+    from src.schema.ha.registry_cache import HARegistryCache
+    from src.schema.semantic import SemanticValidator
+
+    cache = HARegistryCache(ha_client=ha)
+    sem_result = await SemanticValidator(cache=cache).validate(sc, schema_name="ha.entity_command")
+    if not sem_result.valid:
+        raise HTTPException(
+            status_code=422,
+            detail=[{"path": e.path, "message": e.message} for e in sem_result.errors],
+        )
+
     domain = sc.get("domain", "homeassistant")
     service = sc.get("service", "turn_on")
     entity_id = sc.get("entity_id")
     data = sc.get("data", {})
 
-    if entity_id:
-        data["entity_id"] = entity_id
-
-    ha = await get_ha_client_async()
-    await ha.call_service(domain=domain, service=service, data=data)
+    # Batch entity updates (e.g. tariff rate changes across multiple entities)
+    entity_updates = data.get("entity_updates") if isinstance(data, dict) else None
+    if entity_updates and isinstance(entity_updates, list):
+        for update in entity_updates:
+            eid = update.get("entity_id", "")
+            value = update.get("value")
+            update_domain = eid.split(".")[0] if "." in eid else domain
+            if update_domain == "input_number":
+                await ha.call_service(
+                    domain="input_number",
+                    service="set_value",
+                    data={"entity_id": eid, "value": value},
+                )
+            elif update_domain == "input_text":
+                await ha.call_service(
+                    domain="input_text",
+                    service="set_value",
+                    data={"entity_id": eid, "value": str(value)},
+                )
+            elif update_domain == "input_select":
+                await ha.call_service(
+                    domain="input_select",
+                    service="select_option",
+                    data={"entity_id": eid, "option": str(value)},
+                )
+            else:
+                await ha.call_service(
+                    domain=update_domain,
+                    service=service,
+                    data={"entity_id": eid, "value": value},
+                )
+    else:
+        if entity_id:
+            data["entity_id"] = entity_id
+        await ha.call_service(domain=domain, service=service, data=data)
 
     # Mark as deployed (use a descriptive ID since there's no HA automation)
     command_id = f"cmd_{proposal.id[:8]}_{domain}_{service}"
@@ -894,6 +957,39 @@ async def _deploy_helper(proposal: AutomationProposal, repo: ProposalRepository)
         Deployment result dict.
     """
     config = proposal.service_call or {}
+
+    # Pre-flight structural validation
+    from pydantic import TypeAdapter
+    from pydantic import ValidationError as PydanticValidationError
+
+    from src.schema.ha.helper import HelperPayload
+
+    adapter = TypeAdapter(HelperPayload)
+    try:
+        adapter.validate_python(config)
+    except PydanticValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=[
+                {"path": ".".join(str(p) for p in e["loc"]), "message": e["msg"]}
+                for e in exc.errors()
+            ],
+        ) from exc
+
+    # Pre-flight semantic validation
+    ha = await get_ha_client_async()
+
+    from src.schema.ha.registry_cache import HARegistryCache
+    from src.schema.semantic import SemanticValidator
+
+    cache = HARegistryCache(ha_client=ha)
+    sem_result = await SemanticValidator(cache=cache).validate(config, schema_name="ha.helper")
+    if not sem_result.valid:
+        raise HTTPException(
+            status_code=422,
+            detail=[{"path": e.path, "message": e.message} for e in sem_result.errors],
+        )
+
     helper_type = config.get("helper_type", "")
     method_name = _HELPER_DISPATCH.get(helper_type)
 
@@ -905,7 +1001,7 @@ async def _deploy_helper(proposal: AutomationProposal, repo: ProposalRepository)
             "error": f"Unknown helper type: {helper_type}",
         }
 
-    ha = await get_ha_client_async()
+    method = getattr(ha, method_name)
     method = getattr(ha, method_name)
 
     # Build kwargs from config, excluding metadata keys

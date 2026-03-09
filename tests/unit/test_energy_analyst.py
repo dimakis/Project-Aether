@@ -187,6 +187,123 @@ class TestEnergyAnalystExtractFindings:
         assert findings == []
 
 
+class TestEnergyAnalystTariffInjection:
+    """Test tariff rate injection into collected data."""
+
+    @pytest.mark.asyncio
+    async def test_injects_tariff_rates_when_configured(self):
+        """When tariff entities exist in HA, tariff_rates is injected."""
+        mock_ha = MagicMock()
+        mock_ha.get_entity = AsyncMock(
+            side_effect=lambda eid, **kw: {
+                "input_number.electricity_rate_day": {
+                    "entity_id": "input_number.electricity_rate_day",
+                    "state": "25.84",
+                },
+                "input_number.electricity_rate_night": {
+                    "entity_id": "input_number.electricity_rate_night",
+                    "state": "13.54",
+                },
+                "input_number.electricity_rate_peak": {
+                    "entity_id": "input_number.electricity_rate_peak",
+                    "state": "29.18",
+                },
+                "input_number.electricity_rate_current": {
+                    "entity_id": "input_number.electricity_rate_current",
+                    "state": "25.84",
+                },
+                "input_text.electricity_plan_name": {
+                    "entity_id": "input_text.electricity_plan_name",
+                    "state": "Yuno ETV06",
+                },
+                "input_select.electricity_tariff_period": {
+                    "entity_id": "input_select.electricity_tariff_period",
+                    "state": "day",
+                },
+            }.get(eid)
+        )
+
+        analyst = EnergyAnalyst(ha_client=mock_ha)
+
+        mock_energy_client = MagicMock()
+        mock_energy_client.get_aggregated_energy = AsyncMock(
+            return_value={"total_kwh": 42.5, "entities": []}
+        )
+
+        state = AnalysisState(
+            entity_ids=["sensor.energy_grid"],
+            time_range_hours=24,
+        )
+
+        with patch(
+            "src.agents.energy_analyst.EnergyHistoryClient",
+            return_value=mock_energy_client,
+        ):
+            data = await analyst.collect_data(state)
+
+        assert "tariff_rates" in data
+        assert data["tariff_rates"]["configured"] is True
+        assert data["tariff_rates"]["rates"]["day"]["rate"] == 25.84
+        assert data["tariff_rates"]["rates"]["night"]["rate"] == 13.54
+        assert data["tariff_rates"]["rates"]["peak"]["rate"] == 29.18
+        assert data["tariff_rates"]["plan_name"] == "Yuno ETV06"
+
+    @pytest.mark.asyncio
+    async def test_omits_tariff_rates_when_not_configured(self):
+        """When tariff entities don't exist, tariff_rates is still present but configured=False."""
+        mock_ha = MagicMock()
+        mock_ha.get_entity = AsyncMock(return_value=None)
+
+        analyst = EnergyAnalyst(ha_client=mock_ha)
+
+        mock_energy_client = MagicMock()
+        mock_energy_client.get_aggregated_energy = AsyncMock(
+            return_value={"total_kwh": 10.0, "entities": []}
+        )
+
+        state = AnalysisState(
+            entity_ids=["sensor.energy_grid"],
+            time_range_hours=24,
+        )
+
+        with patch(
+            "src.agents.energy_analyst.EnergyHistoryClient",
+            return_value=mock_energy_client,
+        ):
+            data = await analyst.collect_data(state)
+
+        assert "tariff_rates" in data
+        assert data["tariff_rates"]["configured"] is False
+
+    @pytest.mark.asyncio
+    async def test_tariff_injection_does_not_break_on_ha_error(self):
+        """If HA raises an error reading tariff entities, collection still succeeds."""
+        mock_ha = MagicMock()
+        mock_ha.get_entity = AsyncMock(side_effect=Exception("HA unreachable"))
+
+        analyst = EnergyAnalyst(ha_client=mock_ha)
+
+        mock_energy_client = MagicMock()
+        mock_energy_client.get_aggregated_energy = AsyncMock(
+            return_value={"total_kwh": 5.0, "entities": []}
+        )
+
+        state = AnalysisState(
+            entity_ids=["sensor.energy_grid"],
+            time_range_hours=24,
+        )
+
+        with patch(
+            "src.agents.energy_analyst.EnergyHistoryClient",
+            return_value=mock_energy_client,
+        ):
+            data = await analyst.collect_data(state)
+
+        assert "total_kwh" in data
+        assert "tariff_rates" in data
+        assert data["tariff_rates"]["configured"] is False
+
+
 class TestEnergyAnalystCrossConsultation:
     """Test that energy analyst reads prior findings from other specialists."""
 
