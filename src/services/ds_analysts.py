@@ -4,7 +4,7 @@ Wraps the Energy, Behavioral, and Diagnostic analysts into a
 single A2A-compliant service. The analysts share AnalysisState
 in-process — no inter-analyst A2A communication.
 
-Entrypoint: ``uvicorn src.services.ds_analysts:app``
+Entrypoint: ``uvicorn src.services.ds_analysts:app --factory``
 """
 
 from __future__ import annotations
@@ -54,4 +54,4 @@ def create_ds_analysts_service() -> Starlette:
     )
 
 
-app = create_ds_analysts_service()
+app = create_ds_analysts_service

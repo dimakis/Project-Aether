@@ -4,6 +4,8 @@ import asyncio
 import logging
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,7 +95,7 @@ def _log_usage_async(result: Any, provider: str, model: str, latency_ms: int) ->
                 request_type=ctx.request_type if ctx else "chat",
             )
         )
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.debug("Failed to log LLM usage: %s", e)
 
 
@@ -106,5 +108,5 @@ async def _write_usage_record(**kwargs: Any) -> None:
         async with get_session() as session:
             repo = LLMUsageRepository(session)
             await repo.record(**kwargs)
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.debug("Failed to write usage record: %s", e)

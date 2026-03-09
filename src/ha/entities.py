@@ -8,6 +8,8 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
+import httpx
+
 from src.ha.base import HAClientError, _trace_ha_call
 from src.tracing import log_param
 
@@ -36,7 +38,7 @@ class EntityMixin:
             return {
                 entry.get("entity_id", ""): entry for entry in registry if entry.get("entity_id")
             }
-        except Exception as e:
+        except (httpx.HTTPError, TimeoutError, ConnectionError, HAClientError) as e:
             logger.warning("Failed to fetch entity registry (area_id will be blank): %s", e)
             return {}
 
@@ -55,7 +57,7 @@ class EntityMixin:
             if not result or not isinstance(result, list):
                 return []
             return result
-        except Exception as e:
+        except (httpx.HTTPError, TimeoutError, ConnectionError, HAClientError) as e:
             logger.warning("Failed to fetch area registry from HA: %s", e)
             return []
 

@@ -294,12 +294,21 @@ class TestEnergyHistoryClientAggregation:
         self, energy_client, mock_ha_client, sample_history_states, sample_entity_info
     ):
         """Test aggregating energy across multiple entities."""
-        mock_ha_client.get_entity.return_value = sample_entity_info
-        mock_ha_client.get_history.return_value = {
-            "entity_id": "sensor.grid_power",
-            "states": sample_history_states,
-            "count": 4,
-        }
+        mock_ha_client.get_entity = AsyncMock(return_value=sample_entity_info)
+        mock_ha_client.get_history_batch = AsyncMock(
+            return_value={
+                "sensor.grid_power": {
+                    "entity_id": "sensor.grid_power",
+                    "states": sample_history_states,
+                    "count": 4,
+                },
+                "sensor.solar_power": {
+                    "entity_id": "sensor.solar_power",
+                    "states": sample_history_states,
+                    "count": 4,
+                },
+            }
+        )
 
         result = await energy_client.get_aggregated_energy(
             ["sensor.grid_power", "sensor.solar_power"],

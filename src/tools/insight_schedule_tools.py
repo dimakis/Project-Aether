@@ -135,7 +135,7 @@ async def create_insight_schedule(
                     scheduler = SchedulerService.get_instance()
                     if scheduler:
                         await scheduler.sync_jobs()
-                except Exception:
+                except (AttributeError, RuntimeError, OSError):
                     logger.debug("Scheduler sync skipped (not running)", exc_info=True)
 
             logger.info("Created insight schedule %s: %s", schedule.id, name)

@@ -75,9 +75,11 @@ class TestTryGetDBConfig:
         )
 
         # Patch get_session to raise an error (no DB available)
+        from sqlalchemy.exc import SQLAlchemyError
+
         with (
             patch.dict("sys.modules", {}),
-            patch("src.storage.get_session", side_effect=Exception("no DB")),
+            patch("src.storage.get_session", side_effect=SQLAlchemyError("no DB")),
         ):
             result = _try_get_db_config(settings)
 

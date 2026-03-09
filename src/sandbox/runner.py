@@ -8,6 +8,7 @@ Constitution: Isolation - All analysis scripts run in sandbox.
 
 import asyncio
 import logging
+import subprocess  # nosec B404 - sandbox uses subprocess for container execution (Constitution: Isolation)
 import tempfile
 import uuid
 from datetime import UTC, datetime
@@ -76,7 +77,7 @@ def _set_sandbox_span_attributes(result: SandboxResult) -> None:
             span.set_attribute("stderr_preview", result.stderr[:_STDERR_ATTR_MAX] + "...")
         else:
             span.set_attribute("stderr_preview", result.stderr)
-    except Exception as e:
+    except (AttributeError, RuntimeError, ImportError) as e:
         logger.debug("Failed to set sandbox span attributes: %s", e)
 
 
@@ -232,7 +233,7 @@ class SandboxRunner:
                 _set_sandbox_span_attributes(r)
                 return r
 
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError, TimeoutError) as e:
                 r = SandboxResult(
                     success=False,
                     exit_code=-1,
@@ -312,7 +313,7 @@ class SandboxRunner:
                 stdout2, _ = await proc2.communicate()
                 self._gvisor_available = b"runsc" in stdout2
 
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError, TimeoutError) as e:
             logger.warning("Failed to check gVisor availability: %s", e)
             self._gvisor_available = False
 
@@ -434,7 +435,7 @@ class SandboxRunner:
                 image,
             )
             return False
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False
 
     async def _auto_build_image(self) -> bool:
@@ -467,7 +468,7 @@ class SandboxRunner:
         except TimeoutError:
             logger.warning("Sandbox image build timed out after %ds", self._PODMAN_BUILD_TIMEOUT)
             return False
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             logger.warning("Sandbox image auto-build failed: %s", exc)
             return False
 
@@ -633,7 +634,7 @@ class SandboxRunner:
                 else:
                     result["errors"].append("gVisor (runsc) runtime not configured")
 
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError, TimeoutError) as e:
                 result["errors"].append(f"Error checking runtimes: {e}")
 
         # Check image availability
@@ -651,7 +652,7 @@ class SandboxRunner:
                 if not result["image_available"]:
                     result["errors"].append(f"Image '{self.image}' not found locally")
 
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError, TimeoutError) as e:
                 result["errors"].append(f"Error checking image: {e}")
 
         return result

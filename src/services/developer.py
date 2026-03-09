@@ -2,7 +2,7 @@
 
 Wraps the DeveloperAgent for automation deployment and rollback.
 
-Entrypoint: ``uvicorn src.services.developer:app``
+Entrypoint: ``uvicorn src.services.developer:app --factory``
 """
 
 from __future__ import annotations
@@ -44,4 +44,4 @@ def create_developer_service() -> Starlette:
     )
 
 
-app = create_developer_service()
+app = create_developer_service

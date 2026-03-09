@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
+
 from src.ha.client import HAClient
 
 logger = logging.getLogger(__name__)
@@ -277,7 +279,7 @@ class EnergyHistoryClient:
                         end_time=end_time,
                     )
                 )
-            except Exception:
+            except (httpx.HTTPError, TimeoutError, ConnectionError):
                 logger.warning(
                     "Failed to process energy history for entity %s, skipping",
                     eid,

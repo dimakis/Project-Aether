@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod run-distributed run-distributed-build down-distributed run-observed down-observed up up-full up-ui up-all down migrate build-base test test-unit test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
+.PHONY: help install dev run run-ui run-prod run-distributed run-distributed-build down-distributed run-observed down-observed up up-full up-ui up-all down migrate build-base test test-unit test-unit-cov test-int test-e2e lint format format-check typecheck check ci-local security-scan serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -37,15 +37,16 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test        - Run all tests"
-	@echo "  make test-unit   - Run unit tests only"
-	@echo "  make test-int    - Run integration tests"
-	@echo "  make test-cov    - Run tests with coverage report"
+	@echo "  make test-unit       - Run unit tests only"
+	@echo "  make test-unit-cov   - Run unit tests with 80% coverage gate"
+	@echo "  make test-int        - Run integration tests"
+	@echo "  make test-cov        - Run all tests with coverage report"
 	@echo ""
 	@echo "Quality:"
 	@echo "  make lint        - Run ruff linter"
 	@echo "  make format      - Format code with ruff"
 	@echo "  make check       - Run all quality checks"
-	@echo "  make ci-local    - Run full CI locally (lint + typecheck + security + unit tests)"
+	@echo "  make ci-local        - Run full CI locally (lint + typecheck + security + unit tests + coverage)"
 	@echo ""
 	@echo "Application:"
 	@echo "  make chat        - Start interactive CLI chat"
@@ -227,6 +228,9 @@ test:
 test-unit:
 	uv run pytest tests/unit/ -v --tb=short
 
+test-unit-cov:
+	uv run pytest tests/unit/ --tb=short --cov=src --cov-report=term-missing --cov-fail-under=80
+
 test-int:
 	uv run pytest tests/integration/ -v --tb=short
 
@@ -297,7 +301,7 @@ check: format-check lint typecheck
 
 # Run CI checks locally (mirrors GitHub Actions pipeline)
 # Run this before squashing and pushing a feature branch
-ci-local: format-check lint typecheck security-scan test-unit
+ci-local: format-check lint typecheck security-scan test-unit-cov
 	@echo ""
 	@echo "All CI checks passed! Safe to squash, push, and open PR."
 

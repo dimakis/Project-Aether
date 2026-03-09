@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 from langchain_core.tools import tool
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.dal.automations import AutomationRepository
 from src.ha import get_ha_client_async
@@ -107,7 +108,7 @@ async def list_automations() -> str:
             )
 
         return "\n".join(lines)
-    except Exception as exc:
+    except SQLAlchemyError as exc:
         return f"Failed to list automations: {exc}"
 
 

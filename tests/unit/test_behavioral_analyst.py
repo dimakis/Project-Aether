@@ -45,6 +45,19 @@ class TestBehavioralAnalystCollectData:
 
         mock_behavioral = MagicMock()
         mock_behavioral.get_button_usage = AsyncMock(return_value=[])
+        mock_logbook = MagicMock()
+        mock_logbook.get_stats = AsyncMock(
+            return_value=MagicMock(
+                total_entries=0,
+                by_domain={},
+                automation_triggers=0,
+                manual_actions=0,
+                by_action_type={},
+                unique_entities=0,
+                by_hour={},
+            )
+        )
+        mock_behavioral._logbook = mock_logbook
 
         state = AnalysisState(
             analysis_type=AnalysisType.BEHAVIOR_ANALYSIS,
@@ -68,6 +81,19 @@ class TestBehavioralAnalystCollectData:
 
         mock_behavioral = MagicMock()
         mock_behavioral.detect_automation_gaps = AsyncMock(return_value=[])
+        mock_logbook = MagicMock()
+        mock_logbook.get_stats = AsyncMock(
+            return_value=MagicMock(
+                total_entries=0,
+                by_domain={},
+                automation_triggers=0,
+                manual_actions=0,
+                by_action_type={},
+                unique_entities=0,
+                by_hour={},
+            )
+        )
+        mock_behavioral._logbook = mock_logbook
 
         state = AnalysisState(
             analysis_type=AnalysisType.AUTOMATION_GAP_DETECTION,
@@ -145,6 +171,19 @@ class TestBehavioralAnalystCollectData:
                 ),
             ]
         )
+        mock_logbook = MagicMock()
+        mock_logbook.get_stats = AsyncMock(
+            return_value=MagicMock(
+                total_entries=0,
+                by_domain={},
+                automation_triggers=0,
+                manual_actions=0,
+                by_action_type={},
+                unique_entities=0,
+                by_hour={},
+            )
+        )
+        mock_behavioral._logbook = mock_logbook
 
         state = AnalysisState(
             analysis_type=AnalysisType.AUTOMATION_ANALYSIS,

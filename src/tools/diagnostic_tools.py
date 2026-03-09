@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import logging
 
+import httpx
 from langchain_core.tools import tool
-
-logger = logging.getLogger(__name__)
 
 from src.diagnostics.config_validator import run_config_check
 from src.diagnostics.entity_health import (
@@ -26,6 +25,8 @@ from src.diagnostics.integration_health import (
 )
 from src.diagnostics.log_parser import get_error_summary, parse_error_log
 from src.ha import get_ha_client_async
+
+logger = logging.getLogger(__name__)
 
 
 @tool("analyze_error_log")
@@ -156,7 +157,7 @@ async def diagnose_entity(entity_id: str) -> str:
                     if s_state != prev:
                         lines.append(f"    {s_time}: {s_state}")
                         prev = s_state
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ConnectionError):
             lines.append("\n  History: unavailable")
 
         # Related errors
@@ -173,7 +174,7 @@ async def diagnose_entity(entity_id: str) -> str:
                     lines.append(f"\n  Related log entries: {len(related)}")
                     for entry in related[:3]:
                         lines.append(f"    {entry[:120]}")
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ConnectionError):
             logger.debug("Failed to extract related log entries", exc_info=True)
 
         # Assessment

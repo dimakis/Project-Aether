@@ -3,6 +3,9 @@
 import logging
 from typing import TYPE_CHECKING, cast
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.dal import EntityRepository
 from src.graph.state import AnalysisState, AnalysisType
 from src.ha import EnergyHistoryClient, HAClient
@@ -57,9 +60,9 @@ async def discover_energy_sensors_from_db(
 
         return energy_sensors[:20]  # Limit to 20
 
-    except Exception as e:
+    except SQLAlchemyError as e:
         # Log but don't fail - will fall back to MCP
-        logger.warning(f"Failed to discover energy sensors from DB: {e}")
+        logger.warning("Failed to discover energy sensors from DB: %s", e)
         return []
 
 
@@ -239,8 +242,8 @@ async def collect_behavioral_data(
         log_metric("behavioral.entity_count", float(cast("float", data.get("entity_count", 0))))
         log_param("behavioral.analysis_type", state.analysis_type.value)
 
-    except Exception as e:
-        logger.warning(f"Error collecting behavioral data: {e}")
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+        logger.warning("Error collecting behavioral data: %s", e)
         data["error"] = str(e)
 
     # Always provide top-level 'entities' key for consistency with

@@ -32,7 +32,7 @@ def get_ha_tools() -> list[BaseTool]:
         from src.tools import get_architect_tools
 
         return get_architect_tools()
-    except Exception:
+    except (ImportError, AttributeError):
         logger.error(
             "Failed to load tools -- agent will operate without tools. "
             "This may affect HITL enforcement.",

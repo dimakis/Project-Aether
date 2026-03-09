@@ -209,7 +209,7 @@ def emit_delegation(from_agent: str, to_agent: str, content: str) -> None:
             },
         ):
             emit_progress("delegation", from_agent, content, target=to_agent)
-    except Exception:
+    except (AttributeError, RuntimeError):
         emit_progress("delegation", from_agent, content, target=to_agent)
 
 

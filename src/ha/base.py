@@ -7,7 +7,9 @@ connection management, and tracing decorators.
 import time
 from typing import Any, cast
 
+import httpx
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.exceptions import HAClientError
 from src.settings import get_settings
@@ -40,7 +42,7 @@ async def _try_get_db_config_async(settings: Any) -> tuple[str, str] | None:
         async with get_session() as session:
             repo = SystemConfigRepository(session)
             return await repo.get_ha_connection(jwt_secret)
-    except Exception as exc:
+    except SQLAlchemyError as exc:
         logger.debug("mcp_db_config_fallback", reason=str(exc))
         return None
 
@@ -60,7 +62,7 @@ def _try_get_db_config(settings: Any) -> tuple[str, str] | None:
         pass
     try:
         return asyncio.run(_try_get_db_config_async(settings))
-    except Exception:
+    except SQLAlchemyError:
         return None
 
 
@@ -159,8 +161,6 @@ class BaseHAClient:
 
         URL order is determined by url_preference setting.
         """
-        import httpx
-
         urls_to_try = self._build_urls_to_try()
 
         errors = []
@@ -176,7 +176,7 @@ class BaseHAClient:
                         self._connected = True
                         return
                     errors.append(f"{url}: HTTP {response.status_code}")
-            except Exception as e:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
                 errors.append(f"{url}: {type(e).__name__}")
 
         raise HAClientError(
@@ -268,8 +268,6 @@ class BaseHAClient:
         Returns:
             Response JSON
         """
-        import httpx
-
         from src.tracing import log_metric
 
         start_time = time.perf_counter()
@@ -306,7 +304,7 @@ class BaseHAClient:
                 errors.append(f"{url}: Connection failed")
             except httpx.TimeoutException:
                 errors.append(f"{url}: Timeout")
-            except Exception as e:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
                 errors.append(f"{url}: {type(e).__name__}")
 
         raise HAClientError(

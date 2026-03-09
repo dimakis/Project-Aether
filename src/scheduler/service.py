@@ -11,11 +11,20 @@ from __future__ import annotations
 import logging
 import time
 
+import httpx
 import mlflow
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
+
+try:
+    from mlflow.exceptions import MlflowException as _MlflowException
+
+    _MLFLOW_EXCEPTIONS = (AttributeError, RuntimeError, ImportError, _MlflowException)
+except ImportError:
+    _MLFLOW_EXCEPTIONS = (AttributeError, RuntimeError, ImportError)
 
 try:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -236,7 +245,7 @@ class SchedulerService:
             async with get_session() as session:
                 repo = InsightScheduleRepository(session)
                 schedules = await repo.list_cron_schedules()
-        except Exception as e:
+        except SQLAlchemyError as e:
             # Table may not exist yet (migration not run)
             logger.warning("Could not load insight schedules: %s", e)
             return
@@ -309,7 +318,7 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
 
         from contextlib import suppress
 
-        with suppress(Exception):
+        with suppress(*_MLFLOW_EXCEPTIONS):
             mlflow.update_current_trace(
                 tags={
                     "workflow": "scheduled_analysis",
@@ -358,7 +367,7 @@ async def _execute_scheduled_analysis(schedule_id: str) -> None:
                     logger.info(
                         "Sent %d insight notification(s) for schedule %s", sent, schedule.name
                     )
-            except Exception as exc:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
                 logger.warning(
                     "Insight notification failed for schedule %s: %s", schedule.name, exc
                 )
@@ -432,7 +441,12 @@ async def _execute_trace_evaluation() -> None:
         )
         emit_job_complete(job_id)
 
-    except Exception as e:
+    except (
+        *_MLFLOW_EXCEPTIONS,
+        httpx.HTTPError,
+        TimeoutError,
+        ConnectionError,
+    ) as e:
         logger.exception("Nightly trace evaluation failed: %s", e)
         emit_job_failed(job_id, str(e))
 
@@ -465,7 +479,7 @@ async def _execute_discovery_sync() -> None:
             stats.get("removed", 0),
             stats.get("duration_seconds", 0),
         )
-    except Exception as e:
+    except (SQLAlchemyError, httpx.HTTPError, TimeoutError, ConnectionError) as e:
         logger.exception("Periodic discovery sync failed: %s", e)
 
 
@@ -529,5 +543,5 @@ async def _execute_data_cleanup() -> None:
                 total_deleted,
             )
 
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.exception("Data retention cleanup failed: %s", e)

@@ -15,6 +15,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from websockets.asyncio.client import connect as ws_connect
 
 if TYPE_CHECKING:
@@ -100,7 +101,7 @@ class HAEventStream:
                         await self._handler(event.get("event", {}))
                 except json.JSONDecodeError:
                     logger.warning("Failed to decode event: %s", raw_msg[:200])
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, ConnectionError):
                     logger.exception("Error processing event")
 
     async def stop(self) -> None:

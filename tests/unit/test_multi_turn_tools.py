@@ -15,6 +15,17 @@ from src.agents.architect import ArchitectWorkflow
 from src.graph.state import ConversationState
 
 
+@pytest.fixture(autouse=True)
+def _patch_get_chat_setting():
+    """Prevent _stream_inner from calling get_session_factory via get_chat_setting."""
+    with patch(
+        "src.dal.app_settings.get_chat_setting",
+        new_callable=AsyncMock,
+        return_value=10,
+    ):
+        yield
+
+
 def _make_workflow():
     """Create an ArchitectWorkflow with mocked internals."""
     mock_agent = MagicMock()
@@ -100,8 +111,8 @@ class TestMultiTurnToolLoop:
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
 
         with (
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             events = []
             async for event in workflow.stream_conversation(state, "check lights"):
@@ -155,8 +166,8 @@ class TestMultiTurnToolLoop:
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
 
         with (
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             events = []
             async for event in workflow.stream_conversation(state, "infinite loop"):
@@ -207,8 +218,8 @@ class TestMultiTurnToolLoop:
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
 
         with (
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             events = []
             async for event in workflow.stream_conversation(state, "check light"):

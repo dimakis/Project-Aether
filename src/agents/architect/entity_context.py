@@ -17,6 +17,8 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from sqlalchemy.exc import SQLAlchemyError
+
 if TYPE_CHECKING:
     from src.graph.state import ConversationState
 
@@ -95,7 +97,7 @@ async def get_entity_context(
 
         context = base_context + mentioned_section if mentioned_section else base_context
         return context, None
-    except Exception as e:
+    except (SQLAlchemyError, KeyError, ValueError, RuntimeError) as e:
         warning = f"Entity context unavailable: {e}"
         logger.warning(warning)
         return None, warning

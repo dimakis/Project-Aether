@@ -16,6 +16,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.base_analyst import BaseAnalyst
@@ -117,8 +118,8 @@ class DiagnosticAnalyst(BaseAnalyst):
                     }
                 else:
                     data["error_log"] = {"entry_count": 0, "summary": {}}
-            except Exception as e:
-                logger.warning(f"Error fetching error log: {e}")
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+                logger.warning("Error fetching error log: %s", e)
                 data["error_log"] = {"error": str(e)}
 
             # Include diagnostic context from Architect
@@ -129,8 +130,8 @@ class DiagnosticAnalyst(BaseAnalyst):
             log_metric("diagnostic.unhealthy_integrations", float(len(unhealthy)))
             log_param("diagnostic.config_valid", config_result.result == "valid")
 
-        except Exception as e:
-            logger.warning(f"Error collecting diagnostic data: {e}")
+        except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+            logger.warning("Error collecting diagnostic data: %s", e)
             data["error"] = str(e)
 
         # Include prior findings from other specialists

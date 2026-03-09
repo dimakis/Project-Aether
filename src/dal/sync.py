@@ -8,6 +8,9 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -151,7 +154,7 @@ class DiscoverySyncService:
                 "services_not_available": True,
             }
 
-        except Exception as e:
+        except (SQLAlchemyError, httpx.HTTPError, TimeoutError, ConnectionError) as e:
             discovery.status = DiscoveryStatus.FAILED
             discovery.error_message = str(e)
             discovery.completed_at = datetime.now(UTC)
@@ -357,7 +360,7 @@ class DiscoverySyncService:
             config: dict[str, Any] | None = None
             try:
                 config = await self.ha.get_automation_config(ha_automation_id)
-            except Exception as exc:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
                 logger.warning(
                     "Failed to fetch config for automation %s: %s",
                     ha_automation_id,
@@ -397,7 +400,7 @@ class DiscoverySyncService:
                 if script_config:
                     sequence = script_config.get("sequence")
                     fields = script_config.get("fields")
-            except Exception as exc:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
                 logger.warning(
                     "Failed to fetch config for script %s: %s",
                     script_id,

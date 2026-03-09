@@ -217,6 +217,7 @@ class TestChatCompletion:
             ),
             patch("src.api.routes.openai_compat.handlers.session_context") as mock_context,
             patch("src.api.routes.openai_compat.handlers.start_experiment_run") as mock_run,
+            patch.dict("sys.modules", {"mlflow": MagicMock()}),
         ):
             mock_context.return_value.__enter__ = MagicMock()
             mock_context.return_value.__exit__ = MagicMock(return_value=False)

@@ -26,7 +26,9 @@ _mlflow_logger.addHandler(logging.NullHandler())
 # Configure logging early before other imports
 import typer
 
-import src.logging_config  # noqa: F401
+from src.logging_config import configure_logging
+
+configure_logging()
 
 # Import command modules
 from src.cli.commands import analyze as analyze_commands

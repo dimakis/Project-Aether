@@ -17,6 +17,8 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
+from sqlalchemy.exc import SQLAlchemyError
+
 logger = logging.getLogger(__name__)
 
 _CACHE_TTL = 60
@@ -107,7 +109,7 @@ async def get_agent_runtime_config(agent_name: str) -> AgentRuntimeConfig | None
 
             return runtime_config
 
-    except Exception:
+    except SQLAlchemyError:
         logger.exception("Failed to load agent config for %s", agent_name)
         if entry:
             return entry.config

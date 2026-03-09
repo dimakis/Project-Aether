@@ -6,6 +6,9 @@ Module-level imports (emit_progress, log_param, etc.) are patched at
 src.agents.base.<name> because they were imported at module level in base.py.
 """
 
+import importlib
+import sys
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -150,8 +153,10 @@ class TestBaseAgentLogging:
     def test_log_metric_mlflow_error(self):
         """Should not raise when mlflow fails."""
         agent = ConcreteAgent(role=AgentRole.ARCHITECT)
-        with patch.dict("sys.modules", {"mlflow": None}):
-            # Should not raise
+        mock_mlflow = MagicMock()
+        mock_mlflow.active_run.side_effect = RuntimeError("MLflow server unavailable")
+        with patch.dict("sys.modules", {"mlflow": mock_mlflow}):
+            # Should not raise (RuntimeError is caught)
             agent.log_metric("accuracy", 0.95)
 
 
@@ -238,6 +243,26 @@ class TestBaseAgentStateContext:
             agent._log_state_context(mock_state)
             assert mock_log.call_count >= 2  # run_id + agent
 
+    def test_log_state_context_with_messages(self):
+        """_log_state_context logs message_count and latest_message when messages exist."""
+        agent = ConcreteAgent(role=AgentRole.ARCHITECT)
+        mock_msg = MagicMock()
+        mock_msg.content = "Hello"
+        mock_state = MagicMock(spec=BaseState)
+        mock_state.run_id = "run-123"
+        mock_state.current_agent = AgentRole.ARCHITECT
+        mock_state.messages = [mock_msg]
+        mock_state.conversation_id = "conv-1"
+
+        with (
+            patch("src.agents.base.log_param") as mock_log,
+            patch("src.tracing.context.get_session_id", return_value=None),
+        ):
+            agent._log_state_context(mock_state)
+            log_calls = {c[0][0]: c[0][1] for c in mock_log.call_args_list}
+            assert f"{agent.name}.message_count" in log_calls
+            assert log_calls[f"{agent.name}.message_count"] == 1
+
 
 class TestBaseAgentSpanIO:
     """Tests for _set_span_inputs and _set_span_outputs."""
@@ -264,6 +289,26 @@ class TestBaseAgentSpanIO:
         agent = ConcreteAgent(role=AgentRole.ARCHITECT)
         agent._set_span_outputs(None, {"result": "ok"})  # Should not raise
 
+    def test_set_span_inputs_fallback_set_attribute(self):
+        """When span has set_attribute but not set_inputs, uses fallback."""
+        agent = ConcreteAgent(role=AgentRole.ARCHITECT)
+        mock_span = MagicMock()
+        del mock_span.set_inputs
+        mock_span.set_attribute = MagicMock()
+        agent._set_span_inputs(mock_span, {"key": "value"})
+        mock_span.set_attribute.assert_called_once()
+        assert "inputs" in mock_span.set_attribute.call_args[0][0]
+
+    def test_set_span_outputs_fallback_set_attribute(self):
+        """When span has set_attribute but not set_outputs, uses fallback."""
+        agent = ConcreteAgent(role=AgentRole.ARCHITECT)
+        mock_span = MagicMock()
+        del mock_span.set_outputs
+        mock_span.set_attribute = MagicMock()
+        agent._set_span_outputs(mock_span, {"result": "ok"})
+        mock_span.set_attribute.assert_called_once()
+        assert "outputs" in mock_span.set_attribute.call_args[0][0]
+
 
 class TestLibrarianAgentInvoke:
     """Tests for LibrarianAgent.invoke."""
@@ -280,3 +325,36 @@ class TestLibrarianAgentInvoke:
             result = await agent.invoke(mock_state)
             assert result == expected
             mock_node.assert_called_once()
+
+
+class TestMlflowImportFallback:
+    """Tests for src.agents.base ImportError fallback when mlflow is unavailable."""
+
+    def test_mlflow_import_fallback_uses_fallback_exceptions(self) -> None:
+        """When MlflowException cannot be imported, _MLFLOW_EXCEPTIONS uses fallback tuple."""
+        # Create fake mlflow.exceptions without MlflowException to trigger ImportError
+        fake_mlflow = types.ModuleType("mlflow")
+        fake_exceptions = types.ModuleType("mlflow.exceptions")
+        # Do not add MlflowException to fake_exceptions
+
+        saved = {}
+        for key in ("mlflow", "mlflow.exceptions", "src.agents.base"):
+            saved[key] = sys.modules.get(key)
+
+        try:
+            sys.modules["mlflow"] = fake_mlflow
+            sys.modules["mlflow.exceptions"] = fake_exceptions
+            if "src.agents.base" in sys.modules:
+                del sys.modules["src.agents.base"]
+
+            base_mod = importlib.import_module("src.agents.base")
+            # Fallback: no MlflowException, only AttributeError, RuntimeError, ImportError
+            expected = (AttributeError, RuntimeError, ImportError)
+            assert expected == base_mod._MLFLOW_EXCEPTIONS
+        finally:
+            for key in ("mlflow", "mlflow.exceptions", "src.agents.base"):
+                if key in sys.modules:
+                    del sys.modules[key]
+            for key, val in saved.items():
+                if val is not None:
+                    sys.modules[key] = val

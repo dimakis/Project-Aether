@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 
 from langchain_core.tools import tool
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.dal import ProposalRepository
 from src.storage import get_session
@@ -167,7 +168,7 @@ async def _create_entity_command_proposal(
                 f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
                 f"Please review and approve it on the **Proposals** page before it takes effect."
             )
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error("Failed to create entity_command proposal: %s", e)
         return f"Failed to create proposal: {e}"
 
@@ -245,7 +246,7 @@ async def _create_automation_proposal(
                 f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
                 f"Please review the YAML and approve it on the **Proposals** page."
             )
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error("Failed to create automation proposal: %s", e)
         return f"Failed to create proposal: {e}"
 
@@ -287,7 +288,7 @@ async def _create_script_proposal(
                 f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
                 f"Please review and approve it on the **Proposals** page."
             )
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error("Failed to create script proposal: %s", e)
         return f"Failed to create proposal: {e}"
 
@@ -320,7 +321,7 @@ async def _create_scene_proposal(
                 f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
                 f"Please review and approve it on the **Proposals** page."
             )
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error("Failed to create scene proposal: %s", e)
         return f"Failed to create proposal: {e}"
 
@@ -359,7 +360,7 @@ async def _create_dashboard_proposal(
                 f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
                 f"Please review and approve it on the **Proposals** page."
             )
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error("Failed to create dashboard proposal: %s", e)
         return f"Failed to create proposal: {e}"
 
@@ -402,7 +403,7 @@ async def _create_helper_proposal(
                 f"- **Proposal ID**: `{proposal.id[:8]}...`\n\n"
                 f"Please review and approve it on the **Proposals** page."
             )
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error("Failed to create helper proposal: %s", e)
         return f"Failed to create proposal: {e}"
 

@@ -55,10 +55,10 @@ def start_run(
             mlflow.set_tag("session.id", session_id)
 
         return run
-    except Exception as e:
+    except (AttributeError, RuntimeError, ImportError) as e:
         import logging
 
-        logging.getLogger(__name__).debug(f"Failed to start run: {e}")
+        logging.getLogger(__name__).debug("Failed to start run: %s", e)
         return None
 
 
@@ -74,10 +74,10 @@ def end_run(status: str = "FINISHED") -> None:
 
     try:
         mlflow.end_run(status=status)
-    except Exception as e:
+    except (AttributeError, RuntimeError, ImportError) as e:
         import logging
 
-        logging.getLogger(__name__).debug(f"Failed to end run: {e}")
+        logging.getLogger(__name__).debug("Failed to end run: %s", e)
 
 
 @contextmanager
@@ -120,5 +120,5 @@ def get_active_run() -> Any:
 
     try:
         return mlflow.active_run()
-    except Exception:
+    except (AttributeError, RuntimeError, ImportError):
         return None

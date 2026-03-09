@@ -14,6 +14,17 @@ from langchain_core.messages import AIMessageChunk, HumanMessage
 from src.graph.state import ConversationState
 
 
+@pytest.fixture(autouse=True)
+def _patch_get_chat_setting():
+    """Prevent _stream_inner from calling get_session_factory via get_chat_setting."""
+    with patch(
+        "src.dal.app_settings.get_chat_setting",
+        new_callable=AsyncMock,
+        return_value=10,
+    ):
+        yield
+
+
 def _make_workflow():
     """Create ArchitectWorkflow with mocked agent (avoids real LLM import)."""
     from src.agents.architect.workflow import ArchitectWorkflow
@@ -45,8 +56,8 @@ class TestStreamConversationTracing:
 
         with (
             patch("src.agents.architect.workflow.mlflow") as mock_mlflow,
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             # Make @mlflow.trace a passthrough (we test event emission, not MLflow internals)
             mock_mlflow.trace = lambda **kw: lambda fn: fn
@@ -68,8 +79,8 @@ class TestStreamConversationTracing:
         """Session grouping should use metadata per MLflow 3.x docs."""
         with (
             patch("src.agents.architect.workflow.mlflow") as mock_mlflow,
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             mock_mlflow.trace = lambda **kw: lambda fn: fn
             mock_mlflow.get_current_active_span.return_value = None
@@ -98,8 +109,8 @@ class TestStreamConversationTracing:
 
         with (
             patch("src.agents.architect.workflow.mlflow") as mock_mlflow,
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             mock_mlflow.trace = mock_trace_decorator
             mock_mlflow.get_current_active_span.return_value = None
@@ -119,8 +130,8 @@ class TestStreamConversationTracing:
         """The stream should end with a state event."""
         with (
             patch("src.agents.architect.workflow.mlflow", None),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             workflow = _make_workflow()
             state = ConversationState(messages=[])
@@ -137,8 +148,8 @@ class TestStreamConversationTracing:
         """When mlflow is None, streaming works without tracing."""
         with (
             patch("src.agents.architect.workflow.mlflow", None),
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             workflow = _make_workflow()
             state = ConversationState(messages=[])

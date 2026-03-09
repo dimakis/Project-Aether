@@ -74,7 +74,7 @@ class TestFetchEntityRegistry:
     @pytest.mark.asyncio
     async def test_fetch_entity_registry_exception(self, ha_client):
         """Test exception handling."""
-        ha_client._request.side_effect = Exception("Network error")
+        ha_client._request.side_effect = ConnectionError("Network error")
 
         result = await ha_client._fetch_entity_registry()
 
@@ -111,7 +111,7 @@ class TestGetAreaRegistry:
     @pytest.mark.asyncio
     async def test_get_area_registry_exception(self, ha_client):
         """Test exception handling."""
-        ha_client._request.side_effect = Exception("Network error")
+        ha_client._request.side_effect = ConnectionError("Network error")
 
         result = await ha_client.get_area_registry()
 

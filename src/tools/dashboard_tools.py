@@ -6,6 +6,7 @@ and managing Lovelace dashboard configurations.
 
 from __future__ import annotations
 
+import httpx
 import yaml
 from langchain_core.tools import tool
 
@@ -34,7 +35,7 @@ async def generate_dashboard_yaml(title: str, areas: list[str] | None = None) ->
         # Fetch all entities once, then filter by area in memory
         try:
             all_entities = await ha.list_entities()
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ConnectionError):
             all_entities = []
 
         for area_id in areas:

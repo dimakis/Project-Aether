@@ -22,6 +22,8 @@ import warnings
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, cast
 
+import httpx
+
 from src.settings import get_settings
 
 if TYPE_CHECKING:
@@ -98,7 +100,14 @@ def _ensure_mlflow_initialized() -> bool:
         _check_trace_backend(uri)
         _mlflow_initialized = True
         return True
-    except Exception as e:
+    except (
+        AttributeError,
+        RuntimeError,
+        ImportError,
+        httpx.HTTPError,
+        TimeoutError,
+        ConnectionError,
+    ) as e:
         _mlflow_available = False
         _logger.debug("MLflow initialization failed: %s", e)
         return False
@@ -148,7 +157,14 @@ def _check_trace_backend(uri: str) -> None:
         # Server is healthy, enable traces
         _traces_available = True
         _logger.debug("MLflow HTTP trace backend enabled")
-    except Exception as e:
+    except (
+        AttributeError,
+        RuntimeError,
+        ImportError,
+        httpx.HTTPError,
+        TimeoutError,
+        ConnectionError,
+    ) as e:
         _disable_traces(f"trace backend check failed: {e}")
 
 
@@ -174,7 +190,7 @@ def _disable_traces(reason: str) -> None:
             tracing = mlflow.tracing
             if hasattr(tracing, "disable"):
                 tracing.disable()
-    except Exception:
+    except (AttributeError, RuntimeError, ImportError):
         _logger.debug("Failed to disable MLflow tracing via API", exc_info=True)
 
     _logger.debug("MLflow trace logging disabled: %s", reason)
@@ -215,7 +231,7 @@ def enable_autolog() -> None:
         _logger.debug("MLflow OpenAI autolog enabled")
     except AttributeError:
         _logger.debug("MLflow OpenAI autolog not available (mlflow.openai missing)")
-    except Exception as e:
+    except (RuntimeError, ImportError) as e:
         _logger.debug("Failed to enable OpenAI autolog: %s", e)
 
     # Enable LangChain autolog only when the optional dependency is installed
@@ -233,7 +249,7 @@ def enable_autolog() -> None:
             _logger.debug("MLflow LangChain autolog enabled with input logging")
         except AttributeError:
             _logger.debug("MLflow LangChain autolog not available (mlflow.langchain missing)")
-        except Exception as e:
+        except (RuntimeError, ImportError) as e:
             _logger.debug("Failed to enable LangChain autolog: %s", e)
     else:
         _logger.debug("LangChain not installed; skipping MLflow LangChain autolog")
@@ -265,7 +281,7 @@ def init_mlflow() -> object:
         get_or_create_experiment(experiment_name)
         mlflow.set_experiment(experiment_name)
         _logger.debug("MLflow active experiment set to '%s'", experiment_name)
-    except Exception as e:
+    except (AttributeError, RuntimeError, ImportError) as e:
         _logger.debug("Failed to set MLflow experiment: %s", e)
 
     # Enable autolog when initializing
@@ -276,7 +292,14 @@ def init_mlflow() -> object:
 
         settings = get_settings()
         return MlflowClient(tracking_uri=settings.mlflow_tracking_uri)
-    except Exception as e:
+    except (
+        AttributeError,
+        RuntimeError,
+        ImportError,
+        httpx.HTTPError,
+        TimeoutError,
+        ConnectionError,
+    ) as e:
         _logger.debug("Failed to create MLflow client: %s", e)
         return None
 
@@ -308,6 +331,13 @@ def get_or_create_experiment(name: str | None = None) -> str | None:
             experiment_id = experiment.experiment_id
 
         return cast("str", experiment_id)
-    except Exception as e:
+    except (
+        AttributeError,
+        RuntimeError,
+        ImportError,
+        httpx.HTTPError,
+        TimeoutError,
+        ConnectionError,
+    ) as e:
         _logger.debug("Failed to get/create experiment: %s", e)
         return None

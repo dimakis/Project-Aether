@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 
+import httpx
 from langchain_core.tools import tool
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.agents.execution_context import emit_delegation, emit_progress
 from src.agents.synthesis import ProgrammaticSynthesizer
@@ -97,7 +99,7 @@ async def consult_data_science_team(
                     strategy=strategy,
                     conversation_id=_ctx.conversation_id if _ctx else None,
                 )
-        except Exception as e:
+        except SQLAlchemyError as e:
             logger.warning("Failed to create analysis report: %s", e)
 
     # 3. Run selected specialists using the chosen strategy
@@ -127,7 +129,7 @@ async def consult_data_science_team(
                 synth = ProgrammaticSynthesizer()
                 ta = synth.synthesize(ta)
                 _set_team_analysis(ta)
-            except Exception as e:
+            except (ValueError, KeyError, AttributeError) as e:
                 logger.warning("Programmatic synthesis failed: %s", e)
 
         # 4b. Adaptive escalation: if conflicts detected in parallel mode,
@@ -160,7 +162,7 @@ async def consult_data_science_team(
                         f"\n**Escalation Discussion:** {len(disc_entries)} "
                         f"discussion message(s) to resolve conflicts"
                     )
-            except Exception as e:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
                 logger.warning("Escalation discussion failed: %s", e)
 
         # 5. Format unified response
@@ -198,7 +200,7 @@ async def consult_data_science_team(
                         insight_ids=insight_ids,
                         communication_log=comm_log,
                     )
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.warning("Failed to complete analysis report: %s", e)
 
         # Emit delegation: DS team -> architect with the synthesized report
@@ -218,7 +220,7 @@ async def consult_data_science_team(
                         report_id=str(report_obj.id),
                         summary=str(exc)[:500],
                     )
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.warning("Failed to mark analysis report as failed: %s", e)
 
         emit_progress("agent_end", "data_science_team", "Data Science Team failed")

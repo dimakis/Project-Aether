@@ -13,6 +13,8 @@ This module acts as a thin facade that combines domain-specific
 functionality from base, entities, automations, and diagnostics modules.
 """
 
+import httpx
+
 from src.ha.automations import AutomationMixin
 from src.ha.base import (
     BaseHAClient,
@@ -95,7 +97,7 @@ async def _resolve_zone_config_async(zone_id: str) -> HAClientConfig | None:
                 ha_token=ha_token,
                 url_preference=url_preference,
             )
-    except Exception as exc:
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
         logger.warning("zone_config_resolution_failed", zone_id=zone_id, reason=str(exc))
         return None
 
@@ -111,7 +113,7 @@ def _resolve_zone_config(zone_id: str) -> HAClientConfig | None:
         pass
     try:
         return asyncio.run(_resolve_zone_config_async(zone_id))
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ConnectionError):
         return None
 
 
@@ -154,7 +156,7 @@ async def _close_client_safe(client: HAClient, key: str) -> None:
     logger = structlog.get_logger(__name__)
     try:
         await client.close()
-    except Exception as exc:
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
         logger.warning("ha_client_close_failed", zone_id=key, error=str(exc))
 
 

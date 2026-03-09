@@ -99,7 +99,7 @@ class TestBaseAnalystDiscuss:
         analyst = _make_analyst()
 
         mock_llm = AsyncMock()
-        mock_llm.ainvoke = AsyncMock(side_effect=RuntimeError("LLM down"))
+        mock_llm.ainvoke = AsyncMock(side_effect=ConnectionError("LLM down"))
         analyst._llm = mock_llm
 
         entries = await analyst.discuss("test summary")

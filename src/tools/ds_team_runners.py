@@ -36,7 +36,7 @@ def _capture_parent_span_context() -> tuple[str | None, float | None, str | None
         active_span = get_active_span()
         if active_span and hasattr(active_span, "span_id"):
             parent_span_id = active_span.span_id
-    except Exception:
+    except (AttributeError, LookupError):
         logger.debug("Failed to get active span for parent span ID", exc_info=True)
     return model_name, temperature, parent_span_id
 

@@ -20,7 +20,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.agents.base import BaseAgent
 from src.graph.state import AgentRole, ConversationState
@@ -109,7 +111,7 @@ class OrchestratorAgent(BaseAgent):
                     HumanMessage(content=user_message),
                 ]
             )
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ConnectionError):
             logger.warning("LLM classification call failed", exc_info=True)
             return {
                 "agent": FALLBACK_AGENT,
@@ -186,7 +188,7 @@ class OrchestratorAgent(BaseAgent):
                 ]
             finally:
                 await session.close()
-        except Exception:
+        except SQLAlchemyError:
             logger.warning("Failed to fetch available agents", exc_info=True)
             return []
 
@@ -329,7 +331,7 @@ class OrchestratorAgent(BaseAgent):
                     for item in items[:5]
                     if item.get("title")
                 ]
-        except Exception:
+        except (json.JSONDecodeError, ValueError, httpx.HTTPError, TimeoutError, ConnectionError):
             logger.warning("Failed to generate clarification options", exc_info=True)
 
         return [

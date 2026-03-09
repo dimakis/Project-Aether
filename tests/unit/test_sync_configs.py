@@ -136,11 +136,16 @@ class TestSyncConfigEnrichment:
 
     async def test_config_fetch_failure_does_not_break_sync(self):
         """A failed config fetch should not prevent the entity from being synced."""
+        import httpx
+
         from src.dal.sync import DiscoverySyncService
 
         ha_client = AsyncMock()
-        ha_client.get_automation_config = AsyncMock(side_effect=Exception("HA 404"))
-        ha_client.get_script_config = AsyncMock(side_effect=Exception("HA 404"))
+        req = httpx.Request("GET", "http://localhost/api/config/automation/config/broken")
+        resp = httpx.Response(404)
+        ha_err = httpx.HTTPStatusError("HA 404", request=req, response=resp)
+        ha_client.get_automation_config = AsyncMock(side_effect=ha_err)
+        ha_client.get_script_config = AsyncMock(side_effect=ha_err)
 
         mock_auto_repo = AsyncMock()
         mock_auto_repo.upsert = AsyncMock(return_value=(MagicMock(), True))

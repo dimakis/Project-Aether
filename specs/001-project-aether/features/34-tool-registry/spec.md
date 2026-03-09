@@ -95,6 +95,95 @@ As an admin using the agent configuration page, I want to assign tool groups to 
 - **ToolGroup**: Named collection of tool names with read-only classification. UUID PK, unique name, display_name, description, tool_names (JSONB), is_read_only (bool).
 - **AgentConfigVersion** (extended): Adds `tool_groups_enabled` JSONB column.
 
+## Performance Considerations
+
+Dynamic tool assignment is a neutral mechanism -- the performance impact depends
+entirely on **what tools are placed in the set**. This section captures the
+trade-offs so future operators and contributors can make informed decisions.
+
+### LLM Tool Surface Cost
+
+Every tool bound to the LLM is serialised into the prompt as a JSON schema
+(name, description, parameter types, docstring). The model reads all schemas on
+every invocation to decide which tool (if any) to call.
+
+| Metric | 16 tools (current Architect) | 30 tools | 50 tools |
+|--------|-----|-----|-----|
+| Schema tokens per turn | ~2,400–4,800 | ~4,500–9,000 | ~7,500–15,000 |
+| Selection accuracy | High (curated) | Begins to degrade | Measurably worse |
+| Time-to-first-token | Baseline | +10–20% | +25–40% |
+
+At ~150–300 tokens per tool schema, going from 16 to 40 tools adds 2,400–7,200
+tokens of overhead to **every turn**, including turns where no tool is used.
+
+### Tool Selection Accuracy
+
+Models make more errors when the tool surface is large:
+
+- **Hallucinated tool names** -- the model invents a tool that doesn't exist.
+- **Near-miss selection** -- the model picks a semantically close but wrong tool
+  (e.g. `get_entity_state` vs `search_entities` vs `list_entities_by_domain`).
+- **Unnecessary invocation** -- the model calls a tool when it already has the
+  information in context.
+
+**Guideline**: Keep any single agent's bound tool set under ~25 tools. The
+current 16-tool Architect set is deliberately lean because the Architect is a
+router, not an executor. If more tools are needed, prefer delegation
+(`consult_data_science_team`, `consult_dashboard_designer`) over binding
+additional tools directly.
+
+### Two-Stage Tool Selection (Future Pattern)
+
+For agents with 30+ tools, a two-stage approach becomes attractive:
+
+1. **Index stage**: Bind a lightweight index (tool name + one-sentence summary,
+   ~15–25 tokens each) into every prompt.
+2. **Retrieval stage**: When the model decides it needs a tool, a second LLM
+   call retrieves the full schema and executes the invocation.
+
+**Trade-offs**:
+
+| Factor | Full schemas (current) | Two-stage |
+|--------|----------------------|-----------|
+| Tokens per no-tool turn | High (all schemas) | Low (index only) |
+| Tokens per tool turn | Same | Higher (index + second call) |
+| Latency per tool turn | One LLM call | Two LLM calls (+1–3s) |
+| Selection accuracy | Full signal | Reduced (summary-only signal) |
+
+Two-stage wins when tool use is **infrequent** and the catalog is **large**
+(50+ tools). It loses when most turns trigger a tool -- which is the case for the
+Architect today (~60–70% of non-trivial turns).
+
+**Hybrid approach**: Keep the hot-path tools (the current 16) fully bound, and
+put the long-tail catalog behind retrieval. This preserves accuracy for common
+tools while giving on-demand access to the full set without context bloat.
+
+### DB Resolution Overhead
+
+The config-driven path adds:
+
+- **One DB round-trip** to load `AgentRuntimeConfig` via `get_agent_runtime_config()`.
+- **One more DB round-trip** when `tool_groups_enabled` is set (the
+  `_expand_tool_groups()` call).
+
+Both are mitigated by TTL caching (60s default in `config_cache.py`), so after
+the first request the cost is a dict lookup until the cache expires. This is
+negligible compared to LLM call latency (1–5s).
+
+### Guardrail Recommendations
+
+When wiring the config-driven path into the live conversation flow:
+
+1. **Max tool count per agent** -- Enforce a ceiling (~25) at config promotion
+   time. Reject promotions that exceed it.
+2. **Tool group size lint** -- Warn when a group exceeds 10 tools. Large groups
+   are a sign the abstraction needs splitting.
+3. **Selection accuracy monitoring** -- Track tool call success rate per agent in
+   MLflow traces (existing `tool_usage_safety` scorer). Alert on degradation
+   after tool set changes.
+4. **Fallback preservation** -- The hardcoded curator sets must remain as
+   fallbacks (FR-007). Never remove `get_architect_tools()`.
+
 ## Success Criteria
 
 ### Measurable Outcomes

@@ -20,6 +20,17 @@ from src.agents.execution_context import (
 from src.graph.state import ConversationState
 
 
+@pytest.fixture(autouse=True)
+def _patch_get_chat_setting():
+    """Prevent _stream_inner from calling get_session_factory via get_chat_setting."""
+    with patch(
+        "src.dal.app_settings.get_chat_setting",
+        new_callable=AsyncMock,
+        return_value=10,
+    ):
+        yield
+
+
 def _make_workflow():
     """Create an ArchitectWorkflow with mocked internals."""
     mock_agent = MagicMock()
@@ -96,8 +107,8 @@ class TestStreamProgressEvents:
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
 
         with (
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             events = []
             async for event in workflow.stream_conversation(state, "test message"):
@@ -164,8 +175,8 @@ class TestStreamProgressEvents:
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
 
         with (
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             events = []
             async for event in workflow.stream_conversation(state, "test"):
@@ -225,8 +236,8 @@ class TestDrainLoopExitsImmediately:
         workflow.agent.get_tool_llm = MagicMock(return_value=tool_llm_mock)
 
         with (
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
         ):
             t0 = _time.monotonic()
             events = []
@@ -293,8 +304,8 @@ class TestToolTimeout:
 
         # Patch settings to use a very short timeout
         with (
-            patch("src.agents.architect.workflow.get_architect_tools", return_value=[mock_tool]),
-            patch("src.agents.architect.workflow.is_mutating_tool", return_value=False),
+            patch("src.tools.get_architect_tools", return_value=[mock_tool], create=True),
+            patch("src.tools.is_mutating_tool", return_value=False, create=True),
             patch("src.agents.streaming.dispatcher.get_settings") as mock_settings,
         ):
             settings = MagicMock()

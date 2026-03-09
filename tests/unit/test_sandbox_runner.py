@@ -243,7 +243,7 @@ class TestIsGvisorAvailable:
 
         with patch(
             "asyncio.create_subprocess_exec",
-            side_effect=Exception("not found"),
+            side_effect=OSError("not found"),
         ):
             result = await runner._is_gvisor_available()
             assert result is False

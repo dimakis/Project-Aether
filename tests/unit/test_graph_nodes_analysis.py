@@ -92,7 +92,7 @@ class TestCollectBehavioralDataNode:
 
         mock_ha = MagicMock()
         mock_logbook = MagicMock()
-        mock_logbook.get_stats = AsyncMock(side_effect=Exception("HA error"))
+        mock_logbook.get_stats = AsyncMock(side_effect=ConnectionError("HA error"))
 
         with patch("src.ha.LogbookHistoryClient", return_value=mock_logbook):
             result = await collect_behavioral_data_node(_make_state(), ha_client=mock_ha)
@@ -119,7 +119,7 @@ class TestAnalyzeAndSuggestNode:
         from src.graph.nodes.analysis import analyze_and_suggest_node
 
         mock_agent = MagicMock()
-        mock_agent.invoke = AsyncMock(side_effect=Exception("Agent failed"))
+        mock_agent.invoke = AsyncMock(side_effect=ConnectionError("Agent failed"))
         mock_agent.role = MagicMock()
         mock_agent.role.value = "data_scientist"
 

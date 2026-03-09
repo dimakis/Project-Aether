@@ -188,9 +188,11 @@ class TestSchedulerSyncJobs:
 
         svc._scheduler = MagicMock()
 
+        from sqlalchemy.exc import SQLAlchemyError
+
         with patch(
             "src.storage.get_session",
-            side_effect=Exception("DB unavailable"),
+            side_effect=SQLAlchemyError("DB unavailable"),
         ):
             await svc.sync_jobs()  # Should not raise
 
@@ -283,6 +285,12 @@ class TestExecuteScheduledAnalysis:
         mock_repo = MagicMock()
         mock_repo.get = AsyncMock(return_value=mock_schedule)
 
+        mock_notifier = MagicMock()
+        mock_notifier.notify_if_actionable = AsyncMock(return_value=0)
+
+        mock_insight_repo = MagicMock()
+        mock_insight_repo.list_recent = AsyncMock(return_value=[])
+
         with (
             patch("src.storage.get_session", return_value=mock_session),
             patch(
@@ -290,6 +298,15 @@ class TestExecuteScheduledAnalysis:
                 return_value=mock_repo,
             ),
             patch("src.graph.workflows.run_analysis_workflow", new_callable=AsyncMock),
+            patch(
+                "src.hitl.insight_notifier.InsightNotifier.from_settings",
+                new_callable=AsyncMock,
+                return_value=mock_notifier,
+            ),
+            patch(
+                "src.dal.insights.InsightRepository",
+                return_value=mock_insight_repo,
+            ),
         ):
             await _execute_scheduled_analysis("sched-1")
 
@@ -378,10 +395,12 @@ class TestExecuteDiscoverySync:
         mock_service.run_delta_sync.assert_called_once()
 
     async def test_execute_handles_error(self):
+        from sqlalchemy.exc import SQLAlchemyError
+
         from src.scheduler.service import _execute_discovery_sync
 
         with patch(
             "src.storage.get_session",
-            side_effect=Exception("DB down"),
+            side_effect=SQLAlchemyError("DB down"),
         ):
             await _execute_discovery_sync()  # Should not raise

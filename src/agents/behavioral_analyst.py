@@ -18,6 +18,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agents.base_analyst import BaseAnalyst
@@ -179,8 +180,8 @@ class BehavioralAnalyst(BaseAnalyst):
             log_metric("behavioral.entity_count", float(data.get("entity_count", 0)))
             log_param("behavioral.analysis_type", state.analysis_type.value)
 
-        except Exception as e:
-            logger.warning(f"Error collecting behavioral data: {e}")
+        except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+            logger.warning("Error collecting behavioral data: %s", e)
             data["error"] = str(e)
 
         # Include prior findings from other specialists
@@ -337,8 +338,8 @@ class BehavioralAnalyst(BaseAnalyst):
                 "automation_triggered_total": stats.automation_triggers,
                 "manual_triggered_total": stats.manual_actions,
             }
-        except Exception as e:
-            logger.warning(f"Error collecting script/scene usage: {e}")
+        except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+            logger.warning("Error collecting script/scene usage: %s", e)
             return {}
 
     async def _collect_trigger_source_breakdown(
@@ -367,8 +368,8 @@ class BehavioralAnalyst(BaseAnalyst):
                 "automation_ratio": (stats.automation_triggers / total if total > 0 else 0.0),
                 "human_ratio": (stats.manual_actions / total if total > 0 else 0.0),
             }
-        except Exception as e:
-            logger.warning(f"Error collecting trigger breakdown: {e}")
+        except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+            logger.warning("Error collecting trigger breakdown: %s", e)
             return {}
 
     # -----------------------------------------------------------------

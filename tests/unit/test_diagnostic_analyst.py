@@ -38,6 +38,7 @@ class TestDiagnosticAnalystCollectData:
     async def test_collects_entity_health_data(self):
         """Should find unavailable/unhealthy entities."""
         mock_ha = MagicMock()
+        mock_ha.get_error_log = AsyncMock(return_value="")
         analyst = DiagnosticAnalyst(ha_client=mock_ha)
 
         state = AnalysisState(
@@ -60,7 +61,7 @@ class TestDiagnosticAnalystCollectData:
             patch(
                 "src.agents.diagnostic_analyst.run_config_check",
                 new_callable=AsyncMock,
-                return_value=MagicMock(valid=True, errors=[], warnings=[]),
+                return_value=MagicMock(result="valid", errors=[], warnings=[]),
             ),
         ):
             data = await analyst.collect_data(state)
@@ -95,7 +96,7 @@ class TestDiagnosticAnalystCollectData:
             patch(
                 "src.agents.diagnostic_analyst.run_config_check",
                 new_callable=AsyncMock,
-                return_value=MagicMock(valid=True, errors=[], warnings=[]),
+                return_value=MagicMock(result="valid", errors=[], warnings=[]),
             ),
             patch(
                 "src.agents.diagnostic_analyst.parse_error_log",
@@ -138,7 +139,7 @@ class TestDiagnosticAnalystCollectData:
             patch(
                 "src.agents.diagnostic_analyst.run_config_check",
                 new_callable=AsyncMock,
-                return_value=MagicMock(valid=True, errors=[], warnings=[]),
+                return_value=MagicMock(result="valid", errors=[], warnings=[]),
             ),
             patch(
                 "src.agents.diagnostic_analyst.parse_error_log",

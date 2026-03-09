@@ -4,7 +4,7 @@ Wraps the ArchitectAgent as a single-agent A2A service.
 The primary conversational agent that handles user intent,
 generates proposals, and delegates to the DS team.
 
-Entrypoint: ``uvicorn src.services.architect:app``
+Entrypoint: ``uvicorn src.services.architect:app --factory``
 """
 
 from __future__ import annotations
@@ -48,4 +48,4 @@ def create_architect_service() -> Starlette:
     )
 
 
-app = create_architect_service()
+app = create_architect_service

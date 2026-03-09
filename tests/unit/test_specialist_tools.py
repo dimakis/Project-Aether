@@ -35,9 +35,17 @@ class TestConsultEnergyAnalyst:
             }
         )
 
-        with patch(
-            "src.tools.specialist_consult_tools.EnergyAnalyst",
-            return_value=mock_analyst,
+        with (
+            patch(
+                "src.tools.specialist_consult_tools.EnergyAnalyst",
+                return_value=mock_analyst,
+            ),
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch("src.ha.base._try_get_db_config", return_value=None),
         ):
             result = await consult_energy_analyst.ainvoke(
                 {
@@ -55,9 +63,17 @@ class TestConsultEnergyAnalyst:
         mock_analyst = MagicMock()
         mock_analyst.invoke = AsyncMock(side_effect=Exception("HA unavailable"))
 
-        with patch(
-            "src.tools.specialist_consult_tools.EnergyAnalyst",
-            return_value=mock_analyst,
+        with (
+            patch(
+                "src.tools.specialist_consult_tools.EnergyAnalyst",
+                return_value=mock_analyst,
+            ),
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch("src.ha.base._try_get_db_config", return_value=None),
         ):
             result = await consult_energy_analyst.ainvoke(
                 {
@@ -83,9 +99,17 @@ class TestConsultBehavioralAnalyst:
             }
         )
 
-        with patch(
-            "src.tools.specialist_consult_tools.BehavioralAnalyst",
-            return_value=mock_analyst,
+        with (
+            patch(
+                "src.tools.specialist_consult_tools.BehavioralAnalyst",
+                return_value=mock_analyst,
+            ),
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch("src.ha.base._try_get_db_config", return_value=None),
         ):
             result = await consult_behavioral_analyst.ainvoke(
                 {
@@ -113,9 +137,17 @@ class TestConsultDiagnosticAnalyst:
             }
         )
 
-        with patch(
-            "src.tools.specialist_consult_tools.DiagnosticAnalyst",
-            return_value=mock_analyst,
+        with (
+            patch(
+                "src.tools.specialist_consult_tools.DiagnosticAnalyst",
+                return_value=mock_analyst,
+            ),
+            patch(
+                "src.tools.specialist_consult_tools.is_agent_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch("src.ha.base._try_get_db_config", return_value=None),
         ):
             result = await consult_diagnostic_analyst.ainvoke(
                 {
@@ -346,7 +378,7 @@ class TestConsultDataScienceTeamParallel:
             patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
-                return_value=MagicMock(team_analysis=None),
+                return_value=MagicMock(team_analysis=None, session_factory=None),
             ),
         ):
             from src.tools.specialist_tools import consult_data_science_team
@@ -395,7 +427,7 @@ class TestConsultDataScienceTeamParallel:
             patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
-                return_value=MagicMock(team_analysis=None),
+                return_value=MagicMock(team_analysis=None, session_factory=None),
             ),
         ):
             from src.tools.specialist_tools import consult_data_science_team
@@ -431,7 +463,7 @@ class TestConsultDataScienceTeamParallel:
             patch("src.tools.ds_team_runners._set_team_analysis"),
             patch(
                 "src.agents.execution_context.get_execution_context",
-                return_value=MagicMock(team_analysis=None),
+                return_value=MagicMock(team_analysis=None, session_factory=None),
             ),
         ):
             from src.tools.specialist_tools import consult_data_science_team

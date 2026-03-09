@@ -72,7 +72,7 @@ class AnalystConfigMixin:
                 self.NAME,
             )
             findings = []
-        except Exception:
+        except (ValueError, KeyError, TypeError, AttributeError):
             logger.warning("%s: failed to parse analyze_config LLM response", self.NAME)
             findings = []
 

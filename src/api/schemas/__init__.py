@@ -2,95 +2,120 @@
 
 Provides reusable schema definitions for consistent
 API responses across all endpoints.
+
+Submodule schemas use lazy imports to reduce startup cost.
 """
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-# Import entity schemas
-from src.api.schemas.areas import AreaListResponse, AreaResponse
-from src.api.schemas.conversations import (
-    ChatRequest,
-    ChatResponse,
-    ConversationCreate,
-    ConversationDetailResponse,
-    ConversationListResponse,
-    ConversationResponse,
-    MessageCreate,
-    MessageResponse,
-    StreamChunk,
-)
-from src.api.schemas.devices import DeviceListResponse, DeviceResponse
-from src.api.schemas.entities import (
-    EntityListResponse,
-    EntityQueryRequest,
-    EntityQueryResult,
-    EntityResponse,
-    EntitySyncRequest,
-    EntitySyncResponse,
-)
-from src.api.schemas.ha_automations import (
-    AutomationListResponse,
-    AutomationResponse,
-    HARegistrySummary,
-    SceneListResponse,
-    SceneResponse,
-    ScriptListResponse,
-    ScriptResponse,
-    ServiceCallRequest,
-    ServiceCallResponse,
-    ServiceListResponse,
-    ServiceResponse,
-)
-from src.api.schemas.helpers import (
-    HelperCreateRequest,
-    HelperCreateResponse,
-    HelperDeleteResponse,
-    HelperListResponse,
-    HelperResponse,
-    HelperType,
-)
-from src.api.schemas.insights import (
-    ActionRequest,
-    AnalysisJob,
-    AnalysisJobResponse,
-    AnalysisRequest,
-    DismissRequest,
-    EnergyOverviewResponse,
-    EnergyStatsResponse,
-    InsightCreate,
-    InsightListResponse,
-    InsightResponse,
-    InsightStatus,
-    InsightSummary,
-    InsightType,
-    ReviewRequest,
-)
-from src.api.schemas.optimization import (
-    AutomationSuggestionResponse,
-    OptimizationAnalysisType,
-    OptimizationRequest,
-    OptimizationResult,
-    SuggestionAcceptRequest,
-    SuggestionListResponse,
-    SuggestionRejectRequest,
-    SuggestionStatus,
-)
-from src.api.schemas.proposals import (
-    ApprovalRequest,
-    DeploymentRequest,
-    DeploymentResponse,
-    ProposalCreate,
-    ProposalListResponse,
-    ProposalResponse,
-    ProposalYAMLResponse,
-    RejectionRequest,
-    RollbackRequest,
-    RollbackResponse,
-)
+_EXPORTS = {
+    "AreaListResponse": "src.api.schemas.areas",
+    "AreaResponse": "src.api.schemas.areas",
+    "ChatRequest": "src.api.schemas.conversations",
+    "ChatResponse": "src.api.schemas.conversations",
+    "ConversationCreate": "src.api.schemas.conversations",
+    "ConversationDetailResponse": "src.api.schemas.conversations",
+    "ConversationListResponse": "src.api.schemas.conversations",
+    "ConversationResponse": "src.api.schemas.conversations",
+    "MessageCreate": "src.api.schemas.conversations",
+    "MessageResponse": "src.api.schemas.conversations",
+    "StreamChunk": "src.api.schemas.conversations",
+    "DeviceListResponse": "src.api.schemas.devices",
+    "DeviceResponse": "src.api.schemas.devices",
+    "EntityListResponse": "src.api.schemas.entities",
+    "EntityQueryRequest": "src.api.schemas.entities",
+    "EntityQueryResult": "src.api.schemas.entities",
+    "EntityResponse": "src.api.schemas.entities",
+    "EntitySyncRequest": "src.api.schemas.entities",
+    "EntitySyncResponse": "src.api.schemas.entities",
+    "AutomationListResponse": "src.api.schemas.ha_automations",
+    "AutomationResponse": "src.api.schemas.ha_automations",
+    "HARegistrySummary": "src.api.schemas.ha_automations",
+    "SceneListResponse": "src.api.schemas.ha_automations",
+    "SceneResponse": "src.api.schemas.ha_automations",
+    "ScriptListResponse": "src.api.schemas.ha_automations",
+    "ScriptResponse": "src.api.schemas.ha_automations",
+    "ServiceCallRequest": "src.api.schemas.ha_automations",
+    "ServiceCallResponse": "src.api.schemas.ha_automations",
+    "ServiceListResponse": "src.api.schemas.ha_automations",
+    "ServiceResponse": "src.api.schemas.ha_automations",
+    "HelperCreateRequest": "src.api.schemas.helpers",
+    "HelperCreateResponse": "src.api.schemas.helpers",
+    "HelperDeleteResponse": "src.api.schemas.helpers",
+    "HelperListResponse": "src.api.schemas.helpers",
+    "HelperResponse": "src.api.schemas.helpers",
+    "HelperType": "src.api.schemas.helpers",
+    "ActionRequest": "src.api.schemas.insights",
+    "AnalysisJob": "src.api.schemas.insights",
+    "AnalysisJobResponse": "src.api.schemas.insights",
+    "AnalysisRequest": "src.api.schemas.insights",
+    "DismissRequest": "src.api.schemas.insights",
+    "EnergyOverviewResponse": "src.api.schemas.insights",
+    "EnergyStatsResponse": "src.api.schemas.insights",
+    "InsightCreate": "src.api.schemas.insights",
+    "InsightListResponse": "src.api.schemas.insights",
+    "InsightResponse": "src.api.schemas.insights",
+    "InsightStatus": "src.api.schemas.insights",
+    "InsightSummary": "src.api.schemas.insights",
+    "InsightType": "src.api.schemas.insights",
+    "ReviewRequest": "src.api.schemas.insights",
+    "AutomationSuggestionResponse": "src.api.schemas.optimization",
+    "OptimizationAnalysisType": "src.api.schemas.optimization",
+    "OptimizationRequest": "src.api.schemas.optimization",
+    "OptimizationResult": "src.api.schemas.optimization",
+    "SuggestionAcceptRequest": "src.api.schemas.optimization",
+    "SuggestionListResponse": "src.api.schemas.optimization",
+    "SuggestionRejectRequest": "src.api.schemas.optimization",
+    "SuggestionStatus": "src.api.schemas.optimization",
+    "ApprovalRequest": "src.api.schemas.proposals",
+    "DeploymentRequest": "src.api.schemas.proposals",
+    "DeploymentResponse": "src.api.schemas.proposals",
+    "ProposalCreate": "src.api.schemas.proposals",
+    "ProposalListResponse": "src.api.schemas.proposals",
+    "ProposalResponse": "src.api.schemas.proposals",
+    "ProposalYAMLResponse": "src.api.schemas.proposals",
+    "RejectionRequest": "src.api.schemas.proposals",
+    "RollbackRequest": "src.api.schemas.proposals",
+    "RollbackResponse": "src.api.schemas.proposals",
+}
+
+_cache: dict[str, Any] = {}
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy import attributes on first access."""
+    if name in _cache:
+        return _cache[name]
+    if name in _EXPORTS:
+        from importlib import import_module
+
+        module = import_module(_EXPORTS[name])
+        attr = getattr(module, name)
+        _cache[name] = attr
+        return attr
+    raise AttributeError(f"module 'src.api.schemas' has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    """List all available attributes."""
+    return [
+        *_EXPORTS.keys(),
+        "ComponentHealth",
+        "ErrorDetail",
+        "ErrorResponse",
+        "ErrorType",
+        "HealthResponse",
+        "HealthStatus",
+        "PaginationMeta",
+        "PaginatedResponse",
+        "SuccessResponse",
+        "SystemStatus",
+    ]
+
 
 T = TypeVar("T")
 
@@ -210,7 +235,88 @@ class SuccessResponse(BaseModel, Generic[T]):
     message: str | None = Field(default=None, description="Optional success message")
 
 
-# Exports
+if TYPE_CHECKING:
+    from src.api.schemas.areas import AreaListResponse, AreaResponse
+    from src.api.schemas.conversations import (
+        ChatRequest,
+        ChatResponse,
+        ConversationCreate,
+        ConversationDetailResponse,
+        ConversationListResponse,
+        ConversationResponse,
+        MessageCreate,
+        MessageResponse,
+        StreamChunk,
+    )
+    from src.api.schemas.devices import DeviceListResponse, DeviceResponse
+    from src.api.schemas.entities import (
+        EntityListResponse,
+        EntityQueryRequest,
+        EntityQueryResult,
+        EntityResponse,
+        EntitySyncRequest,
+        EntitySyncResponse,
+    )
+    from src.api.schemas.ha_automations import (
+        AutomationListResponse,
+        AutomationResponse,
+        HARegistrySummary,
+        SceneListResponse,
+        SceneResponse,
+        ScriptListResponse,
+        ScriptResponse,
+        ServiceCallRequest,
+        ServiceCallResponse,
+        ServiceListResponse,
+        ServiceResponse,
+    )
+    from src.api.schemas.helpers import (
+        HelperCreateRequest,
+        HelperCreateResponse,
+        HelperDeleteResponse,
+        HelperListResponse,
+        HelperResponse,
+        HelperType,
+    )
+    from src.api.schemas.insights import (
+        ActionRequest,
+        AnalysisJob,
+        AnalysisJobResponse,
+        AnalysisRequest,
+        DismissRequest,
+        EnergyOverviewResponse,
+        EnergyStatsResponse,
+        InsightCreate,
+        InsightListResponse,
+        InsightResponse,
+        InsightStatus,
+        InsightSummary,
+        InsightType,
+        ReviewRequest,
+    )
+    from src.api.schemas.optimization import (
+        AutomationSuggestionResponse,
+        OptimizationAnalysisType,
+        OptimizationRequest,
+        OptimizationResult,
+        SuggestionAcceptRequest,
+        SuggestionListResponse,
+        SuggestionRejectRequest,
+        SuggestionStatus,
+    )
+    from src.api.schemas.proposals import (
+        ApprovalRequest,
+        DeploymentRequest,
+        DeploymentResponse,
+        ProposalCreate,
+        ProposalListResponse,
+        ProposalResponse,
+        ProposalYAMLResponse,
+        RejectionRequest,
+        RollbackRequest,
+        RollbackResponse,
+    )
+
 __all__ = [
     "ActionRequest",
     "AnalysisJob",

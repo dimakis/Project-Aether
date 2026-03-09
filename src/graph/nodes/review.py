@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+import httpx
 import yaml
 
 from src.storage.entities.automation_proposal import (
@@ -117,7 +118,7 @@ async def fetch_configs_node(
                     logger.warning("No config found for %s", entity_id)
             else:
                 logger.warning("Unsupported domain for review: %s", domain)
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ConnectionError):
             logger.exception("Failed to fetch config for %s", entity_id)
 
     if not configs:
@@ -152,7 +153,7 @@ async def gather_context_node(
     try:
         entities = await ha_client.list_entities()
         context["entities"] = entities
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ConnectionError):
         logger.exception("Failed to list entities")
         context["entities"] = []
 

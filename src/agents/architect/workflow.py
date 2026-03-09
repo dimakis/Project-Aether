@@ -15,11 +15,12 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from src.tools import get_architect_tools, is_mutating_tool  # noqa: F401
+
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.agents.architect.stream_event import StreamEvent
 from src.graph.state import AgentRole, ConversationState
-from src.tools import get_architect_tools, is_mutating_tool
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +179,7 @@ class ArchitectWorkflow:
                     request_id = getattr(span, "request_id", None)
                     if request_id:
                         state.last_trace_id = str(request_id)
-            except Exception:
+            except (AttributeError, RuntimeError):
                 logger.debug("trace capture failed", exc_info=True)
 
             updates = await self.agent.invoke(state, session=session)
@@ -261,6 +262,8 @@ class ArchitectWorkflow:
                     recoverable=True,
                 )
 
+            from src.tools import get_architect_tools, is_mutating_tool
+
             tools = get_architect_tools()
             tool_lookup = {tool.name: tool for tool in tools}
             tool_llm = self.agent.get_tool_llm()
@@ -281,7 +284,7 @@ class ArchitectWorkflow:
 
                 max_iter_setting = await get_chat_setting("max_tool_iterations")
                 MAX_TOOL_ITERATIONS = int(max_iter_setting) if max_iter_setting else 10
-            except Exception:
+            except (KeyError, ValueError, TypeError):
                 MAX_TOOL_ITERATIONS = 10
             iteration = 0
             all_new_messages: list[BaseMessage] = []
@@ -413,7 +416,7 @@ class ArchitectWorkflow:
                         metadata={"mlflow.trace.session": state.conversation_id},
                         tags={"conversation_id": state.conversation_id},
                     )
-                except Exception:
+                except (AttributeError, RuntimeError):
                     logger.debug("trace ID capture failed", exc_info=True)
 
             yield event

@@ -66,6 +66,12 @@ def reset_circuit_breakers():
     _circuit_breakers.clear()
 
 
+@pytest.fixture(autouse=True)
+def _no_retry_delay(monkeypatch):
+    """Eliminate retry delays so tests don't sleep 1+2+4s per retry cycle."""
+    monkeypatch.setattr("src.llm.resilient.RETRY_DELAYS", [0, 0, 0])
+
+
 class TestCircuitBreaker:
     """Tests for CircuitBreaker class."""
 

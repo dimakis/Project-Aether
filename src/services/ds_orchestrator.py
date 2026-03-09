@@ -6,7 +6,7 @@ Coordinates the DS Analysts container and synthesizes findings.
 When DEPLOYMENT_MODE=distributed, delegates to the analysts
 container via A2ARemoteClient. Otherwise, runs analysts in-process.
 
-Entrypoint: ``uvicorn src.services.ds_orchestrator:app``
+Entrypoint: ``uvicorn src.services.ds_orchestrator:app --factory``
 """
 
 from __future__ import annotations
@@ -45,4 +45,4 @@ def create_ds_orchestrator_service() -> Starlette:
     )
 
 
-app = create_ds_orchestrator_service()
+app = create_ds_orchestrator_service
