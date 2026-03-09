@@ -646,7 +646,7 @@ class TestAutomationProposalValidation:
 
     async def test_invalid_yaml_returns_validation_errors(self, approval_mod):
         """When YAML fails structural validation, errors are returned to the agent."""
-        with patch("src.schema.validate_yaml") as mock_validate:
+        with patch.object(approval_mod, "validate_yaml") as mock_validate:
             from src.schema.core import ValidationError as VError
             from src.schema.core import ValidationResult
 
