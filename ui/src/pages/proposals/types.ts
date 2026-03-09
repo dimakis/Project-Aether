@@ -52,6 +52,18 @@ export const STATUS_CONFIG: Record<
     bg: "bg-red-500/10",
     ring: "ring-red-500/30",
   },
+  disabled: {
+    label: "Disabled",
+    color: "text-orange-400",
+    bg: "bg-orange-500/10",
+    ring: "ring-orange-500/30",
+  },
+  deprecated: {
+    label: "Deprecated",
+    color: "text-zinc-500",
+    bg: "bg-zinc-600/10",
+    ring: "ring-zinc-600/30",
+  },
 };
 
 export const STATUS_STRIP: Record<string, string> = {
@@ -63,6 +75,8 @@ export const STATUS_STRIP: Record<string, string> = {
   rolled_back: "bg-zinc-500",
   archived: "bg-zinc-500",
   failed: "bg-red-500",
+  disabled: "bg-orange-500",
+  deprecated: "bg-zinc-600",
 };
 
 export const STATUS_FILTERS = [
@@ -70,6 +84,8 @@ export const STATUS_FILTERS = [
   { value: "proposed", label: "Pending" },
   { value: "approved", label: "Approved" },
   { value: "deployed", label: "Deployed" },
+  { value: "disabled", label: "Disabled" },
+  { value: "deprecated", label: "Deprecated" },
   { value: "rejected", label: "Rejected" },
   { value: "rolled_back", label: "Rolled Back" },
 ];

@@ -2,7 +2,7 @@
 # ========================
 # Common tasks for development, testing, and deployment
 
-.PHONY: help install dev run run-ui run-prod run-distributed run-distributed-build down-distributed run-observed down-observed up up-full up-ui up-all down migrate build-base test test-unit test-unit-cov test-int test-e2e lint format format-check typecheck check ci-local security-scan test-frontend serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi
+.PHONY: help install dev run run-ui run-prod run-distributed run-distributed-build down-distributed run-observed down-observed up up-full up-ui up-all down migrate build-base test test-unit test-unit-cov test-int test-e2e lint format format-check typecheck check ci-local security-scan test-frontend serve discover chat status mlflow mlflow-up clean ui-dev ui-build ui-install build-sandbox ensure-sandbox build-services openapi openapi-check
 
 # Default target
 MLFLOW_PORT ?= 5002
@@ -313,11 +313,13 @@ ci-local:
 	 uv run ruff check src/ tests/ >$(CI_TMPDIR)/lint.log 2>&1 & p2=$$!; \
 	 uv run mypy src/ --ignore-missing-imports >$(CI_TMPDIR)/mypy.log 2>&1 & p3=$$!; \
 	 uv run bandit -r src/ -c pyproject.toml >$(CI_TMPDIR)/bandit.log 2>&1 & p4=$$!; \
+	 uv run python scripts/generate_openapi.py --check >$(CI_TMPDIR)/openapi.log 2>&1 & p5=$$!; \
 	 fail=0; \
 	 wait $$p1 || { echo "❌ format-check failed:"; cat $(CI_TMPDIR)/fmt.log; fail=1; }; \
 	 wait $$p2 || { echo "❌ lint failed:"; cat $(CI_TMPDIR)/lint.log; fail=1; }; \
 	 wait $$p3 || { echo "❌ typecheck failed:"; cat $(CI_TMPDIR)/mypy.log; fail=1; }; \
 	 wait $$p4 || { echo "❌ security-scan failed:"; cat $(CI_TMPDIR)/bandit.log; fail=1; }; \
+	 wait $$p5 || { echo "❌ openapi-check failed:"; cat $(CI_TMPDIR)/openapi.log; fail=1; }; \
 	 [ $$fail -eq 0 ] && echo "Phase 1 passed!" || { echo "Phase 1 FAILED"; exit 1; }
 	@echo ""
 	@echo "=== Phase 2: Tests (parallel) ==="
@@ -474,6 +476,10 @@ build-services: build-base
 openapi:
 	@echo "Generating OpenAPI spec from FastAPI app..."
 	uv run python scripts/generate_openapi.py
+
+openapi-check:
+	@echo "Checking OpenAPI spec freshness..."
+	@uv run python scripts/generate_openapi.py --check
 
 # ============================================================================
 # Utilities

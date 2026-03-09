@@ -115,6 +115,10 @@ class ProposalYAMLResponse(ProposalResponse):
     """Schema for proposal with YAML content."""
 
     yaml_content: str = Field(description="Generated HA automation YAML")
+    ha_state: str | None = Field(
+        default=None,
+        description="Live HA state for DEPLOYED proposals (on/off/unavailable/not_found)",
+    )
 
 
 class ProposalListResponse(BaseModel):
@@ -219,6 +223,28 @@ class RollbackResponse(BaseModel):
     )
 
 
+class RefineRequest(BaseModel):
+    """Schema for requesting AI-driven proposal refinement."""
+
+    feedback: str = Field(
+        min_length=1,
+        max_length=4000,
+        description="What the architect should change in the proposal",
+    )
+
+
+class RefineResponse(BaseModel):
+    """Schema for refinement result."""
+
+    success: bool = Field(description="Whether refinement produced a new proposal")
+    original_proposal_id: str = Field(description="ID of the proposal that was refined")
+    new_proposal_id: str | None = Field(
+        default=None,
+        description="ID of the newly created refined proposal",
+    )
+    summary: str = Field(description="Human-readable summary of what happened")
+
+
 # Exports
 __all__ = [
     "ApprovalRequest",
@@ -228,6 +254,8 @@ __all__ = [
     "ProposalListResponse",
     "ProposalResponse",
     "ProposalYAMLResponse",
+    "RefineRequest",
+    "RefineResponse",
     "RejectionRequest",
     "ReviewNote",
     "RollbackRequest",

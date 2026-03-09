@@ -15,6 +15,9 @@ import {
   AlertTriangle,
   Pencil,
   ShieldCheck,
+  Ban,
+  Power,
+  Archive,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -153,6 +156,17 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
     warnings?: Array<{ path: string; message: string; severity: string }>;
     loading?: boolean;
   } | null>(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [refineDialogOpen, setRefineDialogOpen] = useState(false);
+  const [refineFeedback, setRefineFeedback] = useState("");
+  const [refineLoading, setRefineLoading] = useState(false);
+  const [refineResult, setRefineResult] = useState<{
+    success: boolean;
+    newId?: string;
+    summary: string;
+  } | null>(null);
+  const [lifecycleLoading, setLifecycleLoading] = useState<string | null>(null);
 
   const isDashboard = (detail as Proposal)?.proposal_type === "dashboard";
 
@@ -242,6 +256,27 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
                   <Badge className="text-[10px] bg-violet-500/10 text-violet-400 ring-1 ring-violet-500/20">
                     <Search className="mr-1 h-2.5 w-2.5" />
                     Review
+                  </Badge>
+                )}
+                {(detail as ProposalWithYAML).ha_state && (
+                  <Badge
+                    className={cn(
+                      "text-[10px] ring-1",
+                      (detail as ProposalWithYAML).ha_state === "on"
+                        ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+                        : (detail as ProposalWithYAML).ha_state === "off"
+                          ? "bg-orange-500/10 text-orange-400 ring-orange-500/20"
+                          : "bg-zinc-500/10 text-zinc-400 ring-zinc-500/20",
+                    )}
+                  >
+                    <Power className="mr-1 h-2.5 w-2.5" />
+                    {(detail as ProposalWithYAML).ha_state === "on"
+                      ? "Active in HA"
+                      : (detail as ProposalWithYAML).ha_state === "off"
+                        ? "Disabled in HA"
+                        : (detail as ProposalWithYAML).ha_state === "not_found"
+                          ? "Not found in HA"
+                          : "HA Unavailable"}
                   </Badge>
                 )}
                 {detail.conversation_id && (
@@ -551,17 +586,27 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
             )}
           </div>
           <div className="flex gap-2">
+            {(detail.status === "proposed" || detail.status === "rejected") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRefineDialogOpen(true)}
+                disabled={refineLoading}
+              >
+                {refineLoading ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 h-3 w-3" />
+                )}
+                Revise with AI
+              </Button>
+            )}
             {detail.status === "proposed" && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() =>
-                    rejectMut.mutate({
-                      id: detail.id,
-                      reason: "Rejected via UI",
-                    })
-                  }
+                  onClick={() => setRejectDialogOpen(true)}
                   disabled={rejectMut.isPending}
                 >
                   <X className="mr-1 h-3 w-3" />
@@ -631,46 +676,133 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
               </div>
             )}
             {detail.status === "deployed" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => rollbackMut.mutate(detail.id)}
-                disabled={rollbackMut.isPending}
-              >
-                {rollbackMut.isPending ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                ) : (
-                  <RotateCcw className="mr-1 h-3 w-3" />
-                )}
-                Rollback
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => rollbackMut.mutate(detail.id)}
+                  disabled={rollbackMut.isPending}
+                >
+                  {rollbackMut.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <RotateCcw className="mr-1 h-3 w-3" />
+                  )}
+                  Rollback
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    setVerification({ loading: true });
+                    try {
+                      const result = await proposalsApi.verify(detail.id);
+                      setVerification({
+                        verified: result.verified,
+                        state: result.state,
+                        reason: result.reason,
+                      });
+                    } catch {
+                      setVerification({ verified: false, reason: "Verification request failed" });
+                    }
+                  }}
+                  disabled={verification?.loading}
+                >
+                  {verification?.loading ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                  )}
+                  Verify
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycleLoading === "disable"}
+                  onClick={async () => {
+                    setLifecycleLoading("disable");
+                    try {
+                      await proposalsApi.disable(detail.id);
+                      await queryRefetch();
+                    } finally {
+                      setLifecycleLoading(null);
+                    }
+                  }}
+                >
+                  {lifecycleLoading === "disable" ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Ban className="mr-1 h-3 w-3" />
+                  )}
+                  Disable
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycleLoading === "deprecate"}
+                  onClick={async () => {
+                    setLifecycleLoading("deprecate");
+                    try {
+                      await proposalsApi.deprecate(detail.id);
+                      await queryRefetch();
+                    } finally {
+                      setLifecycleLoading(null);
+                    }
+                  }}
+                >
+                  {lifecycleLoading === "deprecate" ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Archive className="mr-1 h-3 w-3" />
+                  )}
+                  Deprecate
+                </Button>
+              </>
             )}
-            {detail.status === "deployed" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  setVerification({ loading: true });
-                  try {
-                    const result = await proposalsApi.verify(detail.id);
-                    setVerification({
-                      verified: result.verified,
-                      state: result.state,
-                      reason: result.reason,
-                    });
-                  } catch {
-                    setVerification({ verified: false, reason: "Verification request failed" });
-                  }
-                }}
-                disabled={verification?.loading}
-              >
-                {verification?.loading ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                ) : (
-                  <ShieldCheck className="mr-1 h-3 w-3" />
-                )}
-                Verify
-              </Button>
+            {detail.status === "disabled" && (
+              <>
+                <Button
+                  size="sm"
+                  disabled={lifecycleLoading === "enable"}
+                  onClick={async () => {
+                    setLifecycleLoading("enable");
+                    try {
+                      await proposalsApi.enable(detail.id);
+                      await queryRefetch();
+                    } finally {
+                      setLifecycleLoading(null);
+                    }
+                  }}
+                >
+                  {lifecycleLoading === "enable" ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Power className="mr-1 h-3 w-3" />
+                  )}
+                  Enable
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycleLoading === "deprecate"}
+                  onClick={async () => {
+                    setLifecycleLoading("deprecate");
+                    try {
+                      await proposalsApi.deprecate(detail.id);
+                      await queryRefetch();
+                    } finally {
+                      setLifecycleLoading(null);
+                    }
+                  }}
+                >
+                  {lifecycleLoading === "deprecate" ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Archive className="mr-1 h-3 w-3" />
+                  )}
+                  Deprecate
+                </Button>
+              </>
             )}
             {verification && !verification.loading && (
               <div
@@ -703,6 +835,151 @@ export function ProposalDetail({ proposalId, onClose }: ProposalDetailProps) {
             )}
           </div>
         </div>
+
+        {/* Refine result banner */}
+        {refineResult && (
+          <div className={cn(
+            "mx-6 mb-4 rounded-lg p-3 ring-1",
+            refineResult.success
+              ? "bg-emerald-500/5 ring-emerald-500/20"
+              : "bg-amber-500/5 ring-amber-500/20",
+          )}>
+            <p className={cn(
+              "text-xs font-medium",
+              refineResult.success ? "text-emerald-400" : "text-amber-400",
+            )}>
+              {refineResult.summary}
+            </p>
+          </div>
+        )}
+
+        {/* Rejection reason dialog */}
+        {rejectDialogOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+              <h3 className="mb-3 text-sm font-semibold">Reject Proposal</h3>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Provide a reason for rejecting this proposal.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Why are you rejecting this proposal?"
+                className="mb-4 w-full rounded-lg border border-border bg-muted/50 p-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setRejectDialogOpen(false);
+                    setRejectReason("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={!rejectReason.trim() || rejectMut.isPending}
+                  onClick={() => {
+                    rejectMut.mutate(
+                      { id: detail.id, reason: rejectReason.trim() },
+                      {
+                        onSuccess: () => {
+                          setRejectDialogOpen(false);
+                          setRejectReason("");
+                        },
+                      },
+                    );
+                  }}
+                >
+                  {rejectMut.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <X className="mr-1 h-3 w-3" />
+                  )}
+                  Reject
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Refine with AI dialog */}
+        {refineDialogOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <Sparkles className="h-4 w-4 text-violet-400" />
+                Revise with AI
+              </h3>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Describe what the architect should change. A new revised proposal will be created.
+              </p>
+              <textarea
+                value={refineFeedback}
+                onChange={(e) => setRefineFeedback(e.target.value)}
+                placeholder="e.g. Also turn off the fan when the lights go off"
+                className="mb-4 w-full rounded-lg border border-border bg-muted/50 p-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setRefineDialogOpen(false);
+                    setRefineFeedback("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!refineFeedback.trim() || refineLoading}
+                  onClick={async () => {
+                    setRefineLoading(true);
+                    try {
+                      const result = await proposalsApi.refine(
+                        detail.id,
+                        refineFeedback.trim(),
+                      );
+                      setRefineResult({
+                        success: result.success,
+                        newId: result.new_proposal_id ?? undefined,
+                        summary: result.summary,
+                      });
+                      setRefineDialogOpen(false);
+                      setRefineFeedback("");
+                      await queryRefetch();
+                    } catch (err) {
+                      setRefineResult({
+                        success: false,
+                        summary:
+                          err instanceof Error
+                            ? err.message
+                            : "Refinement failed",
+                      });
+                    } finally {
+                      setRefineLoading(false);
+                    }
+                  }}
+                >
+                  {refineLoading ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-1 h-3 w-3" />
+                  )}
+                  Refine
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

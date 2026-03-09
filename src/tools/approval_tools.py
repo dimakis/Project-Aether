@@ -8,17 +8,58 @@ Proposals page for HITL review before execution.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
+import yaml
 from langchain_core.tools import tool
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.dal import ProposalRepository
+from src.schema import validate_yaml
 from src.storage import get_session
 from src.tracing import trace_with_uri
 
 logger = logging.getLogger(__name__)
 
 VALID_ACTION_TYPES = {"entity_command", "automation", "script", "scene", "dashboard", "helper"}
+
+PROPOSAL_TYPE_TO_SCHEMA: dict[str, str] = {
+    "entity_command": "ha.entity_command",
+    "automation": "ha.automation",
+    "script": "ha.script",
+    "scene": "ha.scene",
+    "dashboard": "ha.dashboard",
+    "helper": "ha.helper",
+}
+
+
+def _validate_before_create(
+    proposal_type: str,
+    config: dict[str, Any],
+    name: str,
+) -> str | None:
+    """Structurally validate a proposal config before persisting it.
+
+    Returns an error string for the LLM on failure, or None on success.
+    """
+    schema_name = PROPOSAL_TYPE_TO_SCHEMA.get(proposal_type)
+    if not schema_name:
+        return None
+
+    yaml_content = yaml.dump(config, default_flow_style=False, sort_keys=False)
+    result = validate_yaml(yaml_content, schema_name)
+
+    if result.valid:
+        return None
+
+    error_lines = [
+        f"- {e.path}: {e.message}" if e.path else f"- {e.message}" for e in result.errors
+    ]
+    return (
+        f"Validation failed for {proposal_type} '{name}'.\n\n"
+        f"**Errors:**\n" + "\n".join(error_lines) + "\n\n"
+        "Please fix the issues and call seek_approval again."
+    )
 
 
 @tool("seek_approval")
@@ -137,13 +178,17 @@ async def _create_entity_command_proposal(
     if not service_action:
         service_action = "turn_on"
 
-    service_call = {
+    service_call: dict[str, Any] = {
         "domain": service_domain,
         "service": service_action,
         "entity_id": entity_id,
     }
     if service_data:
         service_call["data"] = service_data
+
+    validation_error = _validate_before_create("entity_command", service_call, name)
+    if validation_error:
+        return validation_error
 
     try:
         async with get_session() as session:
@@ -185,8 +230,6 @@ async def _create_automation_proposal(
 ) -> str:
     # If yaml_content provided, validate structurally then extract fields
     if yaml_content:
-        from src.schema import validate_yaml
-
         validation_result = validate_yaml(yaml_content, "ha.automation")
         if not validation_result.valid:
             error_lines = [
@@ -221,6 +264,15 @@ async def _create_automation_proposal(
             f"proposals. Please provide the full trigger/condition/action configuration "
             f"for '{name}' and call seek_approval again."
         )
+
+    # Validate the assembled config (only when not already validated via yaml_content)
+    if not yaml_content:
+        auto_config: dict[str, Any] = {"trigger": trigger, "action": actions, "mode": mode}
+        if conditions:
+            auto_config["condition"] = conditions
+        validation_error = _validate_before_create("automation", auto_config, name)
+        if validation_error:
+            return validation_error
 
     try:
         async with get_session() as session:
@@ -258,12 +310,20 @@ async def _create_script_proposal(
     mode: str,
     original_yaml: str | None = None,
 ) -> str:
-    # Validate required fields — reject early so the LLM retries with full data
     if not actions:
         return (
             "actions is required for script proposals. Please provide the full "
             f"action sequence for '{name}' and call seek_approval again."
         )
+
+    script_config: dict[str, Any] = {
+        "alias": name,
+        "sequence": actions if isinstance(actions, list) else [actions],
+        "mode": mode,
+    }
+    validation_error = _validate_before_create("script", script_config, name)
+    if validation_error:
+        return validation_error
 
     try:
         async with get_session() as session:
@@ -299,6 +359,11 @@ async def _create_scene_proposal(
     actions: dict | list | None,
     original_yaml: str | None = None,
 ) -> str:
+    scene_config: dict[str, Any] = {"name": name, "entities": actions or {}}
+    validation_error = _validate_before_create("scene", scene_config, name)
+    if validation_error:
+        return validation_error
+
     try:
         async with get_session() as session:
             repo = ProposalRepository(session)
@@ -335,6 +400,10 @@ async def _create_dashboard_proposal(
     """Create a dashboard proposal for Lovelace config changes."""
     if not dashboard_config or not isinstance(dashboard_config, dict):
         return "dashboard_config is required for dashboard proposals."
+
+    validation_error = _validate_before_create("dashboard", dashboard_config, name)
+    if validation_error:
+        return validation_error
 
     try:
         async with get_session() as session:
@@ -376,6 +445,10 @@ async def _create_helper_proposal(
             "Provide a dict with helper_type (e.g., 'input_boolean'), input_id, "
             "name, and any type-specific parameters."
         )
+
+    validation_error = _validate_before_create("helper", helper_config, name)
+    if validation_error:
+        return validation_error
 
     helper_type = helper_config["helper_type"]
     input_id = helper_config.get("input_id", "")
