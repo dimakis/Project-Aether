@@ -214,7 +214,7 @@ class TestDepthPropagation:
                 "src.tools.ds_team_runners._capture_parent_span_context",
                 return_value=(None, None, None),
             ),
-            patch("src.tools.ds_team_runners.model_context"),
+            patch("src.agents.model_context.model_context"),
             patch("src.tools.ds_team_runners.EnergyAnalyst") as MockAnalyst,
             patch(
                 "src.agents.execution_context.get_execution_context",
