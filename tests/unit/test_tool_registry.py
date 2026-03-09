@@ -37,6 +37,8 @@ EXPECTED_ARCHITECT_TOOLS = {
     "review_config",
     # Dashboard (1)
     "consult_dashboard_designer",
+    # Tariff management (1)
+    "update_electricity_tariffs",
 }
 
 # Tools that should NOT be on the Architect (old delegation, mutation, etc.)
@@ -85,7 +87,7 @@ class TestGetArchitectTools:
         from src.tools import get_architect_tools
 
         tools = get_architect_tools()
-        assert len(tools) == 16, f"Expected 16 tools, got {len(tools)}: {[t.name for t in tools]}"
+        assert len(tools) == 17, f"Expected 17 tools, got {len(tools)}: {[t.name for t in tools]}"
 
     def test_expected_names(self):
         from src.tools import get_architect_tools
