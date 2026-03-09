@@ -1180,6 +1180,13 @@ _HELPER_DISPATCH: dict[str, str] = {
 # Keys that are metadata, not HA client kwargs
 _HELPER_META_KEYS = {"helper_type"}
 
+# Proposal key -> HA client parameter name (per helper_type).
+# Tools/LLM produce e.g. "min"/"max" but HelperMixin expects "min_value"/"max_value".
+_HELPER_KWARG_REMAP: dict[str, dict[str, str]] = {
+    "input_number": {"min": "min_value", "max": "max_value"},
+    "input_text": {"min": "min_length", "max": "max_length"},
+}
+
 
 async def _deploy_helper(proposal: AutomationProposal, repo: ProposalRepository) -> dict[str, Any]:
     """Deploy a helper proposal by calling the HA create_* method.
@@ -1238,10 +1245,10 @@ async def _deploy_helper(proposal: AutomationProposal, repo: ProposalRepository)
         }
 
     method = getattr(ha, method_name)
-    method = getattr(ha, method_name)
 
-    # Build kwargs from config, excluding metadata keys
-    kwargs = {k: v for k, v in config.items() if k not in _HELPER_META_KEYS}
+    # Build kwargs from config, remapping proposal keys to HA client parameter names
+    remap = _HELPER_KWARG_REMAP.get(helper_type, {})
+    kwargs = {remap.get(k, k): v for k, v in config.items() if k not in _HELPER_META_KEYS}
     result = await method(**kwargs)
 
     entity_id = result.get("entity_id", "")
