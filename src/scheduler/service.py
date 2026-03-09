@@ -518,8 +518,8 @@ async def _reconcile_proposal_statuses() -> None:
                         if ha_state == "off":
                             proposal.disable()
                             reconciled += 1
-                except Exception:
-                    pass
+                except (httpx.HTTPError, TimeoutError, ConnectionError, KeyError):
+                    logger.debug("Skipping reconciliation for %s", entity_id)
 
             if reconciled:
                 await session.commit()
