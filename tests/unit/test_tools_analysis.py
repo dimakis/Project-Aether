@@ -135,9 +135,9 @@ class TestRunCustomAnalysis:
             with (
                 patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
                 patch("src.storage.get_session", return_value=mock_session),
-                patch("src.tools.analysis_tools.get_model_context", return_value=None),
+                patch("src.agents.model_context.get_model_context", return_value=None),
                 patch("src.tracing.get_active_span", return_value=None),
-                patch("src.tools.analysis_tools.model_context", MagicMock()),
+                patch("src.agents.model_context.model_context", MagicMock()),
             ):
                 await run_custom_analysis.ainvoke(
                     {
@@ -245,9 +245,9 @@ class TestRunCustomAnalysis:
         with (
             patch("src.agents.DataScientistWorkflow", return_value=mock_workflow),
             patch("src.storage.get_session", return_value=mock_session),
-            patch("src.tools.analysis_tools.get_model_context", return_value=mock_context),
+            patch("src.agents.model_context.get_model_context", return_value=mock_context),
             patch("src.tracing.get_active_span", return_value=mock_span),
-            patch("src.tools.analysis_tools.model_context", MagicMock()) as mock_model_ctx,
+            patch("src.agents.model_context.model_context", MagicMock()) as mock_model_ctx,
         ):
             await run_custom_analysis.ainvoke(
                 {
