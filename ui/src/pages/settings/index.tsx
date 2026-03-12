@@ -6,6 +6,7 @@ import {
   Timer,
   LayoutDashboard,
   FlaskConical,
+  Bell,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -159,6 +160,8 @@ const DATA_SCIENCE_FIELDS: FieldDef[] = [
 
 // ─── Section Form Component ─────────────────────────────────────────────────
 
+type SettingsValue = number | boolean | string;
+
 function SectionForm({
   section,
   fields,
@@ -171,14 +174,14 @@ function SectionForm({
 }: {
   section: string;
   fields: FieldDef[];
-  values: Record<string, number | boolean>;
-  onSave: (section: string, data: Record<string, number | boolean>) => void;
+  values: Record<string, SettingsValue>;
+  onSave: (section: string, data: Record<string, SettingsValue>) => void;
   onReset: (section: string) => void;
   isSaving: boolean;
   isResetting: boolean;
   error?: string | null;
 }) {
-  const [local, setLocal] = useState<Record<string, number | boolean>>({});
+  const [local, setLocal] = useState<Record<string, SettingsValue>>({});
   const [saved, setSaved] = useState(false);
 
   // Sync local state when server values change
@@ -193,8 +196,7 @@ function SectionForm({
   });
 
   const handleSave = () => {
-    // Only send changed fields
-    const changed: Record<string, number | boolean> = {};
+    const changed: Record<string, SettingsValue> = {};
     for (const f of fields) {
       if (local[f.key] !== values[f.key]) {
         changed[f.key] = local[f.key];
@@ -291,6 +293,196 @@ function SectionForm({
   );
 }
 
+// ─── Notification Form Component ─────────────────────────────────────────────
+
+const IMPACT_OPTIONS = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "critical", label: "Critical" },
+];
+
+function NotificationForm({
+  values,
+  onSave,
+  onReset,
+  isSaving,
+  isResetting,
+  error,
+}: {
+  values: Record<string, number | boolean>;
+  onSave: (section: string, data: Record<string, number | boolean>) => void;
+  onReset: (section: string) => void;
+  isSaving: boolean;
+  isResetting: boolean;
+  error?: string | null;
+}) {
+  const [enabled, setEnabled] = useState(!!values.enabled);
+  const [minImpact, setMinImpact] = useState(
+    String(values.min_impact || "high"),
+  );
+  const [quietStart, setQuietStart] = useState(
+    String(values.quiet_hours_start || ""),
+  );
+  const [quietEnd, setQuietEnd] = useState(
+    String(values.quiet_hours_end || ""),
+  );
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setEnabled(!!values.enabled);
+    setMinImpact(String(values.min_impact || "high"));
+    setQuietStart(String(values.quiet_hours_start || ""));
+    setQuietEnd(String(values.quiet_hours_end || ""));
+  }, [values]);
+
+  const hasChanges =
+    enabled !== !!values.enabled ||
+    minImpact !== String(values.min_impact || "high") ||
+    quietStart !== String(values.quiet_hours_start || "") ||
+    quietEnd !== String(values.quiet_hours_end || "");
+
+  const handleSave = () => {
+    const changed: Record<string, string | boolean> = {};
+    if (enabled !== !!values.enabled) changed.enabled = enabled;
+    if (minImpact !== String(values.min_impact || "high"))
+      changed.min_impact = minImpact;
+    if (quietStart !== String(values.quiet_hours_start || ""))
+      changed.quiet_hours_start = quietStart || "";
+    if (quietEnd !== String(values.quiet_hours_end || ""))
+      changed.quiet_hours_end = quietEnd || "";
+    onSave("notifications", changed as Record<string, number | boolean>);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-8">
+        <div className="flex-1">
+          <Label htmlFor="notif-enabled" className="text-sm font-medium">
+            Insight Notifications
+          </Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Send push notifications when scheduled analysis finds actionable
+            insights
+          </p>
+        </div>
+        <div className="w-32 shrink-0">
+          <Switch
+            id="notif-enabled"
+            checked={enabled}
+            onCheckedChange={setEnabled}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-8">
+        <div className="flex-1">
+          <Label htmlFor="notif-impact" className="text-sm font-medium">
+            Minimum Impact
+          </Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Only notify for insights at or above this impact level
+          </p>
+        </div>
+        <div className="w-32 shrink-0">
+          <select
+            id="notif-impact"
+            value={minImpact}
+            onChange={(e) => setMinImpact(e.target.value)}
+            className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+          >
+            {IMPACT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-8">
+        <div className="flex-1">
+          <Label htmlFor="notif-quiet-start" className="text-sm font-medium">
+            Quiet Hours Start
+          </Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Suppress notifications from this time (HH:MM)
+          </p>
+        </div>
+        <div className="w-32 shrink-0">
+          <Input
+            id="notif-quiet-start"
+            type="time"
+            value={quietStart}
+            onChange={(e) => setQuietStart(e.target.value)}
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-8">
+        <div className="flex-1">
+          <Label htmlFor="notif-quiet-end" className="text-sm font-medium">
+            Quiet Hours End
+          </Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Resume notifications at this time (HH:MM)
+          </p>
+        </div>
+        <div className="w-32 shrink-0">
+          <Input
+            id="notif-quiet-end"
+            type="time"
+            value={quietEnd}
+            onChange={(e) => setQuietEnd(e.target.value)}
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2 border-t border-border pt-4">
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || isSaving}
+            size="sm"
+          >
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : saved ? (
+              <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+            ) : (
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {saved ? "Saved" : "Save Changes"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => onReset("notifications")}
+            disabled={isResetting}
+            size="sm"
+          >
+            {isResetting ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Reset to Defaults
+          </Button>
+        </div>
+        {error && (
+          <p className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Settings Page ──────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -305,7 +497,7 @@ export function SettingsPage() {
 
   const handleSave = (
     section: string,
-    changed: Record<string, number | boolean>,
+    changed: Record<string, SettingsValue>,
   ) => {
     patchMut.reset();
     patchMut.mutate({ [section]: changed });
@@ -338,10 +530,10 @@ export function SettingsPage() {
       </div>
 
       <Tabs defaultValue="chat">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="chat" className="gap-1.5">
             <Timer className="h-3.5 w-3.5" />
-            Chat & Streaming
+            Chat
           </TabsTrigger>
           <TabsTrigger value="dashboard" className="gap-1.5">
             <LayoutDashboard className="h-3.5 w-3.5" />
@@ -350,6 +542,10 @@ export function SettingsPage() {
           <TabsTrigger value="data_science" className="gap-1.5">
             <FlaskConical className="h-3.5 w-3.5" />
             Data Science
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-1.5">
+            <Bell className="h-3.5 w-3.5" />
+            Notifications
           </TabsTrigger>
         </TabsList>
 
@@ -403,6 +599,26 @@ export function SettingsPage() {
                 section="data_science"
                 fields={DATA_SCIENCE_FIELDS}
                 values={data.data_science}
+                onSave={handleSave}
+                onReset={handleReset}
+                isSaving={patchMut.isPending}
+                isResetting={resetMut.isPending}
+                error={mutError}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Insight Notifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NotificationForm
+                values={data.notifications}
                 onSave={handleSave}
                 onReset={handleReset}
                 isSaving={patchMut.isPending}
