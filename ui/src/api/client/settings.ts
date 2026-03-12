@@ -1,20 +1,22 @@
 import { request } from "./core";
 
+type SettingsValue = number | boolean | string;
+
 export interface AppSettingsResponse {
-  chat: Record<string, number | boolean>;
-  dashboard: Record<string, number | boolean>;
-  data_science: Record<string, number | boolean>;
-  notifications: Record<string, number | boolean>;
+  chat: Record<string, SettingsValue>;
+  dashboard: Record<string, SettingsValue>;
+  data_science: Record<string, SettingsValue>;
+  notifications: Record<string, SettingsValue>;
 }
 
 export const appSettings = {
   get: () => request<AppSettingsResponse>("/settings"),
 
   patch: (body: {
-    chat?: Record<string, number | boolean>;
-    dashboard?: Record<string, number | boolean>;
-    data_science?: Record<string, number | boolean>;
-    notifications?: Record<string, number | boolean>;
+    chat?: Record<string, SettingsValue>;
+    dashboard?: Record<string, SettingsValue>;
+    data_science?: Record<string, SettingsValue>;
+    notifications?: Record<string, SettingsValue>;
   }) =>
     request<AppSettingsResponse>("/settings", {
       method: "PATCH",
