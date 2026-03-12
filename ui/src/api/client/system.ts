@@ -86,6 +86,10 @@ export interface RecentTracesResponse {
     status: string;
     timestamp_ms: number;
     duration_ms: number | null;
+    run_name?: string;
+    job_type?: string;
+    title?: string;
+    conversation_id?: string;
   }>;
   total: number;
 }

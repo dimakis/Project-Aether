@@ -4,6 +4,7 @@ export interface AppSettingsResponse {
   chat: Record<string, number | boolean>;
   dashboard: Record<string, number | boolean>;
   data_science: Record<string, number | boolean>;
+  notifications: Record<string, number | boolean>;
 }
 
 export const appSettings = {
@@ -13,6 +14,7 @@ export const appSettings = {
     chat?: Record<string, number | boolean>;
     dashboard?: Record<string, number | boolean>;
     data_science?: Record<string, number | boolean>;
+    notifications?: Record<string, number | boolean>;
   }) =>
     request<AppSettingsResponse>("/settings", {
       method: "PATCH",

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { AppSettingsResponse } from "../client/settings";
 import { appSettings } from "../client";
 import { queryKeys } from "./queryKeys";
 
@@ -14,8 +15,8 @@ export function usePatchSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: appSettings.patch,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.appSettings.all });
+    onSuccess: (data: AppSettingsResponse) => {
+      qc.setQueryData(queryKeys.appSettings.all, data);
     },
   });
 }
@@ -24,8 +25,8 @@ export function useResetSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: appSettings.reset,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.appSettings.all });
+    onSuccess: (data: AppSettingsResponse) => {
+      qc.setQueryData(queryKeys.appSettings.all, data);
     },
   });
 }

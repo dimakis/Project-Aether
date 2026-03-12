@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Brain, ChevronDown, ChevronLeft, ChevronRight, Loader2, Cpu, Clock, MessageSquare, Sparkles, BarChart3, Calendar, Webhook, FlaskConical, Compass } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AgentTopology } from "./agent-topology";
 import { TOPOLOGY_AGENT_IDS, agentColor, buildTopologyAgents } from "@/lib/agent-registry";
@@ -331,6 +332,7 @@ const JOB_TYPE_ICONS: Record<string, typeof MessageSquare> = {
 
 function JobListSection() {
   const jobList = useJobList();
+  const navigate = useNavigate();
   if (jobList.length === 0) return null;
 
   const running = jobList.filter((j) => j.status === "running");
@@ -351,12 +353,14 @@ function JobListSection() {
         {display.map((job) => {
           const Icon = JOB_TYPE_ICONS[job.jobType] ?? Cpu;
           return (
-            <div
+            <button
+              type="button"
               key={job.jobId}
+              onClick={() => navigate("/jobs")}
               className={cn(
-                "flex items-center gap-2 rounded-md px-2 py-1 text-[11px]",
+                "flex w-full items-center gap-2 rounded-md px-2 py-1 text-[11px] cursor-pointer transition-colors text-left",
                 job.status === "running"
-                  ? "bg-primary/5 text-foreground"
+                  ? "bg-primary/5 text-foreground hover:bg-primary/10"
                   : "text-muted-foreground hover:bg-muted/50",
               )}
             >
@@ -373,7 +377,7 @@ function JobListSection() {
               ) : (
                 <span className="text-[9px] text-red-500">failed</span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

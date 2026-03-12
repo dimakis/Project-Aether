@@ -273,6 +273,25 @@ async def setup_electricity_tariffs(
     )
 
 
+def _resolve_current_period() -> str:
+    """Determine the current tariff period from TARIFF_SCHEDULE and local time."""
+    from datetime import datetime as _dt
+
+    now = _dt.now()
+    t = now.hour * 60 + now.minute
+
+    peak_start = 17 * 60  # 17:00
+    peak_end = 19 * 60  # 19:00
+    day_start = 8 * 60  # 08:00
+    night_start = 23 * 60  # 23:00
+
+    if peak_start <= t < peak_end:
+        return "peak"
+    if day_start <= t < night_start:
+        return "day"
+    return "night"
+
+
 async def get_tariff_rates(ha_client: Any) -> dict[str, Any]:
     """Read current tariff rates from HA entities.
 
@@ -312,11 +331,21 @@ async def get_tariff_rates(ha_client: Any) -> dict[str, Any]:
     night_rate = _float_state(night_entity)
     peak_rate = _float_state(peak_entity)
 
+    ha_period = _str_state(period_entity, "")
+    current_period = (
+        ha_period if ha_period in ("day", "night", "peak") else _resolve_current_period()
+    )
+
+    period_rates = {"day": day_rate, "night": night_rate, "peak": peak_rate}
+    current_rate = _float_state(current_entity)
+    if current_rate == 0.0 and current_period in period_rates:
+        current_rate = period_rates[current_period]
+
     return {
         "configured": True,
         "plan_name": _str_state(plan_entity, "Unknown Plan"),
-        "current_period": _str_state(period_entity, "day"),
-        "current_rate": _float_state(current_entity),
+        "current_period": current_period,
+        "current_rate": current_rate,
         "rates": {
             "day": {"rate": day_rate, **TARIFF_SCHEDULE["day"]},
             "night": {"rate": night_rate, **TARIFF_SCHEDULE["night"]},

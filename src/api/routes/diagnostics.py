@@ -86,12 +86,22 @@ async def error_log() -> dict[str, Any]:
     entries = parse_error_log(raw_log)
     summary = get_error_summary(entries)
     by_integration = categorize_by_integration(entries)
-    known_patterns = analyze_errors(entries)
+    raw_patterns = analyze_errors(entries)
 
-    # Serialize by_integration: integration -> list of entry dicts
     serialized_by_int = {}
     for integration, int_entries in by_integration.items():
         serialized_by_int[integration] = [asdict(e) for e in int_entries]
+
+    _LEVEL_TO_SEVERITY = {"ERROR": "high", "CRITICAL": "high", "WARNING": "medium"}
+    known_patterns = [
+        {
+            "pattern": p.get("category", p.get("message", "")),
+            "severity": _LEVEL_TO_SEVERITY.get(p.get("level", ""), "low"),
+            "matched_entries": p.get("count", 0),
+            "suggestion": p.get("suggestion", ""),
+        }
+        for p in raw_patterns
+    ]
 
     return {
         "summary": summary,
@@ -172,9 +182,16 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
             include_spans=False,
         )
 
+        from src.api.routes.jobs import _resolve_job_type
+
         items = []
         for t in traces:
             info = t.info
+            tags: dict[str, str] = getattr(info, "tags", {}) or {}
+            run_name = tags.get("mlflow.runName", "")
+            job_title = tags.get("ha.job_title", "")
+            title = job_title or (run_name.replace("_", " ").title() if run_name else "Unknown")
+
             items.append(
                 {
                     "trace_id": info.request_id,
@@ -183,6 +200,10 @@ async def recent_traces(limit: int = 50) -> dict[str, Any]:
                     else str(info.status),
                     "timestamp_ms": info.timestamp_ms,
                     "duration_ms": info.execution_time_ms,
+                    "run_name": run_name,
+                    "job_type": _resolve_job_type(run_name),
+                    "title": title,
+                    "conversation_id": tags.get("mlflow.trace.session", ""),
                 }
             )
 

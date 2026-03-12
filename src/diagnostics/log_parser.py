@@ -177,6 +177,8 @@ def get_error_summary(entries: list[ErrorLogEntry]) -> dict:
     if not entries:
         return {
             "total": 0,
+            "errors": 0,
+            "warnings": 0,
             "counts_by_level": {},
             "top_integrations": [],
         }
@@ -192,6 +194,8 @@ def get_error_summary(entries: list[ErrorLogEntry]) -> dict:
 
     return {
         "total": len(entries),
+        "errors": level_counts.get("ERROR", 0),
+        "warnings": level_counts.get("WARNING", 0),
         "counts_by_level": dict(level_counts),
         "top_integrations": integration_counts.most_common(10),
     }

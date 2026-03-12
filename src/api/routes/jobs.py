@@ -55,11 +55,14 @@ def _map_trace_to_job(trace: Any) -> dict[str, Any]:
     raw_status = info.status.value if hasattr(info.status, "value") else str(info.status)
     run_name = tags.get("mlflow.runName", "")
 
+    job_title = tags.get("ha.job_title", "")
+    title = job_title or (run_name.replace("_", " ").title() if run_name else "Unknown")
+
     return {
         "job_id": info.request_id,
-        "job_type": _resolve_job_type(run_name),
+        "job_type": tags.get("ha.job_type") or _resolve_job_type(run_name),
         "status": _resolve_status(raw_status),
-        "title": run_name.replace("_", " ").title() if run_name else "Unknown",
+        "title": title,
         "started_at": info.timestamp_ms,
         "duration_ms": info.execution_time_ms,
         "conversation_id": tags.get("mlflow.trace.session") or tags.get("conversation_id"),
@@ -90,9 +93,11 @@ async def list_jobs(
         if experiment is None:
             return {"jobs": [], "total": 0}
 
+        fetch_limit = limit * 5 if job_type else limit
+
         traces = client.search_traces(
             experiment_ids=[experiment.experiment_id],
-            max_results=limit,
+            max_results=fetch_limit,
             order_by=["timestamp_ms DESC"],
             include_spans=False,
         )
@@ -101,6 +106,9 @@ async def list_jobs(
 
         if job_type:
             jobs = [j for j in jobs if j["job_type"] == job_type]
+
+        jobs.sort(key=lambda j: j["started_at"] or 0, reverse=True)
+        jobs = jobs[:limit]
 
         return {"jobs": jobs, "total": len(jobs)}
 
