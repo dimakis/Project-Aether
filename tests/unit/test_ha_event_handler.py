@@ -8,15 +8,19 @@ queue overflow handling, stats tracking, and flush-on-stop.
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
 from src.ha.event_handler import EventHandler
 
 
-def _state_event(entity_id: str, state: str, **attrs: object) -> dict:
+def _state_event(entity_id: str, state: str, **attrs: object) -> dict[str, object]:
     """Build a minimal state_changed event payload."""
     return {
         "event_type": "state_changed",
@@ -126,7 +130,7 @@ class TestFlushToDb:
         mock_session.commit = AsyncMock()
 
         @asynccontextmanager
-        async def _fake_session():
+        async def _fake_session() -> AsyncIterator[MagicMock]:
             yield mock_session
 
         with (
@@ -153,9 +157,9 @@ class TestFlushToDb:
         }
 
         @asynccontextmanager
-        async def _failing_session():
+        async def _failing_session() -> AsyncIterator[MagicMock]:
             raise RuntimeError("DB down")
-            yield  # pragma: no cover
+            yield MagicMock()  # pragma: no cover
 
         with patch("src.storage.get_session", _failing_session):
             await handler._flush_to_db()
@@ -178,7 +182,7 @@ class TestFlushToDb:
         mock_session.commit = AsyncMock()
 
         @asynccontextmanager
-        async def _fake_session():
+        async def _fake_session() -> AsyncIterator[MagicMock]:
             yield mock_session
 
         with (
@@ -205,7 +209,7 @@ class TestFlushToDb:
         mock_session.commit = AsyncMock()
 
         @asynccontextmanager
-        async def _fake_session():
+        async def _fake_session() -> AsyncIterator[MagicMock]:
             yield mock_session
 
         with (
@@ -258,7 +262,7 @@ class TestLifecycle:
         mock_session.commit = AsyncMock()
 
         @asynccontextmanager
-        async def _fake_session():
+        async def _fake_session() -> AsyncIterator[MagicMock]:
             yield mock_session
 
         with (
@@ -280,7 +284,5 @@ class TestLifecycle:
         assert handler._running is True
         handler._running = False
         handler._flush_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await handler._flush_task
-        except asyncio.CancelledError:
-            pass
