@@ -25,8 +25,9 @@ EXPECTED_ARCHITECT_TOOLS = {
     "render_template",
     "get_ha_logs",
     "check_ha_config",
-    # Approval (1)
+    # Approval (2)
     "seek_approval",
+    "update_proposal",
     # Scheduling (1)
     "create_insight_schedule",
     # Discovery (1)
@@ -87,7 +88,7 @@ class TestGetArchitectTools:
         from src.tools import get_architect_tools
 
         tools = get_architect_tools()
-        assert len(tools) == 17, f"Expected 17 tools, got {len(tools)}: {[t.name for t in tools]}"
+        assert len(tools) == 18, f"Expected 18 tools, got {len(tools)}: {[t.name for t in tools]}"
 
     def test_expected_names(self):
         from src.tools import get_architect_tools

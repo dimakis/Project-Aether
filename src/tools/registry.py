@@ -71,7 +71,7 @@ _cached_architect_tools: list[Any] | None = None
 
 
 def get_architect_tools() -> list[Any]:
-    """Curated tool set for the Architect agent (lean router, 16 tools).
+    """Curated tool set for the Architect agent (lean router, 18 tools).
 
     The Architect is a conversationalist and router.  It does NOT directly
     execute analysis, diagnostics, or mutations.  Instead:
@@ -95,6 +95,7 @@ def get_architect_tools() -> list[Any]:
 
     from src.tools.agent_tools import discover_entities as _discover_entities
     from src.tools.approval_tools import seek_approval as _seek_approval
+    from src.tools.approval_tools import update_proposal as _update_proposal
     from src.tools.ds_team_tool import (
         consult_data_science_team as _consult_ds_team,
     )
@@ -141,8 +142,9 @@ def get_architect_tools() -> list[Any]:
         render_template,
         _get_ha_logs,
         _check_ha_config,
-        # Approval (1)
+        # Approval (2)
         _seek_approval,
+        _update_proposal,
         # Scheduling (1)
         _create_insight_schedule,
         # Discovery (1)

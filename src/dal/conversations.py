@@ -4,6 +4,7 @@ User Story 2: Conversational Design with Architect Agent.
 """
 
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -430,6 +431,47 @@ class ProposalRepository:
             dashboard_config=dashboard_config,
         )
         self.session.add(proposal)
+        await self.session.flush()
+        return proposal
+
+    _UPDATABLE_FIELDS = frozenset(
+        {
+            "name",
+            "description",
+            "trigger",
+            "conditions",
+            "actions",
+            "mode",
+            "service_call",
+            "dashboard_config",
+        }
+    )
+
+    async def update(
+        self,
+        proposal_id: str,
+        **fields: Any,
+    ) -> AutomationProposal | None:
+        """Update mutable fields on an existing proposal.
+
+        Only non-None values in *fields* are applied. Unknown keys are
+        silently ignored so callers can forward kwargs safely.
+
+        Args:
+            proposal_id: Proposal UUID
+            **fields: Field name -> new value pairs
+
+        Returns:
+            Updated proposal or None if not found
+        """
+        proposal = await self.get_by_id(proposal_id)
+        if not proposal:
+            return None
+
+        for key, value in fields.items():
+            if key in self._UPDATABLE_FIELDS and value is not None:
+                setattr(proposal, key, value)
+
         await self.session.flush()
         return proposal
 
