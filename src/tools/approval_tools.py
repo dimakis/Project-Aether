@@ -511,5 +511,154 @@ async def _create_helper_proposal(
         return f"Failed to create proposal: {e}"
 
 
+_EDITABLE_STATUSES = frozenset({"draft", "proposed", "approved", "rejected"})
+
+
+@tool("update_proposal")
+@trace_with_uri(name="approval.update_proposal", span_type="TOOL")
+async def update_proposal(
+    proposal_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    trigger: dict | list | None = None,
+    actions: dict | list | None = None,
+    conditions: dict | list | None = None,
+    mode: str | None = None,
+    yaml_content: str | None = None,
+    service_call: dict | None = None,
+    dashboard_config: dict | None = None,
+    helper_config: dict | None = None,
+) -> str:
+    """Update an existing proposal in-place.
+
+    Only the fields you provide are changed; everything else stays as-is.
+    Rejected proposals are automatically re-submitted for approval.
+
+    Args:
+        proposal_id: ID of the proposal to update
+        name: New display name
+        description: New description
+        trigger: New trigger config (automation)
+        actions: New actions config (automation/script)
+        conditions: New conditions config (automation)
+        mode: New execution mode
+        yaml_content: Raw YAML to parse (extracts trigger/actions/conditions/mode)
+        service_call: New service call dict (entity_command)
+        dashboard_config: New dashboard config dict
+        helper_config: Partial helper config to merge into existing service_call
+    """
+    try:
+        async with get_session() as session:
+            repo = ProposalRepository(session)
+            proposal = await repo.get_by_id(proposal_id)
+
+            if not proposal:
+                return f"Proposal '{proposal_id}' not found."
+
+            if proposal.status.value not in _EDITABLE_STATUSES:
+                return (
+                    f"Cannot edit proposal in status '{proposal.status.value}'. "
+                    "Only draft, proposed, approved, or rejected proposals can be updated."
+                )
+
+            was_rejected = proposal.status.value == "rejected"
+
+            # Parse yaml_content if provided (automation/script)
+            if yaml_content:
+                parsed_fields = _parse_yaml_fields(yaml_content)
+                if isinstance(parsed_fields, str):
+                    return parsed_fields
+                trigger = trigger or parsed_fields.get("trigger")
+                actions = actions or parsed_fields.get("actions")
+                conditions = conditions or parsed_fields.get("conditions")
+                mode = mode or parsed_fields.get("mode")
+                name = name or parsed_fields.get("name")
+
+            # Build the update kwargs (only non-None values)
+            update_kwargs: dict[str, Any] = {}
+
+            if name is not None:
+                update_kwargs["name"] = name
+            if description is not None:
+                update_kwargs["description"] = description
+            if trigger is not None:
+                update_kwargs["trigger"] = (
+                    trigger if isinstance(trigger, dict) else {"triggers": trigger}
+                )
+            if actions is not None:
+                update_kwargs["actions"] = (
+                    actions if isinstance(actions, dict) else {"actions": actions}
+                )
+            if conditions is not None:
+                update_kwargs["conditions"] = conditions
+            if mode is not None:
+                update_kwargs["mode"] = mode
+            if service_call is not None:
+                update_kwargs["service_call"] = service_call
+            if dashboard_config is not None:
+                update_kwargs["dashboard_config"] = dashboard_config
+
+            # Helper config: merge into existing service_call
+            if helper_config and proposal.proposal_type == "helper":
+                existing_sc = dict(proposal.service_call or {})
+                existing_sc.update(helper_config)
+                update_kwargs["service_call"] = existing_sc
+
+            if not update_kwargs:
+                return "No fields to update. Provide at least one field to change."
+
+            await repo.update(proposal_id, **update_kwargs)
+
+            if was_rejected:
+                await repo.propose(proposal_id)
+
+            await session.commit()
+
+            updated_fields = ", ".join(sorted(update_kwargs.keys()))
+            reproposed = " Re-submitted for approval." if was_rejected else ""
+            logger.info("Updated proposal %s: fields=%s", proposal_id[:8], updated_fields)
+            return (
+                f"Updated proposal **{proposal.name}** (`{proposal_id[:8]}...`).\n\n"
+                f"- **Changed**: {updated_fields}\n"
+                f"{reproposed}\n\n"
+                "Check the **Proposals** page to review the changes."
+            )
+    except SQLAlchemyError as e:
+        logger.error("Failed to update proposal: %s", e)
+        return f"Failed to update proposal: {e}"
+
+
+def _parse_yaml_fields(yaml_content: str) -> dict[str, Any] | str:
+    """Parse YAML content and extract automation/script fields.
+
+    Returns a dict of extracted fields, or an error string on failure.
+    """
+    parsed_data: dict[str, Any] | None = None
+    try:
+        parsed_data = yaml.safe_load(yaml_content)
+    except yaml.YAMLError as exc:
+        return f"Invalid YAML: {exc}"
+
+    if not isinstance(parsed_data, dict):
+        return "YAML must be a mapping."
+
+    result: dict[str, Any] = {}
+    if "trigger" in parsed_data:
+        result["trigger"] = parsed_data["trigger"]
+    if "action" in parsed_data:
+        result["actions"] = parsed_data["action"]
+    elif "actions" in parsed_data:
+        result["actions"] = parsed_data["actions"]
+    if "condition" in parsed_data:
+        result["conditions"] = parsed_data["condition"]
+    elif "conditions" in parsed_data:
+        result["conditions"] = parsed_data["conditions"]
+    if "mode" in parsed_data:
+        result["mode"] = parsed_data["mode"]
+    if "alias" in parsed_data:
+        result["name"] = parsed_data["alias"]
+    return result
+
+
 def get_approval_tools() -> list:
-    return [seek_approval]
+    return [seek_approval, update_proposal]
