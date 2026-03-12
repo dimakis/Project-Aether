@@ -67,4 +67,12 @@ export const optimization = {
         body: JSON.stringify({ reason }),
       },
     ),
+
+  jobHistory: (status?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (limit !== undefined) params.set("limit", limit.toString());
+    const qs = params.toString();
+    return request<OptimizationJob[]>(`/optimize/jobs${qs ? `?${qs}` : ""}`);
+  },
 };
