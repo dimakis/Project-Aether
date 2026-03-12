@@ -6,11 +6,23 @@ import { useEntities } from "@/api/hooks";
 export function ConsumptionSummary() {
   const { data, isLoading } = useEntities("sensor");
 
+  const isAggregate = (e: { entity_id: string; attributes: Record<string, unknown> }) => {
+    const id = e.entity_id.toLowerCase();
+    if (/_total|_sum|_combined|_aggregate/.test(id)) return true;
+    const src = e.attributes?.source;
+    if (Array.isArray(src) && src.length > 0) return true;
+    const lastReset = e.attributes?.last_reset;
+    const stateClass = e.attributes?.state_class;
+    if (stateClass === "total" && lastReset == null) return true;
+    return false;
+  };
+
   const energySensors = (data?.entities ?? []).filter(
     (e) =>
-      e.device_class === "energy" ||
-      e.unit_of_measurement === "kWh" ||
-      e.unit_of_measurement === "Wh",
+      (e.device_class === "energy" ||
+        e.unit_of_measurement === "kWh" ||
+        e.unit_of_measurement === "Wh") &&
+      !isAggregate(e),
   );
 
   const powerSensors = (data?.entities ?? []).filter(

@@ -37,8 +37,8 @@ export function TracingTab() {
 
       {data?.traces && data.traces.length > 0 ? (
         <div className="rounded-lg border border-border">
-          <div className="grid grid-cols-4 gap-4 border-b border-border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
-            <span>Trace ID</span>
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
+            <span>Trace</span>
             <span>Status</span>
             <span>Duration</span>
             <span>Time</span>
@@ -46,24 +46,29 @@ export function TracingTab() {
           {data.traces.map((t) => (
             <div
               key={t.trace_id}
-              className="grid grid-cols-4 gap-4 border-b border-border px-4 py-2 text-sm last:border-0"
+              className="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-border px-4 py-2.5 text-sm last:border-0"
             >
-              <span className="font-mono text-xs truncate">
-                {t.trace_id}
-              </span>
+              <div className="min-w-0">
+                <span className="block truncate text-xs font-medium">
+                  {(t as Record<string, unknown>).title as string || t.trace_id}
+                </span>
+                <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                  {t.trace_id}
+                </span>
+              </div>
               <Badge
                 variant={t.status === "OK" ? "success" : "destructive"}
-                className="w-fit text-[10px]"
+                className="w-fit self-center text-[10px]"
               >
                 {t.status}
               </Badge>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 self-center text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {t.duration_ms != null
                   ? `${(t.duration_ms / 1000).toFixed(1)}s`
                   : "N/A"}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="self-center text-xs text-muted-foreground">
                 {new Date(t.timestamp_ms).toLocaleString()}
               </span>
             </div>

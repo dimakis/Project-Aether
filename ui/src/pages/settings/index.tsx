@@ -8,6 +8,7 @@ import {
   FlaskConical,
   Loader2,
   CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -166,6 +167,7 @@ function SectionForm({
   onReset,
   isSaving,
   isResetting,
+  error,
 }: {
   section: string;
   fields: FieldDef[];
@@ -174,6 +176,7 @@ function SectionForm({
   onReset: (section: string) => void;
   isSaving: boolean;
   isResetting: boolean;
+  error?: string | null;
 }) {
   const [local, setLocal] = useState<Record<string, number | boolean>>({});
   const [saved, setSaved] = useState(false);
@@ -247,34 +250,42 @@ function SectionForm({
           </div>
         </div>
       ))}
-      <div className="flex items-center gap-2 border-t border-border pt-4">
-        <Button
-          onClick={handleSave}
-          disabled={!hasChanges || isSaving}
-          size="sm"
-        >
-          {isSaving ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : saved ? (
-            <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-          ) : (
-            <Save className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          {saved ? "Saved" : "Save Changes"}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => onReset(section)}
-          disabled={isResetting}
-          size="sm"
-        >
-          {isResetting ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          Reset to Defaults
-        </Button>
+      <div className="space-y-2 border-t border-border pt-4">
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || isSaving}
+            size="sm"
+          >
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : saved ? (
+              <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+            ) : (
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {saved ? "Saved" : "Save Changes"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => onReset(section)}
+            disabled={isResetting}
+            size="sm"
+          >
+            {isResetting ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Reset to Defaults
+          </Button>
+        </div>
+        {error && (
+          <p className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -287,14 +298,21 @@ export function SettingsPage() {
   const patchMut = usePatchSettings();
   const resetMut = useResetSettings();
 
+  const mutError =
+    (patchMut.error as Error | null)?.message ??
+    (resetMut.error as Error | null)?.message ??
+    null;
+
   const handleSave = (
     section: string,
     changed: Record<string, number | boolean>,
   ) => {
+    patchMut.reset();
     patchMut.mutate({ [section]: changed });
   };
 
   const handleReset = (section: string) => {
+    resetMut.reset();
     resetMut.mutate(section);
   };
 
@@ -349,6 +367,7 @@ export function SettingsPage() {
                 onReset={handleReset}
                 isSaving={patchMut.isPending}
                 isResetting={resetMut.isPending}
+                error={mutError}
               />
             </CardContent>
           </Card>
@@ -368,6 +387,7 @@ export function SettingsPage() {
                 onReset={handleReset}
                 isSaving={patchMut.isPending}
                 isResetting={resetMut.isPending}
+                error={mutError}
               />
             </CardContent>
           </Card>
@@ -387,6 +407,7 @@ export function SettingsPage() {
                 onReset={handleReset}
                 isSaving={patchMut.isPending}
                 isResetting={resetMut.isPending}
+                error={mutError}
               />
             </CardContent>
           </Card>

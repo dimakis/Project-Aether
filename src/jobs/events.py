@@ -40,7 +40,7 @@ def _publish(event: dict[str, object]) -> None:
 
 
 def emit_job_start(job_id: str, job_type: JobType, title: str) -> None:
-    """Emit a job start event."""
+    """Emit a job start event and persist the title as an MLflow tag."""
     _publish(
         {
             "type": "job",
@@ -51,6 +51,19 @@ def emit_job_start(job_id: str, job_type: JobType, title: str) -> None:
             "ts": time.time(),
         }
     )
+    _tag_mlflow_trace(job_id, title, job_type)
+
+
+def _tag_mlflow_trace(job_id: str, title: str, job_type: str) -> None:
+    """Best-effort: tag the active MLflow trace with a descriptive title."""
+    try:
+        import mlflow
+
+        mlflow.update_current_trace(
+            tags={"ha.job_title": title, "ha.job_type": job_type},
+        )
+    except Exception:
+        logger.debug("Could not tag MLflow trace for job %s", job_id)
 
 
 def emit_job_agent(job_id: str, agent: str, event: Literal["start", "end"]) -> None:
