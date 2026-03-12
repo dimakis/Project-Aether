@@ -66,6 +66,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+import sqlalchemy as sa
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -132,6 +133,28 @@ def postgres_url(postgres_container: Any) -> str:
     return async_url
 
 
+def _create_pg_enums(conn: Any) -> None:
+    """Pre-create PostgreSQL enum types that models declare with create_type=False.
+
+    The Insight entity uses PgENUM(..., create_type=False) because the enum
+    types are managed by Alembic migrations. Integration tests skip Alembic
+    and use Base.metadata.create_all, so the types must exist beforehand.
+    """
+    from src.storage.entities.insight import InsightImpact, InsightStatus, InsightType
+
+    for enum_cls, name in [
+        (InsightType, "insighttype"),
+        (InsightImpact, "insightimpact"),
+        (InsightStatus, "insightstatus"),
+    ]:
+        values = ", ".join(f"'{m.value}'" for m in enum_cls)
+        conn.execute(
+            sa.text(
+                f"DO $$ BEGIN CREATE TYPE {name} AS ENUM ({values}); EXCEPTION WHEN duplicate_object THEN NULL; END $$"
+            )
+        )
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def integration_engine(postgres_url: str) -> AsyncGenerator[Any, None]:
     """Create async engine connected to the test container."""
@@ -141,8 +164,8 @@ async def integration_engine(postgres_url: str) -> AsyncGenerator[Any, None]:
         pool_pre_ping=True,
     )
 
-    # Create all tables
     async with engine.begin() as conn:
+        await conn.run_sync(_create_pg_enums)
         await conn.run_sync(Base.metadata.create_all)
 
     yield engine
