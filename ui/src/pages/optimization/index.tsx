@@ -9,6 +9,8 @@ import {
   Clock,
   Zap,
   ArrowRight,
+  History,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +21,12 @@ import {
   useSuggestions,
   useRunOptimization,
   useOptimizationJob,
+  useJobHistory,
 } from "@/api/hooks";
-import type { AutomationSuggestion } from "@/api/client/optimization";
+import type {
+  AutomationSuggestion,
+  OptimizationJob,
+} from "@/api/client/optimization";
 import { SuggestionDetail } from "./SuggestionDetail";
 
 const ANALYSIS_TYPES = [
@@ -46,11 +52,16 @@ export function OptimizationPage() {
   const [hours, setHours] = useState(168);
   const [activeJobId, setActiveJobId] = usePersistedState<string | null>("optimization:activeJobId", null);
   const [expandedSuggestionId, setExpandedSuggestionId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<string | undefined>(undefined);
 
   const runOpt = useRunOptimization();
   const { data: jobData } = useOptimizationJob(activeJobId);
   const { data: suggestionsData, isLoading: loadingSuggestions } =
     useSuggestions();
+  const { data: historyData, isLoading: loadingHistory } = useJobHistory(
+    historyOpen ? historyFilter : undefined,
+  );
 
   const handleRun = () => {
     runOpt.mutate(
@@ -237,6 +248,72 @@ export function OptimizationPage() {
         )}
       </div>
 
+      {/* Job History */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setHistoryOpen((prev) => !prev)}
+          className="mb-3 flex w-full items-center gap-2 text-lg font-medium"
+        >
+          <History className="h-5 w-5 text-muted-foreground" />
+          Job History
+          <ChevronDown
+            className={cn(
+              "ml-auto h-4 w-4 text-muted-foreground transition-transform",
+              historyOpen && "rotate-180",
+            )}
+          />
+        </button>
+
+        {historyOpen && (
+          <Card>
+            <CardContent className="pt-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-muted-foreground">
+                  Filter:
+                </label>
+                <select
+                  value={historyFilter ?? ""}
+                  onChange={(e) =>
+                    setHistoryFilter(e.target.value || undefined)
+                  }
+                  className="rounded-md border bg-background px-2 py-1 text-sm"
+                >
+                  <option value="">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="running">Running</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+
+              {loadingHistory ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 rounded-lg" />
+                  ))}
+                </div>
+              ) : !historyData || historyData.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No jobs found.
+                </p>
+              ) : (
+                <div className="divide-y divide-border rounded-lg border">
+                  {historyData.map((job) => (
+                    <JobHistoryRow
+                      key={job.job_id}
+                      job={job}
+                      isActive={activeJobId === job.job_id}
+                      onSelect={() => setActiveJobId(job.job_id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       {/* Detail overlay */}
       {expandedSuggestion && (
         <SuggestionDetail
@@ -245,6 +322,56 @@ export function OptimizationPage() {
         />
       )}
     </div>
+  );
+}
+
+function JobHistoryRow({
+  job,
+  isActive,
+  onSelect,
+}: {
+  job: OptimizationJob;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const cfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.pending;
+  const Icon = cfg.icon;
+  const dateStr = job.started_at
+    ? new Date(job.started_at).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
+        isActive && "bg-primary/5",
+      )}
+    >
+      <Icon
+        className={cn(
+          "h-4 w-4 shrink-0",
+          cfg.color,
+          job.status === "running" && "animate-spin",
+        )}
+      />
+      <Badge variant="secondary" className="text-[10px]">
+        {job.status}
+      </Badge>
+      <span className="font-mono text-xs text-muted-foreground">
+        {job.job_id.slice(0, 8)}
+      </span>
+      <span className="text-xs text-muted-foreground">{dateStr}</span>
+      <span className="ml-auto text-xs text-muted-foreground">
+        {job.insight_count}i / {job.suggestion_count}s
+      </span>
+    </button>
   );
 }
 
