@@ -109,6 +109,7 @@ export {
   useRunOptimization,
   useAcceptSuggestion,
   useRejectSuggestion,
+  useJobHistory,
 } from "./optimization";
 export {
   useEvaluationSummary,

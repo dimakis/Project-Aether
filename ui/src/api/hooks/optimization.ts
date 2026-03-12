@@ -56,3 +56,10 @@ export function useRejectSuggestion() {
     },
   });
 }
+
+export function useJobHistory(status?: string) {
+  return useQuery({
+    queryKey: queryKeys.optimization.history(status),
+    queryFn: () => optimization.jobHistory(status),
+  });
+}

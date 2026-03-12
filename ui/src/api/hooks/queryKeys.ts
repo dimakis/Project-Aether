@@ -156,6 +156,8 @@ export const queryKeys = {
     all: ["optimization"] as const,
     job: (jobId: string) => ["optimization", "job", jobId] as const,
     suggestions: ["optimization", "suggestions"] as const,
+    history: (status?: string) =>
+      ["optimization", "history", status] as const,
   },
 
   // ── Evaluations ────────────────────────────────────────────────────────
