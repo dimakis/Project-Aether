@@ -498,6 +498,24 @@ class ProposalRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_recent(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[AutomationProposal]:
+        """List all proposals ordered by creation date (newest first).
+
+        Single query replacement for the per-status loop pattern.
+        """
+        query = (
+            select(AutomationProposal)
+            .order_by(AutomationProposal.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
     async def list_by_status(
         self,
         status: ProposalStatus,
