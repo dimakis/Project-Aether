@@ -10,11 +10,15 @@ from __future__ import annotations
 
 from datetime import time as dt_time
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from src.hitl.insight_notifier import InsightNotifier
+
+if TYPE_CHECKING:
+    from src.storage.entities.insight import Insight
 
 
 def _insight(
@@ -22,13 +26,16 @@ def _insight(
     title: str = "Test insight",
     confidence: float = 0.9,
     insight_id: str = "ins-1",
-) -> SimpleNamespace:
-    """Create a minimal Insight-like object."""
-    return SimpleNamespace(
-        id=insight_id,
-        title=title,
-        impact=impact,
-        confidence=confidence,
+) -> Insight:
+    """Create a minimal Insight-like object for testing."""
+    return cast(
+        "Insight",
+        SimpleNamespace(
+            id=insight_id,
+            title=title,
+            impact=impact,
+            confidence=confidence,
+        ),
     )
 
 

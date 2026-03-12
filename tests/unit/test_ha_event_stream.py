@@ -8,6 +8,7 @@ exponential backoff, event dispatch, and graceful shutdown.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -15,10 +16,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.ha.event_stream import (
-    HAEventStream,
     _BACKOFF_BASE,
     _BACKOFF_FACTOR,
     _BACKOFF_MAX,
+    HAEventStream,
 )
 
 WS_URL = "ws://homeassistant.local:8123/api/websocket"
@@ -66,7 +67,7 @@ def _make_ws(
     ws.recv = _recv
     ws.send = AsyncMock()
 
-    async def _aiter_impl(_self=None):
+    async def _aiter_impl(_self: object = None) -> Any:
         """Make ``async for msg in ws`` work by delegating to recv()."""
         while True:
             try:
@@ -84,7 +85,7 @@ class TestHAEventStreamConnect:
     @pytest.mark.asyncio
     async def test_connect_authenticate_subscribe(self) -> None:
         """Happy path: auth -> subscribe -> receive event -> dispatch."""
-        received: list[dict] = []
+        received: list[dict[str, Any]] = []
 
         async def handler(event: dict[str, Any]) -> None:
             received.append(event)
@@ -97,12 +98,14 @@ class TestHAEventStreamConnect:
             },
         }
 
-        ws = _make_ws([
-            {"type": "auth_required", "ha_version": "2025.1.0"},
-            {"type": "auth_ok", "ha_version": "2025.1.0"},
-            {"id": 1, "type": "result", "success": True},
-            event_msg,
-        ])
+        ws = _make_ws(
+            [
+                {"type": "auth_required", "ha_version": "2025.1.0"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+                {"id": 1, "type": "result", "success": True},
+                event_msg,
+            ]
+        )
 
         stream = HAEventStream(WS_URL, TOKEN, handler=handler)
 
@@ -112,10 +115,8 @@ class TestHAEventStreamConnect:
             await stream.stop()
             await asyncio.sleep(0.01)
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         auth_call = ws.send.call_args_list[0]
         auth_msg = json.loads(auth_call[0][0])
@@ -140,11 +141,13 @@ class TestHAEventStreamConnect:
             sleep_calls.append(delay)
             raise asyncio.CancelledError
 
-        ws = _make_ws([
-            {"type": "auth_required", "ha_version": "2025.1.0"},
-            {"type": "auth_ok", "ha_version": "2025.1.0"},
-            {"id": 1, "type": "result", "success": False, "error": {"message": "fail"}},
-        ])
+        ws = _make_ws(
+            [
+                {"type": "auth_required", "ha_version": "2025.1.0"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+                {"id": 1, "type": "result", "success": False, "error": {"message": "fail"}},
+            ]
+        )
 
         stream = HAEventStream(WS_URL, TOKEN, handler=handler)
 
@@ -153,10 +156,8 @@ class TestHAEventStreamConnect:
             patch("asyncio.sleep", side_effect=_fake_sleep),
         ):
             task = asyncio.create_task(stream.run())
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         assert len(sleep_calls) >= 1
         assert sleep_calls[0] == _BACKOFF_BASE
@@ -186,10 +187,8 @@ class TestHAEventStreamReconnect:
             patch("asyncio.sleep", side_effect=_fake_sleep),
         ):
             task = asyncio.create_task(stream.run())
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         assert len(sleep_calls) >= 3
         assert sleep_calls[0] == _BACKOFF_BASE
@@ -217,10 +216,8 @@ class TestHAEventStreamReconnect:
             patch("asyncio.sleep", side_effect=_fake_sleep),
         ):
             task = asyncio.create_task(stream.run())
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         assert len(sleep_calls) >= 7  # enough to hit ceiling
         for delay in sleep_calls:
@@ -235,21 +232,21 @@ class TestHAEventStreamReconnect:
 
         stream._backoff = 32.0
 
-        ws = _make_ws([
-            {"type": "auth_required", "ha_version": "2025.1.0"},
-            {"type": "auth_ok", "ha_version": "2025.1.0"},
-            {"id": 1, "type": "result", "success": True},
-        ])
+        ws = _make_ws(
+            [
+                {"type": "auth_required", "ha_version": "2025.1.0"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+                {"id": 1, "type": "result", "success": True},
+            ]
+        )
 
         with patch("src.ha.event_stream.ws_connect", return_value=_AsyncCtx(ws)):
             task = asyncio.create_task(stream.run())
             await asyncio.sleep(0.05)
             await stream.stop()
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         assert stream._backoff == _BACKOFF_BASE
 
@@ -339,21 +336,23 @@ class TestHAEventStreamLifecycle:
     @pytest.mark.asyncio
     async def test_non_event_messages_ignored(self) -> None:
         """Messages that aren't type='event' should be silently ignored."""
-        received: list[dict] = []
+        received: list[dict[str, Any]] = []
 
         async def handler(event: dict[str, Any]) -> None:
             received.append(event)
 
-        ws = _make_ws([
-            {"type": "auth_required", "ha_version": "2025.1.0"},
-            {"type": "auth_ok", "ha_version": "2025.1.0"},
-            {"id": 1, "type": "result", "success": True},
-            {"type": "pong", "id": 2},
-            {
-                "type": "event",
-                "event": {"event_type": "state_changed", "data": {"entity_id": "sensor.temp"}},
-            },
-        ])
+        ws = _make_ws(
+            [
+                {"type": "auth_required", "ha_version": "2025.1.0"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+                {"id": 1, "type": "result", "success": True},
+                {"type": "pong", "id": 2},
+                {
+                    "type": "event",
+                    "event": {"event_type": "state_changed", "data": {"entity_id": "sensor.temp"}},
+                },
+            ]
+        )
 
         stream = HAEventStream(WS_URL, TOKEN, handler=handler)
 
@@ -362,10 +361,8 @@ class TestHAEventStreamLifecycle:
             await asyncio.sleep(0.05)
             await stream.stop()
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         assert len(received) == 1
         assert received[0]["event_type"] == "state_changed"
