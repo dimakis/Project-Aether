@@ -10,9 +10,9 @@ import enum
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Float, String, Text, Uuid, func
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import DateTime, Float, String, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import ENUM as PgENUM
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.storage.models import Base
@@ -86,7 +86,7 @@ class Insight(Base):
 
     # Analysis data
     evidence: Mapped[dict[str, Any]] = mapped_column(
-        JSON,
+        JSONB,
         nullable=False,
         default=dict,
         doc="Supporting data for the insight",
@@ -107,12 +107,13 @@ class Insight(Base):
         doc="Impact level: low, medium, high, critical",
     )
 
-    # Related entities
+    # Related HA entities (string IDs like "light.lampy", not UUIDs)
     entities: Mapped[list[str]] = mapped_column(
-        ARRAY(Uuid(as_uuid=False)),
+        JSONB,
         nullable=False,
         default=list,
-        doc="Entity IDs related to this insight",
+        server_default="'[]'::jsonb",
+        doc="HA entity IDs related to this insight",
     )
 
     # Script execution (if applicable)
@@ -122,7 +123,7 @@ class Insight(Base):
         doc="Path to the analysis script",
     )
     script_output: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON,
+        JSONB,
         nullable=True,
         doc="Output from script execution",
     )
