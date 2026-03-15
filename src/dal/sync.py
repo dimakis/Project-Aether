@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import UTC, datetime
@@ -349,24 +350,31 @@ class DiscoverySyncService:
         scripts = [e for e in entities if e.domain == "script"]
         scenes = [e for e in entities if e.domain == "scene"]
 
-        # --- Automations ---
+        # --- Automations (concurrent config fetches) ---
         seen_automation_ids: set[str] = set()
+        _FETCH_CONCURRENCY = 10
+        sem = asyncio.Semaphore(_FETCH_CONCURRENCY)
+
+        async def _fetch_config(aid: str) -> tuple[str, dict[str, Any] | None]:
+            async with sem:
+                try:
+                    return aid, await self.ha.get_automation_config(aid)
+                except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
+                    logger.warning("Failed to fetch config for automation %s: %s", aid, exc)
+                    return aid, None
+
+        automation_meta: list[tuple[Any, str]] = []
         for entity in automations:
             attrs = entity.attributes or {}
             ha_automation_id = attrs.get("id", entity.entity_id.split(".", 1)[-1])
             seen_automation_ids.add(ha_automation_id)
+            automation_meta.append((entity, ha_automation_id))
 
-            # Fetch full config from HA (trigger/condition/action)
-            config: dict[str, Any] | None = None
-            try:
-                config = await self.ha.get_automation_config(ha_automation_id)
-            except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
-                logger.warning(
-                    "Failed to fetch config for automation %s: %s",
-                    ha_automation_id,
-                    exc,
-                )
+        config_results = await asyncio.gather(*(_fetch_config(aid) for _, aid in automation_meta))
+        config_map: dict[str, dict[str, Any] | None] = dict(config_results)
 
+        for entity, ha_automation_id in automation_meta:
+            attrs = entity.attributes or {}
             await self.automation_repo.upsert(
                 {
                     "ha_automation_id": ha_automation_id,
@@ -375,7 +383,7 @@ class DiscoverySyncService:
                     "state": entity.state or "off",
                     "mode": attrs.get("mode", "single"),
                     "last_triggered": attrs.get("last_triggered"),
-                    "config": config,
+                    "config": config_map.get(ha_automation_id),
                 }
             )
             stats["automations_synced"] += 1
@@ -385,28 +393,31 @@ class DiscoverySyncService:
         for stale_id in existing_automation_ids - seen_automation_ids:
             await self.automation_repo.delete(stale_id)
 
-        # --- Scripts ---
+        # --- Scripts (concurrent config fetches) ---
         seen_script_ids: set[str] = set()
+
+        async def _fetch_script_config(sid: str) -> tuple[str, dict[str, Any] | None]:
+            async with sem:
+                try:
+                    return sid, await self.ha.get_script_config(sid)
+                except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
+                    logger.warning("Failed to fetch config for script %s: %s", sid, exc)
+                    return sid, None
+
+        script_meta: list[tuple[Any, str]] = []
         for entity in scripts:
-            attrs = entity.attributes or {}
             seen_script_ids.add(entity.entity_id)
-
-            # Fetch full config from HA (sequence/fields)
             script_id = entity.entity_id.split(".", 1)[-1]
-            sequence: list[Any] | None = None
-            fields: dict[str, Any] | None = None
-            try:
-                script_config = await self.ha.get_script_config(script_id)
-                if script_config:
-                    sequence = script_config.get("sequence")
-                    fields = script_config.get("fields")
-            except (httpx.HTTPError, TimeoutError, ConnectionError) as exc:
-                logger.warning(
-                    "Failed to fetch config for script %s: %s",
-                    script_id,
-                    exc,
-                )
+            script_meta.append((entity, script_id))
 
+        script_results = await asyncio.gather(
+            *(_fetch_script_config(sid) for _, sid in script_meta)
+        )
+        script_config_map: dict[str, dict[str, Any] | None] = dict(script_results)
+
+        for entity, script_id in script_meta:
+            attrs = entity.attributes or {}
+            sc = script_config_map.get(script_id)
             await self.script_repo.upsert(
                 {
                     "entity_id": entity.entity_id,
@@ -415,8 +426,8 @@ class DiscoverySyncService:
                     "mode": attrs.get("mode", "single"),
                     "icon": attrs.get("icon"),
                     "last_triggered": attrs.get("last_triggered"),
-                    "sequence": sequence,
-                    "fields": fields,
+                    "sequence": sc.get("sequence") if sc else None,
+                    "fields": sc.get("fields") if sc else None,
                 }
             )
             stats["scripts_synced"] += 1

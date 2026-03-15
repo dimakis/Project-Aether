@@ -244,6 +244,7 @@ def mock_proposal_repo(mock_proposal, mock_proposal_approved, mock_proposal_depl
     """Create mock ProposalRepository."""
     repo = MagicMock()
     repo.list_by_status = AsyncMock(return_value=[mock_proposal])
+    repo.list_recent = AsyncMock(return_value=[mock_proposal])
     repo.list_pending_approval = AsyncMock(return_value=[mock_proposal])
     repo.get_by_id = AsyncMock(return_value=mock_proposal)
     repo.count = AsyncMock(return_value=1)
@@ -308,8 +309,8 @@ class TestListProposals:
     async def test_list_proposals_with_invalid_status(
         self, proposal_client, mock_proposal_repo, mock_proposal, mock_get_session
     ):
-        """Should ignore invalid status and return all proposals."""
-        mock_proposal_repo.list_by_status = AsyncMock(return_value=[mock_proposal])
+        """Should ignore invalid status and return all proposals via list_recent."""
+        mock_proposal_repo.list_recent = AsyncMock(return_value=[mock_proposal])
         mock_proposal_repo.count = AsyncMock(return_value=1)
 
         with (
@@ -319,14 +320,13 @@ class TestListProposals:
             response = await proposal_client.get("/api/v1/proposals?status=invalid")
 
             assert response.status_code == 200
-            # Should call list_by_status for all statuses
-            assert mock_proposal_repo.list_by_status.call_count > 0
+            mock_proposal_repo.list_recent.assert_called_once()
 
     async def test_list_proposals_with_limit_and_offset(
         self, proposal_client, mock_proposal_repo, mock_proposal, mock_get_session
     ):
         """Should respect limit and offset parameters."""
-        mock_proposal_repo.list_by_status = AsyncMock(return_value=[mock_proposal])
+        mock_proposal_repo.list_recent = AsyncMock(return_value=[mock_proposal])
         mock_proposal_repo.count = AsyncMock(return_value=1)
 
         with (
@@ -344,6 +344,7 @@ class TestListProposals:
         """Should return empty list when no proposals exist."""
         repo = MagicMock()
         repo.list_by_status = AsyncMock(return_value=[])
+        repo.list_recent = AsyncMock(return_value=[])
         repo.count = AsyncMock(return_value=0)
 
         with (

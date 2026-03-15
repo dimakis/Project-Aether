@@ -8,7 +8,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
@@ -113,11 +113,7 @@ async def list_proposals(
         if status_filter:
             proposals = await repo.list_by_status(status_filter, limit=limit)
         else:
-            # Get all proposals (combine multiple statuses)
-            proposals = []
-            for s in ProposalStatus:
-                proposals.extend(await repo.list_by_status(s, limit=limit))
-            proposals = sorted(proposals, key=lambda p: p.created_at, reverse=True)[:limit]
+            proposals = await repo.list_recent(limit=limit, offset=offset)
 
         total = await repo.count(status=status_filter)
 
@@ -441,7 +437,7 @@ async def refine_proposal_endpoint(
 async def update_proposal_yaml(
     request: Request,
     proposal_id: str,
-    body: dict[str, Any] = {},  # noqa: B006
+    body: dict[str, Any] = Body(default={}),
 ) -> dict[str, Any]:
     """Update the YAML content of a proposal.
 

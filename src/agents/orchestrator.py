@@ -74,9 +74,19 @@ class OrchestratorAgent(BaseAgent):
         self._llm: BaseChatModel | None = None
 
     def _get_classification_llm(self) -> Any:
-        """Get or create the LLM used for intent classification."""
+        """Get or create the LLM used for intent classification.
+
+        Always uses a fast-tier model for classification regardless of the
+        user's selected model — classification is a simple task and using
+        frontier models here adds unnecessary latency and cost.
+        """
         if self._llm is None:
-            self._llm = get_llm(model=self.model_name, temperature=0.0)
+            from src.llm.model_tiers import get_default_model_for_tier, get_model_tier
+
+            model = self.model_name
+            if model and get_model_tier(model) != "fast":
+                model = get_default_model_for_tier("fast")
+            self._llm = get_llm(model=model, temperature=0.0)
         return self._llm
 
     async def classify_intent(
@@ -168,13 +178,11 @@ class OrchestratorAgent(BaseAgent):
         """
         try:
             from src.dal.agents import AgentRepository
-            from src.storage import get_session_factory
+            from src.storage import get_session
 
-            factory = get_session_factory()
-            session = factory()
-            try:
+            async with get_session() as session:
                 repo = AgentRepository(session)
-                agents = await repo.list_all()
+                agents = await repo.list_routable()
                 return [
                     {
                         "name": a.name,
@@ -184,10 +192,7 @@ class OrchestratorAgent(BaseAgent):
                         "capabilities": a.capabilities or [],
                     }
                     for a in agents
-                    if a.is_routable
                 ]
-            finally:
-                await session.close()
         except SQLAlchemyError:
             logger.warning("Failed to fetch available agents", exc_info=True)
             return []

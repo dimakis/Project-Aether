@@ -10,13 +10,43 @@ with the Architect, who intelligently routes to specialists.
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from typing import Any
 
+import httpx
 from langchain_core.tools import tool
 
 from src.tracing import trace_with_uri
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _inherited_model_context():
+    """Inherit model context from the calling agent and propagate parent span.
+
+    Centralises the repeated model-context + parent-span boilerplate that
+    was duplicated across every analysis tool.
+    """
+    from src.agents.model_context import get_model_context, model_context
+
+    ctx = get_model_context()
+    parent_span_id = None
+    try:
+        from src.tracing import get_active_span
+
+        active_span = get_active_span()
+        if active_span and hasattr(active_span, "span_id"):
+            parent_span_id = active_span.span_id
+    except (AttributeError, LookupError):
+        logger.debug("Failed to get active span for parent span ID", exc_info=True)
+
+    with model_context(
+        model_name=ctx.model_name if ctx else None,
+        temperature=ctx.temperature if ctx else None,
+        parent_span_id=parent_span_id,
+    ):
+        yield
 
 
 @tool("analyze_energy")
@@ -65,24 +95,7 @@ async def analyze_energy(
     hours = min(hours, 168)  # Max 1 week
 
     try:
-        from src.agents.model_context import get_model_context, model_context
-
-        ctx = get_model_context()
-        parent_span_id = None
-        try:
-            from src.tracing import get_active_span
-
-            active_span = get_active_span()
-            if active_span and hasattr(active_span, "span_id"):
-                parent_span_id = active_span.span_id
-        except (AttributeError, LookupError):
-            logger.debug("Failed to get active span for parent span ID", exc_info=True)
-
-        with model_context(
-            model_name=ctx.model_name if ctx else None,
-            temperature=ctx.temperature if ctx else None,
-            parent_span_id=parent_span_id,
-        ):
+        with _inherited_model_context():
             workflow = DataScientistWorkflow()
 
             async with get_session() as session:
@@ -94,11 +107,14 @@ async def analyze_energy(
                 )
                 await session.commit()
 
-        # Generate conversational summary
         return _format_energy_analysis(state, analysis_type, hours)
 
-    except Exception as e:
-        return f"I wasn't able to complete the energy analysis: {e}"
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+        logger.warning("Energy analysis network error: %s", e, exc_info=True)
+        return f"I wasn't able to complete the energy analysis due to a connection issue: {e}"
+    except Exception:
+        logger.exception("Unexpected error in energy analysis")
+        return "I wasn't able to complete the energy analysis. Check server logs for details."
 
 
 def _format_energy_analysis(state: Any, analysis_type: str, hours: int) -> str:
@@ -193,8 +209,12 @@ async def discover_entities(domain_filter: str | None = None) -> str:
         # Format response
         return _format_discovery_results(state, domain_filter)
 
-    except Exception as e:
-        return f"I wasn't able to complete the entity discovery: {e}"
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+        logger.warning("Entity discovery network error: %s", e, exc_info=True)
+        return f"I wasn't able to complete the entity discovery due to a connection issue: {e}"
+    except Exception:
+        logger.exception("Unexpected error in entity discovery")
+        return "I wasn't able to complete the entity discovery. Check server logs for details."
 
 
 def _format_discovery_results(state: Any, domain_filter: str | None) -> str:
@@ -304,8 +324,12 @@ async def get_entity_history(
 
         return "\n".join(parts)
 
-    except Exception as e:
-        return f"Couldn't retrieve history for {entity_id}: {e}"
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+        logger.warning("History fetch network error for %s: %s", entity_id, e, exc_info=True)
+        return f"Couldn't retrieve history for {entity_id} due to a connection issue: {e}"
+    except Exception:
+        logger.exception("Unexpected error fetching history for %s", entity_id)
+        return f"Couldn't retrieve history for {entity_id}. Check server logs for details."
 
 
 def _format_detailed_history(
@@ -439,24 +463,7 @@ async def diagnose_issue(
     hours = min(hours, 168)
 
     try:
-        from src.agents.model_context import get_model_context, model_context
-
-        ctx = get_model_context()
-        parent_span_id = None
-        try:
-            from src.tracing import get_active_span
-
-            active_span = get_active_span()
-            if active_span and hasattr(active_span, "span_id"):
-                parent_span_id = active_span.span_id
-        except (AttributeError, LookupError):
-            logger.debug("Failed to get active span for parent span ID", exc_info=True)
-
-        with model_context(
-            model_name=ctx.model_name if ctx else None,
-            temperature=ctx.temperature if ctx else None,
-            parent_span_id=parent_span_id,
-        ):
+        with _inherited_model_context():
             workflow = DataScientistWorkflow()
 
             async with get_session() as session:
@@ -472,8 +479,12 @@ async def diagnose_issue(
 
         return _format_diagnostic_results(state, entity_ids, hours)
 
-    except Exception as e:
-        return f"Diagnostic analysis failed: {e}"
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+        logger.warning("Diagnostic analysis network error: %s", e, exc_info=True)
+        return f"Diagnostic analysis failed due to a connection issue: {e}"
+    except Exception:
+        logger.exception("Unexpected error in diagnostic analysis")
+        return "Diagnostic analysis failed. Check server logs for details."
 
 
 def _format_diagnostic_results(state: Any, entity_ids: list[str], hours: int) -> str:
@@ -596,24 +607,7 @@ async def analyze_behavior(
     hours = min(hours, 720)  # Max 30 days
 
     try:
-        from src.agents.model_context import get_model_context, model_context
-
-        ctx = get_model_context()
-        parent_span_id = None
-        try:
-            from src.tracing import get_active_span
-
-            active_span = get_active_span()
-            if active_span and hasattr(active_span, "span_id"):
-                parent_span_id = active_span.span_id
-        except (AttributeError, LookupError):
-            logger.debug("Failed to get active span for parent span ID", exc_info=True)
-
-        with model_context(
-            model_name=ctx.model_name if ctx else None,
-            temperature=ctx.temperature if ctx else None,
-            parent_span_id=parent_span_id,
-        ):
+        with _inherited_model_context():
             workflow = DataScientistWorkflow()
 
             async with get_session() as session:
@@ -627,8 +621,12 @@ async def analyze_behavior(
 
         return _format_behavioral_analysis(state, analysis_type, hours)
 
-    except Exception as e:
-        return f"I wasn't able to complete the behavioral analysis: {e}"
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+        logger.warning("Behavioral analysis network error: %s", e, exc_info=True)
+        return f"I wasn't able to complete the behavioral analysis due to a connection issue: {e}"
+    except Exception:
+        logger.exception("Unexpected error in behavioral analysis")
+        return "I wasn't able to complete the behavioral analysis. Check server logs for details."
 
 
 def _format_behavioral_analysis(state: Any, analysis_type: str, hours: int) -> str:
@@ -755,8 +753,12 @@ async def propose_automation_from_insight(
 
         return "\n".join(response_parts)
 
-    except Exception as e:
-        return f"I wasn't able to create a proposal from this suggestion: {e}"
+    except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
+        logger.warning("Proposal creation network error: %s", e, exc_info=True)
+        return f"I wasn't able to create a proposal from this suggestion due to a connection issue: {e}"
+    except Exception:
+        logger.exception("Unexpected error creating proposal from suggestion")
+        return "I wasn't able to create a proposal from this suggestion. Check server logs for details."
 
 
 def get_agent_tools() -> list[Any]:

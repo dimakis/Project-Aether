@@ -345,9 +345,7 @@ class SandboxRunner:
         if policy.use_gvisor and not await self._is_gvisor_available():
             # Create a copy of the policy with gVisor disabled
             # Also disable seccomp as it may not be available on all platforms (e.g., macOS)
-            import logging
-
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 "gVisor (runsc) not available - running with standard container isolation"
             )
             policy = policy.model_copy(
@@ -394,7 +392,6 @@ class SandboxRunner:
         # The DS Team agent parses JSON from stdout; stray warnings
         # (e.g. pandas pyarrow DeprecationWarning) break extraction.
         cmd.extend(["--env", "PYTHONWARNINGS=ignore::DeprecationWarning"])
-        cmd.extend(["--env", "MPLCONFIGDIR=/tmp"])
 
         # Matplotlib needs a writable config dir; the sandbox has no home dir.
         cmd.extend(["--env", "MPLCONFIGDIR=/tmp/matplotlib"])
