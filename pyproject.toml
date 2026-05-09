@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     # LangGraph for agent orchestration (Constitution: State)
     "langgraph>=0.2.0,<2.0.0",
-    "langchain-core>=0.3.0,<2.0.0",
+    "langchain-core>=1.3.3,<2.0.0",
     "langchain-openai>=0.2.0,<2.0.0",
     # OpenAI for LLM (Research Decision #6)
     "openai>=1.50.0,<3.0.0",
